@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyOS – Universität Tübingen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; transition: background 0.2s, color 0.2s; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #C4C4C4; border-radius: 4px; }
+  body[data-dark="1"] ::-webkit-scrollbar-thumb { background: #444; }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea { font-family: inherit; }
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:99999;width:264px;background:rgba(250,249,247,.96);backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,.08);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.18);font:12px/1.4 'Inter',system-ui,sans-serif;color:#29261b;overflow:hidden;}
+  body[data-dark="1"] .twk-panel{background:rgba(35,35,40,.96);color:#EDE8F5;border-color:rgba(255,255,255,.1);}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 10px 14px;}
+  .twk-hd b{font-size:12px;font-weight:600;}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.45);width:22px;height:22px;border-radius:6px;font-size:14px;line-height:1;cursor:pointer;}
+  body[data-dark="1"] .twk-x{color:rgba(255,255,255,.45);}
+  .twk-x:hover{background:rgba(0,0,0,.06);}
+  .twk-body{padding:4px 14px 14px;display:flex;flex-direction:column;gap:10px;}
+  .twk-row{display:flex;flex-direction:row;align-items:center;justify-content:space-between;}
+  .twk-lbl{font-size:11px;font-weight:500;color:rgba(41,38,27,.7);}
+  body[data-dark="1"] .twk-lbl{color:rgba(255,255,255,.7);}
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;background:rgba(0,0,0,.18);transition:background .15s;padding:0;}
+  body[data-dark="1"] .twk-toggle{background:rgba(255,255,255,.18);}
+  .twk-toggle[data-on="1"]{background:rgb(147,13,42);}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s;display:block;}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useRef, useEffect } = React;
+
+// ─── DATA ────────────────────────────────────────────────────────
+const COURSES = [
+  { id:"INF4220", number:"INF4220", title:"Machine Learning", titleDE:"Maschinelles Lernen", lecturer:"Prof. Dr. Philipp Hennig", room:"Sand 14, HS B", type:"Vorlesung + Übung", ects:9, sws:4, masterCats:["TECH","FOKUS"], weekdays:["Dienstag","Donnerstag"], schedule:[{day:"Dienstag",time:"10:00–12:00",room:"Sand 14, HS B",type:"Vorlesung"},{day:"Donnerstag",time:"14:00–16:00",room:"Sand 13, ÜR 2",type:"Übung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Lineare Algebra","Statistik","Programmierung"], description:"Systematische Einführung in maschinelles Lernen: überwachtes und unüberwachtes Lernen, Optimierungsmethoden, neuronale Netzwerke, Support Vector Machines, Ensemble-Methoden sowie Grundlagen des Deep Learning.", exams:[{type:"Klausur",date:"2027-02-15",duration:"120 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4450", number:"INF4450", title:"Computer Vision", titleDE:"Computersehen", lecturer:"Prof. Dr. Andreas Geiger", room:"Sand 1, HS A", type:"Vorlesung + Praktikum", ects:9, sws:6, masterCats:["TECH","FOKUS"], weekdays:["Montag","Freitag"], schedule:[{day:"Montag",time:"14:00–16:00",room:"Sand 1, HS A",type:"Vorlesung"},{day:"Freitag",time:"10:00–12:00",room:"Sand 7, Labor 01",type:"Praktikum"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["Machine Learning","Lineare Algebra"], description:"Grundlagen und Methoden der Computer Vision: Bildverarbeitung, Feature-Extraktion, Objekterkennung, 3D-Rekonstruktion, optischer Fluss, Deep Learning für Bilddaten.", exams:[{type:"Projektarbeit",date:"2026-07-31",duration:"–"},{type:"Mündliche Prüfung",date:"2026-08-10",duration:"30 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4105", number:"INF4105", title:"Robotics", titleDE:"Robotik", lecturer:"Prof. Dr. Marc Toussaint", room:"Sand 1, Labor Robotik", type:"Vorlesung + Praktikum", ects:9, sws:6, masterCats:["TECH"], weekdays:["Montag","Mittwoch"], schedule:[{day:"Montag",time:"16:00–18:00",room:"Sand 1, HS A",type:"Vorlesung"},{day:"Mittwoch",time:"14:00–16:00",room:"Sand 1, Labor",type:"Praktikum"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["Lineare Algebra","ML Grundkenntnisse"], description:"Kinematik, Dynamik, Motion Planning, probabilistische Robotik, SLAM, Reinforcement Learning für Robotik.", exams:[{type:"Praktische Prüfung",date:"2026-07-28",duration:"–"},{type:"Mündliche Prüfung",date:"2026-08-05",duration:"30 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4120", number:"INF4120", title:"IT Security", titleDE:"IT-Sicherheit", lecturer:"Prof. Dr. Giancarlo Pellegrino", room:"Sand 6/72, HS 006", type:"Vorlesung + Übung", ects:6, sws:4, masterCats:["TECH","INFO"], weekdays:["Dienstag","Donnerstag"], schedule:[{day:"Dienstag",time:"12:00–14:00",room:"Sand 6/72, HS 006",type:"Vorlesung"},{day:"Donnerstag",time:"12:00–14:00",room:"Sand 13, SR 04",type:"Übung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Rechnernetze","Betriebssysteme"], description:"Praktische IT-Sicherheit: Angriffsvektoren, Penetration Testing, Web Security.", exams:[{type:"Klausur + CTF",date:"2027-02-12",duration:"90 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4310", number:"INF4310", title:"Advanced Algorithms", titleDE:"Fortgeschrittene Algorithmen", lecturer:"Prof. Dr. Johannes Blömer", room:"Sand 14, HS B", type:"Vorlesung + Übung", ects:9, sws:4, masterCats:["THEO"], weekdays:["Montag","Mittwoch"], schedule:[{day:"Montag",time:"12:00–14:00",room:"Sand 14, HS B",type:"Vorlesung"},{day:"Mittwoch",time:"10:00–12:00",room:"Sand 6/72, SR 05",type:"Übung"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["Algorithmen","Diskrete Mathematik"], description:"Approximationsalgorithmen, randomisierte Algorithmen, parametrisierte Komplexität.", exams:[{type:"Klausur",date:"2026-07-20",duration:"90 min"}], module:"Theoretisches Vertiefungsmodul" },
+  { id:"INF4601", number:"INF4601", title:"Formal Methods", titleDE:"Formale Methoden", lecturer:"Prof. Dr. Klaus Ostermann", room:"Sand 6/72, SR 08", type:"Vorlesung + Seminar", ects:6, sws:4, masterCats:["THEO"], weekdays:["Mittwoch","Freitag"], schedule:[{day:"Mittwoch",time:"12:00–14:00",room:"Sand 6/72, SR 08",type:"Vorlesung"},{day:"Freitag",time:"14:00–16:00",room:"Sand 13, SR 01",type:"Seminar"}], frequency:"Jedes Wintersemester", language:"Deutsch/Englisch", prerequisites:["Softwareentwicklung","Logik"], description:"Formale Spezifikation und Verifikation: Modelchecking, Theorem-Beweiser, Typsysteme.", exams:[{type:"Hausarbeit + Vortrag",date:"2027-01-20",duration:"–"}], module:"Theoretisches Vertiefungsmodul" },
+  { id:"INF4810", number:"INF4810", title:"Cryptography", titleDE:"Kryptographie", lecturer:"Prof. Dr. Joseph Neu", room:"Sand 14, HS C", type:"Vorlesung", ects:6, sws:3, masterCats:["THEO"], weekdays:["Mittwoch"], schedule:[{day:"Mittwoch",time:"14:00–16:00",room:"Sand 14, HS C",type:"Vorlesung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Diskrete Mathematik","Algorithmen"], description:"Mathematische Grundlagen der Kryptographie.", exams:[{type:"Klausur",date:"2027-02-05",duration:"90 min"}], module:"Theoretisches Vertiefungsmodul" },
+  { id:"INF4280", number:"INF4280", title:"Probabilistic Machine Learning", titleDE:"Probabilistisches ML", lecturer:"Prof. Dr. Philipp Hennig", room:"Sand 14, HS B", type:"Vorlesung + Übung", ects:6, sws:4, masterCats:["THEO","FOKUS"], weekdays:["Mittwoch","Freitag"], schedule:[{day:"Mittwoch",time:"10:00–12:00",room:"Sand 14, HS B",type:"Vorlesung"},{day:"Freitag",time:"10:00–12:00",room:"Sand 6/72, SR 06",type:"Übung"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["ML","Wahrscheinlichkeit"], description:"Probabilistische Modelle im maschinellen Lernen.", exams:[{type:"Klausur",date:"2026-07-22",duration:"90 min"}], module:"Theoretisches Vertiefungsmodul" },
+  { id:"INF4502", number:"INF4502", title:"Distributed Systems", titleDE:"Verteilte Systeme", lecturer:"Prof. Dr. Lars Kotthoff", room:"Sand 13, SR 02", type:"Vorlesung", ects:6, sws:3, masterCats:["PRAK"], weekdays:["Dienstag"], schedule:[{day:"Dienstag",time:"16:00–18:00",room:"Sand 13, SR 02",type:"Vorlesung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["BS","Rechnernetze"], description:"Konsensalgorithmen, verteilte Transaktionen, CAP-Theorem.", exams:[{type:"Klausur",date:"2027-02-10",duration:"90 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4952", number:"INF4952", title:"Database Systems", titleDE:"Datenbanksysteme", lecturer:"Prof. Dr. Torsten Grust", room:"Sand 14, HS A", type:"Vorlesung + Praktikum", ects:6, sws:4, masterCats:["PRAK","INFO"], weekdays:["Dienstag","Freitag"], schedule:[{day:"Dienstag",time:"14:00–16:00",room:"Sand 14, HS A",type:"Vorlesung"},{day:"Freitag",time:"12:00–14:00",room:"Sand 7, Labor 02",type:"Praktikum"}], frequency:"Jedes Sommersemester", language:"Deutsch", prerequisites:["Informatik","SQL"], description:"Internals moderner Datenbanksysteme.", exams:[{type:"Klausur",date:"2026-07-25",duration:"120 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4555", number:"INF4555", title:"Software Engineering", titleDE:"Software Engineering", lecturer:"Prof. Dr. Klaus Ostermann", room:"Sand 13, HS 001", type:"Vorlesung + Übung", ects:9, sws:4, masterCats:["PRAK"], weekdays:["Montag","Donnerstag"], schedule:[{day:"Montag",time:"10:00–12:00",room:"Sand 13, HS 001",type:"Vorlesung"},{day:"Donnerstag",time:"10:00–12:00",room:"Sand 6/72, SR 10",type:"Übung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Softwareentwicklung"], description:"Software-Architektur, Design Patterns, agile Methoden.", exams:[{type:"Projektarbeit",date:"2027-02-01",duration:"–"}], module:"Praktisches Vertiefungsmodul" },
+  { id:"INF4700", number:"INF4700", title:"Natural Language Processing", titleDE:"Sprachverarbeitung", lecturer:"Prof. Dr. Detmar Meurers", room:"Wilhelmstr. 19, HS 05", type:"Vorlesung + Übung", ects:6, sws:4, masterCats:["INFO","FOKUS"], weekdays:["Montag","Donnerstag"], schedule:[{day:"Montag",time:"10:00–12:00",room:"Wilhelmstr. 19, HS 05",type:"Vorlesung"},{day:"Donnerstag",time:"10:00–12:00",room:"Sand 13, SR 03",type:"Übung"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["KI","Statistik"], description:"Transformer, LLMs, NER, Sentiment Analysis.", exams:[{type:"Klausur",date:"2026-07-18",duration:"90 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4620", number:"INF4620", title:"Human-Computer Interaction", titleDE:"Mensch-Computer-Interaktion", lecturer:"Prof. Dr. Ulrike von Luxburg", room:"Sand 6/72, HS 006", type:"Vorlesung + Seminar", ects:6, sws:4, masterCats:["INFO"], weekdays:["Dienstag","Freitag"], schedule:[{day:"Dienstag",time:"10:00–12:00",room:"Sand 6/72, HS 006",type:"Vorlesung"},{day:"Freitag",time:"12:00–14:00",room:"Sand 13, SR 05",type:"Seminar"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["Softwareentwicklung"], description:"Usability Engineering, User-Centered Design.", exams:[{type:"Projektarbeit",date:"2026-07-30",duration:"–"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4740", number:"INF4740", title:"Knowledge Representation", titleDE:"Wissensrepräsentation", lecturer:"Prof. Dr. Bernhard Schölkopf", room:"Sand 13, SR 02", type:"Vorlesung", ects:6, sws:3, masterCats:["INFO","THEO"], weekdays:["Donnerstag"], schedule:[{day:"Donnerstag",time:"16:00–18:00",room:"Sand 13, SR 02",type:"Vorlesung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Logik","KI"], description:"Ontologien, Beschreibungslogiken, Knowledge Graphs.", exams:[{type:"Klausur",date:"2027-02-08",duration:"90 min"}], module:"Vertiefungsmodul Informatik" },
+  { id:"INF4901", number:"INF4901", title:"Seminar: Advances in AI", titleDE:"Aktuelle Themen der KI", lecturer:"Prof. Dr. Philipp Hennig", room:"Sand 6/72, SR 12", type:"Seminar", ects:3, sws:2, masterCats:["FOKUS"], weekdays:["Donnerstag"], schedule:[{day:"Donnerstag",time:"16:00–18:00",room:"Sand 6/72, SR 12",type:"Seminar"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["ML"], description:"Lektüre und Diskussion aktueller Forschungsarbeiten.", exams:[{type:"Vortrag",date:"2027-01-15",duration:"–"}], module:"Forschungsmodul" },
+  { id:"INF4910", number:"INF4910", title:"Research Project AI", titleDE:"Forschungsprojekt KI", lecturer:"Prof. Dr. Andreas Geiger", room:"Sand 7, Labor AI", type:"Praktikum", ects:9, sws:6, masterCats:["FOKUS"], weekdays:["Mittwoch","Freitag"], schedule:[{day:"Mittwoch",time:"14:00–18:00",room:"Sand 7, Labor AI",type:"Praktikum"},{day:"Freitag",time:"14:00–16:00",room:"Sand 7, Labor AI",type:"Kolloquium"}], frequency:"Jedes Semester", language:"Englisch", prerequisites:["ML"], description:"Eigenständiges Forschungsprojekt.", exams:[{type:"Projektbericht",date:"2027-02-20",duration:"–"}], module:"Forschungsmodul" },
+  { id:"INF4010", number:"INF4010", title:"Mathematics for Machine Learning", titleDE:"Mathematik für ML", lecturer:"Prof. Dr. Ulrike von Luxburg", room:"Sand 14, HS A", type:"Vorlesung + Übung", ects:9, sws:4, masterCats:["BASIS"], weekdays:["Montag","Mittwoch"], schedule:[{day:"Montag",time:"08:00–10:00",room:"Sand 14, HS A",type:"Vorlesung"},{day:"Mittwoch",time:"08:00–10:00",room:"Sand 13, SR 01",type:"Übung"}], frequency:"Jedes Wintersemester", language:"Englisch", prerequisites:["Analysis","LinAlg"], description:"Vertiefte Mathematik für ML.", exams:[{type:"Klausur",date:"2027-02-03",duration:"120 min"}], module:"Basismodul" },
+  { id:"INF4020", number:"INF4020", title:"Introduction to AI", titleDE:"Einführung in die KI", lecturer:"Prof. Dr. Bernhard Schölkopf", room:"Sand 13, HS 001", type:"Vorlesung", ects:6, sws:3, masterCats:["BASIS"], weekdays:["Freitag"], schedule:[{day:"Freitag",time:"10:00–12:00",room:"Sand 13, HS 001",type:"Vorlesung"}], frequency:"Jedes Wintersemester", language:"Deutsch", prerequisites:["Informatik"], description:"Überblick über Methoden der KI.", exams:[{type:"Klausur",date:"2027-02-18",duration:"90 min"}], module:"Basismodul" },
+  { id:"INF4030", number:"INF4030", title:"Statistics and Data Analysis", titleDE:"Statistik und Datenanalyse", lecturer:"Prof. Dr. Torsten Grust", room:"Sand 14, HS C", type:"Vorlesung + Übung", ects:6, sws:4, masterCats:["BASIS","THEO"], weekdays:["Dienstag","Donnerstag"], schedule:[{day:"Dienstag",time:"08:00–10:00",room:"Sand 14, HS C",type:"Vorlesung"},{day:"Donnerstag",time:"08:00–10:00",room:"Sand 6/72, SR 06",type:"Übung"}], frequency:"Jedes Sommersemester", language:"Englisch", prerequisites:["Analysis"], description:"Deskriptive und inferentielle Statistik.", exams:[{type:"Klausur",date:"2026-07-16",duration:"90 min"}], module:"Basismodul" },
+];
+
+const MASTER_CAT_META = {
+  TECH:  { fullLabel: "Technische Informatik" },
+  THEO:  { fullLabel: "Theoretische Informatik" },
+  PRAK:  { fullLabel: "Praktische Informatik" },
+  INFO:  { fullLabel: "Informatik" },
+  FOKUS: { fullLabel: "Fokus und Erweiterungen" },
+  BASIS: { fullLabel: "Grundlagen der Informatik" },
+};
+
+const COMPLETED_INIT = [
+  {id:'INF4220',grade:1.7,semester:'WS 2025/26'},
+  {id:'INF4310',grade:2.3,semester:'WS 2025/26'},
+  {id:'INF4601',grade:1.3,semester:'WS 2025/26'},
+  {id:'INF4810',grade:2.0,semester:'WS 2025/26'},
+  {id:'INF4952',grade:2.7,semester:'SS 2025'},
+  {id:'INF4700',grade:1.7,semester:'SS 2025'},
+  {id:'INF4450',grade:1.3,semester:'SS 2025'},
+  {id:'INF4010',grade:1.0,semester:'WS 2024/25'},
+  {id:'INF4020',grade:2.3,semester:'WS 2024/25'},
+];
+
+// ─── THEME ───────────────────────────────────────────────────────
+const CAT_COLORS = { TECH:'#0077b6', THEO:'#f72585', PRAK:'#4cc9f0', INFO:'#7209b7', FOKUS:'#ef233c', BASIS:'#ef233c' };
+
+const lightTheme = {
+  dark: false,
+  red: 'rgb(147,13,42)',
+  redLight: '#FBEBEF',
+  accent: 'rgb(156, 109, 0)',
+  sidebar: 'rgb(38,50,58)',
+  sidebarHover: 'rgb(48,62,72)',
+  sidebarActive: 'rgb(28,38,46)',
+  bg: 'rgb(239,239,239)',
+  card: '#FFFFFF',
+  cardHover: '#F8F8F8',
+  border: '#DEDEDE',
+  borderLight: '#E8E8E8',
+  text: '#1A1815',
+  textMid: '#555555',
+  textMuted: '#999999',
+  pillBg: '#F0F0F0', pillBorder: '#E0E0E0', pillText: '#444',
+  rowAlt: '#FAFAFA',
+  cat: CAT_COLORS,
+  catBg: { TECH:'#FCEEF1', THEO:'#E6ECF1', PRAK:'#E5EEF0', INFO:'#FCE9DA', FOKUS:'#F0E2EC', BASIS:'#EAF1F6' },
+};
+const darkTheme = {
+  dark: true,
+  red: '#D14060',
+  redLight: '#3A1A22',
+  accent: 'rgb(156, 109, 0)',
+  sidebar: 'rgb(20,28,34)',
+  sidebarHover: 'rgb(38,50,58)',
+  sidebarActive: 'rgb(12,18,22)',
+  bg: 'rgb(26,28,32)',
+  card: '#27292F',
+  cardHover: '#2E3036',
+  border: '#3A3D44',
+  borderLight: '#33363D',
+  text: '#EDEDED',
+  textMid: '#B0B2B8',
+  textMuted: '#b1b2b7',
+  pillBg: '#34363C', pillBorder: '#42454C', pillText: '#CCC',
+  rowAlt: '#2C2E34',
+  cat: CAT_COLORS,
+  catBg: { TECH:'#3A1419', THEO:'#0F1F2C', PRAK:'#0E2329', INFO:'#3A1F0C', FOKUS:'#2A0E22', BASIS:'#1E2D38' },
+};
+
+const ThemeCtx = React.createContext(lightTheme);
+const useT = () => React.useContext(ThemeCtx);
+
+// ─── ICONS ───────────────────────────────────────────────────────
+const Icon = ({ name, size=16, color='currentColor', fill='none' }) => {
+  const d = {
+    dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="1.5" fill="none"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="1.5" fill="none"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="1.5" fill="none"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="1.5" fill="none"/></>,
+    catalog: <path d="M3 6h18M3 12h18M3 18h18" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>,
+    tor: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke={color} strokeWidth="1.5" fill="none"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></>,
+    fav: <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" stroke={color} strokeWidth="1.5" fill={fill} strokeLinejoin="round"/>,
+    search: <><circle cx="11" cy="11" r="7" stroke={color} strokeWidth="1.5" fill="none"/><path d="M20 20l-4-4" stroke={color} strokeWidth="1.8" strokeLinecap="round"/></>,
+    filter: <path d="M4 6h16M7 12h10M10 18h4" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>,
+    back: <path d="M19 12H5M12 5l-7 7 7 7" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>,
+    upload: <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>,
+    check: <path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>,
+    clock: <><circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" fill="none"/><path d="M12 7v5l3 3" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></>,
+    pin: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke={color} strokeWidth="1.5" fill="none"/><circle cx="12" cy="10" r="3" stroke={color} strokeWidth="1.5" fill="none"/></>,
+    user: <><circle cx="12" cy="8" r="4" stroke={color} strokeWidth="1.5" fill="none"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none"/></>,
+    moon: <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke={color} strokeWidth="1.5" fill="none" strokeLinecap="round"/>,
+    sun: <><circle cx="12" cy="12" r="4" stroke={color} strokeWidth="1.5" fill="none"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></>,
+    close: <path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{flexShrink:0}}>{d[name]}</svg>;
+};
+
+// ─── INLINE TWEAKS ───────────────────────────────────────────────
+function useTweaks(defaults) {
+  const [values, setValues] = useState(defaults);
+  const setTweak = React.useCallback((keyOrObj, val) => {
+    const edits = typeof keyOrObj === 'object' ? keyOrObj : { [keyOrObj]: val };
+    setValues(prev => ({ ...prev, ...edits }));
+    try { window.parent.postMessage({ type:'__edit_mode_set_keys', edits }, '*'); } catch(e){}
+  }, []);
+  return [values, setTweak];
+}
+
+function TweaksPanel({ title='Tweaks', children }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const h = e => {
+      if (e.data?.type==='__activate_edit_mode')   setOpen(true);
+      if (e.data?.type==='__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', h);
+    try { window.parent.postMessage({type:'__edit_mode_available'},'*'); } catch(e){}
+    return () => window.removeEventListener('message', h);
+  }, []);
+  if (!open) return null;
+  return (
+    <div className="twk-panel">
+      <div className="twk-hd"><b>{title}</b><button className="twk-x" onClick={()=>{ setOpen(false); try{window.parent.postMessage({type:'__edit_mode_dismissed'},'*');}catch(e){} }}>✕</button></div>
+      <div className="twk-body">{children}</div>
+    </div>
+  );
+}
+function TweakToggle({ label, value, onChange }) {
+  return <div className="twk-row"><span className="twk-lbl">{label}</span><button className="twk-toggle" data-on={value?'1':'0'} onClick={()=>onChange(!value)}><i></i></button></div>;
+}
+
+// ─── ATOMS ───────────────────────────────────────────────────────
+const hexToRgba = (hex, alpha) => {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const CatBadge = ({ cat, small }) => {
+  const C = useT();
+  const col = C.cat[cat]||C.textMuted;
+  const bg  = hexToRgba(col, 0.2);
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', background:bg, color:col,
+      border:`1px solid ${col}`, borderRadius:4,
+      padding: small?'2px 6px':'3px 8px',
+      fontSize: small?10:11, fontWeight:600, letterSpacing:'0.04em',
+      textTransform:'uppercase', lineHeight:1.4, whiteSpace:'nowrap',
+    }}>{cat}</span>
+  );
+};
+
+const TypePill = ({ type }) => {
+  const C = useT();
+  return (
+    <span style={{
+      display:'inline-block', background:C.pillBg, color:C.pillText,
+      borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:500,
+      whiteSpace:'nowrap', border:`1px solid ${C.pillBorder}`,
+    }}>{type}</span>
+  );
+};
+
+const FavStar = ({ active, onClick, size=18 }) => {
+  const C = useT();
+  return (
+    <button onClick={(e)=>{e.stopPropagation();onClick();}} style={{
+      background:'none', border:'none', padding:4, borderRadius:6,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      transition:'all 0.15s',
+    }}
+    onMouseEnter={e=>{ e.currentTarget.style.background = C.dark?'#3A3D44':'#F0F0F0'; }}
+    onMouseLeave={e=>{ e.currentTarget.style.background='none'; }}
+    aria-label={active ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}>
+      <Icon name="fav" size={size} color={C.red} fill={active ? C.red : 'none'} />
+    </button>
+  );
+};
+
+// ─── NAV ─────────────────────────────────────────────────────────
+const NAV = [
+  { id:'dashboard', label:'Dashboard',   icon:'dashboard' },
+  { id:'catalog',   label:'Kurskatalog', icon:'catalog'   },
+  { id:'favorites', label:'Favoriten',   icon:'fav'       },
+  { id:'tor',       label:'Notenblatt',  icon:'tor'       },
+];
+
+const DarkToggle = ({ dark, setDark, compact }) => {
+  const C = useT();
+  return (
+    <button onClick={()=>setDark(!dark)} style={{
+      display:'flex', alignItems:'center', gap:8,
+      padding: compact ? '7px 10px' : '9px 12px',
+      borderRadius:6, border:'none', background:'transparent',
+      color:'rgba(255,255,255,0.65)', fontSize:13, fontWeight:500, width: compact?'auto':'100%', textAlign:'left',
+    }}
+    onMouseEnter={e=>{ e.currentTarget.style.background=C.sidebarHover; e.currentTarget.style.color='#FFF'; }}
+    onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,0.65)'; }}>
+      <Icon name={dark?'sun':'moon'} size={15} color="currentColor"/>
+      {!compact && (dark ? 'Hellmodus' : 'Dunkelmodus')}
+    </button>
+  );
+};
+
+const Sidebar = ({ page, setPage, dark, setDark }) => {
+  const C = useT();
+  return (
+    <aside style={{ width:220, background:C.sidebar, display:'flex', flexDirection:'column', flexShrink:0, height:'100%' }}>
+      <div style={{ padding:'24px 20px 18px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, background:'rgb(147,13,42)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <span style={{ color:'#FFF', fontSize:14, fontWeight:700, fontFamily:"'Source Serif 4',Georgia,serif" }}>S</span>
+          </div>
+          <div>
+            <div style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:17, fontWeight:600, color:'#FFF', letterSpacing:'-0.01em', lineHeight:1.1 }}>StudyOS</div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', letterSpacing:'0.04em' }}>Uni Tübingen</div>
+          </div>
+        </div>
+      </div>
+      <nav style={{ padding:'12px 10px', flex:1 }}>
+        <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(255,255,255,0.3)', padding:'8px 10px 6px' }}>Navigation</div>
+        {NAV.map(n => {
+          const active = page===n.id;
+          return (
+            <button key={n.id} onClick={()=>setPage(n.id)} style={{
+              display:'flex', alignItems:'center', gap:10, width:'100%',
+              padding:'9px 12px', borderRadius:6, border:'none', textAlign:'left',
+              background: active ? C.sidebarActive : 'transparent',
+              color: active ? '#FFF' : 'rgba(255,255,255,0.65)',
+              fontSize:13.5, fontWeight: active?600:400,
+              transition:'all 0.15s', marginBottom:2, position:'relative',
+            }}
+            onMouseEnter={e=>{ if(!active) { e.currentTarget.style.background=C.sidebarHover; e.currentTarget.style.color='#FFF'; }}}
+            onMouseLeave={e=>{ if(!active) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,0.65)'; }}}>
+              {active && <span style={{ position:'absolute', left:-10, width:3, height:24, background:'rgb(147,13,42)', borderRadius:'0 2px 2px 0' }}></span>}
+              <Icon name={n.icon} size={15} color={active?'#FFF':'rgba(255,255,255,0.5)'} fill={n.id==='favorites'&&active?'#FFF':'none'}/>
+              {n.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ padding:'8px 10px 10px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+        <DarkToggle dark={dark} setDark={setDark}/>
+      </div>
+      <div style={{ padding:'10px 20px 14px', fontSize:11, color:'rgba(255,255,255,0.4)' }}>
+        Sommersemester 2026
+      </div>
+    </aside>
+  );
+};
+
+const TopMenu = ({ page, setPage, dark, setDark }) => {
+  const C = useT();
+  return (
+    <header style={{ background:C.sidebar, height:60, display:'flex', alignItems:'center', padding:'0 24px 0 32px', flexShrink:0 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginRight:36 }}>
+        <div style={{ width:30, height:30, background:'rgb(147,13,42)', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ color:'#FFF', fontSize:13, fontWeight:700, fontFamily:"'Source Serif 4',Georgia,serif" }}>U</span>
+        </div>
+        <div style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:18, fontWeight:600, color:'#FFF' }}>StudyOS</div>
+      </div>
+      <nav style={{ display:'flex', gap:4, flex:1 }}>
+        {NAV.map(n => {
+          const active = page===n.id;
+          return (
+            <button key={n.id} onClick={()=>setPage(n.id)} style={{
+              display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:6, border:'none',
+              background: active ? C.sidebarActive : 'transparent',
+              color: active ? '#FFF' : 'rgba(255,255,255,0.65)',
+              fontSize:13.5, fontWeight: active?600:500, transition:'all 0.15s',
+            }}
+            onMouseEnter={e=>{ if(!active) { e.currentTarget.style.background=C.sidebarHover; e.currentTarget.style.color='#FFF'; }}}
+            onMouseLeave={e=>{ if(!active) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,0.65)'; }}}>
+              <Icon name={n.icon} size={14} color={active?'#FFF':'rgba(255,255,255,0.55)'} fill={n.id==='favorites'&&active?'#FFF':'none'}/>
+              {n.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <DarkToggle dark={dark} setDark={setDark} compact/>
+        <div style={{ fontSize:12, color:'rgba(255,255,255,0.5)', marginLeft:6 }}>SS 2026</div>
+      </div>
+    </header>
+  );
+};
+
+// ─── RADAR CHART ─────────────────────────────────────────────────
+const getRadarAxes = theme => [
+  { label:'Software Eng.', ids:['INF4555'],                               color: theme.red },
+  { label:'Theorie',       ids:['INF4310','INF4601','INF4810'],           color: theme.red },
+  { label:'Mathematik',    ids:['INF4010','INF4030'],                     color: theme.red },
+  { label:'Systeme',       ids:['INF4502','INF4120'],                     color: theme.red },
+  { label:'Daten & DB',    ids:['INF4952'],                               color: theme.red },
+  { label:'AI & ML',       ids:['INF4220','INF4280','INF4901','INF4910'], color: theme.red },
+  { label:'Vision',        ids:['INF4450'],                               color: theme.red },
+  { label:'HCI & UX',      ids:['INF4620'],                              color: theme.red },
+  { label:'Robotik',       ids:['INF4105'],                               color: theme.red },
+  { label:'Interdisz.',    ids:['INF4700','INF4740'],                    color: theme.red },
+];
+
+const PROFILES = [
+  { axis:'AI & ML',       label:'AI-Spezialist·in'  },
+  { axis:'Theorie',       label:'Theoretiker·in'    },
+  { axis:'Systeme',       label:'Systems-Profi'     },
+  { axis:'Software Eng.', label:'Software Engineer'  },
+  { axis:'Vision',        label:'Vision-Expert·in'  },
+  { axis:'Daten & DB',    label:'Data Engineer'     },
+  { axis:'Mathematik',    label:'Mathematiker·in'   },
+  { axis:'Robotik',       label:'Robotik-Profi'     },
+];
+
+// ── Dark- und Light-Theme für den Chart ──────────────────────────
+// Hier werden NUR die Chart-internen SVG-Farben definiert.
+// Alles was vom App-Theme kommt (Hintergrund, Border) steckt in StudyRadar.
+const radarDarkTheme = {
+  ringStroke:        'rgba(255,255,255,0.09)',
+  ringFill:          'rgba(255,255,255,0.025)',
+  spoke:             'rgba(255,255,255,0.10)',
+  refRing:           'rgba(225,65,95,0.35)',
+  dataFill:          'rgba(200,40,70,0.28)',
+  dataStroke:        'rgb(225,65,95)',
+  labelDim:          '#b1b2b7',
+  centerFill:        '#111115',
+  centerStroke:      'rgba(255,255,255,0.07)',
+  centerLabelSub:    'rgba(255,255,255,0.38)',
+  centerLabelMain:   '#ffffff',
+};
+
+const radarLightTheme = {
+  ringStroke:        'rgba(0,0,0,0.09)',
+  ringFill:          'rgba(0,0,0,0.02)',
+  spoke:             'rgba(0,0,0,0.08)',
+  refRing:           'rgba(180,40,60,0.20)',
+  dataFill:          'rgba(180,30,55,0.12)',
+  dataStroke:        'rgb(180,30,55)',
+  labelDim:          '#b1b2b7',
+  centerFill:        '#ebebed',
+  centerStroke:      'rgba(0,0,0,0.07)',
+  centerLabelSub:    'rgba(0,0,0,0.38)',
+  centerLabelMain:   '#1a1815',
+};
+
+const RadarChart = ({ axes, size = 460, profileName = 'Balanced', theme = radarDarkTheme }) => {
+  const cx = size / 2, cy = size / 2, R = size * 0.355, n = axes.length, rings = 5;
+  const ang  = i => (2 * Math.PI * i) / n - Math.PI / 2;
+  const tip  = (i, r) => [cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))];
+  const poly = r => axes.map((_, i) => { const [x,y] = tip(i,r); return `${i?'L':'M'}${x},${y}`; }).join('') + 'Z';
+  const data = axes.map((a, i) => { const [x,y] = tip(i, a.value * R); return `${i?'L':'M'}${x},${y}`; }).join('') + 'Z';
+  const maxV = Math.max(...axes.map(a => a.value));
+
+  return (
+    <svg width={size} height={size} style={{ display:'block' }}>
+      <defs>
+        <radialGradient id="rCg">
+          <stop offset="0%"   stopColor={theme.centerFill}/>
+          <stop offset="100%" stopColor={theme.centerFill}/>
+        </radialGradient>
+        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      {/* Concentric rings */}
+      {[...Array(rings)].map((_, i) => (
+        <path key={i} d={poly(R * (i + 1) / rings)}
+          fill={i % 2 === 0 ? theme.ringFill : 'none'}
+          stroke={theme.ringStroke} strokeWidth={0.75}/>
+      ))}
+
+      {/* Axis spokes */}
+      {axes.map((_, i) => {
+        const [x, y] = tip(i, R);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+          stroke={theme.spoke} strokeWidth={1}/>;
+      })}
+
+      {/* Dashed reference ring at 60% */}
+      <path d={poly(R * 0.6)}
+        fill="none" stroke={theme.refRing}
+        strokeWidth={1} strokeDasharray="5,4"/>
+
+      {/* Filled data polygon */}
+      <path d={data}
+        fill={theme.dataFill}
+        stroke={theme.dataStroke} strokeWidth={2}
+        strokeLinejoin="round" filter="url(#glow)"/>
+
+      {/* Colored dots */}
+      {axes.map((a, i) => {
+        const [x, y] = tip(i, a.value * R);
+        return <circle key={i} cx={x} cy={y} r={5}
+          fill={a.color} stroke="rgba(0,0,0,0.35)" strokeWidth={1}/>;
+      })}
+
+      {/* Axis labels */}
+      {axes.map((a, i) => {
+        const [x, y] = tip(i, R * 1.18);
+        const isTop   = a.value === maxV && a.value > 0;
+        return (
+          <text key={i} x={x} y={y}
+            textAnchor="middle" dominantBaseline="middle"
+            fill={isTop ? a.color : theme.labelDim}
+            fontSize={isTop ? 13 : 11.5}
+            fontWeight={isTop ? 700 : 400}
+            fontFamily="Inter,system-ui,sans-serif">
+            {a.label}
+          </text>
+        );
+      })}
+
+      {/* Center circle */}
+      <circle cx={cx} cy={cy} r={R * 0.265}
+        fill="url(#rCg)" stroke={theme.centerStroke} strokeWidth={1}/>
+      <text x={cx} y={cy - 12} textAnchor="middle"
+        fill={theme.centerLabelSub} fontSize={9.5}
+        letterSpacing="0.1em" fontFamily="Inter,system-ui,sans-serif">PROFIL</text>
+      <text x={cx} y={cy + 9} textAnchor="middle"
+        fill={theme.centerLabelMain} fontSize={14} fontWeight={700}
+        fontFamily="Inter,system-ui,sans-serif">{profileName}</text>
+    </svg>
+  );
+};
+
+// ── StudyRadar: liest C.dark und wählt automatisch das richtige Theme ──
+const StudyRadar = ({ completed }) => {
+  const C = useT();  // ← hier kommt dark/light rein
+
+  const axisData = getRadarAxes(C).map(ax => {
+    const maxEcts    = ax.ids.reduce((s,id) => s + (COURSES.find(c=>c.id===id)?.ects||0), 0) || 1;
+    const earnedEcts = ax.ids.reduce((s,id) => {
+      if (!completed.find(x=>x.id===id)) return s;
+      return s + (COURSES.find(c=>c.id===id)?.ects||0);
+    }, 0);
+    return { label:ax.label, value:Math.min(1, earnedEcts / maxEcts), color: ax.color || C.red };
+  });
+
+  const allZero    = axisData.every(a => a.value === 0);
+  const topAxis    = axisData.reduce((a,b) => a.value > b.value ? a : b);
+  const isBalanced = !allZero && axisData.filter(a => a.value > 0.25).length >= 4;
+  let profileName  = 'Kein Profil';
+  if (!allZero) {
+    const match = PROFILES.find(p => p.axis === topAxis.label);
+    profileName  = isBalanced ? 'Balanced' : (match?.label || topAxis.label);
+  }
+
+  // ← Das ist der entscheidende Punkt: C.dark wählt das passende Theme
+  const chartTheme = C.dark ? radarDarkTheme : radarLightTheme;
+
+  return (
+    <div style={{
+      background:    C.card,
+      borderRadius:  10,
+      padding:       '22px 24px',
+      border:        `1px solid ${C.border}`,        // ← C.border passt sich an
+      marginBottom:  18,
+      display:       'flex',
+      flexDirection: 'column',
+      alignItems:    'center',
+    }}>
+      <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4, alignSelf:'flex-start' }}>
+        Studienprofil
+      </div>
+      <div style={{ fontSize:12, color:C.textMuted, marginBottom:16, alignSelf:'flex-start' }}>
+        Visualisierung deiner Schwerpunkte nach absolvierten Kursen
+      </div>
+      <RadarChart axes={axisData} size={420} profileName={profileName} theme={chartTheme}/>
+    </div>
+  );
+};
+
+// ─── DASHBOARD ───────────────────────────────────────────────────
+const Dashboard = ({ completed, setPage }) => {
+  const C = useT();
+  const done = COURSES.filter(c=>completed.some(x=>x.id===c.id));
+  const totalEcts = done.reduce((s,c)=>s+c.ects,0);
+  const grades = completed.map(x=>x.grade);
+  const avg = grades.length>0 ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(2) : '–';
+  const progressPct = Math.round(totalEcts/120*100);
+
+  const semesters = [...new Set(completed.map(x=>x.semester))].sort((a,b)=>b.localeCompare(a));
+  const [activeSem, setActiveSem] = useState(semesters[0]||null);
+  const [curPage, setCurPage] = useState(1);
+  const PER_PAGE = 5;
+
+  const corePflicht = ['TECH','THEO','PRAK','INFO'];
+  const wahlPflicht = ['FOKUS','BASIS'];
+  const catEcts = {};
+  done.forEach(c => c.masterCats.forEach(cat => { catEcts[cat]=(catEcts[cat]||0)+c.ects; }));
+  Object.keys(catEcts).forEach(cat => { catEcts[cat] = Math.min(catEcts[cat], 18); });
+  catEcts.BASIS = 0;
+
+  const ProgressRow = ({ cat, req=18 }) => {
+    const ects = catEcts[cat]||0;
+    const p = Math.min(100, Math.round(ects/req*100));
+    const isDone = ects>=req;
+    const col = C.cat[cat];
+    return (
+      <div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6, alignItems:'center' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ width:8,height:8,borderRadius:2,background:col,display:'inline-block' }}></span>
+            <span style={{ fontSize:13, fontWeight:600, color:C.text }}>{cat}</span>
+            <span style={{ fontSize:12, color:C.textMuted }}>{MASTER_CAT_META[cat].fullLabel}</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{ects}/{req}</span>
+          </div>
+        </div>
+        <div style={{ height:5, background:C.borderLight, borderRadius:3, overflow:'hidden' }}>
+          <div style={{ height:5, width:`${p}%`, background:col, borderRadius:3, transition:'width 1s' }}></div>
+        </div>
+      </div>
+    );
+  };
+
+  const doneReversed = done.slice().reverse();
+  const semCourses = activeSem ? done.filter(c=>completed.find(x=>x.id===c.id)?.semester===activeSem) : [];
+  const totalPages = Math.ceil(doneReversed.length/PER_PAGE);
+  const pagedCourses = doneReversed.slice((curPage-1)*PER_PAGE, curPage*PER_PAGE);
+
+  const CompRow = ({c, i, last}) => {
+    const comp = completed.find(x=>x.id===c.id);
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', borderBottom:!last?`1px solid ${C.borderLight}`:'none', background:i%2===0?C.card:C.rowAlt }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:500, color:C.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.title}</div>
+          <div style={{ fontSize:11, color:C.textMuted }}>{comp?.semester} · {c.ects} ECTS</div>
+        </div>
+        <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+          {c.masterCats.map(cat=><CatBadge key={cat} cat={cat} small/>)}
+        </div>
+        <span style={{ fontWeight:700, fontSize:16, color:C.text, flexShrink:0, minWidth:24, textAlign:'right' }}>{comp?.grade}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'32px 36px' }}>
+      <div style={{ marginBottom:24 }}>
+        <h1 style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:26, fontWeight:600, color:C.text, marginBottom:3, letterSpacing:'-0.02em' }}>Studienübersicht</h1>
+        <p style={{ fontSize:13.5, color:C.textMuted }}>Sommersemester 2026 · Informatik M.Sc.</p>
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'18px 24px', marginBottom:18, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:24 }}>
+        {[
+          { label:'Gesamt-ECTS', value:totalEcts,          sub:'/ 120 ECTS', color:C.accent },
+          { label:'Fortschritt', value:`${progressPct} %`, sub:'des Studiums', color:C.accent },
+          { label:'Ø Note',      value:avg,                sub:'dt. System',  color:C.accent },
+        ].map((k,i) => (
+          <div key={k.label} style={{ paddingLeft:i>0?24:0, borderLeft:i>0?`1px solid ${C.borderLight}`:'none' }}>
+            <div style={{ fontSize:11, fontWeight:500, color:C.textMuted, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k.label}</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
+              <span style={{ fontSize:24, fontWeight:700, color:k.color, lineHeight:1 }}>{k.value}</span>
+              <span style={{ fontSize:12, color:C.textMuted }}>{k.sub}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:18 }}>
+
+      <div style={{ background:C.card, borderRadius:10, padding:'22px 24px', border:`1px solid ${C.border}`, marginBottom:18 }}>
+        <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:18 }}>Fortschritt nach Kategorie</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:14 }}>
+          {corePflicht.map(cat=><ProgressRow key={cat} cat={cat}/>)}
+        </div>
+        <div style={{ marginTop:18, paddingTop:14, borderTop:`1px solid ${C.borderLight}` }}>
+          <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:C.textMuted, marginBottom:10 }}>Wahlbereich</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,minmax(0,1fr))', gap:18 }}>
+            {wahlPflicht.map(cat=><ProgressRow key={cat} cat={cat}/>)}
+          </div>
+        </div>
+        <div style={{ marginTop:18, paddingTop:14, borderTop:`1px solid ${C.borderLight}` }}>
+          <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:C.textMuted, marginBottom:10 }}>Abschlussarbeit</div>
+          {(()=>{
+            const req = 30;
+            const ects = 0;
+            const p = 0;
+            const isDone = false;
+            const col = '#1dd3b0';
+            return (
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6, alignItems:'center' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ width:8,height:8,borderRadius:2,background:col,display:'inline-block' }}></span>
+                    <span style={{ fontSize:13, fontWeight:600, color:C.text }}>Thesis</span>
+                    <span style={{ fontSize:12, color:C.textMuted }}>Abschlussarbeit</span>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{ects}/{req}</span>
+                  </div>
+                </div>
+                <div style={{ height:5, background:C.borderLight, borderRadius:3, overflow:'hidden' }}>
+                  <div style={{ height:5, width:`${p}%`, background:col, borderRadius:3, transition:'width 1s' }}></div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      <StudyRadar completed={completed}/>
+      </div>
+
+      {done.length===0 ? (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'28px 24px', textAlign:'center' }}>
+          <div style={{ fontSize:13.5, color:C.textMuted }}>Noch keine Kurse absolviert. <button onClick={()=>setPage('tor')} style={{ color:C.red, background:'none', border:'none', fontSize:13.5, fontWeight:600, padding:0, textDecoration:'underline', textUnderlineOffset:2 }}>Notenblatt hochladen →</button></div>
+        </div>
+      ) : (
+        <>
+          {/* Variant A – Semestersprung */}
+          <div style={{ background:C.card, borderRadius:10, padding:'22px 24px', border:`1px solid ${C.border}`, marginBottom:18 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:10 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:C.text }}>
+                Abgeschlossene Kurse <span style={{ fontSize:12, fontWeight:400, color:C.textMuted }} />
+              </div>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {semesters.map(sem=>(
+                  <button key={sem} onClick={()=>setActiveSem(sem)} style={{
+                    padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:500,
+                    background:activeSem===sem?C.red:'transparent',
+                    color:activeSem===sem?'#FFF':C.textMid,
+                    border:`1px solid ${activeSem===sem?C.red:C.border}`,
+                    transition:'all 0.15s',
+                  }}>{sem}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}` }}>
+              {semCourses.length===0
+                ? <div style={{ padding:'24px', textAlign:'center', color:C.textMuted, fontSize:13 }}>Keine Kurse in diesem Semester.</div>
+                : semCourses.map((c,i)=><CompRow key={c.id} c={c} i={i} last={i===semCourses.length-1}/>)
+              }
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── COURSE CATALOG ──────────────────────────────────────────────
+const WEEKDAYS  = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'];
+const TYPE_OPTS = ['Vorlesung','Übung','Praktikum','Seminar'];
+const CAT_OPTS  = ['TECH','THEO','PRAK','INFO','FOKUS','BASIS'];
+
+const CourseCatalog = ({ onSelect, completedIds, favorites, toggleFav, selectedId, narrow }) => {
+  const C = useT();
+  const [search, setSearch] = useState('');
+  const [fDays,  setFDays]  = useState([]);
+  const [fTypes, setFTypes] = useState([]);
+  const [fCats,  setFCats]  = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const filtered = useMemo(() => COURSES.filter(c => {
+    const q=search.toLowerCase();
+    return (!q || c.title.toLowerCase().includes(q)||c.titleDE.toLowerCase().includes(q)||c.lecturer.toLowerCase().includes(q)||c.number.toLowerCase().includes(q))
+      && (fDays.length===0  || fDays.some(d=>c.weekdays.includes(d)))
+      && (fTypes.length===0 || fTypes.some(t=>c.type.includes(t)))
+      && (fCats.length===0  || fCats.some(cat=>c.masterCats.includes(cat)));
+  }), [search, fDays, fTypes, fCats]);
+
+  const toggle=(arr,set,v)=>set(arr.includes(v)?arr.filter(x=>x!==v):[...arr,v]);
+  const nF=fDays.length+fTypes.length+fCats.length;
+  const cols = narrow ? '1fr' : '1fr 1fr';
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ padding:'24px 32px 0', flexShrink:0 }}>
+        <h1 style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:24, fontWeight:600, color:C.text, marginBottom:16, letterSpacing:'-0.02em' }}>Kurskatalog</h1>
+        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+          <div style={{ position:'relative', flex:1, maxWidth:440, minWidth:200 }}>
+            <span style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+              <Icon name="search" size={15} color={C.textMuted}/>
+            </span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Kurs, Dozent oder Nummer suchen …"
+              style={{ width:'100%', padding:'9px 12px 9px 34px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:13.5, background:C.card, color:C.text, outline:'none', transition:'border-color 0.15s, box-shadow 0.15s' }}
+              onFocus={e=>{e.target.style.borderColor=C.red+'80';e.target.style.boxShadow=`0 0 0 3px ${C.red}25`;}}
+              onBlur={e=>{e.target.style.borderColor=C.border;e.target.style.boxShadow='none';}}/>
+          </div>
+          <button onClick={()=>setFiltersOpen(!filtersOpen)} style={{
+            display:'flex', alignItems:'center', gap:6, padding:'8px 14px',
+            background: nF>0 ? C.red : C.card,
+            color: nF>0 ? '#FFF' : C.textMid,
+            border:`1px solid ${nF>0 ? C.red : C.border}`,
+            borderRadius:8, fontSize:13, fontWeight:500, transition:'all 0.15s',
+          }}>
+            <Icon name="filter" size={14} color={nF>0?'#FFF':C.textMid}/>
+            Filter {nF>0?`(${nF})`:''}
+          </button>
+          <span style={{ fontSize:12.5, color:C.textMuted, padding:'0 4px' }}>{filtered.length} Veranstaltungen</span>
+        </div>
+        {filtersOpen && (
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'16px 18px', marginBottom:14, display:'flex', gap:28, flexWrap:'wrap', alignItems:'flex-end' }}>
+            <FGroup label="Wochentag" opts={WEEKDAYS}  active={fDays}  onToggle={v=>toggle(fDays,setFDays,v)}/>
+            <FGroup label="Typ"       opts={TYPE_OPTS} active={fTypes} onToggle={v=>toggle(fTypes,setFTypes,v)}/>
+            <FGroup label="Kategorie" opts={CAT_OPTS}  active={fCats}  onToggle={v=>toggle(fCats,setFCats,v)} useColors/>
+            {nF>0&&<button onClick={()=>{setFDays([]);setFTypes([]);setFCats([]);}} style={{ background:'none', border:'none', color:C.red, fontSize:12, fontWeight:600, textDecoration:'underline', textUnderlineOffset:2 }}>Zurücksetzen</button>}
+          </div>
+        )}
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'0 32px 32px' }}>
+        <div style={{ display:'grid', gridTemplateColumns:cols, gap:14 }}>
+          {filtered.map(c=>(
+            <CourseCard key={c.id} course={c} done={completedIds.includes(c.id)} fav={favorites.includes(c.id)} toggleFav={()=>toggleFav(c.id)} onClick={()=>onSelect(c)} active={selectedId===c.id}/>
+          ))}
+        </div>
+        {filtered.length===0&&(
+          <div style={{ textAlign:'center', padding:'80px 0', color:C.textMuted }}>
+            <div style={{ fontSize:32, marginBottom:10, opacity:0.2 }}>◌</div>
+            <div style={{ fontSize:14 }}>Keine Kurse gefunden.</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CourseCard = ({ course:c, done, fav, toggleFav, onClick, active }) => {
+  const C = useT();
+  const [hov,setHov]=useState(false);
+  const slot = c.schedule[0];
+  const borderCol = active ? C.red : (hov?C.red+'70':C.border);
+  return (
+    <div onClick={onClick}
+      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ background:hov||active?C.cardHover:C.card, border:`1px solid ${borderCol}`, borderRadius:10, padding:'16px 18px', cursor:'pointer', transition:'all 0.15s', boxShadow:hov?'0 4px 14px rgba(0,0,0,0.06)':'0 1px 2px rgba(0,0,0,0.03)', display:'flex', flexDirection:'column', gap:12 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <TypePill type={c.type}/>
+        <div style={{ display:'flex', gap:3, flex:1, flexWrap:'wrap' }}>
+          {c.masterCats.map(cat=><CatBadge key={cat} cat={cat} small/>)}
+        </div>
+        <FavStar active={fav} onClick={toggleFav}/>
+      </div>
+
+      <div>
+        <div style={{ fontSize:15.5, fontWeight:600, color:C.text, lineHeight:1.25, marginBottom:2 }}>{c.title}</div>
+        <div style={{ fontSize:12, color:C.textMuted }}>{c.titleDE} · {c.number}</div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:6, paddingTop:4, borderTop:`1px solid ${C.borderLight}`, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12.5, color:C.textMid, minWidth:0 }}>
+          <Icon name="user" size={14} color={C.textMuted}/>
+          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0, flex:1 }}>{c.lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g,'')}</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12.5, color:C.textMid, minWidth:0 }}>
+          <Icon name="clock" size={14} color={C.textMuted}/>
+          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0, flex:1 }}>{slot.day}, {slot.time}</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12.5, color:C.textMid, minWidth:0 }}>
+          <Icon name="pin" size={14} color={C.textMuted}/>
+          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0, flex:1 }}>{slot.room}</span>
+        </div>
+      </div>
+
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:6, borderTop:`1px solid ${C.borderLight}` }}>
+        <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{c.ects} <span style={{ fontSize:11, fontWeight:400, color:C.textMuted }}>ECTS</span></span>
+        {done && <span style={{ fontSize:10.5, color:C.dark?'#5dd880':'#1e7b3a', fontWeight:600, background:C.dark?'#0f2e1a':'#e8f5ec', borderRadius:20, padding:'2px 8px', border:`1px solid ${C.dark?'#2d6b3f':'#86c99a'}` }}>✓ Absolviert</span>}
+      </div>
+    </div>
+  );
+};
+
+const FGroup = ({ label, opts, active, onToggle, useColors }) => {
+  const C = useT();
+  return (
+    <div>
+      <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:C.textMuted, marginBottom:7 }}>{label}</div>
+      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+        {opts.map(o=>{
+          const col = useColors ? C.cat[o] : null;
+          const bg  = useColors ? C.catBg[o] : null;
+          const on  = active.includes(o);
+          return (
+            <button key={o} onClick={()=>onToggle(o)} style={{
+              padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:500,
+              background: on ? (col||C.red) : (bg||'transparent'),
+              color: on ? '#FFF' : (col||C.textMid),
+              border:`1px solid ${on?(col||C.red):C.border}`,
+              transition:'all 0.1s',
+            }}>{o}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── FAVORITES PAGE ──────────────────────────────────────────────
+const Favorites = ({ favorites, toggleFav, onSelect, completedIds, setPage, selectedId, narrow }) => {
+  const C = useT();
+  const favCourses = COURSES.filter(c=>favorites.includes(c.id));
+  const cols = narrow ? '1fr' : '1fr 1fr';
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'32px 36px' }}>
+      <div style={{ marginBottom:24 }}>
+        <h1 style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:24, fontWeight:600, color:C.text, marginBottom:4, letterSpacing:'-0.02em' }}>Favoriten</h1>
+        <p style={{ fontSize:13.5, color:C.textMuted }}>{favCourses.length} {favCourses.length===1?'gemerkter Kurs':'gemerkte Kurse'}</p>
+      </div>
+      {favCourses.length===0 ? (
+        <div style={{ background:C.card, border:`1px dashed ${C.border}`, borderRadius:10, padding:'60px 32px', textAlign:'center' }}>
+          <div style={{ width:48, height:48, borderRadius:'50%', background:C.borderLight, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+            <Icon name="fav" size={22} color={C.red} fill={C.red}/>
+          </div>
+          <div style={{ fontSize:15, fontWeight:600, color:C.text, marginBottom:5 }}>Noch keine Favoriten</div>
+          <div style={{ fontSize:13, color:C.textMuted, marginBottom:16 }}>Markiere Veranstaltungen im Katalog mit dem Stern.</div>
+          <button onClick={()=>setPage('catalog')} style={{ padding:'9px 18px', background:C.red, color:'#FFF', border:'none', borderRadius:8, fontSize:13, fontWeight:600 }}>Zum Kurskatalog</button>
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:cols, gap:14 }}>
+          {favCourses.map(c=>(
+            <CourseCard key={c.id} course={c} done={completedIds.includes(c.id)} fav={true} toggleFav={()=>toggleFav(c.id)} onClick={()=>onSelect(c)} active={selectedId===c.id}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── COURSE DETAIL (full page) ───────────────────────────────────
+const CourseDetail = ({ course:c, onBack, completedList, fav, toggleFav }) => {
+  const C = useT();
+  const comp = completedList.find(x=>x.id===c.id);
+  const col  = C.cat[c.masterCats[0]];
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 36px 48px' }}>
+      <button onClick={onBack} style={{ display:'inline-flex', alignItems:'center', gap:6, background:'none', border:'none', color:C.textMid, fontSize:13, fontWeight:500, padding:'0 0 20px' }}>
+        <Icon name="back" size={15} color="currentColor"/> Zurück
+      </button>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:28, maxWidth:1040 }}>
+        <div>
+          <DetailHero c={c} comp={comp} fav={fav} toggleFav={toggleFav} col={col}/>
+          <DetailBlock title="Beschreibung"><p style={{ fontSize:14, lineHeight:1.8, color:C.textMid }}>{c.description}</p></DetailBlock>
+          <DetailBlock title="Voraussetzungen">
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {c.prerequisites.map((p,i)=>(
+                <div key={i} style={{ display:'flex', gap:8, fontSize:13.5, color:C.textMid, alignItems:'baseline' }}>
+                  <span style={{ width:5,height:5,background:C.red,borderRadius:'50%',flexShrink:0,display:'inline-block',marginTop:7 }}></span>{p}
+                </div>
+              ))}
+            </div>
+          </DetailBlock>
+          <DetailBlock title="Prüfungsleistungen">
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {c.exams.map((e,i)=>(
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', background:C.bg, border:`1px solid ${C.border}`, borderLeft:`3px solid ${C.red}`, borderRadius:8 }}>
+                  <span style={{ fontSize:13.5, fontWeight:500, color:C.text }}>{e.type}</span>
+                  <div style={{ display:'flex', gap:12, fontSize:12.5, color:C.textMuted }}>
+                    <span>{e.date}</span>
+                    {e.duration!=='–'&&<span>{e.duration}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DetailBlock>
+          <DetailBlock title="Stundenplan">
+            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              {c.schedule.map((s,i)=>(
+                <div key={i} style={{ display:'grid', gridTemplateColumns:'110px 130px 1fr auto', gap:12, padding:'10px 14px', background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, alignItems:'center', fontSize:13.5, color:C.text }}>
+                  <span style={{ fontWeight:500 }}>{s.day}</span>
+                  <span style={{ color:C.textMuted }}>{s.time}</span>
+                  <span style={{ color:C.textMuted }}>{s.room}</span>
+                  <TypePill type={s.type}/>
+                </div>
+              ))}
+            </div>
+          </DetailBlock>
+        </div>
+        <div>
+          <DetailMeta c={c}/>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── COURSE DETAIL (drawer for top-menu mode) ────────────────────
+const CourseDetailDrawer = ({ course:c, onClose, completedList, fav, toggleFav }) => {
+  const C = useT();
+  const comp = completedList.find(x=>x.id===c.id);
+  const col  = C.cat[c.masterCats[0]];
+  return (
+    <div style={{
+      width:480, height:'100%', background:C.bg, borderLeft:`1px solid ${C.border}`,
+      boxShadow:'-12px 0 32px rgba(0,0,0,0.12)', display:'flex', flexDirection:'column',
+      animation:'slideIn 0.22s ease-out',
+    }}>
+      <style>{`@keyframes slideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}`}</style>
+      <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:C.card }}>
+        <span style={{ fontSize:12, fontWeight:600, color:C.textMuted, letterSpacing:'0.06em', textTransform:'uppercase' }}>Kursdetails</span>
+        <button onClick={onClose} style={{ background:'none', border:'none', padding:6, borderRadius:6, color:C.textMid, display:'flex' }}
+          onMouseEnter={e=>e.currentTarget.style.background=C.borderLight}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <Icon name="close" size={18} color="currentColor"/>
+        </button>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 32px' }}>
+        <DetailHero c={c} comp={comp} fav={fav} toggleFav={toggleFav} col={col} compact/>
+        <DetailBlock title="Beschreibung"><p style={{ fontSize:13.5, lineHeight:1.7, color:C.textMid }}>{c.description}</p></DetailBlock>
+        <DetailBlock title="Voraussetzungen">
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            {c.prerequisites.map((p,i)=>(
+              <div key={i} style={{ display:'flex', gap:8, fontSize:13, color:C.textMid, alignItems:'baseline' }}>
+                <span style={{ width:5,height:5,background:C.red,borderRadius:'50%',flexShrink:0,display:'inline-block',marginTop:7 }}></span>{p}
+              </div>
+            ))}
+          </div>
+        </DetailBlock>
+        <DetailBlock title="Prüfungsleistungen">
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {c.exams.map((e,i)=>(
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${C.red}`, borderRadius:8 }}>
+                <span style={{ fontSize:13, fontWeight:500, color:C.text }}>{e.type}</span>
+                <div style={{ display:'flex', gap:10, fontSize:12, color:C.textMuted }}>
+                  <span>{e.date}</span>{e.duration!=='–'&&<span>{e.duration}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DetailBlock>
+        <DetailBlock title="Stundenplan">
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            {c.schedule.map((s,i)=>(
+              <div key={i} style={{ padding:'10px 14px', background:C.card, border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, color:C.text }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                  <span style={{ fontWeight:600 }}>{s.day}, {s.time}</span>
+                  <TypePill type={s.type}/>
+                </div>
+                <div style={{ fontSize:12, color:C.textMuted }}>{s.room}</div>
+              </div>
+            ))}
+          </div>
+        </DetailBlock>
+        <DetailMeta c={c}/>
+      </div>
+    </div>
+  );
+};
+
+const DetailHero = ({ c, comp, fav, toggleFav, col, compact }) => {
+  const C = useT();
+  return (
+    <div style={{ border:`1px solid lightgrey`, borderRadius:14, padding: compact?'18px':'24px', marginBottom: compact?20:24, position:'relative' }}>
+      <div style={{ position:'absolute', top:14, right:14 }}><FavStar active={fav} onClick={toggleFav} size={compact?20:22}/></div>
+      <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
+        {c.masterCats.map(cat=><CatBadge key={cat} cat={cat}/>)}
+        <TypePill type={c.type}/>
+      </div>
+      <h1 style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize: compact?20:26, fontWeight:600, color:C.text, lineHeight:1.15, marginBottom:5, letterSpacing:'-0.02em', paddingRight:36 }}>{c.title}</h1>
+      <div style={{ fontSize: compact?13:15, color:C.textMuted, marginBottom: comp?14:0 }}>{c.titleDE}</div>
+      {comp&&(
+        <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:'7px 12px', fontSize:13 }}>
+          <Icon name="check" size={14} color={C.text}/>
+          <span style={{ color:C.text, fontWeight:600 }}>Absolviert</span>
+          <span style={{ color:C.textMid }}>Note {comp.grade} · {comp.semester}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DetailMeta = ({ c }) => {
+  const C = useT();
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+      <div style={{ padding:'14px 18px', borderBottom:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.textMid }}>Kursdetails</div>
+      {[['Kursnummer',c.number],['Dozent/in',c.lecturer],['Raum',c.room],[`ECTS`,`${c.ects} Creditpoints`],['SWS',`${c.sws} SWS`],['Sprache',c.language],['Turnus',c.frequency],['Modul',c.module]].map(([k,v])=>(
+        <div key={k} style={{ padding:'11px 18px', borderBottom:`1px solid ${C.borderLight}`, display:'grid', gridTemplateColumns:'80px 1fr', gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:500, color:C.textMuted, paddingTop:1, lineHeight:1.4 }}>{k}</span>
+          <span style={{ fontSize:13, color:C.text, lineHeight:1.4 }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DetailBlock = ({ title, children }) => {
+  const C = useT();
+  return (
+    <div style={{ marginBottom:24 }}>
+      <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.07em', textTransform:'uppercase', color:C.textMuted, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.borderLight}` }}>{title}</div>
+      {children}
+    </div>
+  );
+};
+
+// ─── TOR UPLOAD ──────────────────────────────────────────────────
+const TorUpload = ({ completed, setCompleted }) => {
+  const C = useT();
+  const [dragging,setDragging]=useState(false);
+  const [fileName,setFileName]=useState(null);
+  const [parsing,setParsing]=useState(false);
+  const [catEdits,setCatEdits]=useState({});
+  const ref=useRef();
+  const ALL_CATS=['TECH','THEO','PRAK','INFO','FOKUS','BASIS'];
+  const getCats=id=>catEdits[id]||COURSES.find(c=>c.id===id)?.masterCats||[];
+  const toggleCat=(id,cat)=>{
+    const cur=getCats(id);
+    setCatEdits(prev=>({...prev,[id]:cur.includes(cat)?cur.filter(x=>x!==cat):[...cur,cat]}));
+  };
+  const handle=file=>{
+    if(!file) return;
+    setParsing(true); setFileName(file.name);
+    setTimeout(()=>{
+      setParsing(false);
+      setCompleted([
+        {id:'INF4220',grade:1.7,semester:'WS 2025/26'},{id:'INF4310',grade:2.3,semester:'WS 2025/26'},
+        {id:'INF4601',grade:1.3,semester:'WS 2025/26'},{id:'INF4810',grade:2.0,semester:'WS 2025/26'},
+        {id:'INF4952',grade:2.7,semester:'SS 2025'},{id:'INF4700',grade:1.7,semester:'SS 2025'},
+        {id:'INF4010',grade:1.0,semester:'WS 2024/25'},{id:'INF4020',grade:2.3,semester:'WS 2024/25'},
+      ]);
+    },1600);
+  };
+  const done=COURSES.filter(c=>completed.some(x=>x.id===c.id));
+  const totalEcts=done.reduce((s,c)=>s+c.ects,0);
+  const grades=completed.map(x=>x.grade);
+  const avg=grades.length>0?(grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(2):null;
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'32px 36px' }}>
+      <div style={{ maxWidth:1200 }}>
+        <h1 style={{ fontFamily:"'Source Serif 4',Georgia,serif", fontSize:24, fontWeight:600, color:C.text, marginBottom:6, letterSpacing:'-0.02em' }}>Notenblatt hochladen</h1>
+        <p style={{ fontSize:13.5, color:C.textMuted, marginBottom:28 }}>Laden Sie Ihr Transcript of Records hoch — StudyOS erkennt automatisch Ihre Kurse und Noten.</p>
+        <div style={{ display:'flex', gap:32, alignItems:'flex-start' }}>
+          <div style={{ flex:1 }}>
+            <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)}
+              onDrop={e=>{e.preventDefault();setDragging(false);handle(e.dataTransfer.files[0]);}}
+              onClick={()=>ref.current.click()}
+              style={{ border:`2px dashed ${dragging?C.red:C.border}`, borderRadius:14, padding:'48px 32px', textAlign:'center', cursor:'pointer', background:dragging?C.redLight:C.card, transition:'all 0.2s' }}>
+              <input ref={ref} type="file" accept=".pdf,.csv,.xlsx" style={{ display:'none' }} onChange={e=>handle(e.target.files[0])}/>
+              {parsing?(
+                <div>
+                  <div style={{ fontSize:24, marginBottom:12, color:C.textMuted, letterSpacing:6 }}>· · ·</div>
+                  <div style={{ fontSize:14, color:C.textMid, fontWeight:500 }}>Notenblatt wird verarbeitet …</div>
+                </div>
+              ):fileName?(
+                <div>
+                  <div style={{ width:48,height:48,background:C.borderLight,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px' }}>
+                    <Icon name="check" size={22} color={C.text}/>
+                  </div>
+                  <div style={{ fontSize:14, fontWeight:600, color:C.text, marginBottom:4 }}>{fileName}</div>
+                  <div style={{ fontSize:12.5, color:C.textMuted }}>Erfolgreich importiert · Klicken zum Ersetzen</div>
+                </div>
+              ):(
+                <div>
+                  <div style={{ width:52,height:52,background:C.borderLight,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px' }}>
+                    <Icon name="upload" size={22} color={C.textMuted}/>
+                  </div>
+                  <div style={{ fontSize:15, fontWeight:600, color:C.text, marginBottom:5 }}>PDF hierher ziehen</div>
+                  <div style={{ fontSize:13, color:C.textMuted }}>oder klicken · PDF, CSV, XLSX</div>
+                </div>
+              )}
+            </div>
+          </div>
+          {done.length>0&&(
+            <div style={{ flex:1 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
+                {[['Fortschritt',`${Math.round(totalEcts/120*100)} %`],['ECTS erworben',`${totalEcts} / 120`],['Ø Note',avg||'–']].map(([l,v])=>(
+                  <div key={l} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'14px 18px' }}>
+                    <div style={{ fontSize:11, fontWeight:500, color:C.textMuted, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
+                    <div style={{ fontSize:24, fontWeight:700, color:C.accent }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+                <div style={{ padding:'14px 20px', borderBottom:`1px solid ${C.border}`, fontSize:12, fontWeight:600, color:C.textMid }}>Importierte Kurse</div>
+                {done.map((c,i)=>{
+                  const comp=completed.find(x=>x.id===c.id);
+                  const cats=getCats(c.id);
+                  return (
+                    <div key={c.id} style={{ padding:'12px 20px', borderBottom:i<done.length-1?`1px solid ${C.borderLight}`:'none', background:i%2===0?C.card:C.rowAlt }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13.5, fontWeight:500, color:C.text }}>{c.title}</div>
+                          <div style={{ fontSize:11.5, color:C.textMuted, marginBottom:7 }}>{comp.semester} · {c.ects} ECTS</div>
+                          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                            {ALL_CATS.map(cat=>{
+                              const on=cats.includes(cat);
+                              return (
+                                <button key={cat} onClick={()=>toggleCat(c.id,cat)} style={{
+                                  padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600,
+                                  background:on?hexToRgba(C.cat[cat], 0.2):C.bg,
+                                  color:on?C.cat[cat]:C.textMuted,
+                                  border:`1px solid ${on?C.cat[cat]:C.border}`,
+                                  transition:'all 0.1s', cursor:'pointer',
+                                }}>{cat}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <span style={{ fontWeight:700, fontSize:17, color:C.text, flexShrink:0 }}>{comp.grade}</span>
+                        <button onClick={()=>setCompleted(completed.filter(x=>x.id!==c.id))} style={{ background:'none', border:'none', color:C.textMuted, fontSize:18, padding:'0 4px', lineHeight:1 }}>×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── APP ─────────────────────────────────────────────────────────
+const App = () => {
+  const [page,      setPage]      = useState('dashboard');
+  const [selected,  setSelected]  = useState(null);
+  const [completed, setCompleted] = useState(COMPLETED_INIT);
+  const [favorites, setFavorites] = useState(['INF4220','INF4450','INF4700']);
+  const [dark,      setDark]      = useState(false);
+
+  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
+    "topMenu": true
+  }/*EDITMODE-END*/);
+
+  useEffect(() => { document.body.setAttribute('data-dark', dark?'1':'0'); }, [dark]);
+
+  const theme = dark ? darkTheme : lightTheme;
+  useEffect(() => {
+    document.body.style.background = theme.bg;
+    document.body.style.color = theme.text;
+  }, [theme]);
+
+  const navTo = p => { setPage(p); setSelected(null); };
+  const compIds = completed.map(x=>x.id);
+  const toggleFav = id => setFavorites(favs => favs.includes(id) ? favs.filter(x=>x!==id) : [...favs, id]);
+
+  const inCatalogList = page==='catalog' || page==='favorites';
+  const useDrawer = tweaks.topMenu;
+
+  let mainContent;
+  if (page==='dashboard') {
+    mainContent = <Dashboard completed={completed} setPage={navTo}/>;
+  } else if (page==='tor') {
+    mainContent = <TorUpload completed={completed} setCompleted={setCompleted}/>;
+  } else if (inCatalogList) {
+    if (useDrawer) {
+      // List always shown, drawer slides over right side
+      mainContent = (
+        <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+          <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+            {page==='catalog'
+              ? <CourseCatalog onSelect={setSelected} completedIds={compIds} favorites={favorites} toggleFav={toggleFav} selectedId={selected?.id} narrow={!!selected}/>
+              : <Favorites favorites={favorites} toggleFav={toggleFav} onSelect={setSelected} completedIds={compIds} setPage={navTo} selectedId={selected?.id} narrow={!!selected}/>}
+          </div>
+          {selected && <CourseDetailDrawer course={selected} onClose={()=>setSelected(null)} completedList={completed} fav={favorites.includes(selected.id)} toggleFav={()=>toggleFav(selected.id)}/>}
+        </div>
+      );
+    } else {
+      // Sidebar mode: full-page detail replaces list
+      if (selected) {
+        mainContent = <CourseDetail course={selected} onBack={()=>setSelected(null)} completedList={completed} fav={favorites.includes(selected.id)} toggleFav={()=>toggleFav(selected.id)}/>;
+      } else {
+        mainContent = page==='catalog'
+          ? <CourseCatalog onSelect={setSelected} completedIds={compIds} favorites={favorites} toggleFav={toggleFav}/>
+          : <Favorites favorites={favorites} toggleFav={toggleFav} onSelect={setSelected} completedIds={compIds} setPage={navTo}/>;
+      }
+    }
+  }
+
+  return (
+    <ThemeCtx.Provider value={theme}>
+      <div style={{ height:'100vh', display:'flex', flexDirection: tweaks.topMenu ? 'column' : 'row', overflow:'hidden', background:theme.bg, color:theme.text }}>
+        {tweaks.topMenu
+          ? <><TopMenu page={page} setPage={navTo} dark={dark} setDark={setDark}/><main style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', background:theme.bg }}>{mainContent}</main></>
+          : <><Sidebar page={page} setPage={navTo} dark={dark} setDark={setDark}/><main style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', background:theme.bg }}>{mainContent}</main></>
+        }
+        <TweaksPanel title="Tweaks">
+          <TweakToggle label="Menü oben statt links" value={tweaks.topMenu} onChange={v=>setTweak('topMenu',v)}/>
+          <TweakToggle label="Dunkelmodus" value={dark} onChange={setDark}/>
+        </TweaksPanel>
+      </div>
+    </ThemeCtx.Provider>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
