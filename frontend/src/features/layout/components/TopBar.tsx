@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { useTheme } from '../theme'
-import { NAV } from './nav'
+import { useTheme } from '../../theme'
+import { NAV } from '../nav'
 import { MoonIcon, SunIcon } from './icons'
-import { ROUTES } from '../../shared/routes'
+import { ROUTES } from '../../../config/routes'
 
 export function TopBar() {
   const { isDark, toggleTheme } = useTheme()

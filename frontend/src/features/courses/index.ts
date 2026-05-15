@@ -1,1 +1,1 @@
-export { CoursesOverview } from './Overview'
+export { CoursesOverview } from './components/Overview'

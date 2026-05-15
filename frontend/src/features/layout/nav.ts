@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
-import { DashboardIcon, CatalogIcon, FavoritesIcon, TranscriptIcon } from './icons'
-import { ROUTES, type RoutePath } from '../../shared/routes'
+import { DashboardIcon, CatalogIcon, FavoritesIcon, TranscriptIcon } from './components/icons'
+import { ROUTES, type RoutePath } from '../routes'
 
 export interface NavEntry {
   path: RoutePath

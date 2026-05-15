@@ -1,1 +1,1 @@
-export { Transcript } from './Transcript'
+export { Transcript } from './components/Transcript'

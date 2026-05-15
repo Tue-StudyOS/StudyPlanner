@@ -5,7 +5,7 @@ import { Dashboard } from './features/dashboard'
 import { CoursesOverview } from './features/courses'
 import { Favorites } from './features/favorites'
 import { Transcript } from './features/transcript'
-import { ROUTES } from './shared/routes'
+import { ROUTES } from './features/routes'
 
 function App() {
   return (
