@@ -17,6 +17,7 @@ export interface CourseExam {
 
 export interface CompletedCourse {
   id: string
+  title: string
   ects: number
   masterCats: MasterCat[]
   grade: number

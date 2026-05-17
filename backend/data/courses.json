@@ -460,14 +460,14 @@
     }
   ],
   "completedCourses": [
-    { "id": "INF4220", "ects": 9, "masterCats": ["TECH"], "grade": 1.7, "semester": "WS 2025/26" },
-    { "id": "INF4601", "ects": 6, "masterCats": ["THEO"], "grade": 1.3, "semester": "WS 2025/26" },
-    { "id": "INF4810", "ects": 6, "masterCats": ["THEO"], "grade": 2.0, "semester": "WS 2025/26" },
-    { "id": "INF4952", "ects": 6, "masterCats": ["PRAK", "INFO"], "grade": 2.7, "semester": "SS 2025" },
-    { "id": "INF4700", "ects": 6, "masterCats": ["INFO"], "grade": 1.7, "semester": "SS 2025" },
-    { "id": "INF4450", "ects": 9, "masterCats": ["TECH"], "grade": 1.3, "semester": "SS 2025" },
-    { "id": "INF4010", "ects": 9, "masterCats": ["BASIS"], "grade": 1.0, "semester": "WS 2024/25" },
-    { "id": "INF4020", "ects": 6, "masterCats": ["BASIS"], "grade": 2.3, "semester": "WS 2024/25" }
+    { "id": "INF4220", "title": "Machine Learning", "ects": 9, "masterCats": ["TECH"], "grade": 1.7, "semester": "WS 2025/26" },
+    { "id": "INF4601", "title": "Formal Methods", "ects": 6, "masterCats": ["THEO"], "grade": 1.3, "semester": "WS 2025/26" },
+    { "id": "INF4810", "title": "Cryptography", "ects": 6, "masterCats": ["THEO"], "grade": 2.0, "semester": "WS 2025/26" },
+    { "id": "INF4952", "title": "Database Systems", "ects": 6, "masterCats": ["PRAK", "INFO"], "grade": 2.7, "semester": "SS 2025" },
+    { "id": "INF4700", "title": "Natural Language Processing", "ects": 6, "masterCats": ["INFO"], "grade": 1.7, "semester": "SS 2025" },
+    { "id": "INF4450", "title": "Computer Vision", "ects": 9, "masterCats": ["TECH"], "grade": 1.3, "semester": "SS 2025" },
+    { "id": "INF4010", "title": "Mathematics for Machine Learning", "ects": 9, "masterCats": ["BASIS"], "grade": 1.0, "semester": "WS 2024/25" },
+    { "id": "INF4020", "title": "Introduction to AI", "ects": 6, "masterCats": ["BASIS"], "grade": 2.3, "semester": "WS 2024/25" }
   ],
   "masterCategoryMeta": {
     "TECH":  { "fullLabel": "Technical Computer Science" },

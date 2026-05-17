@@ -1,5 +1,6 @@
 import { useStudyStats } from '../hooks/useStudyStats'
 import { CategoryProgress } from './CategoryProgress'
+import { CompletedCourses } from './CompletedCourses'
 
 interface StatItemProps {
   label: string
@@ -47,6 +48,10 @@ export function Dashboard() {
         <div className="flex items-center justify-center rounded-[10px] border border-dashed border-border bg-surface p-6 text-[13.5px] text-fg-muted">
           More insights coming soon
         </div>
+      </div>
+
+      <div className="mt-4.5">
+        <CompletedCourses />
       </div>
     </div>
   )
