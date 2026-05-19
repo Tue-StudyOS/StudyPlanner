@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react'
-import type { Course } from '../types'
-import { CatBadge } from '../../../shared/components/CatBadge'
+import type { Course } from '../../features/courses'
+import { CatBadge } from './CatBadge'
+import { FavStar } from './FavStar'
 import { ClockIcon, PinIcon, UserIcon } from './icons'
 
 interface CourseCardProps {
   course: Course
+  isFavorite: boolean
+  onToggleFavorite: () => void
 }
 
 function TypePill({ label }: { label: string }) {
@@ -24,13 +27,11 @@ function InfoRow({ icon, text }: { icon: ReactNode; text: string }) {
   )
 }
 
-// The course data lists academic titles; the card shows the plain name.
 function plainLecturerName(lecturer: string): string {
   return lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g, '')
 }
 
-export function CourseCard({ course }: CourseCardProps) {
-  // A course may have no scheduled slot; the time/room rows are skipped then.
+export function CourseCard({ course, isFavorite, onToggleFavorite }: CourseCardProps) {
   const slot = course.schedule.at(0)
 
   return (
@@ -42,6 +43,7 @@ export function CourseCard({ course }: CourseCardProps) {
             <CatBadge key={cat} cat={cat} />
           ))}
         </div>
+        <FavStar active={isFavorite} onToggle={onToggleFavorite} />
       </div>
 
       <div>

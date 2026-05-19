@@ -1,6 +1,5 @@
 import type { MasterCat } from '../../features/courses'
 
-// Static class strings per category so Tailwind can detect them at build time.
 const CAT_BADGE_CLASSES: Record<MasterCat, string> = {
   TECH: 'text-cat-tech border-cat-tech bg-cat-tech/20',
   THEO: 'text-cat-theo border-cat-theo bg-cat-theo/20',
@@ -14,7 +13,6 @@ interface CatBadgeProps {
   cat: MasterCat
 }
 
-/** Small colored badge showing a master category code (e.g. TECH). */
 export function CatBadge({ cat }: CatBadgeProps) {
   return (
     <span
