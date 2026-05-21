@@ -15,8 +15,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--start-url",
-        default=AlmaScraper.FACULTY_OF_SCIENCE_URL,
-        help="Catalog URL or stable ALMA permalink to start from. Defaults to Faculty of Science.",
+        default=AlmaScraper.INFORMATICS_COURSES_URL,
+        help=(
+            "Catalog URL or stable ALMA permalink to start from. "
+            "Defaults to the Informatik course catalog (Gesamtverzeichnis "
+            "Lehrveranstaltungen Informatik)."
+        ),
     )
     parser.add_argument(
         "--branch-title",

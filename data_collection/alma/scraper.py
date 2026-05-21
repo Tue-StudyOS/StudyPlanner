@@ -16,6 +16,8 @@ from bs4 import BeautifulSoup, Tag
 
 CATALOG_PREFIX = "hierarchy:content-container:courseCatalogFieldset:courseCatalog:"
 ALMA_BASE = "https://alma.uni-tuebingen.de"
+# ALMA caps the "Module / Studiengänge" page-size input ("Zeilen pro Seite") at 300.
+MODULE_ROWS_PER_PAGE = 300
 
 
 @dataclass(slots=True)
@@ -61,6 +63,13 @@ class AlmaScraper:
         "https://alma.uni-tuebingen.de:443/alma/pages/startFlow.xhtml?"
         "_flowId=showCourseCatalog-flow&periodId=229&"
         "path=title%3A18504%7Ctitle%3A18512&"
+        "navigationPosition=studiesOffered,courseoverviewShow"
+    )
+    # Gesamtverzeichnis Lehrveranstaltungen Informatik (a branch of the Faculty of Science).
+    INFORMATICS_COURSES_URL = (
+        "https://alma.uni-tuebingen.de:443/alma/pages/startFlow.xhtml?"
+        "_flowId=showCourseCatalog-flow&periodId=229&"
+        "path=title%3A18504%7Ctitle%3A18512%7Ctitle%3A19074%7Ctitle%3A19158&"
         "navigationPosition=studiesOffered,courseoverviewShow"
     )
 
@@ -307,14 +316,69 @@ class AlmaScraper:
         content_html = self._submit_detail_tab(response.text, response.url, "contentsTab")
         if content_html:
             details["content"] = parse_content_page(content_html)
+        details["categories"] = self.fetch_course_categories(response.text, response.url)
         return details
 
+    def fetch_course_categories(self, detail_page_html: str, current_url: str) -> list[str]:
+        """Return the module/study-program codes a course is assigned to.
+
+        These codes come from the 'Module / Studiengänge' detail tab. That
+        tab's table is paginated, so the page-size input is raised first to
+        make sure every assignment is included.
+        """
+        tab_html = self._submit_detail_tab(
+            detail_page_html, current_url, "modulesCourseOfStudiesTab"
+        )
+        if not tab_html:
+            return []
+        if _module_table_is_paginated(tab_html):
+            expanded = self._expand_module_rows(tab_html, current_url)
+            if expanded:
+                tab_html = expanded
+        return parse_module_categories(tab_html)
+
+    def _expand_module_rows(self, tab_html: str, current_url: str) -> str | None:
+        """Re-render the module table with a large page size so no rows stay hidden."""
+        soup = BeautifulSoup(tab_html, "html.parser")
+        rows_input = soup.find("input", id=re.compile(r"NumRowsInput$"))
+        if not isinstance(rows_input, Tag):
+            return None
+        input_name = rows_input.get("name")
+        if not input_name:
+            return None
+        return self._submit_detail_form(
+            tab_html,
+            current_url,
+            re.compile(r"NumRowsRefresh$"),
+            {str(input_name): str(MODULE_ROWS_PER_PAGE)},
+        )
+
     def _submit_detail_tab(self, page_html: str, current_url: str, tab_suffix: str) -> str | None:
+        return self._submit_detail_form(
+            page_html,
+            current_url,
+            re.compile(rf":tabs:{re.escape(tab_suffix)}$"),
+            {},
+        )
+
+    def _submit_detail_form(
+        self,
+        page_html: str,
+        current_url: str,
+        button_id_pattern: re.Pattern[str],
+        overrides: dict[str, str],
+    ) -> str | None:
+        """Re-submit the detail-page form by pressing one button.
+
+        Collects every input/select of the ``detailViewData`` form, applies
+        ``overrides``, presses the button matched by ``button_id_pattern``,
+        and returns the response HTML.
+        """
         soup = BeautifulSoup(page_html, "html.parser")
         form = soup.find("form", id="detailViewData")
         if not isinstance(form, Tag):
             return None
-        button = form.find("button", id=re.compile(rf":tabs:{re.escape(tab_suffix)}$"))
+        button = form.find("button", id=button_id_pattern)
         if not isinstance(button, Tag):
             return None
         data: dict[str, str] = {}
@@ -329,6 +393,7 @@ class AlmaScraper:
             option = select.find("option", selected=True) or select.find("option")
             data[str(name)] = str(option.get("value", "")) if isinstance(option, Tag) else ""
 
+        data.update(overrides)
         button_name = str(button.get("name"))
         data[button_name] = button_name
         data["DISABLE_VALIDATION"] = "true"
@@ -700,6 +765,52 @@ def parse_appointment_tables(scope: Tag) -> list[dict[str, str]]:
             if record:
                 appointments.append(record)
     return appointments
+
+
+def parse_module_categories(html_text: str) -> list[str]:
+    """Extract the sorted, deduplicated module/study-program codes from the
+    'Module / Studiengänge' table on a course detail page."""
+    soup = BeautifulSoup(html_text, "html.parser")
+    table = soup.find("table", id=re.compile(r"moduleAssignmentsTable$"))
+    if not isinstance(table, Tag):
+        return []
+    body = table.find("tbody")
+    if not isinstance(body, Tag):
+        return []
+    codes: set[str] = set()
+    for row in body.find_all("tr", recursive=False):
+        cells = row.find_all("td", recursive=False)
+        if len(cells) < 2:
+            continue
+        code = _module_assignment_code(clean_text(cells[0]), clean_text(cells[1]))
+        if code:
+            codes.add(code)
+    return sorted(codes)
+
+
+def _module_assignment_code(module_number: str, short_name: str) -> str | None:
+    """Pick the readable code of one 'Module / Studiengänge' row.
+
+    ALMA puts the code in the 'Modulnummer' column for some rows and in the
+    'Modulname (Kurztext)' column for others; the remaining cell then holds a
+    plain ordering number or the long 'NN|NNN|H|YYYY-CODE' form. The readable
+    code is the value that is neither purely numeric nor the long form.
+    """
+    for value in (module_number, short_name):
+        candidate = value.strip()
+        if candidate and not candidate.isdigit() and "|" not in candidate:
+            return candidate
+    return None
+
+
+def _module_table_is_paginated(html_text: str) -> bool:
+    """Detect whether the module table shows only the first of several pages."""
+    soup = BeautifulSoup(html_text, "html.parser")
+    page_text = soup.find("span", class_="dataScrollerPageText")
+    if not isinstance(page_text, Tag):
+        return False
+    match = re.search(r"von\s+(\d+)", clean_text(page_text))
+    return bool(match and int(match.group(1)) > 1)
 
 
 def first(values: list[str] | None) -> str | None:

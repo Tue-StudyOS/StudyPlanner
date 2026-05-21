@@ -34,13 +34,17 @@
 
 ## Usage
 
-### Default: Faculty of Science (Recommended)
+### Default: Informatik catalog (Recommended)
 
-Scrape the Faculty of Science with course details:
+Scrape the Informatik course catalog (Gesamtverzeichnis Lehrveranstaltungen
+Informatik) with course details:
 
 ```powershell
 uv run python -m alma_scraper.cli --details
 ```
+
+Each course detail includes a `categories` list — the module/study-program
+codes (e.g. `INFO-INFO`, `INFO-BASIS`) from its "Module / Studiengänge" tab.
 
 Output: `output/YYYY-MM-DD_HH-MM-SS/courses.json`
 
