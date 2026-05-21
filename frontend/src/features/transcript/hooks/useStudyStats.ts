@@ -1,10 +1,10 @@
-import { useCourses } from '../../courses'
+import { useTranscript } from './useTranscript'
 import type { StudyStats } from '../types'
 
 const REQUIRED_ECTS = 120
 
 export function useStudyStats(): StudyStats {
-  const { completedCourses } = useCourses()
+  const { completedCourses } = useTranscript()
 
   const totalEcts = completedCourses.reduce((sum, completed) => sum + completed.ects, 0)
 

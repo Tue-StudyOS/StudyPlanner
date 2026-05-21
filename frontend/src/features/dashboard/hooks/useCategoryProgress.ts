@@ -1,5 +1,6 @@
 import { useCourses } from '../../courses'
 import type { MasterCat } from '../../courses'
+import { useTranscript } from '../../transcript'
 import type { CategoryProgress, ThesisProgress } from '../types'
 
 const CORE_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO']
@@ -12,20 +13,25 @@ export function useCategoryProgress(): {
   electives: CategoryProgress[]
   thesis: ThesisProgress
 } {
-  const { completedCourses, masterCategoryMeta } = useCourses()
+  const { masterCategoryMeta } = useCourses()
+  const { completedCourses } = useTranscript()
 
   const earnedByCat = new Map<MasterCat, number>()
   for (const completed of completedCourses) {
-    for (const cat of completed.masterCats) {
-      earnedByCat.set(cat, (earnedByCat.get(cat) ?? 0) + completed.ects)
-    }
+    earnedByCat.set(
+      completed.masterCat,
+      (earnedByCat.get(completed.masterCat) ?? 0) + completed.ects,
+    )
   }
 
   const toProgress = (cat: MasterCat): CategoryProgress => {
+    // FOKUS and BASIS are alternatives — a student does one or the other —
+    // but both count toward degree progress.
     const earned = earnedByCat.get(cat) ?? 0
     return {
       cat,
       label: masterCategoryMeta[cat].fullLabel,
+      // Earned ECTS may exceed the requirement; the progress bar caps at 100%.
       earnedEcts: earned,
       requiredEcts: REQUIRED_ECTS_PER_CATEGORY,
     }

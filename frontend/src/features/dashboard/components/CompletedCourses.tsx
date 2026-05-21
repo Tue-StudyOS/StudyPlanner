@@ -51,10 +51,8 @@ function CompletedCourseRow({ course, index, isLast }: CompletedCourseRowProps) 
           {course.semester} · {course.ects} ECTS
         </div>
       </div>
-      <div className="flex shrink-0 gap-1">
-        {course.masterCats.map((cat) => (
-          <CatBadge key={cat} cat={cat} />
-        ))}
+      <div className="shrink-0">
+        <CatBadge cat={course.masterCat} />
       </div>
       <span className="min-w-6 shrink-0 text-right text-[16px] font-bold text-fg">
         {course.grade}

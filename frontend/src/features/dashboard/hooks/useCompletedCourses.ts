@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCourses } from '../../courses'
+import { useTranscript } from '../../transcript'
 import type { CompletedCourse } from '../../courses'
 
 export function useCompletedCourses(): {
@@ -8,7 +8,7 @@ export function useCompletedCourses(): {
   setActiveSemester: (semester: string) => void
   courses: CompletedCourse[]
 } {
-  const { completedCourses } = useCourses()
+  const { completedCourses } = useTranscript()
 
   const semesters = [...new Set(completedCourses.map((c) => c.semester))].sort((a, b) =>
     b.localeCompare(a),

@@ -1,30 +1,12 @@
-import { useStudyStats } from '../hooks/useStudyStats'
+import { StatItem } from '../../../shared/components/StatItem'
+import { useStudyStats } from '../../transcript'
 import { CategoryProgress } from './CategoryProgress'
 import { CompletedCourses } from './CompletedCourses'
-
-interface StatItemProps {
-  label: string
-  value: string
-  sub: string
-  withDivider: boolean
-}
-
-function StatItem({ label, value, sub, withDivider }: StatItemProps) {
-  return (
-    <div className={withDivider ? 'border-l border-border-light pl-6' : ''}>
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-fg-muted">{label}</div>
-      <div className="flex items-baseline gap-1.25">
-        <span className="text-2xl font-bold leading-none text-accent">{value}</span>
-        <span className="text-[12px] text-fg-muted">{sub}</span>
-      </div>
-    </div>
-  )
-}
 
 export function Dashboard() {
   const { totalEcts, requiredEcts, progress, averageGrade } = useStudyStats()
 
-  const stats: Omit<StatItemProps, 'withDivider'>[] = [
+  const stats = [
     { label: 'Total ECTS', value: String(totalEcts), sub: `/ ${requiredEcts} ECTS` },
     { label: 'Progress', value: `${progress} %`, sub: 'of degree' },
     { label: 'Ø Grade', value: averageGrade !== null ? averageGrade.toFixed(2) : '–', sub: 'German scale' },
@@ -39,7 +21,9 @@ export function Dashboard() {
 
       <div className="grid grid-cols-3 gap-6 rounded-[10px] border border-border bg-surface px-6 py-4.5">
         {stats.map((stat, i) => (
-          <StatItem key={stat.label} {...stat} withDivider={i > 0} />
+          <div key={stat.label} className={i > 0 ? 'border-l border-border-light pl-6' : ''}>
+            <StatItem {...stat} />
+          </div>
         ))}
       </div>
 

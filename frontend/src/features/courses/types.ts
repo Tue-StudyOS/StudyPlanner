@@ -19,7 +19,7 @@ export interface CompletedCourse {
   id: string
   title: string
   ects: number
-  masterCats: MasterCat[]
+  masterCat: MasterCat
   grade: number
   semester: string
 }

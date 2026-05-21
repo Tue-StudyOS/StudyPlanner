@@ -7,6 +7,10 @@ interface CoursesData {
   masterCategoryMeta: MasterCategoryMeta
 }
 
-export function useCourses(): CoursesData {
-  return coursesData as CoursesData
+const data = coursesData as CoursesData
+
+export const initialCompletedCourses: CompletedCourse[] = data.completedCourses
+
+export function useCourses(): { courses: Course[]; masterCategoryMeta: MasterCategoryMeta } {
+  return { courses: data.courses, masterCategoryMeta: data.masterCategoryMeta }
 }
