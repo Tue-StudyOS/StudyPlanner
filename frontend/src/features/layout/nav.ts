@@ -12,7 +12,7 @@ export const NAV: NavEntry[] = [
   { path: ROUTES.dashboard, label: 'Dashboard', Icon: DashboardIcon },
   { path: ROUTES.catalog, label: 'Catalog', Icon: CatalogIcon },
   { path: ROUTES.favorites, label: 'Favorites', Icon: FavoritesIcon },
-  { path: ROUTES.transcript, label: 'Transcript', Icon: TranscriptIcon },
   { path: ROUTES.planner, label: 'Planner', Icon: PlannerIcon },
+  { path: ROUTES.transcript, label: 'Transcript', Icon: TranscriptIcon },
   { path: ROUTES.account, label: 'Account', Icon: AccountIcon },
 ]
