@@ -61,7 +61,7 @@ function PlannerGrid({
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[14px] font-semibold text-fg">Weekly planner grid</div>
+          <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
           <p className="text-[12.5px] text-fg-muted">
             {isEditing
               ? 'Drag favorites into the grid or use the side panel buttons.'
@@ -75,75 +75,88 @@ function PlannerGrid({
       <div className="overflow-x-auto">
         <div className="grid min-w-[720px] grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2">
           <div />
-        {DAY_ORDER.map((day) => (
-          <div key={day} className="text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            {DAY_LABELS[day]}
-          </div>
-        ))}
-
-        <div className="relative h-full">
-          {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+          {DAY_ORDER.map((day) => (
             <div
-              key={index}
-              className="absolute left-0 text-[11px] text-fg-muted"
-              style={{ top: `${index * PIXELS_PER_HOUR - 8}px` }}
+              key={day}
+              className="text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted"
             >
-              {String(START_HOUR + index).padStart(2, '0')}:00
+              {DAY_LABELS[day]}
             </div>
           ))}
-        </div>
 
-        <div className="col-span-5 grid grid-cols-5 gap-2">
-          {DAY_ORDER.map((day) => (
-            <div key={day} className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25" style={{ height: `${totalHeight}px` }}>
-              {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => (
-                <div
-                  key={`${day}-${index}`}
-                  className="absolute inset-x-0 border-t border-border-light/70"
-                  style={{ top: `${index * PIXELS_PER_HOUR}px` }}
-                />
-              ))}
+          <div className="relative h-full">
+            {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+              <div
+                key={index}
+                className="absolute left-0 text-[11px] text-fg-muted"
+                style={{ top: `${index * PIXELS_PER_HOUR - 8}px` }}
+              >
+                {String(START_HOUR + index).padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
 
-              {blocks
-                .filter((block) => block.day === day)
-                .map((block) => {
-                  const top = ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR) * PIXELS_PER_HOUR
-                  const height = ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR) * PIXELS_PER_HOUR
-                  return (
-                    <div
-                      key={block.blockId}
-                      className={`absolute inset-x-1 rounded-md border px-2 py-1 text-[11px] shadow-sm ${
-                        block.hasOverlap
-                          ? 'border-primary bg-primary-soft text-primary'
-                          : 'border-border bg-surface text-fg dark:bg-surface-hover'
-                      }`}
-                      style={{ top: `${top}px`, height: `${Math.max(height, 34)}px` }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold">{block.courseTitle}</div>
-                          <div className="truncate text-[10px] opacity-80">{block.label}</div>
-                          <div className="truncate text-[10px] opacity-80">{block.room}</div>
+          <div className="col-span-5 grid grid-cols-5 gap-2">
+            {DAY_ORDER.map((day) => (
+              <div
+                key={day}
+                className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
+                style={{ height: `${totalHeight}px` }}
+              >
+                {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => (
+                  <div
+                    key={`${day}-${index}`}
+                    className="absolute inset-x-0 border-t border-border-light/70"
+                    style={{ top: `${index * PIXELS_PER_HOUR}px` }}
+                  />
+                ))}
+
+                {blocks
+                  .filter((block) => block.day === day)
+                  .map((block) => {
+                    const top =
+                      ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR) *
+                      PIXELS_PER_HOUR
+                    const height =
+                      ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR) *
+                      PIXELS_PER_HOUR
+                    return (
+                      <div
+                        key={block.blockId}
+                        className={`absolute inset-x-1 rounded-md border px-2 py-1 text-[11px] shadow-sm ${
+                          block.hasOverlap
+                            ? 'border-primary bg-primary-soft text-primary'
+                            : 'border-border bg-surface text-fg dark:bg-surface-hover'
+                        }`}
+                        style={{ top: `${top}px`, height: `${Math.max(height, 34)}px` }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold">{block.courseTitle}</div>
+                            <div className="truncate text-[10px] opacity-80">{block.label}</div>
+                            <div className="truncate text-[10px] opacity-80">{block.room}</div>
+                          </div>
+                          {isEditing ? (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveCourse(block.courseId)}
+                              className="rounded-sm px-1 text-[10px] font-semibold opacity-70 hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          ) : null}
                         </div>
-                        {isEditing ? (
-                          <button
-                            type="button"
-                            onClick={() => onRemoveCourse(block.courseId)}
-                            className="rounded-sm px-1 text-[10px] font-semibold opacity-70 hover:opacity-100"
-                          >
-                            ×
-                          </button>
+                        {block.hasOverlap ? (
+                          <div className="mt-1 text-[10px] font-semibold">Overlap</div>
                         ) : null}
                       </div>
-                      {block.hasOverlap ? <div className="mt-1 text-[10px] font-semibold">Overlap</div> : null}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
 
-              {blocks.length === 0 ? <EmptyGridState isEditing={isEditing} /> : null}
-            </div>
-          ))}
-        </div>
+                {blocks.length === 0 ? <EmptyGridState isEditing={isEditing} /> : null}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -158,6 +171,7 @@ export function SemesterPlanner() {
     activeSemesterLabel,
     semesterOptions,
     plannedCourseIds,
+    planAssignments,
     savedPlan,
     isEditing,
     isLoadingPlanIndex,
@@ -169,6 +183,7 @@ export function SemesterPlanner() {
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
+    setAssignment,
     startEditing,
     cancelEditing,
     saveCurrentSemesterPlan,
@@ -215,14 +230,18 @@ export function SemesterPlanner() {
           Semester Planner
         </h1>
         <p className="text-[13.5px] text-fg-muted">
-          Switch semesters and save one weekly plan per semester. Planning mode reveals your favorites.
+          Switch semesters and save one weekly plan per semester. Planning mode reveals your
+          favorites.
         </p>
       </div>
 
       <section className="mb-4.5 rounded-[10px] border border-border bg-surface px-6 py-5.5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="grid gap-1.5 sm:max-w-[260px]">
-            <label htmlFor="planner-semester" className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+            <label
+              htmlFor="planner-semester"
+              className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted"
+            >
               Active semester
             </label>
             <select
@@ -250,7 +269,9 @@ export function SemesterPlanner() {
                 <button
                   type="button"
                   onClick={() => void saveCurrentSemesterPlan()}
-                  disabled={isSavingSemesterPlan || isDeletingSemesterPlan || isLoadingSemesterPlan}
+                  disabled={
+                    isSavingSemesterPlan || isDeletingSemesterPlan || isLoadingSemesterPlan
+                  }
                   className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingSemesterPlan ? 'Saving...' : `Save ${activeSemesterLabel}`}
@@ -277,7 +298,9 @@ export function SemesterPlanner() {
             <button
               type="button"
               onClick={() => void deleteCurrentSemesterPlan()}
-              disabled={isDeletingSemesterPlan || (!savedPlan && plannedCourseIds.length === 0)}
+              disabled={
+                isDeletingSemesterPlan || (!savedPlan && plannedCourseIds.length === 0)
+              }
               className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
@@ -286,10 +309,19 @@ export function SemesterPlanner() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3 text-[12.5px] text-fg-muted">
-          <span>{savedPlan ? `Saved ${savedPlan.courseCount} course(s) for ${activeSemesterLabel}.` : `No saved plan yet for ${activeSemesterLabel}.`}</span>
-          <span>{isLoadingPlanIndex ? 'Loading saved semesters...' : `${semesterOptions.length} semester option(s) available.`}</span>
-          <span>{isEditing ? 'Planning mode is active.' : 'Planning mode is hidden until you click Edit plan.'}</span>
-          {hasUnsavedChanges ? <span className="text-primary">You have unsaved course changes.</span> : null}
+          <span>
+            {savedPlan
+              ? `Saved ${savedPlan.courseCount} course(s) for ${activeSemesterLabel}.`
+              : `No saved plan yet for ${activeSemesterLabel}.`}
+          </span>
+          <span>
+            {isLoadingPlanIndex
+              ? 'Loading saved semesters...'
+              : `${semesterOptions.length} semester option(s) available.`}
+          </span>
+          {hasUnsavedChanges ? (
+            <span className="text-primary">You have unsaved changes.</span>
+          ) : null}
         </div>
       </section>
 
@@ -305,13 +337,8 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
-      <div className="grid gap-4.5">
-        <PlannerFeedback
-          plannedCourses={plannedCourses}
-          studyProgramCode={user?.profile.studyProgramCode ?? null}
-        />
-
-        <div className={`grid gap-4.5 ${isEditing ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
+      <div className="grid gap-4.5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="flex flex-col gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
             <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
               Loading your saved plan for {activeSemesterLabel}...
@@ -357,6 +384,14 @@ export function SemesterPlanner() {
             />
           ) : null}
         </div>
+
+        <PlannerFeedback
+          plannedCourses={plannedCourses}
+          studyProgramCode={user?.profile.studyProgramCode ?? null}
+          planAssignments={planAssignments}
+          isEditing={isEditing}
+          onSetAssignment={setAssignment}
+        />
       </div>
     </div>
   )

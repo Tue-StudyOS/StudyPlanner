@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 
+const PAGE_SIZE = 30
+
 export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
   const { courses, isLoading, error } = useCatalogCourses(search)
   const {
@@ -16,6 +20,30 @@ export function CoursesOverview() {
     toggleFavorite,
   } = useFavorites()
 
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [search])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => prev + PAGE_SIZE)
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [courses])
+
+  const visibleCourses = courses.slice(0, visibleCount)
+  const hasMore = visibleCount < courses.length
+
   return (
     <div className="p-8">
       <h2 className="mb-2 text-2xl font-bold">Course Catalog</h2>
@@ -23,7 +51,8 @@ export function CoursesOverview() {
 
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          Public browsing is enabled. You only need an account for personal features such as favorites and progress.
+          Public browsing is enabled. You only need an account for personal features such as
+          favorites and progress.
         </div>
       ) : null}
 
@@ -65,17 +94,28 @@ export function CoursesOverview() {
           No courses match the current search.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          {courses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              isFavorite={isFavorite(course.id)}
-              favoriteDisabled={isLoadingFavorites || isSavingFavorites}
-              onToggleFavorite={() => toggleFavorite(course.id)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            {visibleCourses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                isFavorite={isFavorite(course.id)}
+                favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+                onToggleFavorite={() => toggleFavorite(course.id)}
+              />
+            ))}
+          </div>
+          {hasMore ? (
+            <div ref={sentinelRef} className="mt-6 text-center text-[13px] text-fg-muted">
+              Loading more courses...
+            </div>
+          ) : courses.length > PAGE_SIZE ? (
+            <div className="mt-6 text-center text-[13px] text-fg-muted">
+              All {courses.length} courses shown.
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )

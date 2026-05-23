@@ -9,4 +9,5 @@ export interface SemesterPlanSummary {
 
 export interface SemesterPlan extends SemesterPlanSummary {
   courseIds: string[]
+  courseAssignments: Record<string, string>
 }

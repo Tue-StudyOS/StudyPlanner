@@ -1,126 +1,190 @@
 import { useMemo } from 'react'
-import type { Course } from '../../courses'
-import { DAY_LABELS, calculatePlannerFeedback } from '../utils/plannerFeedback'
+import type { Course, StudyAreaOption } from '../../courses'
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-[10px] border border-border-light bg-surface-hover/60 px-4 py-3 dark:bg-surface-hover/80">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{label}</div>
-      <div className="mt-1 text-[20px] font-semibold text-fg">{value}</div>
-      {sub ? <div className="text-[12px] text-fg-muted">{sub}</div> : null}
-    </div>
+interface CoverageItem {
+  key: string
+  label: string
+  courseCount: number
+  ects: number
+}
+
+function getAssignableOptions(
+  course: Course,
+  studyProgramCode: string | null,
+): Array<{ code: string; label: string }> {
+  const options = course.studyAreaOptions ?? []
+  const filtered = options.filter((o) => !studyProgramCode || o.programCode === studyProgramCode)
+  const relevant = filtered.length > 0 ? filtered : options
+  const seen = new Set<string>()
+  return relevant
+    .filter((o): o is StudyAreaOption & { studyAreaCode: string } => Boolean(o.studyAreaCode))
+    .map((o) => ({ code: o.studyAreaCode, label: o.studyAreaName || o.studyAreaCode }))
+    .filter((o) => {
+      if (seen.has(o.code)) {
+        return false
+      }
+      seen.add(o.code)
+      return true
+    })
+}
+
+function buildCoverage(
+  courses: Course[],
+  studyProgramCode: string | null,
+  planAssignments: Record<string, string>,
+): CoverageItem[] {
+  const byKey = new Map<string, CoverageItem>()
+
+  courses.forEach((course) => {
+    const manualCode = planAssignments[course.id]
+    if (manualCode) {
+      const label =
+        course.studyAreaOptions?.find((o) => o.studyAreaCode === manualCode)?.studyAreaName ||
+        manualCode
+      const item = byKey.get(manualCode) ?? { key: manualCode, label, courseCount: 0, ects: 0 }
+      item.courseCount += 1
+      item.ects += course.ects ?? 0
+      byKey.set(manualCode, item)
+      return
+    }
+
+    const options = course.studyAreaOptions ?? []
+    const filtered = options.filter((o) => !studyProgramCode || o.programCode === studyProgramCode)
+    const relevant = filtered.length > 0 ? filtered : options
+    const seen = new Set<string>()
+
+    relevant.forEach((o) => {
+      const key = o.studyAreaCode || o.studyAreaName
+      if (!key || seen.has(key)) {
+        return
+      }
+      seen.add(key)
+      const item = byKey.get(key) ?? {
+        key,
+        label: o.studyAreaName || key,
+        courseCount: 0,
+        ects: 0,
+      }
+      item.courseCount += 1
+      item.ects += course.ects ?? 0
+      byKey.set(key, item)
+    })
+  })
+
+  return [...byKey.values()].sort(
+    (a, b) => b.ects - a.ects || a.label.localeCompare(b.label),
   )
 }
 
 interface PlannerFeedbackProps {
   plannedCourses: Course[]
   studyProgramCode: string | null
+  planAssignments: Record<string, string>
+  isEditing: boolean
+  onSetAssignment: (courseId: string, areaCode: string | null) => void
 }
 
-export function PlannerFeedback({ plannedCourses, studyProgramCode }: PlannerFeedbackProps) {
-  const feedback = useMemo(
-    () => calculatePlannerFeedback(plannedCourses, studyProgramCode),
-    [plannedCourses, studyProgramCode],
+export function PlannerFeedback({
+  plannedCourses,
+  studyProgramCode,
+  planAssignments,
+  isEditing,
+  onSetAssignment,
+}: PlannerFeedbackProps) {
+  const totalEcts = useMemo(
+    () => plannedCourses.reduce((sum, c) => sum + (c.ects ?? 0), 0),
+    [plannedCourses],
+  )
+
+  const coverageItems = useMemo(
+    () => buildCoverage(plannedCourses, studyProgramCode, planAssignments),
+    [plannedCourses, studyProgramCode, planAssignments],
   )
 
   return (
-    <section className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="mb-1 inline-flex rounded-full border border-border bg-surface-hover/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            Live planning feedback
+    <div className="flex flex-col gap-3.5">
+      <div className="rounded-[10px] border border-border bg-surface px-4 py-4">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+          Planned ECTS
+        </div>
+        <div className="mt-1 text-[28px] font-semibold leading-none text-fg">{totalEcts}</div>
+        <div className="mt-1 text-[12px] text-fg-muted">
+          {plannedCourses.length} course{plannedCourses.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      <div className="rounded-[10px] border border-border bg-surface px-4 py-4">
+        <div className="mb-3 text-[13px] font-semibold text-fg">Block coverage</div>
+        {!studyProgramCode ? (
+          <div className="mb-3 rounded-md border border-border-light bg-surface-hover/60 px-3 py-2 text-[12px] text-fg-muted">
+            Set your study program in Account for program-specific blocks.
           </div>
-          <p className="text-[12.5px] text-fg-muted">
-            ECTS, elective coverage, and scheduled course times update immediately.
+        ) : null}
+        {coverageItems.length === 0 ? (
+          <div className="text-[12.5px] text-fg-muted">
+            Add courses to see block coverage.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {coverageItems.map((item) => (
+              <div
+                key={item.key}
+                className="flex items-center justify-between gap-2 rounded-md border border-border-light bg-surface-hover/40 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[12.5px] font-medium text-fg">{item.label}</div>
+                  <div className="text-[11.5px] text-fg-muted">
+                    {item.courseCount} course{item.courseCount !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className="shrink-0 text-[13px] font-semibold text-fg">
+                  {item.ects} ECTS
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isEditing && plannedCourses.length > 0 ? (
+        <div className="rounded-[10px] border border-border bg-surface px-4 py-4">
+          <div className="mb-3 text-[13px] font-semibold text-fg">Block assignment</div>
+          <p className="mb-3 text-[12px] text-fg-muted">
+            Set which regulation block each course counts toward.
           </p>
-        </div>
-        <div className="text-[12px] text-fg-muted">{feedback.totalCourses} planned course(s)</div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Planned ECTS" value={String(feedback.totalEcts)} sub="Current semester total" />
-        <StatCard label="Scheduled blocks" value={String(feedback.totalBlocks)} sub="Weekly course slots" />
-        <StatCard
-          label="Weekly hours"
-          value={feedback.scheduledHours.toFixed(1)}
-          sub="Across all scheduled blocks"
-        />
-        <StatCard
-          label="Overlap alerts"
-          value={String(feedback.overlapCount)}
-          sub={feedback.overlapCount > 0 ? 'Conflicts need attention' : 'No conflicts yet'}
-        />
-      </div>
-
-      <div className="mt-4.5 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-        <div className="rounded-[10px] border border-border-light bg-surface-hover/35 px-4 py-4">
-          <div className="mb-3 text-[13px] font-semibold text-fg">{feedback.coverageLabel}</div>
-          {!studyProgramCode ? (
-            <div className="mb-3 rounded-md border border-border-light bg-surface px-3 py-2 text-[12px] text-fg-muted">
-              Set your study profile to unlock study-program-specific coverage.
-            </div>
-          ) : null}
-          {feedback.coverageItems.length === 0 ? (
-            <div className="text-[12.5px] text-fg-muted">
-              Add courses to the planner to see how they cover your elective blocks.
-            </div>
-          ) : (
-            <div className="grid max-h-[18rem] gap-2 overflow-y-auto pr-1">
-              {feedback.coverageItems.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border-light bg-surface px-3 py-2"
-                >
-                  <div>
-                    <div className="text-[12.5px] font-medium text-fg">{item.label}</div>
-                    <div className="text-[11.5px] text-fg-muted">{item.courseCount} course(s)</div>
+          <div className="flex flex-col gap-2">
+            {plannedCourses.map((course) => {
+              const options = getAssignableOptions(course, studyProgramCode)
+              const currentValue = planAssignments[course.id] ?? ''
+              return (
+                <div key={course.id} className="rounded-md border border-border-light bg-surface-hover/40 px-3 py-2">
+                  <div className="mb-1.5 truncate text-[12px] font-medium text-fg">
+                    {course.title}
                   </div>
-                  <div className="text-[12.5px] font-semibold text-fg">{item.ects} ECTS</div>
+                  {options.length === 0 ? (
+                    <div className="text-[11.5px] text-fg-muted">No regulation blocks found</div>
+                  ) : (
+                    <select
+                      value={currentValue}
+                      onChange={(e) =>
+                        onSetAssignment(course.id, e.target.value || null)
+                      }
+                      className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                    >
+                      <option value="">Auto-detect</option>
+                      {options.map((opt) => (
+                        <option key={opt.code} value={opt.code}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {feedback.unscheduledCourses.length > 0 ? (
-            <div className="mt-4 rounded-md border border-border-light px-3 py-3 text-[12px] text-fg-muted">
-              {feedback.unscheduledCourses.length} course(s) do not expose a parsable weekly schedule yet.
-            </div>
-          ) : null}
+              )
+            })}
+          </div>
         </div>
-
-        <div className="rounded-[10px] border border-border-light bg-surface-hover/35 px-4 py-4">
-          <div className="mb-3 text-[13px] font-semibold text-fg">Scheduled course times</div>
-          {feedback.scheduledBlocks.length === 0 ? (
-            <div className="text-[12.5px] text-fg-muted">
-              Planned course times will appear here once you add scheduled favorites.
-            </div>
-          ) : (
-            <div className="grid max-h-[18rem] gap-2 overflow-y-auto pr-1">
-              {feedback.scheduledBlocks.map((block) => (
-                <div
-                  key={block.blockId}
-                  className={`rounded-md border px-3 py-2 ${
-                    block.hasOverlap
-                      ? 'border-primary bg-primary-soft text-primary'
-                      : 'border-border-light bg-surface'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[12.5px] font-medium">{block.courseTitle}</div>
-                      <div className="text-[11.5px] opacity-80">{block.label}</div>
-                    </div>
-                    <div className="text-right text-[11.5px] opacity-80">
-                      <div>{DAY_LABELS[block.day]}</div>
-                      <div>{block.room || 'Room tba'}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
+      ) : null}
+    </div>
   )
 }

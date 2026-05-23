@@ -203,19 +203,19 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
     return ""
 
 
-async def _load_catalog_related(
-    env: Any,
-    course_ids: list[int],
-) -> tuple[
-    dict[int, list[dict[str, Any]]],
-    dict[int, list[dict[str, Any]]],
-    dict[int, list[dict[str, Any]]],
-    dict[int, list[dict[str, Any]]],
-]:
-    if not course_ids:
-        return {}, {}, {}, {}
+_D1_CHUNK_SIZE = 50
 
-    placeholders = _placeholders(len(course_ids))
+
+async def _load_catalog_related_chunk(
+    env: Any,
+    chunk: list[int],
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
+    placeholders = _placeholders(len(chunk))
 
     lecturer_rows = await fetch_all(
         env,
@@ -228,7 +228,7 @@ async def _load_catalog_related(
         WHERE cl.course_id IN ({placeholders})
         ORDER BY cl.course_id ASC, l.display_name ASC
         """,
-        course_ids,
+        chunk,
     )
 
     parallel_group_rows = await fetch_all(
@@ -243,7 +243,7 @@ async def _load_catalog_related(
         WHERE course_id IN ({placeholders})
         ORDER BY course_id ASC, position ASC
         """,
-        course_ids,
+        chunk,
     )
 
     appointment_rows = await fetch_all(
@@ -270,7 +270,7 @@ async def _load_catalog_related(
             COALESCE(a.start_time, '99:99') ASC,
             a.position ASC
         """,
-        course_ids,
+        chunk,
     )
 
     option_rows = await fetch_all(
@@ -296,14 +296,42 @@ async def _load_catalog_related(
         WHERE m.course_id IN ({placeholders})
         ORDER BY m.course_id ASC, sp.code ASC, sa.sort_order ASC, sa.name ASC
         """,
-        course_ids,
+        chunk,
     )
 
+    return lecturer_rows, parallel_group_rows, appointment_rows, option_rows
+
+
+async def _load_catalog_related(
+    env: Any,
+    course_ids: list[int],
+) -> tuple[
+    dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
+    dict[int, list[dict[str, Any]]],
+]:
+    if not course_ids:
+        return {}, {}, {}, {}
+
+    all_lecturers: list[dict[str, Any]] = []
+    all_groups: list[dict[str, Any]] = []
+    all_appointments: list[dict[str, Any]] = []
+    all_options: list[dict[str, Any]] = []
+
+    for i in range(0, len(course_ids), _D1_CHUNK_SIZE):
+        chunk = course_ids[i : i + _D1_CHUNK_SIZE]
+        lec, grp, apt, opt = await _load_catalog_related_chunk(env, chunk)
+        all_lecturers.extend(lec)
+        all_groups.extend(grp)
+        all_appointments.extend(apt)
+        all_options.extend(opt)
+
     return (
-        _group_rows_by_course_id(lecturer_rows),
-        _group_rows_by_course_id(parallel_group_rows),
-        _group_rows_by_course_id(appointment_rows),
-        _group_rows_by_course_id(option_rows),
+        _group_rows_by_course_id(all_lecturers),
+        _group_rows_by_course_id(all_groups),
+        _group_rows_by_course_id(all_appointments),
+        _group_rows_by_course_id(all_options),
     )
 
 

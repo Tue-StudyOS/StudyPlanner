@@ -13,6 +13,7 @@ interface SaveSemesterPlanInput {
   title?: string | null
   notes?: string | null
   courseIds: string[]
+  courseAssignments?: Record<string, string>
 }
 
 export async function fetchSemesterPlans(token: string): Promise<SemesterPlanSummary[]> {

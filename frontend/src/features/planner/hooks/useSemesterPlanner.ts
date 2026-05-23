@@ -28,11 +28,24 @@ function areCourseIdsEqual(left: string[], right: string[]): boolean {
   return left.every((courseId, index) => courseId === right[index])
 }
 
+function areAssignmentsEqual(
+  left: Record<string, string>,
+  right: Record<string, string>,
+): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+  return leftKeys.every((key) => left[key] === right[key])
+}
+
 interface UseSemesterPlannerResult {
   activeSemesterLabel: string
   semesterOptions: string[]
   savedPlans: SemesterPlanSummary[]
   plannedCourseIds: string[]
+  planAssignments: Record<string, string>
   savedPlan: SemesterPlan | null
   isEditing: boolean
   isLoadingPlanIndex: boolean
@@ -44,6 +57,7 @@ interface UseSemesterPlannerResult {
   hasUnsavedChanges: boolean
   setActiveSemesterLabel: (semesterLabel: string) => void
   setPlannedCourseIds: (courseIds: string[]) => void
+  setAssignment: (courseId: string, areaCode: string | null) => void
   startEditing: () => void
   cancelEditing: () => void
   saveCurrentSemesterPlan: () => Promise<void>
@@ -56,6 +70,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [savedPlans, setSavedPlans] = useState<SemesterPlanSummary[]>([])
   const [savedPlan, setSavedPlan] = useState<SemesterPlan | null>(null)
   const [plannedCourseIds, setPlannedCourseIds] = useState<string[]>([])
+  const [planAssignments, setPlanAssignments] = useState<Record<string, string>>({})
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [isLoadingPlanIndex, setIsLoadingPlanIndex] = useState<boolean>(false)
   const [isLoadingSemesterPlan, setIsLoadingSemesterPlan] = useState<boolean>(false)
@@ -86,6 +101,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           setSavedPlans([])
           setSavedPlan(null)
           setPlannedCourseIds([])
+          setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(null)
           setPlannerMessage(null)
@@ -137,11 +153,13 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         }
         setSavedPlan(nextSavedPlan)
         setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
+        setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
         setIsEditing(false)
       } catch (error) {
         if (isActive) {
           setSavedPlan(null)
           setPlannedCourseIds([])
+          setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(normalizeErrorMessage(error))
         }
@@ -160,8 +178,10 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }, [activeSemesterLabel, token])
 
   const hasUnsavedChanges = useMemo(
-    () => !areCourseIdsEqual(plannedCourseIds, savedPlan?.courseIds ?? []),
-    [plannedCourseIds, savedPlan?.courseIds],
+    () =>
+      !areCourseIdsEqual(plannedCourseIds, savedPlan?.courseIds ?? []) ||
+      !areAssignmentsEqual(planAssignments, savedPlan?.courseAssignments ?? {}),
+    [plannedCourseIds, savedPlan?.courseIds, planAssignments, savedPlan?.courseAssignments],
   )
 
   const setActiveSemesterLabel = (semesterLabel: string): void => {
@@ -195,6 +215,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
+    setPlanAssignments(savedPlan?.courseAssignments ?? {})
     setIsEditing(true)
   }
 
@@ -202,7 +223,19 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
+    setPlanAssignments(savedPlan?.courseAssignments ?? {})
     setIsEditing(false)
+  }
+
+  function setAssignment(courseId: string, areaCode: string | null): void {
+    setPlanAssignments((prev) => {
+      if (!areaCode) {
+        const next = { ...prev }
+        delete next[courseId]
+        return next
+      }
+      return { ...prev, [courseId]: areaCode }
+    })
   }
 
   async function saveCurrentSemesterPlan(): Promise<void> {
@@ -219,9 +252,11 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         title: null,
         notes: null,
         courseIds: plannedCourseIds,
+        courseAssignments: planAssignments,
       })
       setSavedPlan(nextSavedPlan)
       setPlannedCourseIds(nextSavedPlan.courseIds)
+      setPlanAssignments(nextSavedPlan.courseAssignments)
       setIsEditing(false)
       await refreshSavedPlans()
       setPlannerMessage(`Saved your plan for ${activeSemesterLabel}.`)
@@ -260,6 +295,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     semesterOptions,
     savedPlans,
     plannedCourseIds,
+    planAssignments,
     savedPlan,
     isEditing,
     isLoadingPlanIndex,
@@ -271,6 +307,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
+    setAssignment,
     startEditing,
     cancelEditing,
     saveCurrentSemesterPlan,

@@ -78,6 +78,17 @@ def _normalize_course_ids(payload: dict[str, Any]) -> list[int]:
     return normalized_ids
 
 
+def _normalize_course_assignments(payload: dict[str, Any]) -> dict[str, str]:
+    raw = payload.get('courseAssignments')
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, str] = {}
+    for course_id, area_code in raw.items():
+        if area_code and isinstance(area_code, str) and area_code.strip():
+            result[str(course_id)] = area_code.strip()
+    return result
+
+
 async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
     if not course_ids:
         return
@@ -125,7 +136,7 @@ async def _serialize_plan(env: Any, user_id: int, semester_label: str) -> dict[s
     course_rows = await fetch_all(
         env,
         """
-        SELECT course_id AS courseId
+        SELECT course_id AS courseId, study_area_code AS studyAreaCode
         FROM user_semester_plan_courses
         WHERE plan_id = ?
         ORDER BY position ASC, created_at_unix ASC, course_id ASC
@@ -133,11 +144,17 @@ async def _serialize_plan(env: Any, user_id: int, semester_label: str) -> dict[s
         [header['id']],
     )
     course_ids = [str(int(row['courseId'])) for row in course_rows]
+    course_assignments = {
+        str(int(row['courseId'])): row['studyAreaCode']
+        for row in course_rows
+        if row.get('studyAreaCode')
+    }
     return {
         'semesterLabel': header['semesterLabel'],
         'title': header.get('title'),
         'notes': header.get('notes'),
         'courseIds': course_ids,
+        'courseAssignments': course_assignments,
         'courseCount': len(course_ids),
         'createdAtUnix': int(header['createdAtUnix']),
         'updatedAtUnix': int(header['updatedAtUnix']),
@@ -203,6 +220,7 @@ def _normalize_plan_payload(payload: dict[str, Any]) -> SemesterPlanPayload:
             max_length=MAX_PLAN_NOTES_LENGTH,
         ),
         courseIds=_normalize_course_ids(payload),
+        courseAssignments=_normalize_course_assignments(payload),
     )
 
 
@@ -217,6 +235,7 @@ async def replace_current_user_semester_plan(
     normalized_semester_label = _normalize_semester_label(semester_label)
     normalized_payload = _normalize_plan_payload(payload)
     course_ids = [int(course_id) for course_id in normalized_payload['courseIds']]
+    course_assignments = normalized_payload['courseAssignments']
     await _validate_course_ids(env, course_ids)
 
     existing_plan = await _get_plan_header(env, user_id, normalized_semester_label)
@@ -274,6 +293,7 @@ async def replace_current_user_semester_plan(
     await execute(env, 'DELETE FROM user_semester_plan_courses WHERE plan_id = ?', [plan_id])
 
     for position, course_id in enumerate(course_ids):
+        study_area_code = course_assignments.get(str(course_id))
         await execute(
             env,
             """
@@ -281,10 +301,11 @@ async def replace_current_user_semester_plan(
                 plan_id,
                 course_id,
                 position,
+                study_area_code,
                 created_at_unix
-            ) VALUES (?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?)
             """,
-            [plan_id, course_id, position, now_unix],
+            [plan_id, course_id, position, study_area_code, now_unix],
         )
 
     saved_plan = await _serialize_plan(env, user_id, normalized_semester_label)
