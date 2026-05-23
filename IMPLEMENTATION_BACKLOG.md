@@ -85,11 +85,11 @@ This file is the persistent checklist for upcoming product work.
 - [x] 6.1 Define the minimum data model and API for semester-specific weekly plans per account.
 - [x] 6.2 Add a planning mode that shows the user's favorite courses as draggable schedule candidates.
 - [x] 6.3 Build drag-and-drop placement into a weekly grid with course times and overlap highlighting.
-- [ ] 6.4 Show live planning feedback, for example elective-block coverage, ECTS totals, and scheduled course times, while editing.
-- [ ] 6.5 Add semester switching and persist one saved plan per semester in the account.
-- [ ] 6.6 Add an explicit edit button that reveals the favorites list only in planning mode.
-- [ ] 6.7 Keep the favorites picker a fixed-size side panel or equally smooth arrow-based flow that fits the existing interaction pattern.
-- [ ] 6.8 Match all planner UI components to the current visual style.
+- [x] 6.4 Show live planning feedback, for example elective-block coverage, ECTS totals, and scheduled course times, while editing.
+- [x] 6.5 Add semester switching and persist one saved plan per semester in the account.
+- [x] 6.6 Add an explicit edit button that reveals the favorites list only in planning mode.
+- [x] 6.7 Keep the favorites picker a fixed-size side panel or equally smooth arrow-based flow that fits the existing interaction pattern.
+- [x] 6.8 Match all planner UI components to the current visual style.
 
 ## 7. Later: Transcript of Records import
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
 from http_utils import empty_response, error_response, json_response
@@ -39,6 +39,13 @@ from services.user_favorites import (
     FavoriteUpdateError,
     get_current_user_favorites,
     replace_current_user_favorites,
+)
+from services.user_semester_plans import (
+    SemesterPlanUpdateError,
+    delete_current_user_semester_plan,
+    get_current_user_semester_plan,
+    list_current_user_semester_plans,
+    replace_current_user_semester_plan,
 )
 
 
@@ -202,6 +209,39 @@ async def route_request(request: Any, env: Any) -> Any:
                 return json_response(completed_courses, request=request, env=env)
             return _method_not_allowed_response(request, env)
 
+        if path == "/api/me/semester-plans":
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+
+            semester_plans = await list_current_user_semester_plans(env, request)
+            return json_response(semester_plans, request=request, env=env)
+
+        if path.startswith("/api/me/semester-plans/"):
+            semester_label = unquote(path.removeprefix("/api/me/semester-plans/"))
+            if method == "GET":
+                semester_plan = await get_current_user_semester_plan(env, request, semester_label)
+                if semester_plan is None:
+                    return error_response(
+                        code="semester_plan_not_found",
+                        message="No saved semester plan exists for the requested semester.",
+                        request=request,
+                        env=env,
+                        status=404,
+                    )
+                return json_response({"semesterPlan": semester_plan}, request=request, env=env)
+            if method == "PUT":
+                semester_plan = await replace_current_user_semester_plan(
+                    env,
+                    request,
+                    semester_label,
+                    await read_json_object(request),
+                )
+                return json_response(semester_plan, request=request, env=env)
+            if method == "DELETE":
+                await delete_current_user_semester_plan(env, request, semester_label)
+                return empty_response(request=request, env=env)
+            return _method_not_allowed_response(request, env)
+
         if path == "/api/me/progress":
             if method != "GET":
                 return _method_not_allowed_response(request, env)
@@ -225,6 +265,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "profile": "/api/me/profile",
                         "favorites": "/api/me/favorites",
                         "completedCourses": "/api/me/completed-courses",
+                        "semesterPlans": "/api/me/semester-plans",
                         "progress": "/api/me/progress",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
@@ -447,6 +488,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except CompletedCourseUpdateError as exc:
         return error_response(
             code="completed_course_update_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except SemesterPlanUpdateError as exc:
+        return error_response(
+            code="semester_plan_update_error",
             message=str(exc),
             request=request,
             env=env,
