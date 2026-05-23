@@ -151,7 +151,8 @@ export function AccountPage() {
         return
       } else {
         await login({ identifier, password })
-        setMessage('Signed in successfully.')
+        navigate(ROUTES.dashboard)
+        return
       }
       setPassword('')
     } catch (submitError) {
