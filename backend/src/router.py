@@ -5,7 +5,12 @@ from urllib.parse import parse_qs, urlparse
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
 from http_utils import empty_response, error_response, json_response
-from services.course_catalog import get_course_detail, list_courses
+from services.course_catalog import (
+    get_catalog_course_detail,
+    get_course_detail,
+    list_catalog_courses,
+    list_courses,
+)
 
 
 async def _database_status(env: Any) -> dict[str, Any]:
@@ -86,6 +91,8 @@ async def route_request(request: Any, env: Any) -> Any:
                         "health": "/health",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
+                        "catalogCourses": "/api/catalog/courses?limit=100",
+                        "catalogCourseDetail": "/api/catalog/courses/<id>",
                         "studyPrograms": "/api/study-programs",
                     },
                 },
@@ -121,6 +128,50 @@ async def route_request(request: Any, env: Any) -> Any:
                 request=request,
                 env=env,
             )
+
+        if path == "/api/catalog/courses":
+            query = parse_qs(parsed_url.query)
+            limit_value = query.get("limit", ["100"])[0]
+            search_value = query.get("q", [None])[0]
+            try:
+                limit = int(limit_value)
+            except ValueError:
+                limit = 100
+
+            courses = await list_catalog_courses(env, limit=limit, search=search_value)
+            return json_response(
+                {
+                    "count": len(courses),
+                    "courses": courses,
+                },
+                request=request,
+                env=env,
+            )
+
+        if path.startswith("/api/catalog/courses/"):
+            course_id_text = path.removeprefix("/api/catalog/courses/")
+            try:
+                course_id = int(course_id_text)
+            except ValueError:
+                return error_response(
+                    code="invalid_course_id",
+                    message="Course ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+
+            course_detail = await get_catalog_course_detail(env, course_id)
+            if course_detail is None:
+                return error_response(
+                    code="course_not_found",
+                    message="No course exists for the requested id.",
+                    request=request,
+                    env=env,
+                    status=404,
+                )
+
+            return json_response(course_detail, request=request, env=env)
 
         if path.startswith("/api/courses/"):
             course_id_text = path.removeprefix("/api/courses/")

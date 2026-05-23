@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import { initialCompletedCourses } from '../../courses'
 import type { CompletedCourse, MasterCat } from '../../courses'
+import { INITIAL_COMPLETED_COURSES } from '../initialCompletedCourses'
 import { TranscriptContext } from '../TranscriptContext'
 
 const STORAGE_KEY = 'transcript'
@@ -9,11 +9,11 @@ const STORAGE_KEY = 'transcript'
 function loadCompletedCourses(): CompletedCourse[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return initialCompletedCourses
+    if (!stored) return INITIAL_COMPLETED_COURSES
     const parsed: unknown = JSON.parse(stored)
-    return Array.isArray(parsed) ? (parsed as CompletedCourse[]) : initialCompletedCourses
+    return Array.isArray(parsed) ? (parsed as CompletedCourse[]) : INITIAL_COMPLETED_COURSES
   } catch {
-    return initialCompletedCourses
+    return INITIAL_COMPLETED_COURSES
   }
 }
 

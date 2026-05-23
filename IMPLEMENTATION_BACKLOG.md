@@ -34,11 +34,11 @@ This file is the persistent checklist for upcoming product work.
 
 ## 1. Database-backed course catalog
 
-- [ ] 1.1 Confirm which catalog fields the frontend still needs beyond the current `/api/courses` response.
-- [ ] 1.2 Extend the Worker API wherever required so the course catalog can run without mock JSON.
-- [ ] 1.3 Switch the frontend course overview from `backend/data/courses.json` to the Worker API.
-- [ ] 1.4 Switch course detail and related catalog views to the API-backed flow.
-- [ ] 1.5 Remove the remaining mock-data dependency from the catalog path.
+- [x] 1.1 Confirm which catalog fields the frontend still needs beyond the current `/api/courses` response.
+- [x] 1.2 Extend the Worker API wherever required so the course catalog can run without mock JSON.
+- [x] 1.3 Switch the frontend course overview from `backend/data/courses.json` to the Worker API.
+- [x] 1.4 Switch course detail and related catalog views to the API-backed flow.
+- [x] 1.5 Remove the remaining mock-data dependency from the catalog path.
 
 ## 2. Examination regulations and study-program mapping
 
