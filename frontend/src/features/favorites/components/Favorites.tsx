@@ -1,18 +1,35 @@
+import { CourseCard } from '../../../shared/components/CourseCard'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useAuth } from '../../auth'
-import { CourseCard } from '../../../shared/components/CourseCard'
 import { useCatalogCourses } from '../../courses'
 import { useFavorites } from '../hooks/useFavorites'
 
 function AuthenticatedFavorites() {
   const { courses, isLoading, error } = useCatalogCourses('')
-  const { favoriteIds, isFavorite, toggleFavorite } = useFavorites()
+  const {
+    favoriteIds,
+    isFavorite,
+    isLoadingFavorites,
+    isSavingFavorites,
+    favoritesError,
+    toggleFavorite,
+  } = useFavorites()
 
   const favoriteCourses = courses.filter((course) => favoriteIds.includes(course.id))
 
   return (
     <>
-      {isLoading ? (
+      {favoritesError ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+          {favoritesError}
+        </div>
+      ) : null}
+
+      {isLoadingFavorites ? (
+        <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
+          Loading your saved favorites...
+        </div>
+      ) : isLoading ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           Loading favorite courses from the database...
         </div>
@@ -31,6 +48,7 @@ function AuthenticatedFavorites() {
               key={course.id}
               course={course}
               isFavorite={isFavorite(course.id)}
+              favoriteDisabled={isSavingFavorites}
               onToggleFavorite={() => toggleFavorite(course.id)}
             />
           ))}

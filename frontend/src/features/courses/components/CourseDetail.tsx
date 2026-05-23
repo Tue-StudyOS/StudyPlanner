@@ -28,7 +28,13 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 export function CourseDetail() {
   const { courseId } = useParams<{ courseId: string }>()
   const { course, isLoading, error } = useCatalogCourseDetail(courseId)
-  const { isFavorite, toggleFavorite } = useFavorites()
+  const {
+    isFavorite,
+    isLoadingFavorites,
+    isSavingFavorites,
+    favoritesError,
+    toggleFavorite,
+  } = useFavorites()
 
   if (isLoading) {
     return (
@@ -57,6 +63,12 @@ export function CourseDetail() {
 
   return (
     <div className="p-8">
+      {favoritesError ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+          {favoritesError}
+        </div>
+      ) : null}
+
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link to={ROUTES.catalog} className="mb-4 inline-block text-[13px] font-medium text-primary hover:underline">
@@ -86,7 +98,8 @@ export function CourseDetail() {
         <button
           type="button"
           onClick={() => toggleFavorite(course.id)}
-          className="rounded-md border border-border bg-surface px-4 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+          disabled={isLoadingFavorites || isSavingFavorites}
+          className="rounded-md border border-border bg-surface px-4 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isFavorite(course.id) ? 'Remove favorite' : 'Add favorite'}
         </button>

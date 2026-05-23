@@ -6,12 +6,30 @@ import { useCatalogCourses } from '../hooks/useCatalogCourses'
 export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
   const { courses, isLoading, error } = useCatalogCourses(search)
-  const { isFavorite, toggleFavorite } = useFavorites()
+  const {
+    isFavorite,
+    isLoadingFavorites,
+    isSavingFavorites,
+    favoritesError,
+    toggleFavorite,
+  } = useFavorites()
 
   return (
     <div className="p-8">
       <h2 className="mb-2 text-2xl font-bold">Course Catalog</h2>
       <p className="mb-6 text-fg-mid">Browse the Informatics catalog from the database.</p>
+
+      {favoritesError ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+          {favoritesError}
+        </div>
+      ) : null}
+
+      {isSavingFavorites ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
+          Saving your favorites...
+        </div>
+      ) : null}
 
       <label className="mb-6 block">
         <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
@@ -45,6 +63,7 @@ export function CoursesOverview() {
               key={course.id}
               course={course}
               isFavorite={isFavorite(course.id)}
+              favoriteDisabled={isLoadingFavorites || isSavingFavorites}
               onToggleFavorite={() => toggleFavorite(course.id)}
             />
           ))}

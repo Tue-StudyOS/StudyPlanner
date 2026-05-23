@@ -9,6 +9,7 @@ import { ClockIcon, PinIcon, UserIcon } from './icons'
 interface CourseCardProps {
   course: Course
   isFavorite: boolean
+  favoriteDisabled?: boolean
   onToggleFavorite: () => void
 }
 
@@ -40,7 +41,12 @@ function plainLecturerName(lecturer: string): string {
   return lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g, '')
 }
 
-export function CourseCard({ course, isFavorite, onToggleFavorite }: CourseCardProps) {
+export function CourseCard({
+  course,
+  isFavorite,
+  favoriteDisabled = false,
+  onToggleFavorite,
+}: CourseCardProps) {
   const slot = course.schedule.at(0)
 
   return (
@@ -52,7 +58,7 @@ export function CourseCard({ course, isFavorite, onToggleFavorite }: CourseCardP
             <CatBadge key={cat} cat={cat} />
           ))}
         </div>
-        <FavStar active={isFavorite} onToggle={onToggleFavorite} />
+        <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
       </div>
 
       <div>

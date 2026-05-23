@@ -67,9 +67,9 @@ This file is the persistent checklist for upcoming product work.
 
 ## 4. Favorites persistence
 
-- [ ] 4.1 Add backend endpoints for reading and updating favorite courses.
-- [ ] 4.2 Replace browser-only favorites storage with authenticated persistence.
-- [ ] 4.3 Add loading and error handling for favorites synchronization.
+- [x] 4.1 Add backend endpoints for reading and updating favorite courses.
+- [x] 4.2 Replace browser-only favorites storage with authenticated persistence.
+- [x] 4.3 Add loading and error handling for favorites synchronization.
 
 ## 5. Study-progress model and visualization
 

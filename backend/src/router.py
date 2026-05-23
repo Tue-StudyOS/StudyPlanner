@@ -29,6 +29,11 @@ from services.regulations import (
     list_regulation_course_categories,
     list_regulation_versions,
 )
+from services.user_favorites import (
+    FavoriteUpdateError,
+    get_current_user_favorites,
+    replace_current_user_favorites,
+)
 
 
 async def _database_status(env: Any) -> dict[str, Any]:
@@ -165,6 +170,19 @@ async def route_request(request: Any, env: Any) -> Any:
                 return json_response({"user": profile}, request=request, env=env)
             return _method_not_allowed_response(request, env)
 
+        if path == "/api/me/favorites":
+            if method == "GET":
+                favorites = await get_current_user_favorites(env, request)
+                return json_response(favorites, request=request, env=env)
+            if method == "PUT":
+                favorites = await replace_current_user_favorites(
+                    env,
+                    request,
+                    await read_json_object(request),
+                )
+                return json_response(favorites, request=request, env=env)
+            return _method_not_allowed_response(request, env)
+
         if method != "GET":
             return _method_not_allowed_response(request, env)
 
@@ -179,6 +197,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "login": "/api/auth/login",
                         "session": "/api/auth/session",
                         "profile": "/api/me/profile",
+                        "favorites": "/api/me/favorites",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogCourses": "/api/catalog/courses?limit=100",
@@ -384,6 +403,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except ProfileUpdateError as exc:
         return error_response(
             code="profile_update_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except FavoriteUpdateError as exc:
+        return error_response(
+            code="favorite_update_error",
             message=str(exc),
             request=request,
             env=env,
