@@ -4,6 +4,7 @@ export const ROUTES = {
   catalogDetail: '/catalog/:courseId',
   favorites: '/favorites',
   transcript: '/transcript',
+  planner: '/planner',
   account: '/account',
 } as const
 

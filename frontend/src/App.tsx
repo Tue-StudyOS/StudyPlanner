@@ -6,6 +6,7 @@ import { Dashboard } from './features/dashboard'
 import { CourseDetail, CoursesOverview } from './features/courses'
 import { Favorites, FavoritesProvider } from './features/favorites'
 import { Transcript, TranscriptProvider } from './features/transcript'
+import { SemesterPlanner } from './features/planner'
 import { ROUTES } from './features/routes'
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
                   <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
                   <Route path={ROUTES.favorites} element={<Favorites />} />
                   <Route path={ROUTES.transcript} element={<Transcript />} />
+                  <Route path={ROUTES.planner} element={<SemesterPlanner />} />
                   <Route path={ROUTES.account} element={<AccountPage />} />
                 </Route>
               </Routes>

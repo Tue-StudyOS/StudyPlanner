@@ -37,6 +37,24 @@ export function TranscriptIcon() {
   )
 }
 
+export function PlannerIcon({ filled }: { filled?: boolean }) {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" className="shrink-0">
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="16"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+      <path d="M8 3v4M16 3v4M3 10h18" stroke={filled ? 'white' : 'currentColor'} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function AccountIcon({ filled }: { filled?: boolean }) {
   return (
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" className="shrink-0">
