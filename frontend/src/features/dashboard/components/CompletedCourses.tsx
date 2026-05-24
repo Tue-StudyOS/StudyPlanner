@@ -55,7 +55,7 @@ function CompletedCourseRow({ course, index, isLast }: CompletedCourseRowProps) 
         <CatBadge cat={course.masterCat} />
       </div>
       <span className="min-w-6 shrink-0 text-right text-[16px] font-bold text-fg">
-        {course.grade}
+        {course.grade ?? '–'}
       </span>
     </div>
   )

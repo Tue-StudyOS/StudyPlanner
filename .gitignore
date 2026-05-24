@@ -162,6 +162,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# Cloudflare
+.wrangler/
+backend/.tmp/
+backend/.dev.vars
+
+# Local agent notes
+cloudflare_migration_agent_prompt.md
+
 # Spyder project settings
 .spyderproject
 .spyproject

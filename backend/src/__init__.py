@@ -1,0 +1,1 @@
+"""StudyPlaner Cloudflare Worker package."""

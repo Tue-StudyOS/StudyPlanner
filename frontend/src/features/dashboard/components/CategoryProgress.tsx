@@ -1,5 +1,5 @@
 import type { MasterCat } from '../../courses'
-import { useCategoryProgress } from '../hooks/useCategoryProgress'
+import type { CategoryProgress as CategoryProgressItem, ThesisProgress } from '../types'
 
 const CAT_COLOR_CLASS: Record<MasterCat, string> = {
   TECH: 'bg-cat-tech',
@@ -16,6 +16,12 @@ interface ProgressRowProps {
   earned: number
   required: number
   colorClass: string
+}
+
+interface CategoryProgressProps {
+  core: CategoryProgressItem[]
+  electives: CategoryProgressItem[]
+  thesis: ThesisProgress
 }
 
 function ProgressRow({ code, label, earned, required, colorClass }: ProgressRowProps) {
@@ -47,22 +53,20 @@ function SectionLabel({ children }: { children: string }) {
   )
 }
 
-export function CategoryProgress() {
-  const { core, electives, thesis } = useCategoryProgress()
-
+export function CategoryProgress({ core, electives, thesis }: CategoryProgressProps) {
   return (
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
       <div className="mb-4.5 text-[14px] font-semibold text-fg">Progress by Category</div>
 
       <div className="grid gap-3.5">
-        {core.map((c) => (
+        {core.map((category) => (
           <ProgressRow
-            key={c.cat}
-            code={c.cat}
-            label={c.label}
-            earned={c.earnedEcts}
-            required={c.requiredEcts}
-            colorClass={CAT_COLOR_CLASS[c.cat]}
+            key={category.cat}
+            code={category.cat}
+            label={category.label}
+            earned={category.earnedEcts}
+            required={category.requiredEcts}
+            colorClass={CAT_COLOR_CLASS[category.cat]}
           />
         ))}
       </div>
@@ -70,14 +74,14 @@ export function CategoryProgress() {
       <div className="mt-4.5 border-t border-border-light pt-3.5">
         <SectionLabel>Elective Area</SectionLabel>
         <div className="grid grid-cols-2 gap-4.5">
-          {electives.map((c) => (
+          {electives.map((category) => (
             <ProgressRow
-              key={c.cat}
-              code={c.cat}
-              label={c.label}
-              earned={c.earnedEcts}
-              required={c.requiredEcts}
-              colorClass={CAT_COLOR_CLASS[c.cat]}
+              key={category.cat}
+              code={category.cat}
+              label={category.label}
+              earned={category.earnedEcts}
+              required={category.requiredEcts}
+              colorClass={CAT_COLOR_CLASS[category.cat]}
             />
           ))}
         </div>

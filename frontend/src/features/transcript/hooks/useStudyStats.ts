@@ -10,9 +10,13 @@ export function useStudyStats(): StudyStats {
 
   const progress = Math.round((totalEcts / REQUIRED_ECTS) * 100)
 
+  const gradedCourses = completedCourses.filter(
+    (completedCourse) => completedCourse.grade !== null,
+  )
+
   const averageGrade =
-    completedCourses.length > 0
-      ? completedCourses.reduce((sum, c) => sum + c.grade, 0) / completedCourses.length
+    gradedCourses.length > 0
+      ? gradedCourses.reduce((sum, course) => sum + (course.grade ?? 0), 0) / gradedCourses.length
       : null
 
   return { totalEcts, requiredEcts: REQUIRED_ECTS, progress, averageGrade }

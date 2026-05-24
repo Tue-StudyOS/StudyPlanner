@@ -1,3 +1,13 @@
+export { CourseDetail } from './components/CourseDetail'
 export { CoursesOverview } from './components/Overview'
-export { useCourses, initialCompletedCourses } from './hooks/useCourses'
-export type { Course, CompletedCourse, MasterCat, MasterCategoryMeta, ScheduleSlot, CourseExam } from './types'
+export { useCatalogCourseDetail } from './hooks/useCatalogCourseDetail'
+export { useCatalogCourses } from './hooks/useCatalogCourses'
+export type {
+  Course,
+  CompletedCourse,
+  CourseExam,
+  MasterCat,
+  MasterCategoryMeta,
+  ScheduleSlot,
+  StudyAreaOption,
+} from './types'

@@ -30,6 +30,7 @@ Before changing code:
 1. Read the relevant files.
 2. Identify the smallest safe change.
 3. Pick the relevant agent profile from `agents/main.md` if the task is specialized.
+4. For each feature, bug fix or change has to be one single commit with a clear message. Dont do multiple unrelated changes in the same commit.
 
 After changing code:
 1. Run or suggest the relevant test, lint, or typecheck command.
