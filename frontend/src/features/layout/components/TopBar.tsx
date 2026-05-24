@@ -1,13 +1,11 @@
-import { NavLink } from 'react-router-dom'
-import { useAuth } from '../../auth'
-import { useTheme } from '../../theme'
+import { Link, NavLink, useMatch } from 'react-router-dom'
+import logo from '../../../assets/logo.png'
 import { NAV } from '../nav'
-import { MoonIcon, SunIcon } from './icons'
+import { GearIcon } from './icons'
 import { ROUTES } from '../../../config/routes'
 
 export function TopBar() {
-  const { isAuthenticated, logout, user } = useAuth()
-  const { isDark, toggleTheme } = useTheme()
+  const isOnAccountPage = Boolean(useMatch(ROUTES.account))
 
   return (
     <header className="flex h-15 shrink-0 items-center bg-sidebar pl-8 pr-6">
@@ -15,10 +13,10 @@ export function TopBar() {
         href="https://studyplaner.pages.dev/"
         className="mr-9 flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-90"
       >
-        <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-md bg-brand">
-          <span className="font-serif text-[13px] font-bold text-white">S</span>
+        <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
+          <img src={logo} alt="" className="h-full w-full object-contain p-0.5" />
         </div>
-        <span className="font-serif text-lg font-semibold text-white">StudyOS</span>
+        <span className="font-serif text-lg font-semibold text-white">StudyPlanner</span>
       </a>
 
       <nav className="flex flex-1 gap-1">
@@ -37,12 +35,8 @@ export function TopBar() {
           >
             {({ isActive }) => (
               <>
-                <span
-                  className={`flex ${
-                    isActive ? 'text-white' : 'text-white/55 group-hover:text-white'
-                  }`}
-                >
-                  <Icon filled={isActive} />
+                <span className={`flex ${isActive ? 'text-white' : 'text-white/55 group-hover:text-white'}`}>
+                  <Icon />
                 </span>
                 {label}
               </>
@@ -52,35 +46,17 @@ export function TopBar() {
       </nav>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 py-1.75 text-[13px] text-white/65 hover:bg-sidebar-hover hover:text-white"
+        <Link
+          to={ROUTES.account}
+          aria-label="Open account settings"
+          className={`flex h-10 w-10 items-center justify-center rounded-md border transition-colors ${
+            isOnAccountPage
+              ? 'border-white/30 bg-sidebar-active text-white'
+              : 'border-white/10 bg-sidebar-hover text-white/80 hover:text-white'
+          }`}
         >
-          {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
-
-        {isAuthenticated && user ? (
-          <>
-            <span className="ml-2 text-[12px] text-white/70">{user.displayName}</span>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-md border border-white/10 bg-sidebar-hover px-3 py-1.5 text-[12px] font-medium text-white/80 hover:text-white"
-            >
-              Sign out
-            </button>
-          </>
-        ) : (
-          <NavLink
-            to={ROUTES.account}
-            className="ml-2 rounded-md border border-white/10 bg-sidebar-hover px-3 py-1.5 text-[12px] font-medium text-white/80 hover:text-white"
-          >
-            Sign in
-          </NavLink>
-        )}
-
-        <span className="ml-1.5 text-xs text-white/50">SS 2026</span>
+          <GearIcon />
+        </Link>
       </div>
     </header>
   )
