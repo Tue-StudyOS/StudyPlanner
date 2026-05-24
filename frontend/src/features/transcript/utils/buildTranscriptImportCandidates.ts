@@ -1,4 +1,4 @@
-import type { Course, MasterCat } from '../../courses'
+import type { Course, MasterCat, StudyAreaOption } from '../../courses'
 import type {
   ParsedTranscriptEntry,
   TranscriptCoursePreview,
@@ -48,13 +48,71 @@ function tokenize(value: string): string[] {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token))
 }
 
-export function toTranscriptCoursePreview(course: Course): TranscriptCoursePreview {
+function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefined): MasterCat | null {
+  const normalizedCode = studyAreaCode?.trim().toUpperCase() ?? ''
+  if (!normalizedCode) {
+    return null
+  }
+  if (normalizedCode.endsWith('TECH')) {
+    return 'TECH'
+  }
+  if (normalizedCode.endsWith('THEO')) {
+    return 'THEO'
+  }
+  if (normalizedCode.endsWith('PRAK')) {
+    return 'PRAK'
+  }
+  if (normalizedCode === 'INFO' || normalizedCode === 'INFO-INFO' || normalizedCode === 'ML-CS' || normalizedCode.endsWith('-INFO')) {
+    return 'INFO'
+  }
+  if (
+    normalizedCode === 'INFO-FOKUS'
+    || normalizedCode === 'ML-DIVERSE'
+    || normalizedCode === 'ML-EXP'
+    || normalizedCode === 'PROSEM'
+    || normalizedCode === 'UEBK'
+    || normalizedCode === 'MATH'
+    || normalizedCode === 'INF'
+    || normalizedCode === 'INFO-BASIS'
+    || normalizedCode === 'ML-FOUND'
+    || normalizedCode.endsWith('BASIS')
+  ) {
+    return 'BASIS'
+  }
+  return null
+}
+
+function buildPreferredMasterCats(
+  fallbackMasterCats: MasterCat[],
+  studyAreaOptions: StudyAreaOption[] | undefined,
+  studyProgramCode: string | null | undefined,
+): MasterCat[] {
+  if (!studyAreaOptions || studyAreaOptions.length === 0 || !studyProgramCode) {
+    return fallbackMasterCats
+  }
+
+  const preferredMasterCats = studyAreaOptions
+    .filter((option) => option.programCode === studyProgramCode)
+    .map((option) => studyAreaCodeToMasterCat(option.studyAreaCode))
+    .filter((masterCat): masterCat is MasterCat => masterCat !== null)
+
+  if (preferredMasterCats.length === 0) {
+    return fallbackMasterCats
+  }
+
+  return [...new Set([...preferredMasterCats, ...fallbackMasterCats])]
+}
+
+export function toTranscriptCoursePreview(
+  course: Course,
+  studyProgramCode?: string | null,
+): TranscriptCoursePreview {
   return {
     id: course.id,
     number: course.moduleCode ?? course.number,
     title: course.moduleTitle ?? course.title,
     ects: course.ects,
-    masterCats: course.masterCats,
+    masterCats: buildPreferredMasterCats(course.masterCats, course.studyAreaOptions, studyProgramCode),
   }
 }
 
@@ -186,7 +244,11 @@ function finalizeCandidate(candidate: TranscriptImportCandidate): TranscriptImpo
   }
 }
 
-function buildMatchResults(entry: ParsedTranscriptEntry, courses: Course[]): CourseMatchResult[] {
+function buildMatchResults(
+  entry: ParsedTranscriptEntry,
+  courses: Course[],
+  studyProgramCode?: string | null,
+): CourseMatchResult[] {
   const scoredMatches = new Map<string, CourseMatchResult>()
 
   for (const course of courses) {
@@ -200,7 +262,7 @@ function buildMatchResults(entry: ParsedTranscriptEntry, courses: Course[]): Cou
       continue
     }
 
-    const preview = toTranscriptCoursePreview(course)
+    const preview = toTranscriptCoursePreview(course, studyProgramCode)
     const key = buildMatchKey(preview)
     const candidateMatchResult: CourseMatchResult = {
       preview,
@@ -233,9 +295,10 @@ function pickDefaultMasterCat(entry: ParsedTranscriptEntry, matchedCourse: Trans
 export function buildTranscriptImportCandidates(
   entries: ParsedTranscriptEntry[],
   courses: Course[],
+  studyProgramCode?: string | null,
 ): TranscriptImportCandidate[] {
   return entries.map((entry) => {
-    const matchResults = buildMatchResults(entry, courses)
+    const matchResults = buildMatchResults(entry, courses, studyProgramCode)
     const topMatch = matchResults[0] ?? null
     const secondMatch = matchResults[1] ?? null
     const shouldAutoMatch = Boolean(

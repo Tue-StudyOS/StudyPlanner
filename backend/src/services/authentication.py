@@ -13,6 +13,8 @@ from http_utils import get_request_header
 PASSWORD_PBKDF2_ITERATIONS = 310_000
 DEFAULT_SESSION_TTL_DAYS = 30
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
+SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
+SUPPORTED_REGULATION_PO_VERSION = '2021'
 
 
 class AuthenticationError(ValueError):
@@ -118,6 +120,112 @@ async def _get_user_by_identifier(env: Any, identifier: str) -> dict[str, Any] |
         LIMIT 1
     """
     return await fetch_one(env, sql, [identifier])
+
+
+async def _get_supported_study_program_by_id(
+    env: Any,
+    study_program_id: int,
+) -> dict[str, Any] | None:
+    return await fetch_one(
+        env,
+        """
+        SELECT sp.id, sp.code
+        FROM study_programs AS sp
+        JOIN study_program_regulation_versions AS sprv
+            ON sprv.study_program_id = sp.id
+           AND sprv.is_default = 1
+        JOIN regulation_versions AS rv
+            ON rv.id = sprv.regulation_version_id
+        WHERE sp.id = ?
+          AND sp.source_status = ?
+          AND sp.po_version = ?
+          AND rv.source_status = ?
+          AND rv.version_label = ?
+        LIMIT 1
+        """,
+        [
+            study_program_id,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
+    )
+
+
+async def _get_supported_study_program_by_code(
+    env: Any,
+    study_program_code: str,
+) -> dict[str, Any] | None:
+    return await fetch_one(
+        env,
+        """
+        SELECT sp.id, sp.code
+        FROM study_programs AS sp
+        JOIN study_program_regulation_versions AS sprv
+            ON sprv.study_program_id = sp.id
+           AND sprv.is_default = 1
+        JOIN regulation_versions AS rv
+            ON rv.id = sprv.regulation_version_id
+        WHERE sp.code = ?
+          AND sp.source_status = ?
+          AND sp.po_version = ?
+          AND rv.source_status = ?
+          AND rv.version_label = ?
+        LIMIT 1
+        """,
+        [
+            study_program_code,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
+    )
+
+
+async def _get_supported_regulation_version_by_id(
+    env: Any,
+    regulation_version_id: int,
+) -> dict[str, Any] | None:
+    return await fetch_one(
+        env,
+        """
+        SELECT id, code
+        FROM regulation_versions
+        WHERE id = ?
+          AND source_status = ?
+          AND version_label = ?
+        LIMIT 1
+        """,
+        [
+            regulation_version_id,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
+    )
+
+
+async def _get_supported_regulation_version_by_code(
+    env: Any,
+    regulation_version_code: str,
+) -> dict[str, Any] | None:
+    return await fetch_one(
+        env,
+        """
+        SELECT id, code
+        FROM regulation_versions
+        WHERE code = ?
+          AND source_status = ?
+          AND version_label = ?
+        LIMIT 1
+        """,
+        [
+            regulation_version_code,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
+    )
 
 
 async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
@@ -230,15 +338,12 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
     if raw_sp not in (None, ''):
         try:
             candidate_id = int(raw_sp)
-            sp_exists = await fetch_one(
-                env,
-                'SELECT id FROM study_programs WHERE id = ? LIMIT 1',
-                [candidate_id],
-            )
-            if sp_exists is not None:
-                reg_study_program_id = candidate_id
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            raise RegistrationError('Study program ids must be numeric.') from exc
+        supported_program = await _get_supported_study_program_by_id(env, candidate_id)
+        if supported_program is None:
+            raise RegistrationError('Only the supported PO 2021 study programs can be selected.')
+        reg_study_program_id = candidate_id
 
     reg_regulation_version_id: int | None = None
     if reg_study_program_id is not None:
@@ -382,26 +487,18 @@ async def _resolve_study_program_id(env: Any, payload: dict[str, Any]) -> int | 
         except (TypeError, ValueError) as exc:
             raise ProfileUpdateError('Study program ids must be numeric.') from exc
 
-        exists = await fetch_one(
-            env,
-            'SELECT id FROM study_programs WHERE id = ? LIMIT 1',
-            [study_program_id],
-        )
+        exists = await _get_supported_study_program_by_id(env, study_program_id)
         if exists is None:
-            raise ProfileUpdateError('The selected study program does not exist.')
+            raise ProfileUpdateError('Only the supported PO 2021 study programs can be selected.')
         return study_program_id
 
     if 'studyProgramCode' in payload:
         study_program_code = _safe_text(payload.get('studyProgramCode'))
         if not study_program_code:
             return None
-        row = await fetch_one(
-            env,
-            'SELECT id FROM study_programs WHERE code = ? LIMIT 1',
-            [study_program_code],
-        )
+        row = await _get_supported_study_program_by_code(env, study_program_code)
         if row is None:
-            raise ProfileUpdateError('The selected study program does not exist.')
+            raise ProfileUpdateError('Only the supported PO 2021 study programs can be selected.')
         return int(row['id'])
 
     return None
@@ -417,26 +514,18 @@ async def _resolve_regulation_version_id(env: Any, payload: dict[str, Any]) -> i
         except (TypeError, ValueError) as exc:
             raise ProfileUpdateError('Regulation version ids must be numeric.') from exc
 
-        exists = await fetch_one(
-            env,
-            'SELECT id FROM regulation_versions WHERE id = ? LIMIT 1',
-            [regulation_version_id],
-        )
+        exists = await _get_supported_regulation_version_by_id(env, regulation_version_id)
         if exists is None:
-            raise ProfileUpdateError('The selected regulation version does not exist.')
+            raise ProfileUpdateError('Only the supported PO 2021 regulation versions can be selected.')
         return regulation_version_id
 
     if 'regulationVersionCode' in payload:
         regulation_version_code = _safe_text(payload.get('regulationVersionCode'))
         if not regulation_version_code:
             return None
-        row = await fetch_one(
-            env,
-            'SELECT id FROM regulation_versions WHERE code = ? LIMIT 1',
-            [regulation_version_code],
-        )
+        row = await _get_supported_regulation_version_by_code(env, regulation_version_code)
         if row is None:
-            raise ProfileUpdateError('The selected regulation version does not exist.')
+            raise ProfileUpdateError('Only the supported PO 2021 regulation versions can be selected.')
         return int(row['id'])
 
     return None
@@ -446,13 +535,20 @@ async def _get_default_regulation_version_id(env: Any, study_program_id: int) ->
     row = await fetch_one(
         env,
         """
-        SELECT regulation_version_id AS regulationVersionId
-        FROM study_program_regulation_versions
-        WHERE study_program_id = ?
-          AND is_default = 1
+        SELECT sprv.regulation_version_id AS regulationVersionId
+        FROM study_program_regulation_versions AS sprv
+        JOIN regulation_versions AS rv ON rv.id = sprv.regulation_version_id
+        WHERE sprv.study_program_id = ?
+          AND sprv.is_default = 1
+          AND rv.source_status = ?
+          AND rv.version_label = ?
         LIMIT 1
         """,
-        [study_program_id],
+        [
+            study_program_id,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
     )
     if row is None:
         return None
@@ -468,12 +564,25 @@ async def _is_regulation_allowed_for_program(
         env,
         """
         SELECT 1
-        FROM study_program_regulation_versions
-        WHERE study_program_id = ?
-          AND regulation_version_id = ?
+        FROM study_program_regulation_versions AS sprv
+        JOIN study_programs AS sp ON sp.id = sprv.study_program_id
+        JOIN regulation_versions AS rv ON rv.id = sprv.regulation_version_id
+        WHERE sprv.study_program_id = ?
+          AND sprv.regulation_version_id = ?
+          AND sp.source_status = ?
+          AND sp.po_version = ?
+          AND rv.source_status = ?
+          AND rv.version_label = ?
         LIMIT 1
         """,
-        [study_program_id, regulation_version_id],
+        [
+            study_program_id,
+            regulation_version_id,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+            SUPPORTED_REGULATION_SOURCE_STATUS,
+            SUPPORTED_REGULATION_PO_VERSION,
+        ],
     )
     return row is not None
 

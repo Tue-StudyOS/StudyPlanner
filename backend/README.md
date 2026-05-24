@@ -20,7 +20,7 @@ backend/
 - `GET /health` – health check plus D1 reachability
 - `GET /api/courses?limit=50` – lightweight course list from D1
 - `GET /api/courses/<id>` – course detail with related rows from D1
-- `GET /api/study-programs` – study program list from D1
+- `GET /api/study-programs` – supported official PO 2021 study program list from D1
 
 ## Local development
 

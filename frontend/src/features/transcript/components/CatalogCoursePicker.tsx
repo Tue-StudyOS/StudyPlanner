@@ -9,6 +9,7 @@ const SEARCH_RESULT_LIMIT = 6
 interface CatalogCoursePickerProps {
   selectedCourse: TranscriptCoursePreview | null
   suggestedCourses?: TranscriptCoursePreview[]
+  studyProgramCode?: string | null
   onSelect: (course: TranscriptCoursePreview) => void
 }
 
@@ -27,6 +28,7 @@ function uniqueCourses(courses: TranscriptCoursePreview[]): TranscriptCoursePrev
 export function CatalogCoursePicker({
   selectedCourse,
   suggestedCourses = [],
+  studyProgramCode,
   onSelect,
 }: CatalogCoursePickerProps) {
   const [query, setQuery] = useState<string>('')
@@ -59,7 +61,7 @@ export function CatalogCoursePicker({
         if (!isActive) {
           return
         }
-        setSearchResults(nextCourses.map(toTranscriptCoursePreview))
+        setSearchResults(nextCourses.map((course) => toTranscriptCoursePreview(course, studyProgramCode)))
       } catch (searchError) {
         if (!isActive) {
           return
@@ -78,7 +80,7 @@ export function CatalogCoursePicker({
     return () => {
       isActive = false
     }
-  }, [hasSearchQuery, trimmedQuery])
+  }, [hasSearchQuery, studyProgramCode, trimmedQuery])
 
   return (
     <div className="grid gap-3">

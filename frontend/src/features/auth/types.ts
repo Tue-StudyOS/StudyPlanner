@@ -8,6 +8,7 @@ export interface AuthProfile {
   regulationVersionLabel: string | null
   regulationCode: string | null
   regulationName: string | null
+  totalEcts?: number | null
 }
 
 export interface AuthUser {

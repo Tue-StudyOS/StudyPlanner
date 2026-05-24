@@ -26,6 +26,12 @@ interface SaveProfileInput {
   currentSemesterLabel: string | null
 }
 
+function isSupportedStudyProgram(studyProgram: StudyProgramOption): boolean {
+  return studyProgram.sourceStatus === 'official'
+    && studyProgram.poVersion === '2021'
+    && studyProgram.defaultRegulationVersionLabel === '2021'
+}
+
 export async function registerAccount(input: RegisterInput): Promise<AuthPayload> {
   return await fetchJson<AuthPayload>('/api/auth/register', {
     method: 'POST',
@@ -81,5 +87,7 @@ export async function saveCurrentProfile(
 export async function fetchStudyPrograms(): Promise<StudyProgramOption[]> {
   const response = await fetchJson<StudyProgramsResponse>('/api/study-programs')
   return response.studyPrograms
+    .filter(isSupportedStudyProgram)
+    .sort((left, right) => left.name.localeCompare(right.name))
 }
 

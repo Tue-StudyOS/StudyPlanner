@@ -63,6 +63,7 @@ function toImportedCompletedCourse(candidate: TranscriptImportCandidate): Comple
 function UploadReviewSection({
   importCandidates,
   importPhase,
+  studyProgramCode,
   onDiscardAll,
   onDiscardCandidate,
   onConfirm,
@@ -70,6 +71,7 @@ function UploadReviewSection({
 }: {
   importCandidates: TranscriptImportCandidate[]
   importPhase: TranscriptImportPhase
+  studyProgramCode?: string | null
   onDiscardAll: () => void
   onDiscardCandidate: (candidateId: string) => void
   onConfirm: () => Promise<void>
@@ -113,6 +115,7 @@ function UploadReviewSection({
           <TranscriptImportRow
             key={candidate.id}
             candidate={candidate}
+            studyProgramCode={studyProgramCode}
             onDiscard={() => onDiscardCandidate(candidate.id)}
             onChange={onCandidateChange}
           />
@@ -220,7 +223,11 @@ function AuthenticatedTranscript() {
         )
       }
 
-      const nextCandidates = buildTranscriptImportCandidates(parsedEntries, baseCatalogCourses)
+      const nextCandidates = buildTranscriptImportCandidates(
+        parsedEntries,
+        baseCatalogCourses,
+        user?.profile.studyProgramCode,
+      )
       if (nextCandidates.length === 0) {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
@@ -352,6 +359,7 @@ function AuthenticatedTranscript() {
 
         <ManualCompletedCourseForm
           defaultSemester={user?.profile.currentSemesterLabel}
+          studyProgramCode={user?.profile.studyProgramCode}
           isSaving={isSavingCompletedCourses}
           onSave={handleManualCourseAdd}
         />
@@ -391,6 +399,7 @@ function AuthenticatedTranscript() {
           <UploadReviewSection
             importCandidates={importCandidates}
             importPhase={importPhase}
+            studyProgramCode={user?.profile.studyProgramCode}
             onDiscardAll={resetImportReview}
             onDiscardCandidate={discardImportCandidate}
             onConfirm={handleImportConfirmation}

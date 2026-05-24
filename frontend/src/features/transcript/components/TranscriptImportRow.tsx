@@ -61,12 +61,14 @@ function statusLabel(status: TranscriptImportCandidate['status']): string {
 
 interface TranscriptImportRowProps {
   candidate: TranscriptImportCandidate
+  studyProgramCode?: string | null
   onChange: (candidate: TranscriptImportCandidate) => void
   onDiscard: () => void
 }
 
 export function TranscriptImportRow({
   candidate,
+  studyProgramCode,
   onChange,
   onDiscard,
 }: TranscriptImportRowProps) {
@@ -152,6 +154,7 @@ export function TranscriptImportRow({
           <CatalogCoursePicker
             selectedCourse={candidate.matchedCourse}
             suggestedCourses={candidate.matchOptions}
+            studyProgramCode={studyProgramCode}
             onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
           />
 

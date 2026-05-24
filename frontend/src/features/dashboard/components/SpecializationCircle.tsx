@@ -25,6 +25,17 @@ function pointOnCircle(index: number, total: number, radius: number, center: num
 }
 
 export function SpecializationCircle({ categories, profileName }: SpecializationCircleProps) {
+  if (categories.length === 0) {
+    return (
+      <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
+        <div className="mb-1 text-[14px] font-semibold text-fg">Specialization Profile</div>
+        <div className="text-[12px] text-fg-muted">
+          Your specialization profile will appear here once progress data is available.
+        </div>
+      </div>
+    )
+  }
+
   const size = 420
   const center = size / 2
   const radius = 135

@@ -8,6 +8,7 @@ const ALL_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
 
 interface ManualCompletedCourseFormProps {
   defaultSemester: string | null | undefined
+  studyProgramCode?: string | null
   isSaving: boolean
   onSave: (
     course: TranscriptCoursePreview,
@@ -23,6 +24,7 @@ function formatOptionalNumber(value: number | null): string {
 
 export function ManualCompletedCourseForm({
   defaultSemester,
+  studyProgramCode,
   isSaving,
   onSave,
 }: ManualCompletedCourseFormProps) {
@@ -99,7 +101,11 @@ export function ManualCompletedCourseForm({
 
       {isOpen ? (
         <div className="mt-4 grid gap-3.5">
-          <CatalogCoursePicker selectedCourse={selectedCourse} onSelect={handleCourseSelect} />
+          <CatalogCoursePicker
+            selectedCourse={selectedCourse}
+            studyProgramCode={studyProgramCode}
+            onSelect={handleCourseSelect}
+          />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">

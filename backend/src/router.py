@@ -102,15 +102,24 @@ async def _list_study_programs(env: Any) -> list[dict[str, Any]]:
             (
                 SELECT COUNT(*)
                 FROM study_program_regulation_versions AS all_mappings
+                JOIN regulation_versions AS all_versions
+                    ON all_versions.id = all_mappings.regulation_version_id
                 WHERE all_mappings.study_program_id = sp.id
+                  AND all_versions.source_status = 'official'
+                  AND all_versions.version_label = '2021'
             ) AS regulationVersionCount
         FROM study_programs AS sp
-        LEFT JOIN study_program_regulation_versions AS sprv
+        JOIN study_program_regulation_versions AS sprv
             ON sprv.study_program_id = sp.id
            AND sprv.is_default = 1
-        LEFT JOIN regulation_versions AS rv ON rv.id = sprv.regulation_version_id
-        LEFT JOIN examination_regulations AS er ON er.id = rv.regulation_id
-        ORDER BY sp.name ASC
+        JOIN regulation_versions AS rv
+            ON rv.id = sprv.regulation_version_id
+           AND rv.source_status = 'official'
+           AND rv.version_label = '2021'
+        JOIN examination_regulations AS er ON er.id = rv.regulation_id
+        WHERE sp.source_status = 'official'
+          AND sp.po_version = '2021'
+        ORDER BY sp.degree ASC, sp.name ASC
     """
     return await fetch_all(env, sql)
 

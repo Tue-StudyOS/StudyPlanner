@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranscript } from '../../transcript'
 import type { CompletedCourse } from '../../courses'
 
@@ -10,13 +10,16 @@ export function useCompletedCourses(): {
 } {
   const { completedCourses } = useTranscript()
 
-  const semesters = [...new Set(completedCourses.map((c) => c.semester))].sort((a, b) =>
-    b.localeCompare(a),
+  const semesters = useMemo(
+    () => [...new Set(completedCourses.map((course) => course.semester))].sort((a, b) =>
+      b.localeCompare(a),
+    ),
+    [completedCourses],
   )
 
-  const [activeSemester, setActiveSemester] = useState(semesters[0] ?? '')
+  const [selectedSemester, setSelectedSemester] = useState<string>('')
+  const activeSemester = semesters.includes(selectedSemester) ? selectedSemester : (semesters[0] ?? '')
+  const courses = completedCourses.filter((course) => course.semester === activeSemester)
 
-  const courses = completedCourses.filter((c) => c.semester === activeSemester)
-
-  return { semesters, activeSemester, setActiveSemester, courses }
+  return { semesters, activeSemester, setActiveSemester: setSelectedSemester, courses }
 }
