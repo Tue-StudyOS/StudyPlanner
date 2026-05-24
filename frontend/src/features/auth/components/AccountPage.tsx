@@ -223,9 +223,9 @@ export function AccountPage() {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
+            <section className="flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Study profile</h2>
-              <form onSubmit={(event) => void handleProfileSave(event)} className="grid gap-3">
+              <form onSubmit={(event) => void handleProfileSave(event)} className="flex flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
                   <select
@@ -256,7 +256,7 @@ export function AccountPage() {
                     ))}
                   </select>
                 </label>
-                <div className="flex justify-end">
+                <div className="mt-auto flex justify-end">
                   <button
                     type="submit"
                     disabled={isSubmitting || isLoadingOptions}
@@ -268,20 +268,9 @@ export function AccountPage() {
               </form>
             </section>
 
-            <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
+            <section className="flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
-              <form onSubmit={(event) => void handleCredentialsSave(event)} className="grid gap-3">
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Current password</span>
-                  <input
-                    type="password"
-                    value={credCurrentPassword}
-                    onChange={(event) => setCredCurrentPassword(event.target.value)}
-                    required
-                    autoComplete="current-password"
-                    className={inputClass}
-                  />
-                </label>
+              <form onSubmit={(event) => void handleCredentialsSave(event)} className="flex flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
                   <input
@@ -315,7 +304,18 @@ export function AccountPage() {
                     />
                   </label>
                 ) : null}
-                <div className="flex justify-end">
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Current password</span>
+                  <input
+                    type="password"
+                    value={credCurrentPassword}
+                    onChange={(event) => setCredCurrentPassword(event.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className={inputClass}
+                  />
+                </label>
+                <div className="mt-auto flex justify-end">
                   <button
                     type="submit"
                     disabled={isSubmitting || !credCurrentPassword}
