@@ -215,130 +215,125 @@ export function AccountPage() {
         </div>
       ) : isAuthenticated && user ? (
         <div className="grid gap-3">
-          <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
-            <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Signed in as</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Display name</div>
-                <div className="text-[13.5px] text-fg">{user.displayName}</div>
-              </div>
-              <div>
-                <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Email / Username</div>
-                <div className="text-[13.5px] text-fg">{user.email}</div>
-              </div>
-            </div>
-          </section>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 rounded-[10px] border border-border bg-surface px-5 py-3 text-[13px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Signed in as</span>
+            <span className="font-medium text-fg">{user.displayName}</span>
+            <span className="text-fg-muted">·</span>
+            <span className="text-fg-muted">{user.email}</span>
+          </div>
 
-          <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
-            <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Study profile</h2>
-            <form onSubmit={(event) => void handleProfileSave(event)} className="grid gap-3 lg:grid-cols-2">
-              <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
-                <select
-                  value={toSelectValue(selectedStudyProgramId)}
-                  onChange={(event) => setDraftStudyProgramId(event.target.value ? Number(event.target.value) : null)}
-                  disabled={isLoadingOptions}
-                  className={inputClass}
-                >
-                  <option value="">No study program selected</option>
-                  {studyPrograms.map((sp) => (
-                    <option key={sp.id} value={sp.id}>{sp.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                  Start semester
-                  <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
-                </span>
-                <select
-                  value={currentSemesterLabel}
-                  onChange={(event) => setDraftCurrentSemesterLabel(event.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Not specified</option>
-                  {startSemesters.map((sem) => (
-                    <option key={sem} value={sem}>{sem}</option>
-                  ))}
-                </select>
-              </label>
-              <div className="lg:col-span-2 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isLoadingOptions}
-                  className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Save study profile
-                </button>
-              </div>
-            </form>
-          </section>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
+              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Study profile</h2>
+              <form onSubmit={(event) => void handleProfileSave(event)} className="grid gap-3">
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
+                  <select
+                    value={toSelectValue(selectedStudyProgramId)}
+                    onChange={(event) => setDraftStudyProgramId(event.target.value ? Number(event.target.value) : null)}
+                    disabled={isLoadingOptions}
+                    className={inputClass}
+                  >
+                    <option value="">No study program selected</option>
+                    {studyPrograms.map((sp) => (
+                      <option key={sp.id} value={sp.id}>{sp.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                    Start semester
+                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
+                  </span>
+                  <select
+                    value={currentSemesterLabel}
+                    onChange={(event) => setDraftCurrentSemesterLabel(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Not specified</option>
+                    {startSemesters.map((sem) => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || isLoadingOptions}
+                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Save study profile
+                  </button>
+                </div>
+              </form>
+            </section>
 
-          <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
-            <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
-            <form onSubmit={(event) => void handleCredentialsSave(event)} className="grid gap-3 lg:grid-cols-2">
-              <label className="grid gap-1.5 lg:col-span-2">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Current password</span>
-                <input
-                  type="password"
-                  value={credCurrentPassword}
-                  onChange={(event) => setCredCurrentPassword(event.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className={inputClass}
-                />
-              </label>
-              <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
-                <input
-                  type="text"
-                  value={credNewIdentifier}
-                  onChange={(event) => setCredNewIdentifier(event.target.value)}
-                  placeholder={user.email}
-                  autoComplete="username"
-                  className={inputClass}
-                />
-              </label>
-              <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New password</span>
-                <input
-                  type="password"
-                  value={credNewPassword}
-                  onChange={(event) => setCredNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className={inputClass}
-                />
-              </label>
-              {credNewPassword ? (
-                <label className="grid gap-1.5 lg:col-span-2">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Confirm new password</span>
+            <section className="rounded-[10px] border border-border bg-surface px-5 py-4">
+              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
+              <form onSubmit={(event) => void handleCredentialsSave(event)} className="grid gap-3">
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Current password</span>
                   <input
                     type="password"
-                    value={credConfirmPassword}
-                    onChange={(event) => setCredConfirmPassword(event.target.value)}
+                    value={credCurrentPassword}
+                    onChange={(event) => setCredCurrentPassword(event.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
+                  <input
+                    type="text"
+                    value={credNewIdentifier}
+                    onChange={(event) => setCredNewIdentifier(event.target.value)}
+                    placeholder={user.email}
+                    autoComplete="username"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New password</span>
+                  <input
+                    type="password"
+                    value={credNewPassword}
+                    onChange={(event) => setCredNewPassword(event.target.value)}
                     autoComplete="new-password"
                     className={inputClass}
                   />
                 </label>
-              ) : null}
-              <div className="lg:col-span-2 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !credCurrentPassword}
-                  className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Update credentials
-                </button>
-              </div>
-            </form>
-          </section>
+                {credNewPassword ? (
+                  <label className="grid gap-1.5">
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Confirm new password</span>
+                    <input
+                      type="password"
+                      value={credConfirmPassword}
+                      onChange={(event) => setCredConfirmPassword(event.target.value)}
+                      autoComplete="new-password"
+                      className={inputClass}
+                    />
+                  </label>
+                ) : null}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !credCurrentPassword}
+                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Update credentials
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
 
           <div className="flex justify-center py-1">
             <button
               type="button"
               onClick={() => void handleLogout()}
               disabled={isSubmitting}
-              className="rounded-md border border-border px-5 py-2 text-[13px] font-medium text-fg-muted transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-primary px-5 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Sign out
             </button>
