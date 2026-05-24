@@ -10,9 +10,9 @@
   "source": "Prüfungsordnung B.Sc. Informatik, Universität Tübingen, 2021",
   "areas": [
     {
-      "code": "MATH",
-      "name": "Mathematik",
-      "required_ects": 33,
+      "code": "INF",
+      "name": "Informatik Pflichtbereich",
+      "required_ects": 111,
       "modules": [
         { "code": "INFM1010", "title": "Mathematik 1", "ects": 9, "type": "mandatory" },
         { "code": "INFM1020", "title": "Mathematik 2", "ects": 9, "type": "mandatory" },
@@ -26,14 +26,7 @@
             { "code": "INFM2021", "title": "Stochastik", "ects": 6 },
             { "code": "INFM2022", "title": "Numerik", "ects": 6 }
           ]
-        }
-      ]
-    },
-    {
-      "code": "INF",
-      "name": "Informatik Pflichtbereich",
-      "required_ects": 78,
-      "modules": [
+        },
         { "code": "INFM1110", "title": "Programmieren I", "ects": 9, "type": "mandatory" },
         { "code": "INFM1120", "title": "Programmieren II", "ects": 9, "type": "mandatory" },
         { "code": "INFM2111", "title": "Programmieren III", "ects": 6, "type": "mandatory" },
