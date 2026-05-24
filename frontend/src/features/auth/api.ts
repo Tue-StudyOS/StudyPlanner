@@ -10,6 +10,8 @@ import type {
 interface RegisterInput {
   identifier: string
   password: string
+  studyProgramId?: number | null
+  currentSemesterLabel?: string | null
 }
 
 interface LoginInput {

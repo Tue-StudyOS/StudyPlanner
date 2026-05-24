@@ -1,0 +1,111 @@
+{
+  "code": "BSC_INFO_2021",
+  "regulation_code": "BSC_INFO",
+  "version_label": "2021",
+  "name": "B.Sc. Informatik",
+  "degree": "B.Sc.",
+  "subject": "Informatik",
+  "total_ects": 180,
+  "effective_from": "WS2021/22",
+  "source": "Prüfungsordnung B.Sc. Informatik, Universität Tübingen, 2021",
+  "areas": [
+    {
+      "code": "MATH",
+      "name": "Mathematik",
+      "required_ects": 33,
+      "modules": [
+        { "code": "INFM1010", "title": "Mathematik 1", "ects": 9, "type": "mandatory" },
+        { "code": "INFM1020", "title": "Mathematik 2", "ects": 9, "type": "mandatory" },
+        { "code": "INFM2010", "title": "Mathematik 3", "ects": 9, "type": "mandatory" },
+        {
+          "code": "INFM2020",
+          "title": "Mathematik 4",
+          "ects": 6,
+          "type": "choice_one",
+          "alternatives": [
+            { "code": "INFM2021", "title": "Stochastik", "ects": 6 },
+            { "code": "INFM2022", "title": "Numerik", "ects": 6 }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "INF",
+      "name": "Informatik Pflichtbereich",
+      "required_ects": 78,
+      "modules": [
+        { "code": "INFM1110", "title": "Programmieren I", "ects": 9, "type": "mandatory" },
+        { "code": "INFM1120", "title": "Programmieren II", "ects": 9, "type": "mandatory" },
+        { "code": "INFM2111", "title": "Programmieren III", "ects": 6, "type": "mandatory" },
+        { "code": "INFM2110", "title": "Programmieren IV (Teamprojekt)", "ects": 9, "type": "mandatory" },
+        { "code": "INFM1310", "title": "Technische Informatik I", "ects": 6, "type": "mandatory" },
+        { "code": "INFM2310", "title": "Technische Informatik II", "ects": 9, "type": "mandatory" },
+        { "code": "INFM2320", "title": "Technische Informatik III (Programmierpraktikum)", "ects": 6, "type": "mandatory" },
+        { "code": "INFM2420", "title": "Theoretische Informatik I", "ects": 9, "type": "mandatory" },
+        { "code": "INFM2410", "title": "Theoretische Informatik II", "ects": 9, "type": "mandatory" },
+        { "code": "INFM3151", "title": "Grundlagen des Maschinellen Lernens", "ects": 6, "type": "mandatory" }
+      ]
+    },
+    {
+      "code": "PROSEM",
+      "name": "Proseminar",
+      "required_ects": 3,
+      "modules": [
+        { "code": "INFM1510", "title": "Proseminar", "ects": 3, "type": "mandatory" }
+      ]
+    },
+    {
+      "code": "PRAK",
+      "name": "Praktikum",
+      "required_ects": 6,
+      "modules": [
+        { "code": "INFM3120", "title": "Praktikum (Wahlpflicht)", "ects": 6, "type": "choice_from_list",
+          "note": "Ein genehmigtes Praktikum aus dem Angebot des Fachbereichs." }
+      ]
+    },
+    {
+      "code": "TECH",
+      "name": "Wahlpflicht Technische Informatik",
+      "required_ects": 6,
+      "modules": [
+        { "code": "INFM3310", "title": "Wahlpflichtmodul Technische Informatik", "ects": 6, "type": "choice_from_list",
+          "note": "Ein Modul aus dem Wahlpflichtangebot Technische Informatik." }
+      ]
+    },
+    {
+      "code": "THEO",
+      "name": "Wahlpflicht Theoretische Informatik",
+      "required_ects": 6,
+      "modules": [
+        { "code": "INFM3410", "title": "Wahlpflichtmodul Theoretische Informatik", "ects": 6, "type": "choice_from_list",
+          "note": "Ein Modul aus dem Wahlpflichtangebot Theoretische Informatik." }
+      ]
+    },
+    {
+      "code": "INFO",
+      "name": "Wahlpflicht Informatik",
+      "required_ects": 15,
+      "modules": [
+        { "code": "INFM2510", "title": "Wahlpflichtmodule Informatik", "ects": 15, "type": "choice_from_list",
+          "note": "Module aus dem allgemeinen Informatik-Wahlpflichtangebot." }
+      ]
+    },
+    {
+      "code": "UEBK",
+      "name": "Überfachliche Kompetenzen",
+      "required_ects": 18,
+      "modules": [
+        { "code": "UEBK", "title": "Überfachliche Kompetenzen", "ects": 18, "type": "choice_from_list",
+          "note": "Module aus dem Angebot der Universität Tübingen (z.B. Sprachkurse, Schlüsselkompetenzen)." }
+      ]
+    },
+    {
+      "code": "THESIS",
+      "name": "Bachelorarbeit",
+      "required_ects": 15,
+      "modules": [
+        { "code": "INFM3999", "title": "Bachelorarbeit", "ects": 15, "type": "mandatory" }
+      ]
+    }
+  ]
+}

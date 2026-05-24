@@ -4,6 +4,8 @@ import type { AuthUser } from './types'
 export interface RegisterInput {
   identifier: string
   password: string
+  studyProgramId?: number | null
+  currentSemesterLabel?: string | null
 }
 
 export interface LoginInput {

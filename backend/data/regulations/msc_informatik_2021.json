@@ -1,0 +1,67 @@
+{
+  "code": "MSC_INFO_2021",
+  "regulation_code": "MSC_INFO",
+  "version_label": "2021",
+  "name": "M.Sc. Informatik",
+  "degree": "M.Sc.",
+  "subject": "Informatik",
+  "total_ects": 120,
+  "effective_from": "WS2021/22",
+  "source": "Prüfungsordnung M.Sc. Informatik, Universität Tübingen, 2021",
+  "note": "Studierende wählen 5 der 6 Vertiefungsbereiche (je 18 CP). INFO-FOKUS und INFO-BASIS sind Alternativen; einer davon muss belegt werden.",
+  "areas": [
+    {
+      "code": "INFO-PRAK",
+      "name": "Praktische Informatik",
+      "required_ects": 18,
+      "type": "elective_area",
+      "note": "18 CP aus dem Angebot der Praktischen Informatik."
+    },
+    {
+      "code": "INFO-TECH",
+      "name": "Technische Informatik",
+      "required_ects": 18,
+      "type": "elective_area",
+      "note": "18 CP aus dem Angebot der Technischen Informatik."
+    },
+    {
+      "code": "INFO-THEO",
+      "name": "Theoretische Informatik",
+      "required_ects": 18,
+      "type": "elective_area",
+      "note": "18 CP aus dem Angebot der Theoretischen Informatik."
+    },
+    {
+      "code": "INFO-INFO",
+      "name": "Angewandte Informatik",
+      "required_ects": 18,
+      "type": "elective_area",
+      "note": "18 CP aus dem Angebot der Angewandten Informatik."
+    },
+    {
+      "code": "INFO-FOKUS",
+      "name": "Fokusbereich",
+      "required_ects": 18,
+      "type": "elective_area",
+      "alternative_to": "INFO-BASIS",
+      "note": "Vertiefung in einem Schwerpunktgebiet. Alternativ zu INFO-BASIS."
+    },
+    {
+      "code": "INFO-BASIS",
+      "name": "Basisbereich",
+      "required_ects": 18,
+      "type": "elective_area",
+      "alternative_to": "INFO-FOKUS",
+      "note": "Grundlagenvertiefung. Alternativ zu INFO-FOKUS."
+    },
+    {
+      "code": "THESIS",
+      "name": "Masterarbeit",
+      "required_ects": 30,
+      "type": "mandatory",
+      "modules": [
+        { "code": "MSC_INFO_THESIS", "title": "Masterarbeit", "ects": 30, "type": "mandatory" }
+      ]
+    }
+  ]
+}

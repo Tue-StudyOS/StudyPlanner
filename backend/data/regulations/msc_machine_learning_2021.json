@@ -1,0 +1,58 @@
+{
+  "code": "MSC_ML_2021",
+  "regulation_code": "MSC_ML",
+  "version_label": "2021",
+  "name": "M.Sc. Machine Learning",
+  "degree": "M.Sc.",
+  "subject": "Machine Learning",
+  "total_ects": 120,
+  "effective_from": "WS2021/22",
+  "source": "Prüfungsordnung M.Sc. Machine Learning, Universität Tübingen, 2021",
+  "areas": [
+    {
+      "code": "ML-FOUND",
+      "name": "Foundations of Machine Learning",
+      "required_ects": 24,
+      "type": "structured_elective",
+      "note": "Mindestens 2 der 3 Pflichtmodule müssen belegt werden (je 9+9+6 = 24 CP gesamt).",
+      "modules": [
+        { "code": "ML_STAT_LEARN", "title": "Statistical Learning Theory", "ects": 9, "type": "choice_required",
+          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." },
+        { "code": "ML_PROB_INF", "title": "Probabilistic Inference", "ects": 9, "type": "choice_required",
+          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." },
+        { "code": "ML_DEEP_LEARN", "title": "Deep Learning", "ects": 6, "type": "choice_required",
+          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." }
+      ]
+    },
+    {
+      "code": "ML-DIVERSE",
+      "name": "Diverse Topics in Machine Learning",
+      "required_ects": 36,
+      "type": "elective_area",
+      "note": "36 CP aus dem breiten Angebot der ML-Vertiefungsmodule."
+    },
+    {
+      "code": "ML-CS",
+      "name": "General Computer Science",
+      "required_ects": 18,
+      "type": "elective_area",
+      "note": "18 CP aus dem allgemeinen Informatik-Angebot."
+    },
+    {
+      "code": "ML-EXP",
+      "name": "Expanded Perspectives",
+      "required_ects": 12,
+      "type": "elective_area",
+      "note": "12 CP aus interdisziplinären Bereichen (z.B. Biologie, Neurowissenschaften, Statistik)."
+    },
+    {
+      "code": "THESIS",
+      "name": "Masterarbeit",
+      "required_ects": 30,
+      "type": "mandatory",
+      "modules": [
+        { "code": "MSC_ML_THESIS", "title": "Masterarbeit", "ects": 30, "type": "mandatory" }
+      ]
+    }
+  ]
+}

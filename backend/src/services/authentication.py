@@ -225,16 +225,40 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
     if created_user is None:
         raise RegistrationError('The account could not be created.')
 
+    reg_study_program_id: int | None = None
+    raw_sp = payload.get('studyProgramId')
+    if raw_sp not in (None, ''):
+        try:
+            candidate_id = int(raw_sp)
+            sp_exists = await fetch_one(
+                env,
+                'SELECT id FROM study_programs WHERE id = ? LIMIT 1',
+                [candidate_id],
+            )
+            if sp_exists is not None:
+                reg_study_program_id = candidate_id
+        except (TypeError, ValueError):
+            pass
+
+    reg_regulation_version_id: int | None = None
+    if reg_study_program_id is not None:
+        reg_regulation_version_id = await _get_default_regulation_version_id(env, reg_study_program_id)
+
+    reg_semester_label = _safe_text(payload.get('currentSemesterLabel')) if 'currentSemesterLabel' in payload else None
+
     await execute(
         env,
         """
         INSERT INTO user_profiles (
             user_id,
+            study_program_id,
+            regulation_version_id,
+            current_semester_label,
             created_at_unix,
             updated_at_unix
-        ) VALUES (?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """,
-        [created_user['id'], now_unix, now_unix],
+        [created_user['id'], reg_study_program_id, reg_regulation_version_id, reg_semester_label, now_unix, now_unix],
     )
 
     session_token = await _create_session(
