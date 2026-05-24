@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from db.d1 import fetch_all, fetch_one
@@ -27,6 +28,7 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "comment",
     "empfehlung",
 )
+ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects)\b', re.IGNORECASE)
 
 
 def _placeholders(count: int) -> str:
@@ -59,6 +61,27 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
         unique_values.append(normalized_value)
         seen_values.add(normalized_value)
     return unique_values
+
+
+def _extract_ects_from_text(value: str | None) -> float | None:
+    if not value:
+        return None
+
+    match = ECTS_TEXT_PATTERN.search(value)
+    if not match:
+        return None
+
+    return _normalize_ects(match.group(1).replace(',', '.'))
+
+
+def _escape_like_search_term(value: str) -> str:
+    return value.replace('^', '^^').replace('%', '^%').replace('_', '^_')
+
+
+def _build_search_terms(value: str) -> list[str]:
+    raw_terms = [term.strip('.,:;()[]{}') for term in value.split()]
+    filtered_terms = [term for term in raw_terms if len(term) > 1]
+    return _unique_preserve_order(filtered_terms[:6] or [value])
 
 
 def _group_rows_by_course_id(rows: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
@@ -377,7 +400,7 @@ def _build_catalog_summary(
             if (ects_value := _normalize_ects(row.get("moduleEcts"))) is not None
         ),
         None,
-    )
+    ) or _extract_ects_from_text(_safe_text(course.get("shortComment")))
     first_slot = schedule[0] if schedule else None
 
     return {
@@ -439,18 +462,45 @@ async def list_catalog_courses(
 
     normalized_search = _safe_text(search)
     if normalized_search:
-        like_value = f"%{normalized_search}%"
+        search_terms = _build_search_terms(normalized_search)
+        term_filters: list[str] = []
+
+        for term in search_terms:
+            like_value = f"%{_escape_like_search_term(term)}%"
+            term_filters.append(
+                """
+                (
+                    COALESCE(c.number, '') LIKE ? ESCAPE '^'
+                    OR c.title LIKE ? ESCAPE '^'
+                    OR COALESCE(c.organisation, '') LIKE ? ESCAPE '^'
+                )
+                """
+            )
+            params.extend([like_value, like_value, like_value])
+
+        sql += "\n          AND " + "\n          AND ".join(term_filters)
+
+        first_term_like_value = f"%{_escape_like_search_term(search_terms[0])}%"
         sql += """
-          AND (
-              COALESCE(c.number, '') LIKE ?
-              OR c.title LIKE ?
-              OR COALESCE(c.organisation, '') LIKE ?
-          )
+            ORDER BY
+                CASE
+                    WHEN COALESCE(c.number, '') LIKE ? ESCAPE '^' THEN 0
+                    WHEN c.title LIKE ? ESCAPE '^' THEN 1
+                    WHEN COALESCE(c.organisation, '') LIKE ? ESCAPE '^' THEN 2
+                    ELSE 3
+                END ASC,
         """
-        params.extend([like_value, like_value, like_value])
+        params.extend([
+            first_term_like_value,
+            first_term_like_value,
+            first_term_like_value,
+        ])
+    else:
+        sql += """
+            ORDER BY
+        """
 
     sql += """
-        ORDER BY
             CASE
                 WHEN c.number LIKE 'INFO%' THEN 0
                 WHEN c.number LIKE 'INF%' THEN 1

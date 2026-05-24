@@ -38,8 +38,8 @@ export interface TranscriptImportCandidate {
   sourceSection: string | null
   rawText: string
   extractedTitle: string
+  extractedEcts: number | null
   titleCandidates: string[]
-  selected: boolean
   title: string
   semester: string
   grade: number | null

@@ -1,15 +1,19 @@
 import type { ChangeEvent, DragEvent } from 'react'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
 import { useAuth } from '../../auth'
 import { useCatalogCourses } from '../../courses'
-import type { CompletedCourse, Course } from '../../courses'
-import type { TranscriptImportCandidate, TranscriptImportPhase } from '../types'
+import type { CompletedCourse, MasterCat } from '../../courses'
+import type { TranscriptCoursePreview, TranscriptImportCandidate, TranscriptImportPhase } from '../types'
 import { useStudyStats } from '../hooks/useStudyStats'
 import { useTranscript } from '../hooks/useTranscript'
-import { buildTranscriptImportCandidates } from '../utils/buildTranscriptImportCandidates'
+import {
+  buildTranscriptImportCandidates,
+  canImportTranscriptCandidate,
+} from '../utils/buildTranscriptImportCandidates'
 import { parseTranscriptPdf } from '../utils/parseTranscriptPdf'
+import { ManualCompletedCourseForm } from './ManualCompletedCourseForm'
 import { SavedCompletedCourseRow } from './SavedCompletedCourseRow'
 import { TranscriptImportRow } from './TranscriptImportRow'
 import { TranscriptUploadCard } from './TranscriptUploadCard'
@@ -21,28 +25,22 @@ function isPdfFile(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
 
-function matchesCatalogCourse(course: Course, query: string): boolean {
-  const normalizedQuery = query.trim().toLowerCase()
-  if (!normalizedQuery) {
-    return true
-  }
-
-  return [course.number, course.title, course.organisation ?? '']
-    .map((value) => value.toLowerCase())
-    .some((value) => value.includes(normalizedQuery))
-}
-
-function toCompletedCourse(course: Course, currentSemesterLabel: string | null | undefined): CompletedCourse {
+function toManualCompletedCourse(
+  course: TranscriptCoursePreview,
+  semester: string,
+  grade: number | null,
+  masterCat: MasterCat,
+): CompletedCourse {
   return {
-    id: `draft-${course.id}`,
+    id: `manual-${course.id}-${Date.now()}`,
     courseId: course.id,
     courseNumber: course.number,
     externalCourseCode: course.number,
     title: course.title,
     ects: course.ects ?? 0,
-    masterCat: course.masterCats[0] ?? 'INFO',
-    grade: null,
-    semester: currentSemesterLabel || 'Semester not set',
+    masterCat,
+    grade,
+    semester,
     source: 'manual',
   }
 }
@@ -65,40 +63,39 @@ function toImportedCompletedCourse(candidate: TranscriptImportCandidate): Comple
 function UploadReviewSection({
   importCandidates,
   importPhase,
-  onDiscard,
+  onDiscardAll,
+  onDiscardCandidate,
   onConfirm,
   onCandidateChange,
-  catalogCourses,
 }: {
   importCandidates: TranscriptImportCandidate[]
   importPhase: TranscriptImportPhase
-  onDiscard: () => void
+  onDiscardAll: () => void
+  onDiscardCandidate: (candidateId: string) => void
   onConfirm: () => Promise<void>
   onCandidateChange: (candidate: TranscriptImportCandidate) => void
-  catalogCourses: Course[]
 }) {
-  const selectedImportCount = importCandidates.filter((candidate) => candidate.selected).length
-  const invalidSelectedImportCount = importCandidates.filter(
-    (candidate) => candidate.selected && candidate.validationIssues.length > 0,
+  const blockingCandidateCount = importCandidates.filter(
+    (candidate) => !canImportTranscriptCandidate(candidate),
   ).length
 
   return (
     <section className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[14px] font-semibold text-fg">Review extracted transcript rows</div>
+          <div className="text-[14px] font-semibold text-fg">Review extracted transcript courses</div>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            {selectedImportCount} row(s) selected
-            {invalidSelectedImportCount > 0 ? ` · ${invalidSelectedImportCount} selected row(s) still need fixes` : ''}
+            {importCandidates.length} extracted course(s)
+            {blockingCandidateCount > 0 ? ` · ${blockingCandidateCount} still need review` : ' · ready to import'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={onDiscard}
+            onClick={onDiscardAll}
             className="rounded-md border border-border px-3.5 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
           >
-            Discard review
+            Clear review
           </button>
           <button
             type="button"
@@ -106,7 +103,7 @@ function UploadReviewSection({
             disabled={importPhase === 'saving'}
             className="rounded-md bg-primary px-3.5 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {importPhase === 'saving' ? 'Importing…' : 'Import selected rows'}
+            {importPhase === 'saving' ? 'Importing…' : 'Import reviewed courses'}
           </button>
         </div>
       </div>
@@ -116,7 +113,7 @@ function UploadReviewSection({
           <TranscriptImportRow
             key={candidate.id}
             candidate={candidate}
-            catalogCourses={catalogCourses}
+            onDiscard={() => onDiscardCandidate(candidate.id)}
             onChange={onCandidateChange}
           />
         ))}
@@ -127,7 +124,6 @@ function UploadReviewSection({
 
 function AuthenticatedTranscript() {
   const { user } = useAuth()
-  const [manualSearch, setManualSearch] = useState<string>('')
   const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>([])
   const [importPhase, setImportPhase] = useState<TranscriptImportPhase>('idle')
   const [importError, setImportError] = useState<string | null>(null)
@@ -148,7 +144,7 @@ function AuthenticatedTranscript() {
   } = useTranscript()
   const { totalEcts, requiredEcts, progress, averageGrade } = useStudyStats()
   const {
-    courses: catalogCourses,
+    courses: baseCatalogCourses,
     isLoading: isLoadingCatalog,
     error: catalogError,
   } = useCatalogCourses('', CATALOG_LIMIT)
@@ -159,24 +155,21 @@ function AuthenticatedTranscript() {
     { label: 'Average grade', value: averageGrade !== null ? averageGrade.toFixed(2) : '–' },
   ]
 
-  const addableCourses = useMemo(
-    () =>
-      catalogCourses
-        .filter(
-          (course) => !completedCourses.some((completedCourse) => completedCourse.courseId === course.id),
-        )
-        .filter((course) => matchesCatalogCourse(course, manualSearch))
-        .slice(0, 6),
-    [catalogCourses, completedCourses, manualSearch],
-  )
-
-  async function handleManualCourseAdd(course: Course): Promise<void> {
+  async function handleManualCourseAdd(
+    course: TranscriptCoursePreview,
+    semester: string,
+    grade: number | null,
+    masterCat: MasterCat,
+  ): Promise<boolean> {
     clearCompletedCoursesError()
     setImportNotice(null)
-    const result = await addCompletedCourse(toCompletedCourse(course, user?.profile.currentSemesterLabel))
-    if (result.saved) {
-      setImportNotice(`Added ${course.title} to your completed courses.`)
+    const result = await addCompletedCourse(toManualCompletedCourse(course, semester, grade, masterCat))
+    if (!result.saved) {
+      return false
     }
+
+    setImportNotice(`Added ${course.title} to your completed courses.`)
+    return true
   }
 
   async function handleTranscriptFile(file: File): Promise<void> {
@@ -227,14 +220,14 @@ function AuthenticatedTranscript() {
         )
       }
 
-      const nextCandidates = buildTranscriptImportCandidates(parsedEntries, catalogCourses)
+      const nextCandidates = buildTranscriptImportCandidates(parsedEntries, baseCatalogCourses)
       if (nextCandidates.length === 0) {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
 
       setImportCandidates(nextCandidates)
       setImportPhase('parsed')
-      setImportNotice(`Extracted ${nextCandidates.length} transcript row(s). Please review them before importing.`)
+      setImportNotice(`Extracted ${nextCandidates.length} course(s). Review or discard anything that looks wrong before importing.`)
     } catch (error) {
       setImportPhase('failed')
       setImportCandidates([])
@@ -247,22 +240,21 @@ function AuthenticatedTranscript() {
     setImportError(null)
     setImportNotice(null)
 
-    const selectedCandidates = importCandidates.filter((candidate) => candidate.selected)
-    if (selectedCandidates.length === 0) {
-      setImportError('Select at least one extracted row before importing.')
+    if (importCandidates.length === 0) {
+      setImportError('There are no extracted courses left to import.')
       return
     }
 
-    const invalidSelectedCandidates = selectedCandidates.filter(
-      (candidate) => candidate.validationIssues.length > 0,
+    const blockingCandidates = importCandidates.filter(
+      (candidate) => !canImportTranscriptCandidate(candidate),
     )
-    if (invalidSelectedCandidates.length > 0) {
-      setImportError('Some selected rows still need attention before they can be imported.')
+    if (blockingCandidates.length > 0) {
+      setImportError('Some extracted courses still need a catalog course, semester, or valid grade before they can be imported.')
       return
     }
 
     setImportPhase('saving')
-    const importResult = await addCompletedCourses(selectedCandidates.map(toImportedCompletedCourse))
+    const importResult = await addCompletedCourses(importCandidates.map(toImportedCompletedCourse))
     if (!importResult.saved) {
       setImportPhase('parsed')
       return
@@ -287,6 +279,18 @@ function AuthenticatedTranscript() {
         candidate.id === nextCandidate.id ? nextCandidate : candidate,
       ),
     )
+  }
+
+  function discardImportCandidate(candidateId: string): void {
+    setImportCandidates((previousCandidates) => {
+      const nextCandidates = previousCandidates.filter((candidate) => candidate.id !== candidateId)
+      if (nextCandidates.length === 0) {
+        setImportPhase('idle')
+        setImportNotice(null)
+        setImportError(null)
+      }
+      return nextCandidates
+    })
   }
 
   function resetImportReview(): void {
@@ -346,43 +350,11 @@ function AuthenticatedTranscript() {
           onDrop={handleDrop}
         />
 
-        <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-          <div className="mb-3 text-[14px] font-semibold text-fg">Add completed courses manually</div>
-          <p className="mb-3 text-[12.5px] text-fg-muted">
-            Until transcript import is finished, you can already add completed catalog courses to your account.
-          </p>
-          <input
-            type="search"
-            value={manualSearch}
-            onChange={(event) => setManualSearch(event.target.value)}
-            placeholder="Search by course title or number"
-            className="mb-3 w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
-          />
-          <div className="grid gap-2">
-            {catalogError ? (
-              <div className="text-[12.5px] text-primary">Failed to load the catalog. {catalogError}</div>
-            ) : isLoadingCatalog ? (
-              <div className="text-[12.5px] text-fg-muted">Loading catalog courses...</div>
-            ) : addableCourses.length === 0 ? (
-              <div className="text-[12.5px] text-fg-muted">No matching catalog courses available.</div>
-            ) : (
-              addableCourses.map((course) => (
-                <button
-                  key={course.id}
-                  type="button"
-                  onClick={() => void handleManualCourseAdd(course)}
-                  disabled={isSavingCompletedCourses}
-                  className="rounded-lg border border-border-light px-4 py-3 text-left transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <div className="text-[13px] font-semibold text-fg">{course.title}</div>
-                  <div className="text-[12px] text-fg-muted">
-                    {course.number} · {course.ects ?? '–'} ECTS
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
+        <ManualCompletedCourseForm
+          defaultSemester={user?.profile.currentSemesterLabel}
+          isSaving={isSavingCompletedCourses}
+          onSave={handleManualCourseAdd}
+        />
       </div>
 
       <div className="col-span-3 flex flex-col gap-3.5">
@@ -419,10 +391,10 @@ function AuthenticatedTranscript() {
           <UploadReviewSection
             importCandidates={importCandidates}
             importPhase={importPhase}
-            onDiscard={resetImportReview}
+            onDiscardAll={resetImportReview}
+            onDiscardCandidate={discardImportCandidate}
             onConfirm={handleImportConfirmation}
             onCandidateChange={updateImportCandidateById}
-            catalogCourses={catalogCourses}
           />
         ) : null}
 

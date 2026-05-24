@@ -9,6 +9,7 @@ import type {
 interface CourseMatchResult {
   preview: TranscriptCoursePreview
   score: number
+  priority: number
 }
 
 const STOP_WORDS = new Set([
@@ -50,40 +51,40 @@ function tokenize(value: string): string[] {
 export function toTranscriptCoursePreview(course: Course): TranscriptCoursePreview {
   return {
     id: course.id,
-    number: course.number,
-    title: course.title,
+    number: course.moduleCode ?? course.number,
+    title: course.moduleTitle ?? course.title,
     ects: course.ects,
     masterCats: course.masterCats,
   }
 }
 
-function scoreCourseMatch(candidateTitle: string, course: Course, expectedEcts: number | null): number {
+function scoreCourseTitle(candidateTitle: string, courseTitle: string, expectedEcts: number | null): number {
   const normalizedCandidateTitle = normalizeText(candidateTitle)
-  const normalizedCourseTitle = normalizeText(course.title)
+  const normalizedCourseTitle = normalizeText(courseTitle)
   if (!normalizedCandidateTitle || !normalizedCourseTitle) {
     return 0
   }
 
   if (normalizedCandidateTitle === normalizedCourseTitle) {
-    return expectedEcts !== null && course.ects === expectedEcts ? 1 : 0.98
+    return expectedEcts !== null ? 1 : 0.98
   }
 
   if (
     normalizedCandidateTitle.length >= 12 &&
     normalizedCourseTitle.includes(normalizedCandidateTitle)
   ) {
-    return expectedEcts !== null && course.ects === expectedEcts ? 0.95 : 0.9
+    return expectedEcts !== null ? 0.95 : 0.9
   }
 
   if (
     normalizedCourseTitle.length >= 12 &&
     normalizedCandidateTitle.includes(normalizedCourseTitle)
   ) {
-    return expectedEcts !== null && course.ects === expectedEcts ? 0.93 : 0.88
+    return expectedEcts !== null ? 0.93 : 0.88
   }
 
   const candidateTokens = tokenize(candidateTitle)
-  const courseTokens = tokenize(course.title)
+  const courseTokens = tokenize(courseTitle)
   if (candidateTokens.length === 0 || courseTokens.length === 0) {
     return 0
   }
@@ -95,16 +96,45 @@ function scoreCourseMatch(candidateTitle: string, course: Course, expectedEcts: 
   }
 
   const tokenScore = overlappingTokenCount / Math.max(candidateTokens.length, courseTokens.length)
-  const ectsBonus = expectedEcts !== null && course.ects === expectedEcts ? 0.08 : 0
+  const ectsBonus = expectedEcts !== null ? 0.08 : 0
   return Math.min(0.92, tokenScore + ectsBonus)
+}
+
+function isLikelyExerciseCourse(course: Course): boolean {
+  const normalizedCourseType = normalizeText(course.courseType)
+  const normalizedTitle = normalizeText(course.title)
+
+  return (
+    normalizedCourseType.includes('ubung') ||
+    normalizedCourseType.includes('exercise') ||
+    normalizedTitle.startsWith('ubung ') ||
+    normalizedTitle.startsWith('ubungen ') ||
+    normalizedTitle.includes('ubung zur vorlesung') ||
+    normalizedTitle.includes('ubungen zur vorlesung') ||
+    normalizedTitle.includes('exercise for')
+  )
+}
+
+function buildMatchKey(preview: TranscriptCoursePreview): string {
+  return `${normalizeText(preview.number)}::${normalizeText(preview.title)}`
+}
+
+function scoreCourseMatch(candidateTitle: string, course: Course, expectedEcts: number | null): number {
+  const expectedEctsMatches = expectedEcts !== null && course.ects === expectedEcts
+  const candidateCourseTitles = [
+    ...new Set([course.moduleTitle, course.title].filter((courseTitle): courseTitle is string => Boolean(courseTitle))),
+  ]
+
+  return Math.max(
+    ...candidateCourseTitles.map((courseTitle) =>
+      scoreCourseTitle(candidateTitle, courseTitle, expectedEctsMatches ? expectedEcts : null),
+    ),
+  )
 }
 
 function getValidationIssues(candidate: TranscriptImportCandidate): string[] {
   const issues = [...candidate.parseIssues]
 
-  if (!candidate.title.trim()) {
-    issues.push('Title is missing.')
-  }
   if (!candidate.semester.trim()) {
     issues.push('Semester is missing.')
   }
@@ -136,12 +166,12 @@ function getStatusDetail(candidate: TranscriptImportCandidate, status: Transcrip
     return validationIssues[0] ?? 'This row needs manual review.'
   }
   if (status === 'matched' && candidate.matchedCourse) {
-    return `Matched to ${candidate.matchedCourse.number || candidate.matchedCourse.title}.`
+    return `Ready to import as ${candidate.matchedCourse.number || candidate.matchedCourse.title}.`
   }
   if (status === 'uncertain') {
-    return 'Please review the suggested catalog match before importing.'
+    return 'Choose the right catalog course from the suggested matches before importing.'
   }
-  return 'No catalog match was found. You can still keep the extracted title or assign a catalog course manually.'
+  return 'Search the catalog and assign the correct course before importing this row.'
 }
 
 function finalizeCandidate(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
@@ -157,7 +187,7 @@ function finalizeCandidate(candidate: TranscriptImportCandidate): TranscriptImpo
 }
 
 function buildMatchResults(entry: ParsedTranscriptEntry, courses: Course[]): CourseMatchResult[] {
-  const scoredMatches: CourseMatchResult[] = []
+  const scoredMatches = new Map<string, CourseMatchResult>()
 
   for (const course of courses) {
     const score = Math.max(
@@ -170,13 +200,30 @@ function buildMatchResults(entry: ParsedTranscriptEntry, courses: Course[]): Cou
       continue
     }
 
-    scoredMatches.push({
-      preview: toTranscriptCoursePreview(course),
+    const preview = toTranscriptCoursePreview(course)
+    const key = buildMatchKey(preview)
+    const candidateMatchResult: CourseMatchResult = {
+      preview,
       score,
-    })
+      priority: isLikelyExerciseCourse(course) ? 1 : 0,
+    }
+    const existingMatchResult = scoredMatches.get(key)
+
+    if (
+      !existingMatchResult ||
+      candidateMatchResult.score > existingMatchResult.score ||
+      (candidateMatchResult.score === existingMatchResult.score && candidateMatchResult.priority < existingMatchResult.priority)
+    ) {
+      scoredMatches.set(key, candidateMatchResult)
+    }
   }
 
-  return scoredMatches.sort((firstMatch, secondMatch) => secondMatch.score - firstMatch.score)
+  return [...scoredMatches.values()].sort((firstMatch, secondMatch) => {
+    if (secondMatch.score !== firstMatch.score) {
+      return secondMatch.score - firstMatch.score
+    }
+    return firstMatch.priority - secondMatch.priority
+  })
 }
 
 function pickDefaultMasterCat(entry: ParsedTranscriptEntry, matchedCourse: TranscriptCoursePreview | null): MasterCat {
@@ -194,7 +241,7 @@ export function buildTranscriptImportCandidates(
     const shouldAutoMatch = Boolean(
       topMatch && (
         topMatch.score >= 0.98 ||
-        (!secondMatch && topMatch.score >= 0.82) ||
+        (!secondMatch && topMatch.score >= 0.78) ||
         (topMatch.score >= 0.9 && topMatch.score - (secondMatch?.score ?? 0) >= 0.12)
       ),
     )
@@ -207,10 +254,10 @@ export function buildTranscriptImportCandidates(
       rawText: entry.rawText,
       extractedTitle: entry.extractedTitle,
       titleCandidates: entry.titleCandidates,
-      selected: true,
       title: matchedCourse?.title ?? entry.extractedTitle,
       semester: entry.extractedSemester ?? '',
       grade: entry.extractedGrade,
+      extractedEcts: entry.extractedEcts,
       ects: matchedCourse?.ects ?? entry.extractedEcts,
       masterCat: pickDefaultMasterCat(entry, matchedCourse),
       status: matchedCourse ? 'matched' : matchResults.length > 0 ? 'uncertain' : 'unmatched',
@@ -233,24 +280,13 @@ export function applyCatalogCourseMatch(
   return finalizeCandidate({
     ...candidate,
     title: course.title,
-    ects: course.ects,
+    ects: course.ects ?? candidate.extractedEcts,
     masterCat: course.masterCats[0] ?? candidate.masterCat,
     matchedCourse: course,
     courseId: course.id,
     courseNumber: course.number,
-    selected: true,
     isUserEdited: true,
     matchOptions: [course, ...candidate.matchOptions.filter((option) => option.id !== course.id)].slice(0, 5),
-  })
-}
-
-export function clearCatalogCourseMatch(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
-  return finalizeCandidate({
-    ...candidate,
-    matchedCourse: null,
-    courseId: null,
-    courseNumber: null,
-    isUserEdited: true,
   })
 }
 
@@ -263,6 +299,17 @@ export function updateTranscriptImportCandidate(
     ...updates,
     isUserEdited: true,
   })
+}
+
+export function canImportTranscriptCandidate(candidate: TranscriptImportCandidate): boolean {
+  return Boolean(
+    candidate.courseId &&
+      candidate.matchedCourse &&
+      candidate.semester.trim() &&
+      candidate.ects !== null &&
+      candidate.ects > 0 &&
+      (candidate.grade === null || (candidate.grade >= 1 && candidate.grade <= 5))
+  )
 }
 
 export function matchesCourseQuery(course: TranscriptCoursePreview, query: string): boolean {
