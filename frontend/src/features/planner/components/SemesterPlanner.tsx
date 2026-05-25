@@ -347,6 +347,7 @@ function PlannerGrid({
 }) {
   const blocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
+  const isWeeklyListLayout = isMobilePlanner && mobileLayout === 'weekly-list'
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
   const dayLayouts = useMemo(
     () =>
@@ -366,7 +367,7 @@ function PlannerGrid({
           }
         }}
         onDrop={(event) => {
-          if (!isEditing || mobileLayout === 'weekly-list') {
+          if (!isEditing || isWeeklyListLayout) {
             return
           }
           event.preventDefault()
@@ -469,20 +470,20 @@ function PlannerGrid({
           {hasUnsavedChanges ? <span className="text-primary">You have unsaved changes.</span> : null}
         </div>
 
-        {isMobilePlanner ? (
+        {isWeeklyListLayout ? (
           <PlannerWeeklyListView
             plannedCourses={plannedCourses}
             isEditing={isEditing}
             onRemoveCourse={onRemoveCourse}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <div className="grid min-w-[640px] grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2">
+          <div>
+            <div className={`grid ${isMobilePlanner ? 'grid-cols-[48px_repeat(5,minmax(0,1fr))] gap-1.5' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
               <div />
               {DAY_ORDER.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted"
+                  className="text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[12px]"
                 >
                   {DAY_LABELS[day]}
                 </div>
@@ -492,7 +493,7 @@ function PlannerGrid({
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
                   <div
                     key={index}
-                    className="absolute left-0 text-[11px] text-fg-muted"
+                    className="absolute left-0 text-[10px] text-fg-muted sm:text-[11px]"
                     style={{ top: `${index * PIXELS_PER_HOUR - 8}px` }}
                   >
                     {String(START_HOUR + index).padStart(2, '0')}:00
@@ -500,7 +501,7 @@ function PlannerGrid({
                 ))}
               </div>
 
-              <div className="col-span-5 grid grid-cols-5 gap-2">
+              <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
                 {DAY_ORDER.map((day) => (
                   <div
                     key={day}
@@ -525,7 +526,7 @@ function PlannerGrid({
                       return (
                         <div
                           key={block.blockId}
-                          className={`absolute rounded-md border px-2 py-1 text-[11px] shadow-sm ${
+                          className={`absolute rounded-md border px-1.5 py-1 text-[10px] shadow-sm sm:px-2 sm:text-[11px] ${
                             block.hasOverlap
                               ? 'border-primary/40 bg-primary/10 text-primary'
                               : 'border-border bg-surface text-fg dark:bg-surface-hover'
@@ -540,8 +541,8 @@ function PlannerGrid({
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="truncate font-semibold">{block.courseTitle}</div>
-                              <div className="truncate text-[10px] opacity-80">{block.label}</div>
-                              <div className="truncate text-[10px] opacity-80">{block.room}</div>
+                              <div className="truncate text-[9px] opacity-80 sm:text-[10px]">{block.label}</div>
+                              <div className="truncate text-[9px] opacity-80 sm:text-[10px]">{block.room}</div>
                             </div>
                             {isEditing ? (
                               <button
@@ -567,7 +568,7 @@ function PlannerGrid({
                             blocks: indicator.hiddenBlocks,
                           })
                         }
-                        className="absolute right-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary shadow-sm"
+                        className="absolute right-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-1 text-[9px] font-semibold text-primary shadow-sm sm:px-2 sm:text-[10px]"
                         style={{ top: `${indicator.top + 4}px` }}
                       >
                         +{indicator.hiddenBlocks.length}
