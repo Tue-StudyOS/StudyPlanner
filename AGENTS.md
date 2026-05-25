@@ -32,12 +32,16 @@ Before changing code:
 2. Identify the smallest safe change.
 3. Pick the relevant agent profile from `agents/main.md` if the task is specialized.
 4. For each feature, bug fix or change has to be one single commit with a clear message. Dont do multiple unrelated changes in the same commit.
+5. Never commit directly on `main`.
+6. Always create or use a dedicated working branch, make commits there, and merge that branch back into `main`.
+7. If additional follow-up fixes are needed after review or deploy, do them on a new branch and merge again instead of adding direct commits to `main`.
 
 After changing code:
 1. Run or suggest the relevant test, lint, or typecheck command.
-2. Update or remove affected documentation in the same change so repo guidance stays current.
-3. Summarize what changed.
-4. Mention any risk, assumption, or follow-up.
+2. Deploy the affected frontend/backend after the change when deployment access is available. If automatic deployment is configured, verify or explicitly mention that the push/merge should trigger it. If deployment cannot be performed directly, state that clearly and document the exact deploy command or blocker.
+3. Update or remove affected documentation in the same change so repo guidance stays current.
+4. Summarize what changed.
+5. Mention any risk, assumption, or follow-up.
 
 ## Agent profiles
 

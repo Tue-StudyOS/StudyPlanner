@@ -57,7 +57,7 @@ def _rule_group_code_to_master_cat(code: str | None) -> str | None:
         return 'PRAK'
     if normalized in {'INFO', 'INFO-INFO', 'ML-CS'} or normalized.endswith('-INFO'):
         return 'INFO'
-    if normalized in {'INFO-FOKUS', 'ML-DIVERSE', 'ML-EXP', 'PROSEM', 'UEBK'}:
+    if normalized in {'ELECTIVE', 'INFO-FOKUS', 'ML-DIVERSE', 'ML-EXP', 'PROSEM', 'UEBK'}:
         return 'BASIS'
     if normalized in {'MATH', 'INF', 'INFO-BASIS', 'ML-FOUND'} or normalized.endswith('BASIS'):
         return 'BASIS'
@@ -234,26 +234,90 @@ def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
     )
 
 
+def _normalize_completed_course_key(course: dict[str, Any]) -> str:
+    course_id = course.get('courseId')
+    if course_id not in {None, ''}:
+        return f'course:{int(course_id)}'
+
+    title = _safe_text(course.get('title')) or ''
+    semester = _safe_text(course.get('semester')) or ''
+    ects = float(course.get('ects') or 0)
+    grade = course.get('grade')
+    return ':'.join(
+        [
+            'manual',
+            title.lower(),
+            semester.lower(),
+            str(ects),
+            'no-grade' if grade is None else str(float(grade)),
+        ]
+    )
+
+
+def _build_assignable_options(
+    course: CompletedCoursePayload,
+    mapped_options: list[dict[str, Any]],
+    rule_groups_by_code: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    assignable_by_code: dict[str, dict[str, Any]] = {}
+
+    for option in mapped_options:
+        study_area_code = _normalize_study_area_code(option.get('studyAreaCode'))
+        if not study_area_code:
+            continue
+        assignable_by_code.setdefault(study_area_code, option)
+
+    preferred_master_cats = {
+        master_cat
+        for master_cat in [
+            *[_rule_group_code_to_master_cat(option.get('studyAreaCode')) for option in mapped_options],
+            _normalize_master_cat(course.get('masterCat')),
+        ]
+        if master_cat is not None
+    }
+
+    for code, rule_group in rule_groups_by_code.items():
+        if code in assignable_by_code:
+            continue
+        if not _is_flexible_rule_group(
+            code,
+            _safe_text(rule_group.get('name')),
+            _safe_text(rule_group.get('groupType')),
+        ):
+            continue
+        if preferred_master_cats and _rule_group_code_to_master_cat(code) not in preferred_master_cats:
+            continue
+        assignable_by_code[code] = {
+            'studyAreaCode': code,
+            'studyAreaName': _safe_text(rule_group.get('name')),
+            'groupType': _safe_text(rule_group.get('groupType')),
+        }
+
+    return list(assignable_by_code.values())
+
+
 def _resolve_assignment(
     course: CompletedCoursePayload,
     mapped_options: list[dict[str, Any]],
     rule_groups_by_code: dict[str, dict[str, Any]],
-) -> tuple[str | None, str, bool]:
+) -> tuple[str | None, str, bool, list[dict[str, Any]]]:
     selected_study_area_code = _normalize_study_area_code(course.get('studyAreaCode'))
-    if mapped_options:
-        mapped_codes = [option['studyAreaCode'] for option in mapped_options if option.get('studyAreaCode')]
-        unique_mapped_codes = list(dict.fromkeys(mapped_codes))
-        if len(unique_mapped_codes) == 1:
-            resolved_code = unique_mapped_codes[0]
+    assignable_options = _build_assignable_options(course, mapped_options, rule_groups_by_code)
+    assignable_codes = [option['studyAreaCode'] for option in assignable_options if option.get('studyAreaCode')]
+    unique_assignable_codes = list(dict.fromkeys(assignable_codes))
+
+    if unique_assignable_codes:
+        if len(unique_assignable_codes) == 1:
+            resolved_code = unique_assignable_codes[0]
         else:
-            if not selected_study_area_code or selected_study_area_code not in unique_mapped_codes:
+            if not selected_study_area_code or selected_study_area_code not in unique_assignable_codes:
                 raise CompletedCourseUpdateError(
-                    'This course matches multiple regulation areas. Please choose one of the suggested regulation areas before saving.'
+                    'This course can count toward multiple regulation areas. Choose the correct regulation area before saving.'
                 )
             resolved_code = selected_study_area_code
 
         resolved_master_cat = _rule_group_code_to_master_cat(resolved_code) or str(course['masterCat'])
-        return resolved_code, resolved_master_cat, True
+        return resolved_code, resolved_master_cat, len(unique_assignable_codes) == 1, assignable_options
 
     if selected_study_area_code:
         rule_group = rule_groups_by_code.get(selected_study_area_code)
@@ -267,19 +331,25 @@ def _resolve_assignment(
             _safe_text(rule_group.get('groupType')),
         ):
             raise CompletedCourseUpdateError(
-                'Manual courses may only be assigned to flexible regulation areas or ÜBK.'
+                'Manual external courses can only be saved in flexible elective areas or ÜBK.'
             )
         resolved_master_cat = (
             _rule_group_code_to_master_cat(selected_study_area_code) or str(course['masterCat'])
         )
-        return selected_study_area_code, resolved_master_cat, False
+        return selected_study_area_code, resolved_master_cat, False, [
+            {
+                'studyAreaCode': selected_study_area_code,
+                'studyAreaName': _safe_text(rule_group.get('name')),
+                'groupType': _safe_text(rule_group.get('groupType')),
+            }
+        ]
 
     if rule_groups_by_code:
         raise CompletedCourseUpdateError(
-            'Select a compatible regulation area for manual courses outside your regulation mapping.'
+            'Choose a compatible regulation area before saving this course.'
         )
 
-    return None, str(course['masterCat']), False
+    return None, str(course['masterCat']), False, []
 
 
 async def _serialize_completed_courses(
@@ -319,18 +389,31 @@ async def _serialize_completed_courses(
         course_id = int(row['courseId']) if row.get('courseId') is not None else None
         row_options = course_options.get(course_id or -1, [])
         resolved_study_area_code = _normalize_study_area_code(row.get('studyAreaCode'))
-        if resolved_study_area_code is None and len(row_options) == 1:
-            resolved_study_area_code = row_options[0]['studyAreaCode']
+        master_cat = _normalize_master_cat(row.get('masterCat'))
+        if resolved_study_area_code:
+            master_cat = _rule_group_code_to_master_cat(resolved_study_area_code) or master_cat
+
+        assignable_options = _build_assignable_options(
+            CompletedCoursePayload(
+                masterCat=master_cat,
+                studyAreaCode=resolved_study_area_code,
+            ),
+            row_options,
+            rule_groups_by_code,
+        )
+        assignable_codes = [
+            option['studyAreaCode'] for option in assignable_options if option.get('studyAreaCode')
+        ]
+        unique_assignable_codes = list(dict.fromkeys(assignable_codes))
+        category_locked = len(unique_assignable_codes) == 1
+        if resolved_study_area_code is None and category_locked:
+            resolved_study_area_code = unique_assignable_codes[0]
 
         rule_group = (
             rule_groups_by_code.get(resolved_study_area_code)
             if resolved_study_area_code is not None
             else None
         )
-        category_locked = len(row_options) == 1
-        master_cat = _normalize_master_cat(row.get('masterCat'))
-        if resolved_study_area_code:
-            master_cat = _rule_group_code_to_master_cat(resolved_study_area_code) or master_cat
 
         serialized_courses.append(
             {
@@ -343,7 +426,7 @@ async def _serialize_completed_courses(
                 'masterCat': master_cat,
                 'studyAreaCode': resolved_study_area_code,
                 'studyAreaName': _safe_text(rule_group.get('name')) if rule_group else None,
-                'availableStudyAreaOptions': row_options,
+                'availableStudyAreaOptions': assignable_options,
                 'categoryLocked': category_locked,
                 'isGradeCounted': resolved_study_area_code != 'UEBK',
                 'grade': float(row['grade']) if row.get('grade') is not None else None,
@@ -364,6 +447,162 @@ async def get_current_user_completed_courses(env: Any, request: Any) -> dict[str
     return {
         'completedCourses': completed_courses,
         'count': len(completed_courses),
+    }
+
+
+async def _insert_completed_course(
+    env: Any,
+    user_id: int,
+    course: CompletedCoursePayload,
+    *,
+    now_unix: int,
+) -> None:
+    await execute(
+        env,
+        """
+        INSERT INTO user_completed_courses (
+            user_id,
+            course_id,
+            external_course_code,
+            title,
+            ects,
+            master_cat,
+            study_area_code,
+            grade,
+            semester,
+            source,
+            created_at_unix,
+            updated_at_unix
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            user_id,
+            course['courseId'],
+            course['externalCourseCode'],
+            course['title'],
+            course['ects'],
+            course['masterCat'],
+            course['studyAreaCode'],
+            course['grade'],
+            course['semester'],
+            course['source'],
+            now_unix,
+            now_unix,
+        ],
+    )
+
+
+async def import_current_user_completed_courses(
+    env: Any,
+    request: Any,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    user = await require_authenticated_user(env, request)
+    user_id = int(user['id'])
+    regulation_version_id = (
+        int(user['profile']['regulationVersionId'])
+        if user['profile'].get('regulationVersionId') is not None
+        else None
+    )
+
+    raw_imports = payload.get('imports')
+    if raw_imports is None:
+        raise CompletedCourseUpdateError('An imports array is required.')
+    if not isinstance(raw_imports, list):
+        raise CompletedCourseUpdateError('imports must be an array.')
+
+    parsed_imports: list[tuple[str, CompletedCoursePayload]] = []
+    failed: list[dict[str, str]] = []
+
+    for index, raw_item in enumerate(raw_imports):
+        if not isinstance(raw_item, dict):
+            failed.append({'id': str(index), 'message': 'Each import item must be a JSON object.'})
+            continue
+
+        item_id = _safe_text(raw_item.get('id')) or str(index)
+        try:
+            normalized_course = _normalize_completed_course(raw_item.get('course'))
+        except CompletedCourseUpdateError as exc:
+            failed.append({'id': item_id, 'message': str(exc)})
+            continue
+        parsed_imports.append((item_id, normalized_course))
+
+    incoming_course_ids = sorted(
+        {
+            int(course['courseId'])
+            for _, course in parsed_imports
+            if course['courseId'] is not None
+        }
+    )
+    valid_course_ids: set[int] = set()
+    if incoming_course_ids:
+        placeholders = ', '.join('?' for _ in incoming_course_ids)
+        rows = await fetch_all(
+            env,
+            f'SELECT id FROM courses WHERE id IN ({placeholders})',
+            incoming_course_ids,
+        )
+        valid_course_ids = {int(row['id']) for row in rows}
+
+    rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
+    course_options = await _load_course_rule_group_options(env, regulation_version_id, incoming_course_ids)
+    existing_rows = await fetch_all(
+        env,
+        """
+        SELECT course_id AS courseId, title, semester, ects, grade
+        FROM user_completed_courses
+        WHERE user_id = ?
+        """,
+        [user_id],
+    )
+    seen_keys = {_normalize_completed_course_key(row) for row in existing_rows}
+    imported: list[dict[str, str]] = []
+    skipped_duplicates: list[dict[str, str]] = []
+    now_unix = _now_unix()
+
+    for item_id, course in parsed_imports:
+        course_id = int(course['courseId']) if course['courseId'] is not None else None
+        if course_id is not None and course_id not in valid_course_ids:
+            failed.append({'id': item_id, 'message': f'Unknown course id in completed-course payload: {course_id}'})
+            continue
+
+        mapped_options = course_options.get(course_id or -1, [])
+        try:
+            study_area_code, resolved_master_cat, _, _ = _resolve_assignment(
+                course,
+                mapped_options,
+                rule_groups_by_code,
+            )
+        except CompletedCourseUpdateError as exc:
+            failed.append({'id': item_id, 'message': str(exc)})
+            continue
+
+        normalized_course = CompletedCoursePayload(
+            **course,
+            studyAreaCode=study_area_code,
+            masterCat=resolved_master_cat,
+        )
+        course_key = _normalize_completed_course_key(normalized_course)
+        if course_key in seen_keys:
+            skipped_duplicates.append(
+                {'id': item_id, 'message': 'The selected course data is already stored in your completed-course list.'}
+            )
+            continue
+
+        await _insert_completed_course(env, user_id, normalized_course, now_unix=now_unix)
+        seen_keys.add(course_key)
+        imported.append({'id': item_id, 'message': 'Imported successfully.'})
+
+    saved_completed_courses = await _serialize_completed_courses(env, user_id, regulation_version_id)
+    return {
+        'completedCourses': saved_completed_courses,
+        'count': len(saved_completed_courses),
+        'imported': imported,
+        'skippedDuplicates': skipped_duplicates,
+        'failed': failed,
+        'importedCount': len(imported),
+        'skippedDuplicateCount': len(skipped_duplicates),
+        'failedCount': len(failed),
     }
 
 
@@ -397,7 +636,7 @@ async def replace_current_user_completed_courses(
     normalized_courses: list[CompletedCoursePayload] = []
     for course in completed_courses:
         mapped_options = course_options.get(int(course['courseId']), []) if course['courseId'] is not None else []
-        study_area_code, resolved_master_cat, _ = _resolve_assignment(
+        study_area_code, resolved_master_cat, _, _ = _resolve_assignment(
             course,
             mapped_options,
             rule_groups_by_code,

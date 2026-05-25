@@ -8,8 +8,8 @@ import { EditIcon, TrashIcon } from './icons'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
+  buildAssignableRegulationAreaOptions,
   buildFlexibleRegulationAreaOptions,
-  buildRelevantCourseAreaOptions,
   studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation'
 
@@ -32,25 +32,22 @@ function statusClasses(status: TranscriptImportCandidate['status']): string {
     case 'matched':
       return 'border-emerald-200 bg-emerald-50 text-emerald-700'
     case 'uncertain':
-      return 'border-amber-200 bg-amber-50 text-amber-700'
+      return 'border-slate-300 bg-slate-100 text-slate-700'
     case 'unmatched':
-      return 'border-slate-200 bg-slate-100 text-slate-700'
+      return 'border-rose-200 bg-rose-50 text-rose-700'
     case 'invalid':
       return 'border-rose-200 bg-rose-50 text-rose-700'
   }
 }
 
-function cardClasses(status: TranscriptImportCandidate['status']): string {
-  switch (status) {
-    case 'matched':
-      return 'border-border bg-surface'
-    case 'uncertain':
-      return 'border-amber-200 bg-amber-50/40'
-    case 'unmatched':
-      return 'border-slate-300 bg-slate-50/50'
-    case 'invalid':
-      return 'border-rose-200 bg-rose-50/40'
+function cardClasses(candidate: TranscriptImportCandidate, hasAssignmentIssue: boolean): string {
+  if (candidate.status === 'matched' && !hasAssignmentIssue) {
+    return 'border-border bg-surface'
   }
+  if (candidate.status === 'uncertain') {
+    return 'border-slate-300 bg-slate-50/70'
+  }
+  return 'border-rose-200 bg-rose-50/40'
 }
 
 function statusLabel(status: TranscriptImportCandidate['status']): string {
@@ -58,7 +55,7 @@ function statusLabel(status: TranscriptImportCandidate['status']): string {
     case 'matched':
       return 'Ready'
     case 'uncertain':
-      return 'Needs review'
+      return 'Needs match'
     case 'unmatched':
       return 'Catalog course missing'
     case 'invalid':
@@ -86,8 +83,14 @@ export function TranscriptImportRow({
   const displayNumber = candidate.matchedCourse?.number ?? candidate.courseNumber ?? 'Catalog course required'
   const hasActiveRegulation = regulationRuleGroups.length > 0
   const mappedAreaOptions = useMemo(
-    () => buildRelevantCourseAreaOptions(candidate.matchedCourse?.studyAreaOptions, studyProgramCode),
-    [candidate.matchedCourse?.studyAreaOptions, studyProgramCode],
+    () =>
+      buildAssignableRegulationAreaOptions(
+        candidate.matchedCourse?.studyAreaOptions,
+        studyProgramCode,
+        regulationRuleGroups,
+        candidate.matchedCourse?.masterCats ?? [candidate.masterCat],
+      ),
+    [candidate.masterCat, candidate.matchedCourse?.masterCats, candidate.matchedCourse?.studyAreaOptions, regulationRuleGroups, studyProgramCode],
   )
   const flexibleAreaOptions = useMemo(
     () => buildFlexibleRegulationAreaOptions(regulationRuleGroups),
@@ -95,6 +98,7 @@ export function TranscriptImportRow({
   )
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
   const isAreaLocked = mappedAreaOptions.length === 1
+  const hasAssignmentIssue = hasActiveRegulation && areaOptions.length > 1 && !candidate.studyAreaCode
 
   useEffect(() => {
     if (isAreaLocked) {
@@ -110,37 +114,41 @@ export function TranscriptImportRow({
       return
     }
 
-    if (mappedAreaOptions.length > 1) {
-      if (!mappedAreaOptions.some((option) => option.code === candidate.studyAreaCode)) {
-        onChange(updateTranscriptImportCandidate(candidate, { studyAreaCode: null }))
-      }
-      return
-    }
-
-    if (candidate.studyAreaCode && !flexibleAreaOptions.some((option) => option.code === candidate.studyAreaCode)) {
+    if (candidate.studyAreaCode && !areaOptions.some((option) => option.code === candidate.studyAreaCode)) {
       onChange(updateTranscriptImportCandidate(candidate, { studyAreaCode: null }))
     }
-  }, [candidate, candidate.studyAreaCode, flexibleAreaOptions, isAreaLocked, mappedAreaOptions, onChange])
+  }, [areaOptions, candidate, candidate.masterCat, candidate.studyAreaCode, isAreaLocked, mappedAreaOptions, onChange])
 
   return (
-    <div className={`rounded-[10px] border px-5 py-4.5 ${cardClasses(candidate.status)}`}>
-      <div className="flex items-start gap-3">
+    <div className={`rounded-[10px] border px-3.5 py-3 ${cardClasses(candidate, hasAssignmentIssue)}`}>
+      <div className="flex items-start gap-2.5">
         <button
           type="button"
           onClick={() => setIsExpanded((currentValue) => !currentValue)}
           className="min-w-0 flex-1 text-left"
         >
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-semibold text-fg">{displayTitle}</div>
-              <div className="mt-1 text-[12px] text-fg-muted">
-                {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${statusClasses(candidate.status)}`}
+            >
+              {statusLabel(candidate.status)}
+            </span>
+            <span className="text-[11px] text-fg-muted">
+              Page {candidate.sourcePage}
+              {candidate.sourceSection ? ` · ${candidate.sourceSection}` : ''}
+            </span>
+          </div>
 
-            <div className="shrink-0 text-right">
-              <div className="text-[14px] font-semibold text-fg">{candidate.ects ?? '–'} ECTS</div>
-              <div className="text-[12px] text-fg-muted">{displayNumber}</div>
+          <div className="mt-2 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-fg">{displayTitle}</div>
+              <div className="mt-1 text-[11px] text-fg-muted">
+                {displayNumber} · {candidate.ects ?? '–'} ECTS
+              </div>
+              <div className={`mt-1 text-[11.5px] ${hasAssignmentIssue || candidate.status === 'invalid' || candidate.status === 'unmatched' ? 'text-rose-700' : 'text-fg-muted'}`}>
+                {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
+                {candidate.studyAreaCode ? ` · ${candidate.studyAreaCode}` : hasAssignmentIssue ? ' · Regulation area missing' : ''}
+              </div>
             </div>
           </div>
         </button>
@@ -166,47 +174,26 @@ export function TranscriptImportRow({
       </div>
 
       {isExpanded ? (
-        <div className="mt-4 grid gap-3.5 border-t border-border-light pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] ${statusClasses(candidate.status)}`}
-            >
-              {statusLabel(candidate.status)}
-            </span>
-            <span className="text-[11px] text-fg-muted">
-              Page {candidate.sourcePage}
-              {candidate.sourceSection ? ` · ${candidate.sourceSection}` : ''}
-            </span>
+        <div className="mt-2.5 grid gap-2.5 border-t border-border-light pt-2.5">
+          <div className={`rounded-[10px] border px-3 py-2 text-[11.5px] ${hasAssignmentIssue || candidate.validationIssues.length > 0 || candidate.status === 'unmatched' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-border-light bg-surface text-fg-muted'}`}>
+            {candidate.validationIssues[0] ?? candidate.statusDetail}
           </div>
 
-          <div className="text-[12.5px] text-fg-mid">{candidate.statusDetail}</div>
-
           {candidate.extractedTitle !== displayTitle ? (
-            <div className="text-[12px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
-          ) : null}
-
-          {candidate.validationIssues.length > 0 ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[12.5px] text-rose-700">
-              {candidate.validationIssues.join(' ')}
-            </div>
-          ) : null}
-
-          {candidate.validationIssues.length === 0 && candidate.parseIssues.length > 0 ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-700">
-              {candidate.parseIssues.join(' ')}
-            </div>
+            <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
           ) : null}
 
           <CatalogCoursePicker
             selectedCourse={candidate.matchedCourse}
             suggestedCourses={candidate.matchOptions}
             studyProgramCode={studyProgramCode}
+            compact
             onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
           />
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
             <label className="grid gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Semester
               </span>
               <input
@@ -216,12 +203,12 @@ export function TranscriptImportRow({
                   onChange(updateTranscriptImportCandidate(candidate, { semester: event.target.value }))
                 }
                 placeholder="e.g. WS 2024/25"
-                className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none focus:border-primary"
+                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
               />
             </label>
 
             <label className="grid gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Grade
               </span>
               <input
@@ -238,7 +225,7 @@ export function TranscriptImportRow({
                   )
                 }
                 placeholder="optional"
-                className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none focus:border-primary"
+                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
               />
             </label>
           </div>
@@ -248,12 +235,14 @@ export function TranscriptImportRow({
               value={candidate.studyAreaCode}
               options={areaOptions}
               locked={isAreaLocked}
+              size="compact"
+              tone={hasAssignmentIssue ? 'error' : 'default'}
               helpText={
                 mappedAreaOptions.length > 1
-                  ? 'This course matches multiple regulation areas. Choose the correct one before importing.'
+                  ? 'Choose what this course should count toward.'
                   : mappedAreaOptions.length === 1
-                    ? 'This regulation area is fixed by the active examination regulation.'
-                    : 'Unmatched courses can only be assigned to flexible regulation areas or ÜBK.'
+                    ? 'Fixed by your active examination regulation.'
+                    : 'Choose one compatible elective area.'
               }
               onChange={(nextStudyAreaCode) =>
                 onChange(
@@ -266,7 +255,7 @@ export function TranscriptImportRow({
             />
           ) : (
             <div>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+              <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Category
               </div>
               <div className="flex flex-wrap gap-1">

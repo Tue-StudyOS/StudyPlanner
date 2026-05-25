@@ -16,6 +16,7 @@ export interface RegulationVersionDetail {
 export interface RegulationAreaOption {
   code: string
   label: string
+  shortLabel: string
   masterCat: MasterCat | null
   isFlexible: boolean
 }
@@ -38,7 +39,8 @@ export function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefine
     return 'INFO'
   }
   if (
-    normalizedCode === 'INFO-FOKUS'
+    normalizedCode === 'ELECTIVE'
+    || normalizedCode === 'INFO-FOKUS'
     || normalizedCode === 'ML-DIVERSE'
     || normalizedCode === 'ML-EXP'
     || normalizedCode === 'PROSEM'
@@ -97,6 +99,14 @@ export function isFlexibleRegulationArea(
   )
 }
 
+function buildAreaLabel(code: string, label: string | null | undefined): { label: string; shortLabel: string } {
+  const resolvedLabel = label?.trim() || code
+  return {
+    label: resolvedLabel === code ? code : `${code} · ${resolvedLabel}`,
+    shortLabel: code,
+  }
+}
+
 function dedupeAreaOptions(options: RegulationAreaOption[]): RegulationAreaOption[] {
   const seenCodes = new Set<string>()
   return options.filter((option) => {
@@ -124,12 +134,16 @@ export function buildRelevantCourseAreaOptions(
   return dedupeAreaOptions(
     relevantOptions
       .filter((option): option is StudyAreaOption & { studyAreaCode: string } => Boolean(option.studyAreaCode))
-      .map((option) => ({
-        code: option.studyAreaCode,
-        label: option.studyAreaName || option.studyAreaCode,
-        masterCat: studyAreaCodeToMasterCat(option.studyAreaCode),
-        isFlexible: true,
-      })),
+      .map((option) => {
+        const labels = buildAreaLabel(option.studyAreaCode, option.studyAreaName)
+        return {
+          code: option.studyAreaCode,
+          label: labels.label,
+          shortLabel: labels.shortLabel,
+          masterCat: studyAreaCodeToMasterCat(option.studyAreaCode),
+          isFlexible: false,
+        }
+      }),
   )
 }
 
@@ -139,13 +153,46 @@ export function buildFlexibleRegulationAreaOptions(
   return dedupeAreaOptions(
     ruleGroups
       .filter((ruleGroup) => isFlexibleRegulationArea(ruleGroup))
-      .map((ruleGroup) => ({
-        code: ruleGroup.code,
-        label: ruleGroup.name,
-        masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
-        isFlexible: true,
-      })),
+      .map((ruleGroup) => {
+        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name)
+        return {
+          code: ruleGroup.code,
+          label: labels.label,
+          shortLabel: labels.shortLabel,
+          masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
+          isFlexible: true,
+        }
+      }),
   )
+}
+
+export function buildAssignableRegulationAreaOptions(
+  studyAreaOptions: StudyAreaOption[] | undefined,
+  studyProgramCode: string | null | undefined,
+  ruleGroups: RegulationRuleGroup[],
+  fallbackMasterCats: MasterCat[] = [],
+): RegulationAreaOption[] {
+  const mappedAreaOptions = buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
+  const flexibleAreaOptions = buildFlexibleRegulationAreaOptions(ruleGroups)
+
+  if (mappedAreaOptions.length === 0) {
+    return flexibleAreaOptions
+  }
+
+  const preferredMasterCats = [...new Set(
+    [...mappedAreaOptions.map((option) => option.masterCat), ...fallbackMasterCats]
+      .filter((masterCat): masterCat is MasterCat => masterCat !== null),
+  )]
+
+  if (preferredMasterCats.length === 0) {
+    return mappedAreaOptions
+  }
+
+  const compatibleFlexibleAreaOptions = flexibleAreaOptions.filter(
+    (option) => option.masterCat !== null && preferredMasterCats.includes(option.masterCat),
+  )
+
+  return dedupeAreaOptions([...mappedAreaOptions, ...compatibleFlexibleAreaOptions])
 }
 
 export function findRegulationAreaLabel(

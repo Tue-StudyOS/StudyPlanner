@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
@@ -8,9 +8,11 @@ import type { Course } from '../../courses'
 import { useCatalogCourses } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
-import { PlannerAssignment, PlannerFeedback } from './PlannerFeedback'
+import { PlannerFeedback } from './PlannerFeedback'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
+import { getPlannerCourseAreaOptions, getSuggestedPlannerAssignment } from '../utils/plannerAssignments'
+import { useTranscript } from '../../transcript'
 
 const START_HOUR = 8
 const END_HOUR = 20
@@ -284,7 +286,7 @@ function MobilePlannerFavoritesDrawer({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <div className="text-[14px] font-semibold text-fg">Favorite courses</div>
-            <div className="text-[12px] text-fg-muted">Scrollable mobile drawer</div>
+            <div className="text-[12px] text-fg-muted">Choose and assign favorites here</div>
           </div>
           <button
             type="button"
@@ -339,7 +341,7 @@ function PlannerGrid({
   onCancelEditing: () => void
   onDelete: () => Promise<void>
   onOpenFavorites: () => void
-  onDropCourse: (courseId: string) => void
+  onDropCourse: (courseId: string, areaCode: string | null) => void
   onRemoveCourse: (courseId: string) => void
 }) {
   const blocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
@@ -368,8 +370,9 @@ function PlannerGrid({
           }
           event.preventDefault()
           const courseId = event.dataTransfer.getData('text/planner-course-id')
+          const areaCode = event.dataTransfer.getData('text/planner-area-code') || null
           if (courseId) {
-            onDropCourse(courseId)
+            onDropCourse(courseId, areaCode)
           }
         }}
       >
@@ -606,6 +609,7 @@ function PlannerGrid({
 export function SemesterPlanner() {
   const { isAuthenticated, user } = useAuth()
   const { favoriteIds } = useFavorites()
+  const { completedCourses } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
   const { courses, isLoading, error } = useCatalogCourses('', 500)
@@ -635,6 +639,92 @@ export function SemesterPlanner() {
     deleteCurrentSemesterPlan,
   } = useSemesterPlanner()
 
+  const plannerMobileMode = user?.profile.plannerMobileMode ?? 'auto'
+  const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
+  const isMobilePlanner = plannerMobileMode === 'mobile'
+    || (plannerMobileMode === 'auto' && isSmallViewport)
+  const favoriteCourses = courses.filter((course) => favoriteIds.includes(course.id))
+  const courseById = new Map(courses.map((course) => [course.id, course]))
+  const plannedCourses = plannedCourseIds
+    .map((courseId) => courseById.get(courseId))
+    .filter((course): course is Course => course !== undefined)
+  const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
+  const plannerRuleGroups = useMemo(
+    () => regulationVersion?.ruleGroups ?? [],
+    [regulationVersion?.ruleGroups],
+  )
+
+  function resolveAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
+    const course = courseById.get(courseId)
+    if (!course) {
+      return null
+    }
+
+    const options = getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups)
+    if (preferredAreaCode && options.some((option) => option.code === preferredAreaCode)) {
+      return preferredAreaCode
+    }
+
+    return getSuggestedPlannerAssignment(course, {
+      studyProgramCode: plannerStudyProgramCode,
+      regulationRuleGroups: plannerRuleGroups,
+      planAssignments,
+      plannedCourses,
+      completedCourses,
+    })
+  }
+
+  function handleAddCourse(courseId: string, preferredAreaCode: string | null = null): void {
+    if (!plannedCourseIds.includes(courseId)) {
+      setPlannedCourseIds([...plannedCourseIds, courseId])
+    }
+    setAssignment(courseId, resolveAddAssignment(courseId, preferredAreaCode))
+  }
+
+  function handleRemoveCourse(courseId: string): void {
+    setPlannedCourseIds(
+      plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
+    )
+    setAssignment(courseId, null)
+  }
+
+  useEffect(() => {
+    if (!isEditing || !user) {
+      return
+    }
+
+    plannedCourses.forEach((course) => {
+      const options = getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups)
+      const currentAssignment = planAssignments[course.id] ?? null
+      const nextAssignment = options.length === 0
+        ? null
+        : getSuggestedPlannerAssignment(course, {
+            studyProgramCode: plannerStudyProgramCode,
+            regulationRuleGroups: plannerRuleGroups,
+            planAssignments,
+            plannedCourses,
+            completedCourses,
+          })
+
+      const currentIsValid = Boolean(
+        currentAssignment && options.some((option) => option.code === currentAssignment),
+      )
+      if (currentIsValid || currentAssignment === nextAssignment) {
+        return
+      }
+      setAssignment(course.id, nextAssignment)
+    })
+  }, [
+    completedCourses,
+    isEditing,
+    planAssignments,
+    plannedCourses,
+    plannerRuleGroups,
+    plannerStudyProgramCode,
+    setAssignment,
+    user,
+  ])
+
   if (!isAuthenticated || !user) {
     return (
       <div className="p-4 sm:p-8">
@@ -654,16 +744,6 @@ export function SemesterPlanner() {
     )
   }
 
-  const plannerMobileMode = user.profile.plannerMobileMode ?? 'auto'
-  const plannerMobileLayout = user.profile.plannerMobileLayout ?? 'weekly-list'
-  const isMobilePlanner = plannerMobileMode === 'mobile'
-    || (plannerMobileMode === 'auto' && isSmallViewport)
-  const favoriteCourses = courses.filter((course) => favoriteIds.includes(course.id))
-  const courseById = new Map(courses.map((course) => [course.id, course]))
-  const plannedCourses = plannedCourseIds
-    .map((courseId) => courseById.get(courseId))
-    .filter((course): course is Course => course !== undefined)
-
   return (
     <div className="p-4 sm:p-8">
       <div className="mb-6">
@@ -673,7 +753,7 @@ export function SemesterPlanner() {
         <p className="text-[13.5px] text-fg-muted">
           {isMobilePlanner
             ? `Mobile planner active · ${plannerMobileLayout === 'weekly-list' ? 'weekly list' : 'compact weekly grid'}`
-            : 'Plan the selected semester in a fixed weekly view and review the fulfilled regulation parts above the schedule.'}
+            : 'Plan the selected semester in a fixed weekly view, choose what each favorite should count as directly in the picker, and keep the layout simple on desktop and mobile.'}
         </p>
       </div>
 
@@ -697,9 +777,9 @@ export function SemesterPlanner() {
 
       <PlannerFeedback
         plannedCourses={plannedCourses}
-        studyProgramCode={user?.profile.studyProgramCode ?? null}
+        studyProgramCode={plannerStudyProgramCode}
         planAssignments={planAssignments}
-        regulationRuleGroups={regulationVersion?.ruleGroups ?? []}
+        regulationRuleGroups={plannerRuleGroups}
       />
 
       <div className={`mt-4.5 grid items-start gap-4.5 ${isEditing && !isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
@@ -727,29 +807,10 @@ export function SemesterPlanner() {
               onCancelEditing={cancelEditing}
               onDelete={deleteCurrentSemesterPlan}
               onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
-              onDropCourse={(courseId) =>
-                setPlannedCourseIds(
-                  plannedCourseIds.includes(courseId)
-                    ? plannedCourseIds
-                    : [...plannedCourseIds, courseId],
-                )
-              }
-              onRemoveCourse={(courseId) =>
-                setPlannedCourseIds(
-                  plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
-                )
-              }
+              onDropCourse={handleAddCourse}
+              onRemoveCourse={handleRemoveCourse}
             />
           )}
-
-          {isEditing ? (
-            <PlannerAssignment
-              plannedCourses={plannedCourses}
-              studyProgramCode={user?.profile.studyProgramCode ?? null}
-              planAssignments={planAssignments}
-              onSetAssignment={setAssignment}
-            />
-          ) : null}
         </div>
 
         {isEditing && !isMobilePlanner ? (
@@ -759,18 +820,14 @@ export function SemesterPlanner() {
             activeSemesterLabel={activeSemesterLabel}
             isLoading={isLoading}
             error={error}
-            onAddCourse={(courseId) =>
-              setPlannedCourseIds(
-                plannedCourseIds.includes(courseId)
-                  ? plannedCourseIds
-                  : [...plannedCourseIds, courseId],
-              )
-            }
-            onRemoveCourse={(courseId) =>
-              setPlannedCourseIds(
-                plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
-              )
-            }
+            studyProgramCode={plannerStudyProgramCode}
+            regulationRuleGroups={plannerRuleGroups}
+            planAssignments={planAssignments}
+            plannedCourses={plannedCourses}
+            completedCourses={completedCourses}
+            onSetAssignment={setAssignment}
+            onAddCourse={handleAddCourse}
+            onRemoveCourse={handleRemoveCourse}
           />
         ) : null}
       </div>
@@ -785,18 +842,14 @@ export function SemesterPlanner() {
           activeSemesterLabel={activeSemesterLabel}
           isLoading={isLoading}
           error={error}
-          onAddCourse={(courseId) =>
-            setPlannedCourseIds(
-              plannedCourseIds.includes(courseId)
-                ? plannedCourseIds
-                : [...plannedCourseIds, courseId],
-            )
-          }
-          onRemoveCourse={(courseId) =>
-            setPlannedCourseIds(
-              plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
-            )
-          }
+          studyProgramCode={plannerStudyProgramCode}
+          regulationRuleGroups={plannerRuleGroups}
+          planAssignments={planAssignments}
+          plannedCourses={plannedCourses}
+          completedCourses={completedCourses}
+          onSetAssignment={setAssignment}
+          onAddCourse={handleAddCourse}
+          onRemoveCourse={handleRemoveCourse}
         />
       </MobilePlannerFavoritesDrawer>
     </div>

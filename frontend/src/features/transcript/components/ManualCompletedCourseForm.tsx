@@ -8,6 +8,7 @@ import { CategoryToggle } from './CategoryToggle'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
+  buildAssignableRegulationAreaOptions,
   buildFlexibleRegulationAreaOptions,
   buildRelevantCourseAreaOptions,
   studyAreaCodeToMasterCat,
@@ -129,8 +130,13 @@ export function ManualCompletedCourseForm({
   const selectedExternalMatchId = matchedExternalCourse?.id ?? null
   const effectiveCourse = mode === 'catalog' ? selectedCourse : matchedExternalCourse
   const mappedAreaOptions = useMemo(
-    () => buildRelevantCourseAreaOptions(effectiveCourse?.studyAreaOptions, studyProgramCode),
-    [effectiveCourse?.studyAreaOptions, studyProgramCode],
+    () => buildAssignableRegulationAreaOptions(
+      effectiveCourse?.studyAreaOptions,
+      studyProgramCode,
+      regulationRuleGroups,
+      effectiveCourse?.masterCats ?? [masterCat],
+    ),
+    [effectiveCourse?.masterCats, effectiveCourse?.studyAreaOptions, masterCat, regulationRuleGroups, studyProgramCode],
   )
   const hasActiveRegulation = Boolean(regulationVersionCode && regulationRuleGroups.length > 0)
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
@@ -280,7 +286,7 @@ export function ManualCompletedCourseForm({
         <div>
           <div className="text-[14px] font-semibold text-fg">Add completed courses manually</div>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            Add a catalog course or enter an external course and assign it to a compatible regulation area.
+            Add a catalog course or external course and place it in a compatible regulation area.
           </p>
         </div>
         {!isOpen ? (
@@ -321,6 +327,8 @@ export function ManualCompletedCourseForm({
             <CatalogCoursePicker
               selectedCourse={selectedCourse}
               studyProgramCode={studyProgramCode}
+              compact
+              required={false}
               onSelect={handleCatalogCourseSelect}
             />
           ) : (
@@ -412,6 +420,10 @@ export function ManualCompletedCourseForm({
             </div>
           )}
 
+          <div className="rounded-[10px] border border-border-light bg-surface-hover/20 px-3 py-2 text-[11.5px] text-fg-muted">
+            Review the semester and grade here, then choose the regulation area that should receive the course.
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
@@ -448,12 +460,14 @@ export function ManualCompletedCourseForm({
               value={resolvedStudyAreaCode}
               options={areaOptions}
               locked={isAreaLocked}
+              size="compact"
+              tone={hasActiveRegulation && areaOptions.length > 1 && !resolvedStudyAreaCode ? 'error' : 'default'}
               helpText={
                 mappedAreaOptions.length > 1
-                  ? 'This course matches multiple regulation areas. Choose the correct one.'
+                  ? 'Choose the regulation area that should receive this course.'
                   : mappedAreaOptions.length === 1
-                    ? 'This regulation area is fixed by the active examination regulation.'
-                    : 'Only flexible regulation areas and ÜBK are available for external unmatched courses.'
+                    ? 'This area is fixed by your active examination regulation.'
+                    : 'Choose one compatible elective area from your active regulation.'
               }
               onChange={setStudyAreaCode}
             />

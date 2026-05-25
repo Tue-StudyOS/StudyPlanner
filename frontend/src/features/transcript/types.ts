@@ -1,4 +1,5 @@
-import type { MasterCat, StudyAreaOption } from '../courses'
+import type { CompletedCourse, MasterCat, StudyAreaOption } from '../courses'
+import type { RegulationRuleGroup } from '../../shared/utils/regulation'
 
 export interface StudyStats {
   totalEcts: number
@@ -18,6 +19,12 @@ export interface TranscriptCoursePreview {
   masterCats: MasterCat[]
   studyAreaOptions?: StudyAreaOption[]
   regulationAreaCodes?: string[]
+}
+
+export interface SavedTranscriptIssue {
+  id: string
+  candidate: TranscriptImportCandidate
+  updatedAtUnix: number
 }
 
 export interface ParsedTranscriptEntry {
@@ -63,4 +70,41 @@ export interface TranscriptSaveResult {
   saved: boolean
   addedCount: number
   skippedDuplicateCount: number
+  errorMessage?: string | null
+}
+
+export interface BulkCompletedCourseImportItem {
+  id: string
+  course: CompletedCourse
+}
+
+export interface BulkCompletedCourseImportResultItem {
+  id: string
+  message: string
+}
+
+export interface BulkCompletedCourseImportResult {
+  completedCourses: CompletedCourse[]
+  imported: BulkCompletedCourseImportResultItem[]
+  skippedDuplicates: BulkCompletedCourseImportResultItem[]
+  failed: BulkCompletedCourseImportResultItem[]
+}
+
+export interface TranscriptIssuesResponse {
+  transcriptIssues: SavedTranscriptIssue[]
+  count: number
+}
+
+export interface TranscriptIssueWritePayload {
+  id: string
+  candidate: TranscriptImportCandidate
+}
+
+export interface TranscriptIssueListPayload {
+  transcriptIssues: TranscriptIssueWritePayload[]
+}
+
+export interface TranscriptImportBuildContext {
+  studyProgramCode?: string | null
+  regulationRuleGroups: RegulationRuleGroup[]
 }

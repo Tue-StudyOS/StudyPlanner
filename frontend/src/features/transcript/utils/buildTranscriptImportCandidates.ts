@@ -1,8 +1,12 @@
 import type { Course, MasterCat, StudyAreaOption } from '../../courses'
-import { buildRelevantCourseAreaOptions } from '../../../shared/utils/regulation'
+import {
+  buildAssignableRegulationAreaOptions,
+  buildRelevantCourseAreaOptions,
+} from '../../../shared/utils/regulation'
 import type {
   ParsedTranscriptEntry,
   TranscriptCoursePreview,
+  TranscriptImportBuildContext,
   TranscriptImportCandidate,
   TranscriptImportStatus,
 } from '../types'
@@ -67,7 +71,8 @@ export function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefine
     return 'INFO'
   }
   if (
-    normalizedCode === 'INFO-FOKUS'
+    normalizedCode === 'ELECTIVE'
+    || normalizedCode === 'INFO-FOKUS'
     || normalizedCode === 'ML-DIVERSE'
     || normalizedCode === 'ML-EXP'
     || normalizedCode === 'PROSEM'
@@ -108,8 +113,6 @@ export function toTranscriptCoursePreview(
   course: Course,
   studyProgramCode?: string | null,
 ): TranscriptCoursePreview {
-  const relevantAreaOptions = buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode)
-
   return {
     id: course.id,
     number: course.moduleCode ?? course.number,
@@ -117,7 +120,9 @@ export function toTranscriptCoursePreview(
     ects: course.ects,
     masterCats: buildPreferredMasterCats(course.masterCats, course.studyAreaOptions, studyProgramCode),
     studyAreaOptions: course.studyAreaOptions,
-    regulationAreaCodes: relevantAreaOptions.map((option) => option.code),
+    regulationAreaCodes: buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode).map(
+      (option) => option.code,
+    ),
   }
 }
 
@@ -311,18 +316,35 @@ function hasExactNormalizedTitleMatch(
   )
 }
 
+function getAssignableRegulationAreaCodes(
+  matchedCourse: TranscriptCoursePreview | null,
+  context: TranscriptImportBuildContext,
+): string[] {
+  if (!matchedCourse) {
+    return []
+  }
+
+  return buildAssignableRegulationAreaOptions(
+    matchedCourse.studyAreaOptions,
+    context.studyProgramCode,
+    context.regulationRuleGroups,
+    matchedCourse.masterCats,
+  ).map((option) => option.code)
+}
+
 export function buildTranscriptImportCandidates(
   entries: ParsedTranscriptEntry[],
   courses: Course[],
-  studyProgramCode?: string | null,
+  context: TranscriptImportBuildContext,
 ): TranscriptImportCandidate[] {
   return entries.map((entry) => {
-    const matchResults = buildMatchResults(entry, courses, studyProgramCode)
+    const matchResults = buildMatchResults(entry, courses, context.studyProgramCode)
     const exactMatches = matchResults.filter((matchResult) => hasExactNormalizedTitleMatch(entry, matchResult))
     const matchedCourse = exactMatches.length === 1 ? exactMatches[0].preview : null
 
-    const autoStudyAreaCode = matchedCourse?.regulationAreaCodes?.length === 1
-      ? matchedCourse.regulationAreaCodes[0]
+    const assignableRegulationAreaCodes = getAssignableRegulationAreaCodes(matchedCourse, context)
+    const autoStudyAreaCode = assignableRegulationAreaCodes.length === 1
+      ? assignableRegulationAreaCodes[0]
       : null
 
     return finalizeCandidate({
@@ -343,8 +365,16 @@ export function buildTranscriptImportCandidates(
       statusDetail: '',
       parseIssues: entry.parseIssues,
       validationIssues: [],
-      matchOptions: matchResults.slice(0, 5).map((matchResult) => matchResult.preview),
-      matchedCourse,
+      matchOptions: matchResults.slice(0, 5).map((matchResult) => ({
+        ...matchResult.preview,
+        regulationAreaCodes: getAssignableRegulationAreaCodes(matchResult.preview, context),
+      })),
+      matchedCourse: matchedCourse
+        ? {
+            ...matchedCourse,
+            regulationAreaCodes: assignableRegulationAreaCodes,
+          }
+        : null,
       courseId: matchedCourse?.id ?? null,
       courseNumber: matchedCourse?.number ?? null,
       isUserEdited: false,

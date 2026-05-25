@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Course } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { buildRelevantCourseAreaOptions } from '../../../shared/utils/regulation'
+import { getResolvedPlannerAssignment } from '../utils/plannerAssignments'
 
 interface FulfilledPlannerArea {
   code: string
@@ -9,19 +9,6 @@ interface FulfilledPlannerArea {
   requiredEcts: number
   earnedEcts: number
   courses: Course[]
-}
-
-function resolveCourseAreaCode(
-  course: Course,
-  studyProgramCode: string | null,
-  planAssignments: Record<string, string>,
-): string | null {
-  const relevantAreaOptions = buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode)
-  const manualAssignment = planAssignments[course.id]
-  if (manualAssignment && relevantAreaOptions.some((option) => option.code === manualAssignment)) {
-    return manualAssignment
-  }
-  return relevantAreaOptions[0]?.code ?? null
 }
 
 function buildFulfilledAreas(
@@ -36,10 +23,17 @@ function buildFulfilledAreas(
   const areaMap = new Map<string, FulfilledPlannerArea>()
 
   courses.forEach((course) => {
-    const areaCode = resolveCourseAreaCode(course, studyProgramCode, planAssignments)
+    const areaCode = getResolvedPlannerAssignment(course, {
+      studyProgramCode,
+      regulationRuleGroups,
+      planAssignments,
+      plannedCourses: courses,
+      completedCourses: [],
+    })
     if (!areaCode) {
       return
     }
+
     const ruleGroup = ruleGroupByCode.get(areaCode)
     if (!ruleGroup) {
       return
@@ -60,16 +54,6 @@ function buildFulfilledAreas(
   return [...areaMap.values()]
     .filter((area) => area.requiredEcts > 0 && area.earnedEcts >= area.requiredEcts)
     .sort((left, right) => left.name.localeCompare(right.name))
-}
-
-function getAssignableOptions(
-  course: Course,
-  studyProgramCode: string | null,
-): Array<{ code: string; label: string }> {
-  return buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode).map((option) => ({
-    code: option.code,
-    label: option.label,
-  }))
 }
 
 interface PlannerFeedbackProps {
@@ -161,62 +145,6 @@ export function PlannerFeedback({
             ))}
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-
-interface PlannerAssignmentProps {
-  plannedCourses: Course[]
-  studyProgramCode: string | null
-  planAssignments: Record<string, string>
-  onSetAssignment: (courseId: string, areaCode: string | null) => void
-}
-
-export function PlannerAssignment({
-  plannedCourses,
-  studyProgramCode,
-  planAssignments,
-  onSetAssignment,
-}: PlannerAssignmentProps) {
-  if (plannedCourses.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5">
-      <div className="mb-3 text-[13px] font-semibold text-fg">Planner assignment</div>
-      <p className="mb-3 text-[12px] text-fg-muted">
-        Choose which regulation area each planned course should count toward when more than one option exists.
-      </p>
-      <div className="grid gap-2 lg:grid-cols-2">
-        {plannedCourses.map((course) => {
-          const options = getAssignableOptions(course, studyProgramCode)
-          const currentValue = planAssignments[course.id] ?? ''
-          return (
-            <div key={course.id} className="rounded-md border border-border-light bg-surface-hover/40 px-3 py-2">
-              <div className="mb-1.5 truncate text-[12px] font-medium text-fg">
-                {course.title}
-              </div>
-              {options.length === 0 ? (
-                <div className="text-[11.5px] text-fg-muted">No regulation areas found for this course</div>
-              ) : (
-                <select
-                  value={currentValue}
-                  onChange={(event) => onSetAssignment(course.id, event.target.value || null)}
-                  className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
-                >
-                  <option value="">Auto-detect</option>
-                  {options.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )
-        })}
       </div>
     </div>
   )
