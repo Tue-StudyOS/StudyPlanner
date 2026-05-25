@@ -27,11 +27,7 @@ function AssignmentSelect({
   const options = getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups)
 
   if (options.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed border-border px-3 py-2 text-[11px] text-fg-muted">
-        No regulation target found for this course yet.
-      </div>
-    )
+    return null
   }
 
   if (options.length === 1) {

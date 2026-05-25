@@ -476,8 +476,8 @@ function PlannerGrid({
             onRemoveCourse={onRemoveCourse}
           />
         ) : (
-          <div>
-            <div className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2">
+          <div className="overflow-x-auto">
+            <div className="grid min-w-[640px] grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2">
               <div />
               {DAY_ORDER.map((day) => (
                 <div

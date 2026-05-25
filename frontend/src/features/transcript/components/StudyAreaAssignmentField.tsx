@@ -78,7 +78,7 @@ export function StudyAreaAssignmentField({
           disabled={disabled}
           className={selectClasses(tone, size)}
         >
-          <option value="">Select a regulation area</option>
+          {value === null || value === '' ? <option value="" hidden /> : null}
           {options.map((option) => (
             <option key={option.code} value={option.code}>
               {option.label}

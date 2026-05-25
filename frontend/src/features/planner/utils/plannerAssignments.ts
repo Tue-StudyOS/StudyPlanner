@@ -62,6 +62,10 @@ export function getPlannerCourseAreaOptions(
   studyProgramCode: string | null,
   regulationRuleGroups: RegulationRuleGroup[],
 ): RegulationAreaOption[] {
+  const hasAnyCategory = (course.studyAreaOptions?.length ?? 0) > 0 || course.masterCats.length > 0
+  if (!hasAnyCategory) {
+    return []
+  }
   return buildAssignableRegulationAreaOptions(
     course.studyAreaOptions,
     studyProgramCode,

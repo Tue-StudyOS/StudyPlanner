@@ -5,7 +5,6 @@ import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../uti
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { TrashIcon } from './icons'
-import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
@@ -27,14 +26,14 @@ function formatSemester(value: string): string {
   return value.trim() || 'Semester missing'
 }
 
-function cardClasses(candidate: TranscriptImportCandidate, hasAssignmentIssue: boolean): string {
-  if (candidate.status === 'matched' && !hasAssignmentIssue) {
+function cardClasses(hasIncomplete: boolean, isExpanded: boolean): string {
+  if (!hasIncomplete) {
     return 'border-border bg-surface'
   }
-  if (candidate.status === 'uncertain') {
-    return 'border-border-light bg-surface-hover/40'
+  if (isExpanded) {
+    return 'border-border bg-surface'
   }
-  return 'border-primary/20 bg-primary/5'
+  return 'border-primary/30 bg-primary/5'
 }
 
 interface TranscriptImportRowProps {
@@ -73,6 +72,9 @@ export function TranscriptImportRow({
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
   const isAreaLocked = mappedAreaOptions.length === 1
   const hasAssignmentIssue = hasActiveRegulation && areaOptions.length > 1 && !candidate.studyAreaCode
+  const isMissingCatalogCourse = !candidate.matchedCourse
+  const isMissingSemester = !candidate.semester.trim()
+  const hasIncomplete = isMissingCatalogCourse || isMissingSemester || hasAssignmentIssue
 
   useEffect(() => {
     if (isAreaLocked) {
@@ -94,7 +96,7 @@ export function TranscriptImportRow({
   }, [areaOptions, candidate, candidate.masterCat, candidate.studyAreaCode, isAreaLocked, mappedAreaOptions, onChange])
 
   return (
-    <div className={`rounded-[10px] border px-3.5 py-3 ${cardClasses(candidate, hasAssignmentIssue)}`}>
+    <div className={`rounded-[10px] border px-3.5 py-3 ${cardClasses(hasIncomplete, isExpanded)}`}>
       <div className="flex items-start gap-2.5">
         <button
           type="button"
@@ -131,15 +133,17 @@ export function TranscriptImportRow({
             <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
           ) : null}
 
-          <CatalogCoursePicker
-            selectedCourse={candidate.matchedCourse}
-            suggestedCourses={candidate.matchOptions}
-            studyProgramCode={studyProgramCode}
-            compact
-            onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
-          />
+          <div className={`${isMissingCatalogCourse ? 'rounded-[10px] border border-primary/40 bg-primary/5 p-2' : ''}`}>
+            <CatalogCoursePicker
+              selectedCourse={candidate.matchedCourse}
+              suggestedCourses={candidate.matchOptions}
+              studyProgramCode={studyProgramCode}
+              compact
+              onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
+            />
+          </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,7rem)_minmax(0,1.4fr)]">
             <label className="grid gap-1">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Semester
@@ -151,7 +155,7 @@ export function TranscriptImportRow({
                   onChange(updateTranscriptImportCandidate(candidate, { semester: event.target.value }))
                 }
                 placeholder="e.g. WS 24/25"
-                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary ${!candidate.semester.trim() ? 'border-primary' : 'border-border'}`}
+                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary ${isMissingSemester ? 'border-primary/60' : 'border-border'}`}
               />
             </label>
 
@@ -176,32 +180,38 @@ export function TranscriptImportRow({
                 className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
               />
             </label>
+
+            {hasActiveRegulation ? (
+              <label className="grid gap-1">
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                  Regulation area
+                </span>
+                <select
+                  value={candidate.studyAreaCode ?? ''}
+                  disabled={isAreaLocked || areaOptions.length === 0}
+                  onChange={(event) => {
+                    const nextStudyAreaCode = event.target.value
+                    onChange(
+                      updateTranscriptImportCandidate(candidate, {
+                        studyAreaCode: nextStudyAreaCode || null,
+                        masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
+                      }),
+                    )
+                  }}
+                  className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary disabled:opacity-60 ${hasAssignmentIssue ? 'border-primary/60' : 'border-border'}`}
+                >
+                  {candidate.studyAreaCode === null ? <option value="" hidden /> : null}
+                  {areaOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
 
-          {hasActiveRegulation ? (
-            <StudyAreaAssignmentField
-              value={candidate.studyAreaCode}
-              options={areaOptions}
-              locked={isAreaLocked}
-              size="compact"
-              tone="default"
-              helpText={
-                mappedAreaOptions.length > 1
-                  ? 'Choose what this course should count toward.'
-                  : mappedAreaOptions.length === 1
-                    ? 'Fixed by your active examination regulation.'
-                    : 'Choose one compatible elective area.'
-              }
-              onChange={(nextStudyAreaCode) =>
-                onChange(
-                  updateTranscriptImportCandidate(candidate, {
-                    studyAreaCode: nextStudyAreaCode,
-                    masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
-                  }),
-                )
-              }
-            />
-          ) : (
+          {!hasActiveRegulation ? (
             <div>
               <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Category
@@ -217,7 +227,7 @@ export function TranscriptImportRow({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       ) : null}
     </div>

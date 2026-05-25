@@ -166,6 +166,25 @@ export function buildFlexibleRegulationAreaOptions(
   )
 }
 
+export function buildAllSelectableRegulationAreaOptions(
+  ruleGroups: RegulationRuleGroup[],
+): RegulationAreaOption[] {
+  return dedupeAreaOptions(
+    ruleGroups
+      .filter((ruleGroup) => ruleGroup.code.trim().toUpperCase() !== 'THESIS')
+      .map((ruleGroup) => {
+        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name)
+        return {
+          code: ruleGroup.code,
+          label: labels.label,
+          shortLabel: labels.shortLabel,
+          masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
+          isFlexible: isFlexibleRegulationArea(ruleGroup),
+        }
+      }),
+  )
+}
+
 export function buildAssignableRegulationAreaOptions(
   studyAreaOptions: StudyAreaOption[] | undefined,
   studyProgramCode: string | null | undefined,
@@ -173,10 +192,10 @@ export function buildAssignableRegulationAreaOptions(
   fallbackMasterCats: MasterCat[] = [],
 ): RegulationAreaOption[] {
   const mappedAreaOptions = buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
-  const flexibleAreaOptions = buildFlexibleRegulationAreaOptions(ruleGroups)
+  const allSelectableAreaOptions = buildAllSelectableRegulationAreaOptions(ruleGroups)
 
   if (mappedAreaOptions.length === 0) {
-    return flexibleAreaOptions
+    return allSelectableAreaOptions
   }
 
   const preferredMasterCats = [...new Set(
@@ -188,11 +207,11 @@ export function buildAssignableRegulationAreaOptions(
     return mappedAreaOptions
   }
 
-  const compatibleFlexibleAreaOptions = flexibleAreaOptions.filter(
+  const compatibleAreaOptions = allSelectableAreaOptions.filter(
     (option) => option.masterCat !== null && preferredMasterCats.includes(option.masterCat),
   )
 
-  return dedupeAreaOptions([...mappedAreaOptions, ...compatibleFlexibleAreaOptions])
+  return dedupeAreaOptions([...mappedAreaOptions, ...compatibleAreaOptions])
 }
 
 export function findRegulationAreaLabel(

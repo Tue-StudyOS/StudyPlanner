@@ -328,7 +328,6 @@ export function ManualCompletedCourseForm({
               selectedCourse={selectedCourse}
               studyProgramCode={studyProgramCode}
               compact
-              required={false}
               onSelect={handleCatalogCourseSelect}
             />
           ) : (
@@ -419,10 +418,6 @@ export function ManualCompletedCourseForm({
               ) : null}
             </div>
           )}
-
-          <div className="rounded-[10px] border border-border-light bg-surface-hover/20 px-3 py-2 text-[11.5px] text-fg-muted">
-            Review the semester and grade here, then choose the regulation area that should receive the course.
-          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">
