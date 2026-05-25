@@ -37,26 +37,20 @@ export function CatalogCoursePicker({
   const [searchResults, setSearchResults] = useState<TranscriptCoursePreview[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
-  const [hasSelectedFromResults, setHasSelectedFromResults] = useState<boolean>(false)
 
   const trimmedQuery = query.trim()
   const hasSearchQuery = trimmedQuery.length >= MIN_QUERY_LENGTH
-  const visibleCourses = useMemo(
-    () => (hasSearchQuery ? searchResults : uniqueCourses(suggestedCourses).slice(0, SEARCH_RESULT_LIMIT)),
-    [hasSearchQuery, searchResults, suggestedCourses],
+  const suggestedResults = useMemo(
+    () => uniqueCourses(suggestedCourses).slice(0, SEARCH_RESULT_LIMIT),
+    [suggestedCourses],
   )
-  const shouldShowResults = !hasSelectedFromResults
+  const visibleCourses = hasSearchQuery ? searchResults : suggestedResults
+  const shouldShowResults = hasSearchQuery || (!selectedCourse && suggestedResults.length > 0)
 
   function handleSelect(course: TranscriptCoursePreview): void {
-    setHasSelectedFromResults(true)
     setQuery('')
     setSearchResults([])
     onSelect(course)
-  }
-
-  function handleQueryChange(nextQuery: string): void {
-    setHasSelectedFromResults(false)
-    setQuery(nextQuery)
   }
 
   useEffect(() => {
@@ -120,7 +114,7 @@ export function CatalogCoursePicker({
         <input
           type="search"
           value={query}
-          onChange={(event) => handleQueryChange(event.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Search catalog by title or number"
           className={`rounded-md border border-border bg-surface text-fg outline-none focus:border-primary ${compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2 text-[12.5px]'}`}
         />
