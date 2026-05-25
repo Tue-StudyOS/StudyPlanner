@@ -35,6 +35,15 @@ export interface CompletedCourse {
   title: string
   ects: number
   masterCat: MasterCat
+  studyAreaCode?: string | null
+  studyAreaName?: string | null
+  availableStudyAreaOptions?: Array<{
+    studyAreaCode: string
+    studyAreaName: string | null
+    groupType: string | null
+  }>
+  categoryLocked?: boolean
+  isGradeCounted?: boolean
   grade: number | null
   semester: string
   source?: string

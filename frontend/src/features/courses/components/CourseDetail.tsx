@@ -40,7 +40,7 @@ export function CourseDetail() {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           Loading course details...
         </div>
@@ -50,7 +50,7 @@ export function CourseDetail() {
 
   if (error || !course) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="mb-4">
           <Link to={ROUTES.catalog} className="text-[13px] font-medium text-primary hover:underline">
             ← Back to catalog
@@ -64,7 +64,7 @@ export function CourseDetail() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
           This is public catalog data from the database. Sign in only if you want to save favorites or personal progress.

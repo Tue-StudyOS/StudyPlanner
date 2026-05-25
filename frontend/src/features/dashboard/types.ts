@@ -7,12 +7,27 @@ export interface CategoryProgress {
   requiredEcts: number
 }
 
+export interface RegulationAreaCourse {
+  completedCourseId: string
+  courseId: string | null
+  courseNumber: string | null
+  title: string
+  ects: number
+  grade: number | null
+  semester: string
+  masterCat: MasterCat | null
+}
+
 export interface RegulationAreaProgress {
   code: string
   name: string
   requiredEcts: number
   earnedEcts: number
   masterCat: MasterCat | null
+  rawAreaCodes?: string[]
+  courseCount?: number
+  isFulfilled?: boolean
+  courses?: RegulationAreaCourse[]
 }
 
 export interface ThesisProgress {

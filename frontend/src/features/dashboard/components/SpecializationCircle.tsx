@@ -63,8 +63,8 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
         Visual summary of your completed-course focus areas.
       </div>
 
-      <div className="flex justify-center overflow-x-auto">
-        <svg viewBox={`0 0 ${size} ${size}`} className="h-[420px] w-[420px] min-w-[420px]">
+      <div className="flex justify-center">
+        <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[420px]">
           {[0.25, 0.5, 0.75, EXTENDED_RING_SCALE].map((scale) => (
             <path
               key={scale}

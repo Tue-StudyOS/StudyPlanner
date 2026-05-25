@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -35,12 +36,18 @@ from services.regulations import (
 from services.user_completed_courses import (
     CompletedCourseUpdateError,
     get_current_user_completed_courses,
+    import_current_user_completed_courses,
     replace_current_user_completed_courses,
 )
 from services.user_favorites import (
     FavoriteUpdateError,
     get_current_user_favorites,
     replace_current_user_favorites,
+)
+from services.user_transcript_issues import (
+    TranscriptIssueUpdateError,
+    get_current_user_transcript_issues,
+    replace_current_user_transcript_issues,
 )
 from services.user_semester_plans import (
     SemesterPlanUpdateError,
@@ -226,6 +233,30 @@ async def route_request(request: Any, env: Any) -> Any:
                 return json_response(completed_courses, request=request, env=env)
             return _method_not_allowed_response(request, env)
 
+        if path == "/api/me/completed-courses/import":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+
+            completed_courses = await import_current_user_completed_courses(
+                env,
+                request,
+                await read_json_object(request),
+            )
+            return json_response(completed_courses, request=request, env=env)
+
+        if path == "/api/me/transcript-issues":
+            if method == "GET":
+                transcript_issues = await get_current_user_transcript_issues(env, request)
+                return json_response(transcript_issues, request=request, env=env)
+            if method == "PUT":
+                transcript_issues = await replace_current_user_transcript_issues(
+                    env,
+                    request,
+                    await read_json_object(request),
+                )
+                return json_response(transcript_issues, request=request, env=env)
+            return _method_not_allowed_response(request, env)
+
         if path == "/api/me/semester-plans":
             if method != "GET":
                 return _method_not_allowed_response(request, env)
@@ -282,6 +313,8 @@ async def route_request(request: Any, env: Any) -> Any:
                         "profile": "/api/me/profile",
                         "favorites": "/api/me/favorites",
                         "completedCourses": "/api/me/completed-courses",
+                        "completedCoursesImport": "/api/me/completed-courses/import",
+                        "transcriptIssues": "/api/me/transcript-issues",
                         "semesterPlans": "/api/me/semester-plans",
                         "progress": "/api/me/progress",
                         "courses": "/api/courses?limit=50",
@@ -518,6 +551,14 @@ async def route_request(request: Any, env: Any) -> Any:
             env=env,
             status=400,
         )
+    except TranscriptIssueUpdateError as exc:
+        return error_response(
+            code="transcript_issue_update_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
     except SemesterPlanUpdateError as exc:
         return error_response(
             code="semester_plan_update_error",
@@ -546,6 +587,15 @@ async def route_request(request: Any, env: Any) -> Any:
         return error_response(
             code="database_error",
             message=str(exc),
+            request=request,
+            env=env,
+            status=500,
+        )
+    except Exception:
+        traceback.print_exc()
+        return error_response(
+            code="internal_server_error",
+            message="The server hit an unexpected error while processing this request.",
             request=request,
             env=env,
             status=500,

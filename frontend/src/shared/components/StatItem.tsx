@@ -10,8 +10,8 @@ export function StatItem({ label, value, sub }: StatItemProps) {
       <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-fg-muted">
         {label}
       </div>
-      <div className="flex items-baseline gap-1.25">
-        <span className="text-2xl font-bold leading-none text-accent">{value}</span>
+      <div className="flex flex-wrap items-baseline gap-x-1.25 gap-y-0.5">
+        <span className="text-xl font-bold leading-none text-accent sm:text-2xl">{value}</span>
         {sub && <span className="text-[12px] text-fg-muted">{sub}</span>}
       </div>
     </div>

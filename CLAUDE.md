@@ -18,6 +18,7 @@ Read the agent overview when a task needs specialized expertise:
 - Do not add production dependencies without asking.
 - Do not run destructive git commands unless explicitly requested.
 - Keep changes small and reviewable.
+- For backlog or multi-feature tasks: one shared branch, one commit per group, merge once into main. See AGENTS.md → Workflow rule 7.
 
 ## Code Review
 

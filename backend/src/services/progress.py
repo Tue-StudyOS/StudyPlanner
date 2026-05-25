@@ -51,14 +51,228 @@ def _normalize_master_cat(value: Any) -> str | None:
     return normalized_value
 
 
-def _match_regulation(mapping_regulation_version_id: int | None, active_regulation_version_id: int | None) -> bool:
+def _normalize_study_area_code(value: Any) -> str | None:
+    normalized_value = _safe_text(value)
+    return normalized_value.upper() if normalized_value else None
+
+
+def _match_regulation(
+    mapping_regulation_version_id: int | None,
+    active_regulation_version_id: int | None,
+) -> bool:
     return mapping_regulation_version_id is None or mapping_regulation_version_id == active_regulation_version_id
+
+
+def _build_completed_course_detail(completed_course: dict[str, Any]) -> dict[str, Any]:
+    completed_course_id = int(completed_course['id'])
+    direct_course_id = (
+        int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
+    )
+    course_number = _safe_text(completed_course.get('courseNumber'))
+    external_course_code = _safe_text(completed_course.get('externalCourseCode'))
+    return {
+        'completedCourseId': str(completed_course_id),
+        'courseId': str(direct_course_id) if direct_course_id is not None else None,
+        'courseNumber': course_number or external_course_code,
+        'title': _safe_text(completed_course.get('title')) or 'Untitled course',
+        'ects': _normalize_float(completed_course.get('ects')) or 0.0,
+        'grade': _normalize_float(completed_course.get('grade')),
+        'semester': completed_course.get('semester'),
+        'masterCat': completed_course.get('masterCat'),
+        'studyAreaCode': _normalize_study_area_code(completed_course.get('studyAreaCode')),
+    }
+
+
+def _build_visualization_profile_name(
+    visualization_categories: list[dict[str, Any]],
+) -> str:
+    non_zero_categories = [category for category in visualization_categories if category['earnedEcts'] > 0]
+    if not non_zero_categories:
+        return 'No profile yet'
+
+    strong_categories = [
+        category for category in non_zero_categories if category['progressRatio'] >= 0.25
+    ]
+    if len(strong_categories) >= 4:
+        return 'Balanced'
+
+    return max(
+        non_zero_categories,
+        key=lambda category: (category['progressRatio'], category['earnedEcts']),
+    )['name']
+
+
+def _append_progress_course(area_entry: dict[str, Any], completed_course: dict[str, Any]) -> None:
+    area_entry['courses'].append(_build_completed_course_detail(completed_course))
+
+
+def _finalize_regulation_area(area_entry: dict[str, Any]) -> dict[str, Any]:
+    required_ects = _normalize_float(area_entry.get('requiredEcts')) or 0.0
+    earned_ects = round(_normalize_float(area_entry.get('earnedEcts')) or 0.0, 2)
+    courses = list(area_entry.get('courses') or [])
+    return {
+        'code': _safe_text(area_entry.get('code')) or '',
+        'name': _safe_text(area_entry.get('name')) or '',
+        'requiredEcts': required_ects,
+        'earnedEcts': earned_ects,
+        'masterCat': area_entry.get('masterCat'),
+        'rawAreaCodes': [str(code) for code in area_entry.get('rawAreaCodes') or []],
+        'courseCount': len(courses),
+        'isFulfilled': earned_ects >= required_ects if required_ects > 0 else earned_ects > 0,
+        'courses': courses,
+    }
+
+
+def _group_bachelor_dashboard_areas(raw_areas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    math_area = next((area for area in raw_areas if area.get('code') == 'MATH'), None)
+    inf_area = next((area for area in raw_areas if area.get('code') == 'INF'), None)
+    if math_area is None or inf_area is None:
+        return [_finalize_regulation_area(area) for area in raw_areas]
+
+    grouped_areas: list[dict[str, Any]] = []
+    merged_inf = {
+        **inf_area,
+        'requiredEcts': (_normalize_float(inf_area.get('requiredEcts')) or 0.0)
+        + (_normalize_float(math_area.get('requiredEcts')) or 0.0),
+        'earnedEcts': (_normalize_float(inf_area.get('earnedEcts')) or 0.0)
+        + (_normalize_float(math_area.get('earnedEcts')) or 0.0),
+        'rawAreaCodes': [
+            *list(dict.fromkeys(['INF', 'MATH', *(inf_area.get('rawAreaCodes') or []), *(math_area.get('rawAreaCodes') or [])])),
+        ],
+        'courses': [*(inf_area.get('courses') or []), *(math_area.get('courses') or [])],
+    }
+
+    inserted_merged_inf = False
+    for area in raw_areas:
+        code = _safe_text(area.get('code')) or ''
+        if code == 'MATH':
+            continue
+        if code == 'INF':
+            grouped_areas.append(_finalize_regulation_area(merged_inf))
+            inserted_merged_inf = True
+            continue
+        grouped_areas.append(_finalize_regulation_area(area))
+
+    if not inserted_merged_inf:
+        grouped_areas.insert(0, _finalize_regulation_area(merged_inf))
+    return grouped_areas
+
+
+async def _build_regulation_progress(
+    env: Any,
+    active_regulation_version_id: int | None,
+    study_program_code: str | None,
+    completed_courses: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if active_regulation_version_id is None:
+        return []
+
+    rule_groups = await fetch_all(
+        env,
+        """
+        SELECT id, code, name, required_ects AS requiredEcts, sort_order AS sortOrder
+        FROM regulation_rule_groups
+        WHERE regulation_version_id = ?
+        ORDER BY sort_order ASC, code ASC
+        """,
+        [active_regulation_version_id],
+    )
+    if not rule_groups:
+        return []
+
+    raw_progress_by_group_id: dict[int, dict[str, Any]] = {}
+    for rule_group in rule_groups:
+        rule_group_id = int(rule_group['id'])
+        code = _safe_text(rule_group.get('code')) or ''
+        raw_progress_by_group_id[rule_group_id] = {
+            'id': rule_group_id,
+            'code': code,
+            'name': _safe_text(rule_group.get('name')) or code,
+            'requiredEcts': _normalize_float(rule_group.get('requiredEcts')) or 0.0,
+            'earnedEcts': 0.0,
+            'masterCat': _rule_group_code_to_master_cat(code),
+            'sortOrder': int(rule_group.get('sortOrder') or 0),
+            'rawAreaCodes': [code],
+            'courses': [],
+        }
+
+    completed_course_ids = [
+        int(completed_course['courseId'])
+        for completed_course in completed_courses
+        if completed_course.get('courseId') is not None
+    ]
+    primary_rule_group_by_course_id: dict[int, int] = {}
+
+    if completed_course_ids:
+        placeholders = ', '.join('?' for _ in completed_course_ids)
+        course_mappings = await fetch_all(
+            env,
+            f"""
+            SELECT
+                rcm.course_id AS courseId,
+                rcm.rule_group_id AS ruleGroupId,
+                rrg.code AS ruleGroupCode,
+                rrg.sort_order AS sortOrder
+            FROM regulation_course_mappings AS rcm
+            JOIN regulation_rule_groups AS rrg ON rrg.id = rcm.rule_group_id
+            WHERE rcm.regulation_version_id = ?
+              AND rcm.course_id IN ({placeholders})
+            ORDER BY rcm.course_id ASC, rrg.sort_order ASC, rrg.code ASC
+            """,
+            [active_regulation_version_id, *completed_course_ids],
+        )
+        for mapping in course_mappings:
+            course_id = int(mapping['courseId'])
+            primary_rule_group_by_course_id.setdefault(course_id, int(mapping['ruleGroupId']))
+
+    for completed_course in completed_courses:
+        course_id = int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
+        earned_ects = _normalize_float(completed_course.get('ects')) or 0.0
+        explicit_study_area_code = _normalize_study_area_code(completed_course.get('studyAreaCode'))
+        rule_group_id: int | None = None
+
+        if explicit_study_area_code is not None:
+            matching_rule_group_ids = [
+                group_id
+                for group_id, area_entry in raw_progress_by_group_id.items()
+                if area_entry['code'] == explicit_study_area_code
+            ]
+            if matching_rule_group_ids:
+                rule_group_id = matching_rule_group_ids[0]
+
+        if rule_group_id is None and course_id is not None:
+            rule_group_id = primary_rule_group_by_course_id.get(course_id)
+
+        if rule_group_id is None:
+            master_cat = _normalize_master_cat(completed_course.get('masterCat'))
+            matching_rule_group_ids = [
+                group_id
+                for group_id, area_entry in raw_progress_by_group_id.items()
+                if area_entry['masterCat'] == master_cat
+            ]
+            if len(matching_rule_group_ids) == 1:
+                rule_group_id = matching_rule_group_ids[0]
+
+        if rule_group_id is None:
+            continue
+
+        area_entry = raw_progress_by_group_id.get(rule_group_id)
+        if area_entry is None:
+            continue
+        area_entry['earnedEcts'] += earned_ects
+        _append_progress_course(area_entry, completed_course)
+
+    ordered_raw_areas = [raw_progress_by_group_id[int(rule_group['id'])] for rule_group in rule_groups]
+    if study_program_code and study_program_code.startswith('BSC_'):
+        return _group_bachelor_dashboard_areas(ordered_raw_areas)
+    return [_finalize_regulation_area(area) for area in ordered_raw_areas]
 
 
 async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
     user_id = int(user['id'])
     active_regulation_version_id = user['profile'].get('regulationVersionId')
+    study_program_code = _safe_text(user['profile'].get('studyProgramCode'))
     required_ects = _normalize_float(user['profile'].get('totalEcts'))
     if required_ects is None:
         required_ects = 120.0
@@ -74,6 +288,7 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
             ucc.title,
             ucc.ects,
             ucc.master_cat AS masterCat,
+            ucc.study_area_code AS studyAreaCode,
             ucc.grade,
             ucc.semester
         FROM user_completed_courses AS ucc
@@ -123,23 +338,24 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         _normalize_float(course.get('grade'))
         for course in completed_courses
         if _normalize_float(course.get('grade')) is not None
+        and _normalize_study_area_code(course.get('studyAreaCode')) != 'UEBK'
     ]
     average_grade = sum(graded_courses) / len(graded_courses) if graded_courses else None
     progress_percentage = round((total_ects / required_ects) * 100) if required_ects > 0 else 0
 
     master_category_progress = []
     for master_category in MASTER_CATEGORY_ORDER:
-      earned_ects = sum(
-          (_normalize_float(course.get('ects')) or 0)
-          for course in completed_courses
-          if course.get('masterCat') == master_category
-      )
-      master_category_progress.append(
-          {
-              'cat': master_category,
-              'earnedEcts': earned_ects,
-          }
-      )
+        earned_ects = sum(
+            (_normalize_float(course.get('ects')) or 0)
+            for course in completed_courses
+            if course.get('masterCat') == master_category
+        )
+        master_category_progress.append(
+            {
+                'cat': master_category,
+                'earnedEcts': earned_ects,
+            }
+        )
 
     progress_by_category_id: dict[int, dict[str, Any]] = {
         int(category['id']): {
@@ -207,30 +423,10 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
             weight = _normalize_float(mapping.get('weight')) or 1.0
             earned_ects = (_normalize_float(completed_course.get('ects')) or 0.0) * weight
             category_entry['earnedEcts'] += earned_ects
-            category_entry['courses'].append(
-                {
-                    'completedCourseId': str(completed_course_id),
-                    'courseId': str(direct_course_id) if direct_course_id is not None else None,
-                    'courseNumber': course_number or external_course_code,
-                    'title': title or 'Untitled course',
-                    'ects': _normalize_float(completed_course.get('ects')) or 0.0,
-                    'semester': completed_course.get('semester'),
-                    'masterCat': completed_course.get('masterCat'),
-                }
-            )
+            category_entry['courses'].append(_build_completed_course_detail(completed_course))
 
         if not matched_category_ids:
-            unmapped_completed_courses.append(
-                {
-                    'completedCourseId': str(completed_course_id),
-                    'courseId': str(direct_course_id) if direct_course_id is not None else None,
-                    'courseNumber': course_number or external_course_code,
-                    'title': title or 'Untitled course',
-                    'ects': _normalize_float(completed_course.get('ects')) or 0.0,
-                    'semester': completed_course.get('semester'),
-                    'masterCat': completed_course.get('masterCat'),
-                }
-            )
+            unmapped_completed_courses.append(_build_completed_course_detail(completed_course))
 
     visualization_categories = []
     for category in progress_by_category_id.values():
@@ -246,91 +442,13 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
             }
         )
 
-    non_zero_categories = [category for category in visualization_categories if category['earnedEcts'] > 0]
-    profile_name = 'No profile yet'
-    if non_zero_categories:
-        strong_categories = [
-            category for category in non_zero_categories if category['progressRatio'] >= 0.25
-        ]
-        if len(strong_categories) >= 4:
-            profile_name = 'Balanced'
-        else:
-            profile_name = max(
-                non_zero_categories,
-                key=lambda category: (category['progressRatio'], category['earnedEcts']),
-            )['name']
-
-    regulation_progress: list[dict[str, Any]] = []
-    if active_regulation_version_id is not None:
-        rule_groups = await fetch_all(
-            env,
-            """
-            SELECT id, code, name, required_ects AS requiredEcts, sort_order AS sortOrder
-            FROM regulation_rule_groups
-            WHERE regulation_version_id = ?
-            ORDER BY sort_order ASC, code ASC
-            """,
-            [active_regulation_version_id],
-        )
-
-        if rule_groups:
-            earned_by_group_id: dict[int, float] = {int(rg['id']): 0.0 for rg in rule_groups}
-
-            completed_course_ids = [
-                int(cc['courseId'])
-                for cc in completed_courses
-                if cc.get('courseId') is not None
-            ]
-            course_to_rule_group: dict[int, int] = {}
-
-            if completed_course_ids:
-                placeholders = ', '.join('?' for _ in completed_course_ids)
-                course_mappings = await fetch_all(
-                    env,
-                    f"""
-                    SELECT rcm.course_id AS courseId, rcm.rule_group_id AS ruleGroupId
-                    FROM regulation_course_mappings AS rcm
-                    WHERE rcm.regulation_version_id = ?
-                      AND rcm.course_id IN ({placeholders})
-                    ORDER BY rcm.rule_group_id ASC
-                    """,
-                    [active_regulation_version_id, *completed_course_ids],
-                )
-                for mapping in course_mappings:
-                    course_id = int(mapping['courseId'])
-                    if course_id not in course_to_rule_group:
-                        course_to_rule_group[course_id] = int(mapping['ruleGroupId'])
-
-            for cc in completed_courses:
-                course_id = int(cc['courseId']) if cc.get('courseId') is not None else None
-                ects = (_normalize_float(cc.get('ects')) or 0.0)
-                if course_id is not None and course_id in course_to_rule_group:
-                    rule_group_id = course_to_rule_group[course_id]
-                    if rule_group_id in earned_by_group_id:
-                        earned_by_group_id[rule_group_id] += ects
-                    continue
-
-                # Fallback: map masterCat → rule group (only when 1:1 unambiguous)
-                master_cat = _normalize_master_cat(cc.get('masterCat'))
-                matching_group_ids = [
-                    int(rg['id'])
-                    for rg in rule_groups
-                    if _rule_group_code_to_master_cat(_safe_text(rg.get('code'))) == master_cat
-                ]
-                if len(matching_group_ids) == 1:
-                    earned_by_group_id[matching_group_ids[0]] += ects
-
-            for rg in rule_groups:
-                rg_id = int(rg['id'])
-                required = _normalize_float(rg.get('requiredEcts')) or 0.0
-                earned = round(earned_by_group_id.get(rg_id, 0.0), 2)
-                regulation_progress.append({
-                    'code': _safe_text(rg.get('code')) or '',
-                    'name': _safe_text(rg.get('name')) or '',
-                    'requiredEcts': required,
-                    'earnedEcts': earned,
-                    'masterCat': _rule_group_code_to_master_cat(_safe_text(rg.get('code'))),
-                })
+    profile_name = _build_visualization_profile_name(visualization_categories)
+    regulation_progress = await _build_regulation_progress(
+        env,
+        active_regulation_version_id,
+        study_program_code,
+        completed_courses,
+    )
 
     return {
         'summary': {

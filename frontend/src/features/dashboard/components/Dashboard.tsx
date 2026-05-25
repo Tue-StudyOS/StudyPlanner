@@ -6,7 +6,6 @@ import { MASTER_CATEGORY_META } from '../masterCategoryMeta'
 import type { CategoryProgress as CategoryProgressItem, ProgressSnapshot, ThesisProgress } from '../types'
 import { useProgressSnapshot } from '../hooks/useProgressSnapshot'
 import { CategoryProgress } from './CategoryProgress'
-import { CompletedCourses } from './CompletedCourses'
 import { RegulationProgress } from './RegulationProgress'
 import { SpecializationCircle } from './SpecializationCircle'
 import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
@@ -50,7 +49,7 @@ function AuthenticatedDashboard() {
 
   if (isLoadingProgress || !progressSnapshot) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="mb-6">
           <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
             Study Overview
@@ -93,7 +92,7 @@ function AuthenticatedDashboard() {
   ]
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
           Study Overview
@@ -101,15 +100,15 @@ function AuthenticatedDashboard() {
         <p className="text-[13.5px] text-fg-muted">{subtitle}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 rounded-[10px] border border-border bg-surface px-6 py-4.5">
+      <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
         {stats.map((stat, i) => (
-          <div key={stat.label} className={i > 0 ? 'border-l border-border-light pl-6' : ''}>
+          <div key={stat.label} className={i > 0 ? 'border-l border-border-light pl-3 sm:pl-6' : ''}>
             <StatItem {...stat} />
           </div>
         ))}
       </div>
 
-      <div className="mt-4.5 grid grid-cols-2 gap-4.5">
+      <div className="mt-4.5 grid grid-cols-1 gap-4.5 lg:grid-cols-2">
         {progressSnapshot.regulationProgress.length > 0 ? (
           <RegulationProgress areas={progressSnapshot.regulationProgress} />
         ) : (
@@ -121,15 +120,10 @@ function AuthenticatedDashboard() {
       </div>
 
       {progressSnapshot.unmappedCompletedCourses.length > 0 ? (
-        <div className="mt-4.5 rounded-[10px] border border-border bg-surface px-6 py-4 text-[13px] text-fg-muted">
-          {progressSnapshot.unmappedCompletedCourses.length} completed course(s) are not mapped to a
-          specialization category yet.
+        <div className="mt-4.5 rounded-[10px] border border-rose-200 bg-rose-50 px-6 py-4 text-[13px] text-rose-700">
+          {progressSnapshot.unmappedCompletedCourses.length} completed course(s) still need a specialization mapping.
         </div>
       ) : null}
-
-      <div className="mt-4.5">
-        <CompletedCourses />
-      </div>
     </div>
   )
 }
@@ -139,7 +133,7 @@ export function Dashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="mb-6">
           <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
             Study Overview

@@ -8,7 +8,11 @@ import {
   saveSemesterPlan,
 } from '../api'
 import type { SemesterPlan, SemesterPlanSummary } from '../types'
-import { buildSemesterOptions, getCurrentSemesterLabel } from '../utils/semesterLabels'
+import {
+  buildSemesterOptions,
+  getCurrentSemesterLabel,
+  getRelativeSemesterLabel,
+} from '../utils/semesterLabels'
 
 function normalizeErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -53,7 +57,6 @@ interface UseSemesterPlannerResult {
   isSavingSemesterPlan: boolean
   isDeletingSemesterPlan: boolean
   plannerError: string | null
-  plannerMessage: string | null
   hasUnsavedChanges: boolean
   setActiveSemesterLabel: (semesterLabel: string) => void
   setPlannedCourseIds: (courseIds: string[]) => void
@@ -77,20 +80,36 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [isSavingSemesterPlan, setIsSavingSemesterPlan] = useState<boolean>(false)
   const [isDeletingSemesterPlan, setIsDeletingSemesterPlan] = useState<boolean>(false)
   const [plannerError, setPlannerError] = useState<string | null>(null)
-  const [plannerMessage, setPlannerMessage] = useState<string | null>(null)
+  const currentSemesterLabel = getCurrentSemesterLabel()
+  const latestSelectableSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
   const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
-    profileSemesterLabel || getCurrentSemesterLabel(),
+    profileSemesterLabel || currentSemesterLabel,
   )
 
   const semesterOptions = useMemo(
     () =>
-      buildSemesterOptions([
-        activeSemesterLabel,
+      buildSemesterOptions(
+        [
+          activeSemesterLabel,
+          profileSemesterLabel,
+          ...savedPlans.map((semesterPlan) => semesterPlan.semesterLabel),
+        ],
+        currentSemesterLabel,
         profileSemesterLabel,
-        ...savedPlans.map((semesterPlan) => semesterPlan.semesterLabel),
-      ]),
-    [activeSemesterLabel, profileSemesterLabel, savedPlans],
+        latestSelectableSemesterLabel,
+      ),
+    [
+      activeSemesterLabel,
+      currentSemesterLabel,
+      latestSelectableSemesterLabel,
+      profileSemesterLabel,
+      savedPlans,
+    ],
   )
+
+  const normalizedActiveSemesterLabel = semesterOptions.includes(activeSemesterLabel)
+    ? activeSemesterLabel
+    : (semesterOptions.at(-1) ?? activeSemesterLabel)
 
   useEffect(() => {
     let isActive = true
@@ -104,7 +123,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(null)
-          setPlannerMessage(null)
           setIsLoadingPlanIndex(false)
           setIsLoadingSemesterPlan(false)
         }
@@ -147,7 +165,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       setIsLoadingSemesterPlan(true)
       setPlannerError(null)
       try {
-        const nextSavedPlan = await fetchSemesterPlan(token, activeSemesterLabel)
+        const nextSavedPlan = await fetchSemesterPlan(token, normalizedActiveSemesterLabel)
         if (!isActive) {
           return
         }
@@ -175,7 +193,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     return () => {
       isActive = false
     }
-  }, [activeSemesterLabel, token])
+  }, [normalizedActiveSemesterLabel, token])
 
   const hasUnsavedChanges = useMemo(
     () =>
@@ -185,7 +203,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   )
 
   const setActiveSemesterLabel = (semesterLabel: string): void => {
-    if (semesterLabel === activeSemesterLabel) {
+    if (semesterLabel === normalizedActiveSemesterLabel) {
       return
     }
 
@@ -198,7 +216,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       return
     }
 
-    setPlannerMessage(null)
     setPlannerError(null)
     setActiveSemesterLabelState(semesterLabel)
   }
@@ -212,7 +229,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }
 
   function startEditing(): void {
-    setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
@@ -220,7 +236,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }
 
   function cancelEditing(): void {
-    setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
@@ -246,9 +261,8 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
 
     setIsSavingSemesterPlan(true)
     setPlannerError(null)
-    setPlannerMessage(null)
     try {
-      const nextSavedPlan = await saveSemesterPlan(token, activeSemesterLabel, {
+      const nextSavedPlan = await saveSemesterPlan(token, normalizedActiveSemesterLabel, {
         title: null,
         notes: null,
         courseIds: plannedCourseIds,
@@ -259,7 +273,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       setPlanAssignments(nextSavedPlan.courseAssignments)
       setIsEditing(false)
       await refreshSavedPlans()
-      setPlannerMessage(`Saved your plan for ${activeSemesterLabel}.`)
     } catch (error) {
       setPlannerError(normalizeErrorMessage(error))
     } finally {
@@ -275,14 +288,12 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
 
     setIsDeletingSemesterPlan(true)
     setPlannerError(null)
-    setPlannerMessage(null)
     try {
-      await deleteSemesterPlan(token, activeSemesterLabel)
+      await deleteSemesterPlan(token, normalizedActiveSemesterLabel)
       setSavedPlan(null)
       setPlannedCourseIds([])
       setIsEditing(false)
       await refreshSavedPlans()
-      setPlannerMessage(`Removed the saved plan for ${activeSemesterLabel}.`)
     } catch (error) {
       setPlannerError(normalizeErrorMessage(error))
     } finally {
@@ -291,7 +302,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }
 
   return {
-    activeSemesterLabel,
+    activeSemesterLabel: normalizedActiveSemesterLabel,
     semesterOptions,
     savedPlans,
     plannedCourseIds,
@@ -303,7 +314,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     isSavingSemesterPlan,
     isDeletingSemesterPlan,
     plannerError,
-    plannerMessage,
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,

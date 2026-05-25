@@ -6,12 +6,12 @@ function formatWinterSemester(startYear: number): string {
   return `WS ${startYear}/${String(startYear + 1).slice(-2)}`
 }
 
-interface ParsedSemesterLabel {
+export interface ParsedSemesterLabel {
   term: 'SS' | 'WS'
   year: number
 }
 
-function parseSemesterLabel(label: string | null | undefined): ParsedSemesterLabel | null {
+export function parseSemesterLabel(label: string | null | undefined): ParsedSemesterLabel | null {
   const normalizedLabel = label?.trim().toUpperCase() ?? ''
   const summerMatch = normalizedLabel.match(/^SS\s+(\d{4})$/)
   if (summerMatch) {
@@ -61,10 +61,34 @@ function stepSemester(semester: ParsedSemesterLabel, delta: number): ParsedSemes
   }
 }
 
-function formatSemesterLabel(semester: ParsedSemesterLabel): string {
+export function formatSemesterLabel(semester: ParsedSemesterLabel): string {
   return semester.term === 'SS'
     ? formatSummerSemester(semester.year)
     : formatWinterSemester(semester.year)
+}
+
+export function formatSemesterLabelShort(label: string): string {
+  const parsed = parseSemesterLabel(label)
+  if (!parsed) return label
+  const y2 = String(parsed.year).slice(-2)
+  return parsed.term === 'SS'
+    ? `SS ${y2}`
+    : `WS ${y2}/${String(parsed.year + 1).slice(-2)}`
+}
+
+export function compareSemesterLabels(left: string, right: string): number {
+  const leftSemester = parseSemesterLabel(left)
+  const rightSemester = parseSemesterLabel(right)
+  if (!leftSemester || !rightSemester) {
+    return left.localeCompare(right)
+  }
+  if (leftSemester.year !== rightSemester.year) {
+    return leftSemester.year - rightSemester.year
+  }
+  if (leftSemester.term === rightSemester.term) {
+    return 0
+  }
+  return leftSemester.term === 'SS' ? -1 : 1
 }
 
 export function getCurrentSemesterLabel(now: Date = new Date()): string {
@@ -78,36 +102,56 @@ export function getCurrentSemesterLabel(now: Date = new Date()): string {
   return month >= 9 ? formatWinterSemester(year) : formatWinterSemester(year - 1)
 }
 
-function buildSuggestedSemesterLabels(anchorLabel: string): string[] {
-  const parsedAnchor = parseSemesterLabel(anchorLabel)
-  if (!parsedAnchor) {
-    return [anchorLabel]
+export function getRelativeSemesterLabel(label: string, delta: number): string {
+  const parsedSemester = parseSemesterLabel(label)
+  if (!parsedSemester) {
+    return label
+  }
+  return formatSemesterLabel(stepSemester(parsedSemester, delta))
+}
+
+function buildSemesterRange(startLabel: string, endLabel: string): string[] {
+  const startSemester = parseSemesterLabel(startLabel)
+  const endSemester = parseSemesterLabel(endLabel)
+  if (!startSemester || !endSemester) {
+    return [startLabel, endLabel].filter((label, index, labels) => label && labels.indexOf(label) === index)
   }
 
-  return [-2, -1, 0, 1, 2, 3]
-    .map((delta) => formatSemesterLabel(stepSemester(parsedAnchor, delta)))
+  const labels: string[] = []
+  let currentSemester = startSemester
+  let guard = 0
+  while (compareSemesterLabels(formatSemesterLabel(currentSemester), endLabel) <= 0 && guard < 40) {
+    labels.push(formatSemesterLabel(currentSemester))
+    currentSemester = stepSemester(currentSemester, 1)
+    guard += 1
+  }
+  return labels
 }
 
 export function buildSemesterOptions(
   labels: Array<string | null | undefined>,
   fallbackLabel: string = getCurrentSemesterLabel(),
+  earliestLabel?: string | null,
+  latestLabel?: string | null,
 ): string[] {
-  const uniqueLabels: string[] = []
-  const seenLabels = new Set<string>()
-
-  const baseLabels = labels
+  const normalizedBaseLabels = labels
     .map((label) => label?.trim() ?? '')
     .filter((label) => label.length > 0)
-  const anchorLabel = baseLabels[0] || fallbackLabel
 
-  for (const label of [...buildSuggestedSemesterLabels(anchorLabel), ...baseLabels, fallbackLabel]) {
-    const normalizedLabel = label.trim()
-    if (!normalizedLabel || seenLabels.has(normalizedLabel)) {
-      continue
-    }
-    seenLabels.add(normalizedLabel)
-    uniqueLabels.push(normalizedLabel)
+  const defaultEarliestLabel = earliestLabel?.trim()
+    || getRelativeSemesterLabel(fallbackLabel, -2)
+  const defaultLatestLabel = latestLabel?.trim()
+    || getRelativeSemesterLabel(fallbackLabel, 1)
+
+  let options = buildSemesterRange(defaultEarliestLabel, defaultLatestLabel)
+  if (options.length === 0) {
+    options = [fallbackLabel]
   }
 
-  return uniqueLabels
+  const validBaseLabels = normalizedBaseLabels.filter((label) =>
+    compareSemesterLabels(label, defaultEarliestLabel) >= 0
+      && compareSemesterLabels(label, defaultLatestLabel) <= 0,
+  )
+
+  return [...new Set([...options, ...validBaseLabels])].sort(compareSemesterLabels)
 }

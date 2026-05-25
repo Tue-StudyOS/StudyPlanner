@@ -62,7 +62,7 @@ export function Favorites() {
   const { isAuthenticated } = useAuth()
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <h2 className="mb-2 text-2xl font-bold">Favorites</h2>
       <p className="mb-6 text-fg-mid">Your bookmarked and favorited courses.</p>
 

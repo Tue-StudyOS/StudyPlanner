@@ -15,6 +15,8 @@ DEFAULT_SESSION_TTL_DAYS = 30
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
 SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
 SUPPORTED_REGULATION_PO_VERSION = '2021'
+ALLOWED_PLANNER_MOBILE_MODES = {'auto', 'mobile', 'desktop'}
+ALLOWED_PLANNER_MOBILE_LAYOUTS = {'compact-grid', 'weekly-list'}
 
 
 class AuthenticationError(ValueError):
@@ -248,6 +250,8 @@ async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
             rv.total_ects AS regulationTotalEcts,
             er.code AS regulationCode,
             er.name AS regulationName,
+            up.planner_mobile_mode AS plannerMobileMode,
+            up.planner_mobile_layout AS plannerMobileLayout,
             sp.total_ects AS studyProgramTotalEcts
         FROM users AS u
         LEFT JOIN user_profiles AS up ON up.user_id = u.id
@@ -276,6 +280,8 @@ async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
             'totalEcts': row.get('regulationTotalEcts') or row.get('studyProgramTotalEcts'),
             'regulationCode': row.get('regulationCode'),
             'regulationName': row.get('regulationName'),
+            'plannerMobileMode': row.get('plannerMobileMode') or 'auto',
+            'plannerMobileLayout': row.get('plannerMobileLayout') or 'compact-grid',
         },
     }
 
@@ -604,7 +610,9 @@ async def update_current_user_profile(
         SELECT
             study_program_id AS studyProgramId,
             regulation_version_id AS regulationVersionId,
-            current_semester_label AS currentSemesterLabel
+            current_semester_label AS currentSemesterLabel,
+            planner_mobile_mode AS plannerMobileMode,
+            planner_mobile_layout AS plannerMobileLayout
         FROM user_profiles
         WHERE user_id = ?
         LIMIT 1
@@ -612,14 +620,20 @@ async def update_current_user_profile(
         [user_id],
     )
 
+    current_study_program_id = current_profile_row.get('studyProgramId') if current_profile_row else None
+    study_program_is_changing = 'studyProgramId' in payload or 'studyProgramCode' in payload
     next_study_program_id = (
         await _resolve_study_program_id(env, payload)
-        if 'studyProgramId' in payload or 'studyProgramCode' in payload
-        else current_profile_row.get('studyProgramId') if current_profile_row else None
+        if study_program_is_changing
+        else current_study_program_id
     )
+
+    regulation_version_is_explicit = 'regulationVersionId' in payload or 'regulationVersionCode' in payload
+    program_switched = study_program_is_changing and next_study_program_id != current_study_program_id
     next_regulation_version_id = (
         await _resolve_regulation_version_id(env, payload)
-        if 'regulationVersionId' in payload or 'regulationVersionCode' in payload
+        if regulation_version_is_explicit
+        else None if program_switched
         else current_profile_row.get('regulationVersionId') if current_profile_row else None
     )
 
@@ -647,6 +661,18 @@ async def update_current_user_profile(
             else None
         )
 
+    planner_mobile_mode = _safe_text(payload.get('plannerMobileMode')) if 'plannerMobileMode' in payload else (
+        _safe_text(current_profile_row.get('plannerMobileMode')) if current_profile_row else 'auto'
+    )
+    if planner_mobile_mode not in ALLOWED_PLANNER_MOBILE_MODES:
+        raise ProfileUpdateError('plannerMobileMode must be auto, mobile, or desktop.')
+
+    planner_mobile_layout = _safe_text(payload.get('plannerMobileLayout')) if 'plannerMobileLayout' in payload else (
+        _safe_text(current_profile_row.get('plannerMobileLayout')) if current_profile_row else 'compact-grid'
+    )
+    if planner_mobile_layout not in ALLOWED_PLANNER_MOBILE_LAYOUTS:
+        raise ProfileUpdateError('plannerMobileLayout must be compact-grid or weekly-list.')
+
     now_unix = _now_unix()
     await execute(
         env,
@@ -656,6 +682,8 @@ async def update_current_user_profile(
             study_program_id = ?,
             regulation_version_id = ?,
             current_semester_label = ?,
+            planner_mobile_mode = ?,
+            planner_mobile_layout = ?,
             updated_at_unix = ?
         WHERE user_id = ?
         """,
@@ -663,6 +691,8 @@ async def update_current_user_profile(
             next_study_program_id,
             next_regulation_version_id,
             current_semester_label,
+            planner_mobile_mode,
+            planner_mobile_layout,
             now_unix,
             user_id,
         ],

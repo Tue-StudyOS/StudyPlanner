@@ -13,7 +13,7 @@ export function useStudyStats(): StudyStats {
   const progress = requiredEcts > 0 ? Math.round((totalEcts / requiredEcts) * 100) : 0
 
   const gradedCourses = completedCourses.filter(
-    (completedCourse) => completedCourse.grade !== null,
+    (completedCourse) => completedCourse.grade !== null && completedCourse.studyAreaCode !== 'UEBK',
   )
 
   const averageGrade =

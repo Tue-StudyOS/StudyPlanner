@@ -440,7 +440,7 @@ async def list_catalog_courses(
     limit: int = 100,
     search: str | None = None,
 ) -> list[dict[str, Any]]:
-    safe_limit = max(1, min(limit, 200))
+    safe_limit = max(1, min(limit, 500))
     params: list[Any] = []
     sql = f"""
         SELECT

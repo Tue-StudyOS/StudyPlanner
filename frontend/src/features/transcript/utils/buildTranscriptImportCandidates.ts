@@ -1,7 +1,12 @@
 import type { Course, MasterCat, StudyAreaOption } from '../../courses'
+import {
+  buildAssignableRegulationAreaOptions,
+  buildRelevantCourseAreaOptions,
+} from '../../../shared/utils/regulation'
 import type {
   ParsedTranscriptEntry,
   TranscriptCoursePreview,
+  TranscriptImportBuildContext,
   TranscriptImportCandidate,
   TranscriptImportStatus,
 } from '../types'
@@ -30,7 +35,7 @@ const STOP_WORDS = new Set([
   'with',
 ])
 
-function normalizeText(value: string | null | undefined): string {
+export function normalizeText(value: string | null | undefined): string {
   return (value ?? '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -48,7 +53,7 @@ function tokenize(value: string): string[] {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token))
 }
 
-function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefined): MasterCat | null {
+export function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefined): MasterCat | null {
   const normalizedCode = studyAreaCode?.trim().toUpperCase() ?? ''
   if (!normalizedCode) {
     return null
@@ -66,7 +71,8 @@ function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefined): Mas
     return 'INFO'
   }
   if (
-    normalizedCode === 'INFO-FOKUS'
+    normalizedCode === 'ELECTIVE'
+    || normalizedCode === 'INFO-FOKUS'
     || normalizedCode === 'ML-DIVERSE'
     || normalizedCode === 'ML-EXP'
     || normalizedCode === 'PROSEM'
@@ -113,6 +119,10 @@ export function toTranscriptCoursePreview(
     title: course.moduleTitle ?? course.title,
     ects: course.ects,
     masterCats: buildPreferredMasterCats(course.masterCats, course.studyAreaOptions, studyProgramCode),
+    studyAreaOptions: course.studyAreaOptions,
+    regulationAreaCodes: buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode).map(
+      (option) => option.code,
+    ),
   }
 }
 
@@ -201,6 +211,9 @@ function getValidationIssues(candidate: TranscriptImportCandidate): string[] {
   }
   if (candidate.grade !== null && (candidate.grade < 1 || candidate.grade > 5)) {
     issues.push('Grade must stay between 1.0 and 5.0.')
+  }
+  if ((candidate.matchedCourse?.regulationAreaCodes?.length ?? 0) > 1 && !candidate.studyAreaCode) {
+    issues.push('Choose the correct regulation area for this course.')
   }
 
   return [...new Set(issues)]
@@ -292,23 +305,47 @@ function pickDefaultMasterCat(entry: ParsedTranscriptEntry, matchedCourse: Trans
   return matchedCourse?.masterCats[0] ?? entry.defaultMasterCat
 }
 
+function hasExactNormalizedTitleMatch(
+  entry: ParsedTranscriptEntry,
+  matchResult: CourseMatchResult,
+): boolean {
+  const candidateTitles = entry.titleCandidates.map((candidateTitle) => normalizeText(candidateTitle))
+  const previewTitles = [matchResult.preview.title, matchResult.preview.number].map((value) => normalizeText(value))
+  return candidateTitles.some((candidateTitle) =>
+    previewTitles.some((previewTitle) => candidateTitle.length > 0 && candidateTitle === previewTitle),
+  )
+}
+
+function getAssignableRegulationAreaCodes(
+  matchedCourse: TranscriptCoursePreview | null,
+  context: TranscriptImportBuildContext,
+): string[] {
+  if (!matchedCourse) {
+    return []
+  }
+
+  return buildAssignableRegulationAreaOptions(
+    matchedCourse.studyAreaOptions,
+    context.studyProgramCode,
+    context.regulationRuleGroups,
+    matchedCourse.masterCats,
+  ).map((option) => option.code)
+}
+
 export function buildTranscriptImportCandidates(
   entries: ParsedTranscriptEntry[],
   courses: Course[],
-  studyProgramCode?: string | null,
+  context: TranscriptImportBuildContext,
 ): TranscriptImportCandidate[] {
   return entries.map((entry) => {
-    const matchResults = buildMatchResults(entry, courses, studyProgramCode)
-    const topMatch = matchResults[0] ?? null
-    const secondMatch = matchResults[1] ?? null
-    const shouldAutoMatch = Boolean(
-      topMatch && (
-        topMatch.score >= 0.98 ||
-        (!secondMatch && topMatch.score >= 0.78) ||
-        (topMatch.score >= 0.9 && topMatch.score - (secondMatch?.score ?? 0) >= 0.12)
-      ),
-    )
-    const matchedCourse = shouldAutoMatch ? topMatch?.preview ?? null : null
+    const matchResults = buildMatchResults(entry, courses, context.studyProgramCode)
+    const exactMatches = matchResults.filter((matchResult) => hasExactNormalizedTitleMatch(entry, matchResult))
+    const matchedCourse = exactMatches.length === 1 ? exactMatches[0].preview : null
+
+    const assignableRegulationAreaCodes = getAssignableRegulationAreaCodes(matchedCourse, context)
+    const autoStudyAreaCode = assignableRegulationAreaCodes.length === 1
+      ? assignableRegulationAreaCodes[0]
+      : null
 
     return finalizeCandidate({
       id: entry.id,
@@ -323,12 +360,21 @@ export function buildTranscriptImportCandidates(
       extractedEcts: entry.extractedEcts,
       ects: matchedCourse?.ects ?? entry.extractedEcts,
       masterCat: pickDefaultMasterCat(entry, matchedCourse),
+      studyAreaCode: autoStudyAreaCode,
       status: matchedCourse ? 'matched' : matchResults.length > 0 ? 'uncertain' : 'unmatched',
       statusDetail: '',
       parseIssues: entry.parseIssues,
       validationIssues: [],
-      matchOptions: matchResults.slice(0, 5).map((matchResult) => matchResult.preview),
-      matchedCourse,
+      matchOptions: matchResults.slice(0, 5).map((matchResult) => ({
+        ...matchResult.preview,
+        regulationAreaCodes: getAssignableRegulationAreaCodes(matchResult.preview, context),
+      })),
+      matchedCourse: matchedCourse
+        ? {
+            ...matchedCourse,
+            regulationAreaCodes: assignableRegulationAreaCodes,
+          }
+        : null,
       courseId: matchedCourse?.id ?? null,
       courseNumber: matchedCourse?.number ?? null,
       isUserEdited: false,
@@ -340,11 +386,14 @@ export function applyCatalogCourseMatch(
   candidate: TranscriptImportCandidate,
   course: TranscriptCoursePreview,
 ): TranscriptImportCandidate {
+  const nextStudyAreaCode = course.regulationAreaCodes?.length === 1 ? course.regulationAreaCodes[0] : null
+
   return finalizeCandidate({
     ...candidate,
     title: course.title,
     ects: course.ects ?? candidate.extractedEcts,
     masterCat: course.masterCats[0] ?? candidate.masterCat,
+    studyAreaCode: nextStudyAreaCode,
     matchedCourse: course,
     courseId: course.id,
     courseNumber: course.number,
@@ -365,12 +414,15 @@ export function updateTranscriptImportCandidate(
 }
 
 export function canImportTranscriptCandidate(candidate: TranscriptImportCandidate): boolean {
+  const requiresAreaSelection = (candidate.matchedCourse?.regulationAreaCodes?.length ?? 0) > 1
+
   return Boolean(
     candidate.courseId &&
       candidate.matchedCourse &&
       candidate.semester.trim() &&
       candidate.ects !== null &&
       candidate.ects > 0 &&
+      (!requiresAreaSelection || candidate.studyAreaCode) &&
       (candidate.grade === null || (candidate.grade >= 1 && candidate.grade <= 5))
   )
 }
