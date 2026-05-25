@@ -36,8 +36,11 @@ function AssignmentSelect({
 
   if (options.length === 1) {
     return (
-      <div className="rounded-md border border-border bg-surface px-3 py-2 text-[11.5px] text-fg-muted">
-        Counts as <span className="font-semibold text-fg">{options[0].label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Counts as</span>
+        <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+          {options[0].label}
+        </span>
       </div>
     )
   }

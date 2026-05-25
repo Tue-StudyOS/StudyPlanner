@@ -86,7 +86,7 @@ export function PlannerFeedback({
   )
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
           Planned ECTS

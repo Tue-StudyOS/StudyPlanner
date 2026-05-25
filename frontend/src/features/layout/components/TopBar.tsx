@@ -13,7 +13,10 @@ export function TopBar() {
 
   return (
     <>
-      <header className="flex h-15 shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6">
+      <header
+        className="flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
+      >
         <a
           href="https://studyplaner.pages.dev/"
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"

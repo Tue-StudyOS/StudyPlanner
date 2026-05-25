@@ -30,6 +30,16 @@ import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 
 const MAX_TRANSCRIPT_FILE_SIZE_BYTES = 10 * 1024 * 1024
 const CATALOG_LIMIT = 200
+const IMPORT_CANDIDATES_SESSION_KEY = 'transcript-import-candidates'
+
+function restoreImportCandidates(): TranscriptImportCandidate[] {
+  try {
+    const raw = sessionStorage.getItem(IMPORT_CANDIDATES_SESSION_KEY)
+    return raw ? (JSON.parse(raw) as TranscriptImportCandidate[]) : []
+  } catch {
+    return []
+  }
+}
 
 function isPdfFile(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -187,9 +197,11 @@ function UploadReviewSection({
 
 function AuthenticatedTranscript() {
   const { user, token } = useAuth()
-  const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>([])
+  const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoreImportCandidates)
   const [persistedIssues, setPersistedIssues] = useState<SavedTranscriptIssue[]>([])
-  const [importPhase, setImportPhase] = useState<TranscriptImportPhase>('idle')
+  const [importPhase, setImportPhase] = useState<TranscriptImportPhase>(() =>
+    restoreImportCandidates().length > 0 ? 'parsed' : 'idle',
+  )
   const [importError, setImportError] = useState<string | null>(null)
   const [importNotice, setImportNotice] = useState<string | null>(null)
   const [issuesError, setIssuesError] = useState<string | null>(null)
@@ -270,6 +282,14 @@ function AuthenticatedTranscript() {
       isActive = false
     }
   }, [token])
+
+  useEffect(() => {
+    if (importCandidates.length > 0) {
+      sessionStorage.setItem(IMPORT_CANDIDATES_SESSION_KEY, JSON.stringify(importCandidates))
+    } else {
+      sessionStorage.removeItem(IMPORT_CANDIDATES_SESSION_KEY)
+    }
+  }, [importCandidates])
 
   async function persistTranscriptIssues(nextIssues: SavedTranscriptIssue[]): Promise<boolean> {
     if (!token) {
@@ -610,13 +630,13 @@ function AuthenticatedTranscript() {
           ) : null}
 
           {completedCoursesError ? (
-            <div className="rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
               {completedCoursesError}
             </div>
           ) : null}
 
           {issuesError ? (
-            <div className="rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+            <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
               {issuesError}
             </div>
           ) : null}

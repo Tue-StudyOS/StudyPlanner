@@ -57,7 +57,6 @@ interface UseSemesterPlannerResult {
   isSavingSemesterPlan: boolean
   isDeletingSemesterPlan: boolean
   plannerError: string | null
-  plannerMessage: string | null
   hasUnsavedChanges: boolean
   setActiveSemesterLabel: (semesterLabel: string) => void
   setPlannedCourseIds: (courseIds: string[]) => void
@@ -81,7 +80,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [isSavingSemesterPlan, setIsSavingSemesterPlan] = useState<boolean>(false)
   const [isDeletingSemesterPlan, setIsDeletingSemesterPlan] = useState<boolean>(false)
   const [plannerError, setPlannerError] = useState<string | null>(null)
-  const [plannerMessage, setPlannerMessage] = useState<string | null>(null)
   const currentSemesterLabel = getCurrentSemesterLabel()
   const latestSelectableSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
   const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
@@ -125,7 +123,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(null)
-          setPlannerMessage(null)
           setIsLoadingPlanIndex(false)
           setIsLoadingSemesterPlan(false)
         }
@@ -219,7 +216,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       return
     }
 
-    setPlannerMessage(null)
     setPlannerError(null)
     setActiveSemesterLabelState(semesterLabel)
   }
@@ -233,7 +229,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }
 
   function startEditing(): void {
-    setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
@@ -241,7 +236,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   }
 
   function cancelEditing(): void {
-    setPlannerMessage(null)
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
@@ -267,7 +261,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
 
     setIsSavingSemesterPlan(true)
     setPlannerError(null)
-    setPlannerMessage(null)
     try {
       const nextSavedPlan = await saveSemesterPlan(token, normalizedActiveSemesterLabel, {
         title: null,
@@ -280,7 +273,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       setPlanAssignments(nextSavedPlan.courseAssignments)
       setIsEditing(false)
       await refreshSavedPlans()
-      setPlannerMessage(`Saved your plan for ${normalizedActiveSemesterLabel}.`)
     } catch (error) {
       setPlannerError(normalizeErrorMessage(error))
     } finally {
@@ -296,14 +288,12 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
 
     setIsDeletingSemesterPlan(true)
     setPlannerError(null)
-    setPlannerMessage(null)
     try {
       await deleteSemesterPlan(token, normalizedActiveSemesterLabel)
       setSavedPlan(null)
       setPlannedCourseIds([])
       setIsEditing(false)
       await refreshSavedPlans()
-      setPlannerMessage(`Removed the saved plan for ${normalizedActiveSemesterLabel}.`)
     } catch (error) {
       setPlannerError(normalizeErrorMessage(error))
     } finally {
@@ -324,7 +314,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     isSavingSemesterPlan,
     isDeletingSemesterPlan,
     plannerError,
-    plannerMessage,
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,

@@ -4,7 +4,7 @@ import type { TranscriptImportCandidate } from '../types'
 import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
-import { EditIcon, TrashIcon } from './icons'
+import { TrashIcon } from './icons'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
@@ -27,40 +27,14 @@ function formatSemester(value: string): string {
   return value.trim() || 'Semester missing'
 }
 
-function statusClasses(status: TranscriptImportCandidate['status']): string {
-  switch (status) {
-    case 'matched':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-    case 'uncertain':
-      return 'border-slate-300 bg-slate-100 text-slate-700'
-    case 'unmatched':
-      return 'border-rose-200 bg-rose-50 text-rose-700'
-    case 'invalid':
-      return 'border-rose-200 bg-rose-50 text-rose-700'
-  }
-}
-
 function cardClasses(candidate: TranscriptImportCandidate, hasAssignmentIssue: boolean): string {
   if (candidate.status === 'matched' && !hasAssignmentIssue) {
     return 'border-border bg-surface'
   }
   if (candidate.status === 'uncertain') {
-    return 'border-slate-300 bg-slate-50/70'
+    return 'border-border-light bg-surface-hover/40'
   }
-  return 'border-rose-200 bg-rose-50/40'
-}
-
-function statusLabel(status: TranscriptImportCandidate['status']): string {
-  switch (status) {
-    case 'matched':
-      return 'Ready'
-    case 'uncertain':
-      return 'Needs match'
-    case 'unmatched':
-      return 'Catalog course missing'
-    case 'invalid':
-      return 'Needs fixes'
-  }
+  return 'border-primary/20 bg-primary/5'
 }
 
 interface TranscriptImportRowProps {
@@ -127,41 +101,19 @@ export function TranscriptImportRow({
           onClick={() => setIsExpanded((currentValue) => !currentValue)}
           className="min-w-0 flex-1 text-left"
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${statusClasses(candidate.status)}`}
-            >
-              {statusLabel(candidate.status)}
-            </span>
-            <span className="text-[11px] text-fg-muted">
-              Page {candidate.sourcePage}
-              {candidate.sourceSection ? ` · ${candidate.sourceSection}` : ''}
-            </span>
-          </div>
-
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold text-fg">{displayTitle}</div>
-              <div className="mt-1 text-[11px] text-fg-muted">
-                {displayNumber} · {candidate.ects ?? '–'} ECTS
-              </div>
-              <div className={`mt-1 text-[11.5px] ${hasAssignmentIssue || candidate.status === 'invalid' || candidate.status === 'unmatched' ? 'text-rose-700' : 'text-fg-muted'}`}>
-                {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
-                {candidate.studyAreaCode ? ` · ${candidate.studyAreaCode}` : hasAssignmentIssue ? ' · Regulation area missing' : ''}
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-semibold text-fg">{displayTitle}</div>
+            <div className="mt-1 text-[11px] text-fg-muted">
+              {displayNumber} · {candidate.ects ?? '–'} ECTS
+            </div>
+            <div className="mt-1 text-[11.5px] text-fg-muted">
+              {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
+              {candidate.studyAreaCode ? ` · ${candidate.studyAreaCode}` : ''}
             </div>
           </div>
         </button>
 
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setIsExpanded((currentValue) => !currentValue)}
-            aria-label={isExpanded ? `Close editor for ${displayTitle}` : `Edit ${displayTitle}`}
-            className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
-          >
-            <EditIcon />
-          </button>
           <button
             type="button"
             onClick={onDiscard}
@@ -175,10 +127,6 @@ export function TranscriptImportRow({
 
       {isExpanded ? (
         <div className="mt-2.5 grid gap-2.5 border-t border-border-light pt-2.5">
-          <div className={`rounded-[10px] border px-3 py-2 text-[11.5px] ${hasAssignmentIssue || candidate.validationIssues.length > 0 || candidate.status === 'unmatched' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-border-light bg-surface text-fg-muted'}`}>
-            {candidate.validationIssues[0] ?? candidate.statusDetail}
-          </div>
-
           {candidate.extractedTitle !== displayTitle ? (
             <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
           ) : null}
@@ -191,7 +139,7 @@ export function TranscriptImportRow({
             onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
           />
 
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
+          <div className="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
             <label className="grid gap-1">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Semester
@@ -202,8 +150,8 @@ export function TranscriptImportRow({
                 onChange={(event) =>
                   onChange(updateTranscriptImportCandidate(candidate, { semester: event.target.value }))
                 }
-                placeholder="e.g. WS 2024/25"
-                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                placeholder="e.g. WS 24/25"
+                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary ${!candidate.semester.trim() ? 'border-primary' : 'border-border'}`}
               />
             </label>
 
@@ -236,7 +184,7 @@ export function TranscriptImportRow({
               options={areaOptions}
               locked={isAreaLocked}
               size="compact"
-              tone={hasAssignmentIssue ? 'error' : 'default'}
+              tone="default"
               helpText={
                 mappedAreaOptions.length > 1
                   ? 'Choose what this course should count toward.'

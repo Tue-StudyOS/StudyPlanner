@@ -11,6 +11,7 @@ import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
+import { formatSemesterLabelShort } from '../utils/semesterLabels'
 import { getPlannerCourseAreaOptions, getSuggestedPlannerAssignment } from '../utils/plannerAssignments'
 import { useTranscript } from '../../transcript'
 
@@ -402,7 +403,7 @@ function PlannerGrid({
               >
                 {semesterOptions.map((semesterLabel) => (
                   <option key={semesterLabel} value={semesterLabel}>
-                    {semesterLabel}
+                    {formatSemesterLabelShort(semesterLabel)}
                   </option>
                 ))}
               </select>
@@ -462,8 +463,8 @@ function PlannerGrid({
         <div className="mb-4 flex flex-wrap items-center gap-3 text-[12.5px] text-fg-muted">
           <span>
             {savedCourseCount > 0
-              ? `${savedCourseCount} saved course(s) for ${activeSemesterLabel}.`
-              : `No saved plan yet for ${activeSemesterLabel}.`}
+              ? `${savedCourseCount} saved course(s) for ${formatSemesterLabelShort(activeSemesterLabel)}.`
+              : `No saved plan yet for ${formatSemesterLabelShort(activeSemesterLabel)}.`}
           </span>
           {hasUnsavedChanges ? <span className="text-primary">You have unsaved changes.</span> : null}
         </div>
@@ -573,8 +574,8 @@ function PlannerGrid({
                       </button>
                     ))}
 
-                    {dayLayouts[day].visibleBlocks.length === 0 && dayLayouts[day].overflowIndicators.length === 0 ? (
-                      <EmptyGridState isEditing={isEditing} />
+                    {isEditing && dayLayouts[day].visibleBlocks.length === 0 && dayLayouts[day].overflowIndicators.length === 0 ? (
+                      <EmptyGridState isEditing={true} />
                     ) : null}
                   </div>
                 ))}
@@ -582,6 +583,12 @@ function PlannerGrid({
             </div>
           </div>
         )}
+
+        {!isEditing && plannedCourses.length === 0 ? (
+          <div className="mt-4 rounded-[10px] border border-dashed border-border px-5 py-4 text-center text-[13px] text-fg-muted">
+            No courses are saved for this semester yet. Use Edit semester to start planning.
+          </div>
+        ) : null}
       </div>
 
       {activeOverflow ? (
@@ -628,7 +635,6 @@ export function SemesterPlanner() {
     isSavingSemesterPlan,
     isDeletingSemesterPlan,
     plannerError,
-    plannerMessage,
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
@@ -643,7 +649,6 @@ export function SemesterPlanner() {
   const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
   const isMobilePlanner = plannerMobileMode === 'mobile'
     || (plannerMobileMode === 'auto' && isSmallViewport)
-  const favoriteCourses = courses.filter((course) => favoriteIds.includes(course.id))
   const courseById = new Map(courses.map((course) => [course.id, course]))
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
@@ -653,6 +658,13 @@ export function SemesterPlanner() {
     () => regulationVersion?.ruleGroups ?? [],
     [regulationVersion?.ruleGroups],
   )
+  const favoriteCourses = useMemo(() => {
+    const allFavorites = courses.filter((course) => favoriteIds.includes(course.id))
+    if (plannerRuleGroups.length === 0 || !plannerStudyProgramCode) return allFavorites
+    return allFavorites.filter(
+      (course) => getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups).length > 0,
+    )
+  }, [courses, favoriteIds, plannerRuleGroups, plannerStudyProgramCode])
 
   function resolveAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
@@ -757,12 +769,6 @@ export function SemesterPlanner() {
         </p>
       </div>
 
-      {plannerMessage ? (
-        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-mid">
-          {plannerMessage}
-        </div>
-      ) : null}
-
       {plannerError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {plannerError}
@@ -782,8 +788,8 @@ export function SemesterPlanner() {
         regulationRuleGroups={plannerRuleGroups}
       />
 
-      <div className={`mt-4.5 grid items-start gap-4.5 ${isEditing && !isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
-        <div className="grid gap-4.5">
+      <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${isEditing && !isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
+        <div className="grid min-w-0 gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
             <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
               Loading your saved plan for {activeSemesterLabel}...

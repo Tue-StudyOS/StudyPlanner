@@ -67,6 +67,15 @@ export function formatSemesterLabel(semester: ParsedSemesterLabel): string {
     : formatWinterSemester(semester.year)
 }
 
+export function formatSemesterLabelShort(label: string): string {
+  const parsed = parseSemesterLabel(label)
+  if (!parsed) return label
+  const y2 = String(parsed.year).slice(-2)
+  return parsed.term === 'SS'
+    ? `SS ${y2}`
+    : `WS ${y2}/${String(parsed.year + 1).slice(-2)}`
+}
+
 export function compareSemesterLabels(left: string, right: string): number {
   const leftSemester = parseSemesterLabel(left)
   const rightSemester = parseSemesterLabel(right)

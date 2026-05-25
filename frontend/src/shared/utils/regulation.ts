@@ -129,7 +129,7 @@ export function buildRelevantCourseAreaOptions(
   const filteredOptions = studyAreaOptions.filter(
     (option) => !studyProgramCode || option.programCode === studyProgramCode,
   )
-  const relevantOptions = filteredOptions.length > 0 ? filteredOptions : studyAreaOptions
+  const relevantOptions = filteredOptions.length > 0 ? filteredOptions : studyProgramCode ? [] : studyAreaOptions
 
   return dedupeAreaOptions(
     relevantOptions

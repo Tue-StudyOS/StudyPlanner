@@ -34,7 +34,8 @@ Before changing code:
 4. For each feature, bug fix or change has to be one single commit with a clear message. Dont do multiple unrelated changes in the same commit.
 5. Never commit directly on `main`.
 6. Always create or use a dedicated working branch, make commits there, and merge that branch back into `main`.
-7. If additional follow-up fixes are needed after review or deploy, do them on a new branch and merge again instead of adding direct commits to `main`.
+7. When working through a backlog or implementation file with multiple related features, use **one shared branch** for all of them. Make one commit per logical group. Merge that single branch into `main` once at the end — not one branch per feature.
+8. If additional follow-up fixes are needed after review or deploy, do them on a new branch and merge again instead of adding direct commits to `main`.
 
 After changing code:
 1. Run or suggest the relevant test, lint, or typecheck command.
