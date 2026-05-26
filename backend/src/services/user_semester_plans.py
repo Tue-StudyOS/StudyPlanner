@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -78,6 +79,24 @@ def _normalize_course_ids(payload: dict[str, Any]) -> list[int]:
     return normalized_ids
 
 
+def _normalize_hidden_slot_ids(payload: dict[str, Any]) -> list[str]:
+    raw_hidden_slot_ids = payload.get('hiddenSlotIds')
+    if raw_hidden_slot_ids is None:
+        return []
+    if not isinstance(raw_hidden_slot_ids, list):
+        raise SemesterPlanUpdateError('hiddenSlotIds must be an array.')
+
+    normalized_ids: list[str] = []
+    seen_ids: set[str] = set()
+    for raw_value in raw_hidden_slot_ids:
+        normalized_slot_id = _safe_text(raw_value)
+        if not normalized_slot_id or normalized_slot_id in seen_ids:
+            continue
+        seen_ids.add(normalized_slot_id)
+        normalized_ids.append(normalized_slot_id)
+    return normalized_ids
+
+
 def _normalize_course_assignments(payload: dict[str, Any]) -> dict[str, str]:
     raw = payload.get('courseAssignments')
     if not isinstance(raw, dict):
@@ -117,6 +136,7 @@ async def _get_plan_header(env: Any, user_id: int, semester_label: str) -> dict[
             usp.semester_label AS semesterLabel,
             usp.title,
             usp.notes,
+            usp.hidden_slot_ids AS hiddenSlotIds,
             usp.created_at_unix AS createdAtUnix,
             usp.updated_at_unix AS updatedAtUnix
         FROM user_semester_plans AS usp
@@ -126,6 +146,23 @@ async def _get_plan_header(env: Any, user_id: int, semester_label: str) -> dict[
         """,
         [user_id, semester_label],
     )
+
+
+def _parse_hidden_slot_ids(value: Any) -> list[str]:
+    serialized_hidden_slot_ids = _safe_text(value)
+    if not serialized_hidden_slot_ids:
+        return []
+    try:
+        parsed_hidden_slot_ids = json.loads(serialized_hidden_slot_ids)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed_hidden_slot_ids, list):
+        return []
+    return [
+        normalized_slot_id
+        for item in parsed_hidden_slot_ids
+        if (normalized_slot_id := _safe_text(item))
+    ]
 
 
 async def _serialize_plan(env: Any, user_id: int, semester_label: str) -> dict[str, Any] | None:
@@ -154,6 +191,7 @@ async def _serialize_plan(env: Any, user_id: int, semester_label: str) -> dict[s
         'title': header.get('title'),
         'notes': header.get('notes'),
         'courseIds': course_ids,
+        'hiddenSlotIds': _parse_hidden_slot_ids(header.get('hiddenSlotIds')),
         'courseAssignments': course_assignments,
         'courseCount': len(course_ids),
         'createdAtUnix': int(header['createdAtUnix']),
@@ -220,6 +258,7 @@ def _normalize_plan_payload(payload: dict[str, Any]) -> SemesterPlanPayload:
             max_length=MAX_PLAN_NOTES_LENGTH,
         ),
         courseIds=_normalize_course_ids(payload),
+        hiddenSlotIds=_normalize_hidden_slot_ids(payload),
         courseAssignments=_normalize_course_assignments(payload),
     )
 
@@ -235,6 +274,7 @@ async def replace_current_user_semester_plan(
     normalized_semester_label = _normalize_semester_label(semester_label)
     normalized_payload = _normalize_plan_payload(payload)
     course_ids = [int(course_id) for course_id in normalized_payload['courseIds']]
+    hidden_slot_ids = normalized_payload['hiddenSlotIds']
     course_assignments = normalized_payload['courseAssignments']
     await _validate_course_ids(env, course_ids)
 
@@ -243,6 +283,7 @@ async def replace_current_user_semester_plan(
 
     title_value = normalized_payload['title'] or ''
     notes_value = normalized_payload['notes'] or ''
+    hidden_slot_ids_value = json.dumps(hidden_slot_ids) if hidden_slot_ids else ''
 
     if existing_plan is None:
         await execute(
@@ -253,15 +294,17 @@ async def replace_current_user_semester_plan(
                 semester_label,
                 title,
                 notes,
+                hidden_slot_ids,
                 created_at_unix,
                 updated_at_unix
-            ) VALUES (?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?)
+            ) VALUES (?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?)
             """,
             [
                 user_id,
                 normalized_semester_label,
                 title_value,
                 notes_value,
+                hidden_slot_ids_value,
                 now_unix,
                 now_unix,
             ],
@@ -275,12 +318,14 @@ async def replace_current_user_semester_plan(
             SET
                 title = NULLIF(?, ''),
                 notes = NULLIF(?, ''),
+                hidden_slot_ids = NULLIF(?, ''),
                 updated_at_unix = ?
             WHERE id = ?
             """,
             [
                 title_value,
                 notes_value,
+                hidden_slot_ids_value,
                 now_unix,
                 existing_plan['id'],
             ],

@@ -13,6 +13,7 @@ interface SaveSemesterPlanInput {
   title?: string | null
   notes?: string | null
   courseIds: string[]
+  hiddenSlotIds?: string[]
   courseAssignments?: Record<string, string>
 }
 

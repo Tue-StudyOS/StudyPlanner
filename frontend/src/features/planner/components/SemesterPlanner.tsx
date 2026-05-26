@@ -39,6 +39,29 @@ interface PlannerOverflowState {
   blocks: PlannerBlock[]
 }
 
+function TrashIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" className="shrink-0">
+      <path d="M3 6h18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path
+        d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19 6l-1 14a1 1 0 01-1 1H7a1 1 0 01-1-1L5 6"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function EmptyGridState({ isEditing }: { isEditing: boolean }) {
   return (
     <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
@@ -143,12 +166,12 @@ function PlannerOverflowDialog({
   overflow,
   isEditing,
   onClose,
-  onRemoveCourse,
+  onRemoveSlot,
 }: {
   overflow: PlannerOverflowState
   isEditing: boolean
   onClose: () => void
-  onRemoveCourse: (courseId: string) => void
+  onRemoveSlot: (slotId: string) => void
 }) {
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
 
@@ -191,10 +214,11 @@ function PlannerOverflowDialog({
               {isEditing ? (
                 <button
                   type="button"
-                  onClick={() => onRemoveCourse(block.courseId)}
-                  className="rounded-md border border-border px-2.5 py-1.5 text-[11px] font-medium text-fg transition-colors hover:bg-surface-hover"
+                  onClick={() => onRemoveSlot(block.slotId)}
+                  aria-label={`Remove ${block.courseTitle} from this time slot`}
+                  className="rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
                 >
-                  Remove
+                  <TrashIcon />
                 </button>
               ) : null}
             </div>
@@ -207,14 +231,19 @@ function PlannerOverflowDialog({
 
 function PlannerWeeklyListView({
   plannedCourses,
+  hiddenSlotIds,
   isEditing,
-  onRemoveCourse,
+  onRemoveSlot,
 }: {
   plannedCourses: Course[]
+  hiddenSlotIds: string[]
   isEditing: boolean
-  onRemoveCourse: (courseId: string) => void
+  onRemoveSlot: (slotId: string) => void
 }) {
-  const blocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
+  const blocks = useMemo(
+    () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
+    [hiddenSlotIds, plannedCourses],
+  )
 
   return (
     <div className="grid min-w-0 gap-3">
@@ -250,10 +279,11 @@ function PlannerWeeklyListView({
                       {isEditing ? (
                         <button
                           type="button"
-                          onClick={() => onRemoveCourse(block.courseId)}
-                          className="shrink-0 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-fg transition-colors hover:bg-surface-hover"
+                          onClick={() => onRemoveSlot(block.slotId)}
+                          aria-label={`Remove ${block.courseTitle} from this time slot`}
+                          className="shrink-0 rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
                         >
-                          Remove
+                          <TrashIcon />
                         </button>
                       ) : null}
                     </div>
@@ -289,8 +319,8 @@ function MobilePlannerFavoritesDrawer({
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <div className="text-[14px] font-semibold text-fg">Favorite courses</div>
-            <div className="text-[12px] text-fg-muted">Choose and assign favorites here</div>
+            <div className="text-[14px] font-semibold text-fg">Import courses</div>
+            <div className="text-[12px] text-fg-muted">Add favorite courses to this semester plan</div>
           </div>
           <button
             type="button"
@@ -314,6 +344,7 @@ function PlannerGrid({
   isEditing,
   isMobilePlanner,
   mobileLayout,
+  hiddenSlotIds,
   isLoadingSemesterPlan,
   isSavingSemesterPlan,
   isDeletingSemesterPlan,
@@ -326,7 +357,7 @@ function PlannerGrid({
   onDelete,
   onOpenFavorites,
   onDropCourse,
-  onRemoveCourse,
+  onRemoveSlot,
 }: {
   plannedCourses: Course[]
   activeSemesterLabel: string
@@ -334,6 +365,7 @@ function PlannerGrid({
   isEditing: boolean
   isMobilePlanner: boolean
   mobileLayout: 'compact-grid' | 'weekly-list'
+  hiddenSlotIds: string[]
   isLoadingSemesterPlan: boolean
   isSavingSemesterPlan: boolean
   isDeletingSemesterPlan: boolean
@@ -346,9 +378,12 @@ function PlannerGrid({
   onDelete: () => Promise<void>
   onOpenFavorites: () => void
   onDropCourse: (courseId: string, areaCode: string | null) => void
-  onRemoveCourse: (courseId: string) => void
+  onRemoveSlot: (slotId: string) => void
 }) {
-  const blocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
+  const blocks = useMemo(
+    () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
+    [hiddenSlotIds, plannedCourses],
+  )
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
   const isWeeklyListLayout = isMobilePlanner && mobileLayout === 'weekly-list'
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
@@ -385,22 +420,15 @@ function PlannerGrid({
           <div>
             <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
             <p className="mt-1 text-[12.5px] text-fg-muted">
-              {isMobilePlanner
-                ? mobileLayout === 'weekly-list'
-                  ? 'Mobile weekly list view enabled.'
-                  : 'Compact mobile weekly grid enabled.'
-                : isEditing
-                  ? 'Edit the selected semester directly in the weekly planner.'
-                  : 'The weekly planner stays fixed while the active semester can still be switched above the grid.'}
+              Plan the selected semester here and keep only the schedule details that matter.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2.5">
-            <label className="grid gap-1.5 sm:min-w-[13rem]">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Semester
-              </span>
+            <div className="flex items-center gap-2 sm:min-w-[13rem]">
+              <span className="text-[12px] font-semibold text-fg-muted">Semester</span>
               <select
+                aria-label="Select semester"
                 value={activeSemesterLabel}
                 onChange={(event) => onSelectSemester(event.target.value)}
                 className="rounded-[10px] border border-border bg-surface px-4 py-2.5 text-[13px] text-fg outline-none transition-colors focus:border-primary"
@@ -411,18 +439,26 @@ function PlannerGrid({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               {isEditing ? (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => void onDelete()}
+                    disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
+                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
+                  </button>
                   {isMobilePlanner ? (
                     <button
                       type="button"
                       onClick={onOpenFavorites}
                       className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
                     >
-                      Favorites
+                      Import
                     </button>
                   ) : null}
                   <button
@@ -443,45 +479,43 @@ function PlannerGrid({
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={onStartEditing}
-                  disabled={isLoadingSemesterPlan}
-                  className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Edit semester
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={onStartEditing}
+                    disabled={isLoadingSemesterPlan}
+                    className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Edit semester
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onDelete()}
+                    disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
+                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => void onDelete()}
-                disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
-                className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
-              </button>
             </div>
           </div>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3 text-[12.5px] text-fg-muted">
-          <span>
-            {savedCourseCount > 0
-              ? `${savedCourseCount} saved course(s) for ${formatSemesterLabelShort(activeSemesterLabel)}.`
-              : `No saved plan yet for ${formatSemesterLabelShort(activeSemesterLabel)}.`}
-          </span>
-          {hasUnsavedChanges ? <span className="text-primary">You have unsaved changes.</span> : null}
-        </div>
+        {hasUnsavedChanges ? (
+          <div className="mb-4 text-[12.5px] text-primary">You have unsaved changes.</div>
+        ) : null}
 
         {isWeeklyListLayout ? (
           <PlannerWeeklyListView
             plannedCourses={plannedCourses}
+            hiddenSlotIds={hiddenSlotIds}
             isEditing={isEditing}
-            onRemoveCourse={onRemoveCourse}
+            onRemoveSlot={onRemoveSlot}
           />
         ) : (
           <div>
-            <div className={`grid ${isMobilePlanner ? 'grid-cols-[48px_repeat(5,minmax(0,1fr))] gap-1.5' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
+            <div className={`grid ${isMobilePlanner ? 'grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
               <div />
               {DAY_ORDER.map((day) => (
                 <div
@@ -529,7 +563,7 @@ function PlannerGrid({
                       return (
                         <div
                           key={block.blockId}
-                          className={`absolute rounded-md border px-1.5 py-1 text-[10px] shadow-sm sm:px-2 sm:text-[11px] ${
+                          className={`absolute rounded-[7px] border px-1 py-1 text-[9px] shadow-sm sm:px-2 sm:text-[11px] ${
                             block.hasOverlap
                               ? 'border-primary/40 bg-primary/10 text-primary'
                               : 'border-border bg-surface text-fg dark:bg-surface-hover'
@@ -538,22 +572,23 @@ function PlannerGrid({
                             top: `${top}px`,
                             left: buildBlockLeft(block.columnIndex, block.visibleColumnCount),
                             width: buildBlockWidth(block.visibleColumnCount),
-                            height: `${Math.max(height, 34)}px`,
+                            height: `${Math.max(height, 38)}px`,
                           }}
                         >
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start justify-between gap-1.5">
                             <div className="min-w-0">
-                              <div className="truncate font-semibold">{block.courseTitle}</div>
-                              <div className="truncate text-[9px] opacity-80 sm:text-[10px]">{block.label}</div>
-                              <div className="truncate text-[9px] opacity-80 sm:text-[10px]">{block.room}</div>
+                              <div className="truncate text-[9.5px] font-semibold leading-tight sm:text-[11px]">{block.courseTitle}</div>
+                              <div className="truncate text-[8.5px] opacity-80 sm:text-[10px]">{block.label}</div>
+                              <div className="truncate text-[8.5px] opacity-80 sm:text-[10px]">{block.room}</div>
                             </div>
                             {isEditing ? (
                               <button
                                 type="button"
-                                onClick={() => onRemoveCourse(block.courseId)}
-                                className="rounded-sm px-1 text-[10px] font-semibold opacity-70 hover:opacity-100"
+                                onClick={() => onRemoveSlot(block.slotId)}
+                                aria-label={`Remove ${block.courseTitle} from this time slot`}
+                                className="rounded-sm p-1 opacity-70 hover:bg-surface-hover hover:opacity-100"
                               >
-                                ×
+                                <TrashIcon />
                               </button>
                             ) : null}
                           </div>
@@ -600,16 +635,20 @@ function PlannerGrid({
           overflow={activeOverflow}
           isEditing={isEditing}
           onClose={() => setActiveOverflow(null)}
-          onRemoveCourse={(courseId) => {
-            onRemoveCourse(courseId)
-            setActiveOverflow((currentValue) =>
-              currentValue
+          onRemoveSlot={(slotId) => {
+            onRemoveSlot(slotId)
+            setActiveOverflow((currentValue) => {
+              if (!currentValue) {
+                return currentValue
+              }
+              const remainingBlocks = currentValue.blocks.filter((block) => block.slotId !== slotId)
+              return remainingBlocks.length > 0
                 ? {
                     ...currentValue,
-                    blocks: currentValue.blocks.filter((block) => block.courseId !== courseId),
+                    blocks: remainingBlocks,
                   }
-                : currentValue,
-            )
+                : null
+            })
           }}
         />
       ) : null}
@@ -632,6 +671,7 @@ export function SemesterPlanner() {
     activeSemesterLabel,
     semesterOptions,
     plannedCourseIds,
+    hiddenSlotIds,
     planAssignments,
     savedPlan,
     isEditing,
@@ -642,6 +682,7 @@ export function SemesterPlanner() {
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
+    setHiddenSlotIds,
     setAssignment,
     startEditing,
     cancelEditing,
@@ -649,14 +690,13 @@ export function SemesterPlanner() {
     deleteCurrentSemesterPlan,
   } = useSemesterPlanner()
 
-  const plannerMobileMode = user?.profile.plannerMobileMode ?? 'auto'
   const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
-  const isMobilePlanner = plannerMobileMode === 'mobile'
-    || (plannerMobileMode === 'auto' && isSmallViewport)
+  const isMobilePlanner = isSmallViewport
   const courseById = new Map(courses.map((course) => [course.id, course]))
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
+  const allPlannerBlocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
   const plannerRuleGroups = useMemo(
     () => regulationVersion?.ruleGroups ?? [],
@@ -690,10 +730,17 @@ export function SemesterPlanner() {
     })
   }
 
+  function clearHiddenSlotsForCourse(courseId: string): void {
+    setHiddenSlotIds(
+      hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+    )
+  }
+
   function handleAddCourse(courseId: string, preferredAreaCode: string | null = null): void {
     if (!plannedCourseIds.includes(courseId)) {
       setPlannedCourseIds([...plannedCourseIds, courseId])
     }
+    clearHiddenSlotsForCourse(courseId)
     setAssignment(courseId, resolveAddAssignment(courseId, preferredAreaCode))
   }
 
@@ -701,7 +748,27 @@ export function SemesterPlanner() {
     setPlannedCourseIds(
       plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
     )
+    clearHiddenSlotsForCourse(courseId)
     setAssignment(courseId, null)
+  }
+
+  function handleRemoveSlot(slotId: string): void {
+    const slotToRemove = allPlannerBlocks.find((block) => block.slotId === slotId)
+    if (!slotToRemove) {
+      return
+    }
+
+    const courseSlotIds = allPlannerBlocks
+      .filter((block) => block.courseId === slotToRemove.courseId)
+      .map((block) => block.slotId)
+    const nextHiddenSlotIds = [...new Set([...hiddenSlotIds, slotId])]
+
+    if (courseSlotIds.length > 0 && courseSlotIds.every((courseSlotId) => nextHiddenSlotIds.includes(courseSlotId))) {
+      handleRemoveCourse(slotToRemove.courseId)
+      return
+    }
+
+    setHiddenSlotIds(nextHiddenSlotIds)
   }
 
   useEffect(() => {
@@ -767,9 +834,7 @@ export function SemesterPlanner() {
           Semester Planner
         </h1>
         <p className="text-[13.5px] text-fg-muted">
-          {isMobilePlanner
-            ? `Mobile planner active · ${plannerMobileLayout === 'weekly-list' ? 'weekly list' : 'compact weekly grid'}`
-            : 'Plan the selected semester in a fixed weekly view, choose what each favorite should count as directly in the picker, and keep the layout simple on desktop and mobile.'}
+          Plan the selected semester in a fixed weekly view and import courses from your favorites when needed.
         </p>
       </div>
 
@@ -785,13 +850,6 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
-      <PlannerFeedback
-        plannedCourses={plannedCourses}
-        studyProgramCode={plannerStudyProgramCode}
-        planAssignments={planAssignments}
-        regulationRuleGroups={plannerRuleGroups}
-      />
-
       <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${isEditing && !isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
         <div className="grid min-w-0 gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
@@ -806,6 +864,7 @@ export function SemesterPlanner() {
               isEditing={isEditing}
               isMobilePlanner={isMobilePlanner}
               mobileLayout={plannerMobileLayout}
+              hiddenSlotIds={hiddenSlotIds}
               isLoadingSemesterPlan={isLoadingSemesterPlan}
               isSavingSemesterPlan={isSavingSemesterPlan}
               isDeletingSemesterPlan={isDeletingSemesterPlan}
@@ -818,7 +877,7 @@ export function SemesterPlanner() {
               onDelete={deleteCurrentSemesterPlan}
               onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
               onDropCourse={handleAddCourse}
-              onRemoveCourse={handleRemoveCourse}
+              onRemoveSlot={handleRemoveSlot}
             />
           )}
         </div>
@@ -841,6 +900,14 @@ export function SemesterPlanner() {
           />
         ) : null}
       </div>
+
+      <PlannerFeedback
+        plannedCourses={plannedCourses}
+        completedCourses={completedCourses}
+        studyProgramCode={plannerStudyProgramCode}
+        planAssignments={planAssignments}
+        regulationRuleGroups={plannerRuleGroups}
+      />
 
       <MobilePlannerFavoritesDrawer
         isOpen={isEditing && isMobilePlanner && isMobileFavoritesOpen}
