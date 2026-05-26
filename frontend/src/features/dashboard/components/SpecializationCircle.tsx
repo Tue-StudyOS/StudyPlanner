@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react'
 import type { VisualizationCategoryCourse, VisualizationCategoryProgress } from '../types'
 import { VISUALIZATION_CATEGORY_COLORS } from '../visualizationCategories'
 
-const EXTENDED_RING_SCALE = 1.07
+const EXTENDED_RING_SCALE = 1.1
+const MIN_POINT_SCALE = 0.1
+const STRONG_THRESHOLD = 0.55
 
 interface Point {
   x: number
@@ -129,22 +131,20 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
   const radius = 135
 
   const outerPoints = categories.map((_, index) => pointOnCircle(index, categories.length, radius, center))
+  const extendedOuterPoints = categories.map((_, index) =>
+    pointOnCircle(index, categories.length, radius * EXTENDED_RING_SCALE, center),
+  )
   const edgeMidpoints = outerPoints.map((_, index) =>
     midpoint(outerPoints[index], outerPoints[(index + 1) % outerPoints.length]),
   )
   const dataPoints = categories.map((category, index) =>
-    pointOnCircle(index, categories.length, radius * category.progressRatio, center),
+    pointOnCircle(
+      index,
+      categories.length,
+      radius * (MIN_POINT_SCALE + (1 - MIN_POINT_SCALE) * category.progressRatio),
+      center,
+    ),
   )
-
-  const topCategory = categories.reduce<VisualizationCategoryProgress | null>((best, current) => {
-    if (!best) {
-      return current
-    }
-    if (current.progressRatio > best.progressRatio) {
-      return current
-    }
-    return best
-  }, null)
 
   return (
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
@@ -155,7 +155,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
 
       <div className="flex justify-center">
         <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[420px]">
-          {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((scale) => (
+          {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map((scale) => (
             <path
               key={scale}
               d={polygonPath(
@@ -168,15 +168,13 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
           ))}
 
           <path
-            d={polygonPath(
-              categories.map((_, index) => pointOnCircle(index, categories.length, radius * EXTENDED_RING_SCALE, center)),
-            )}
+            d={polygonPath(extendedOuterPoints)}
             fill="none"
-            stroke="rgba(148, 163, 184, 0.4)"
+            stroke="rgba(148, 163, 184, 0.25)"
             strokeWidth="1"
           />
 
-          {outerPoints.map((point, index) => (
+          {extendedOuterPoints.map((point, index) => (
             <line
               key={`spoke-${categories[index].code}`}
               x1={center}
@@ -239,7 +237,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
 
           {dataPoints.map((point, index) => {
             const category = categories[index]
-            const isStrong = category.progressRatio >= 0.5
+            const isStrong = category.progressRatio >= STRONG_THRESHOLD
             const dotColor = isStrong
               ? VISUALIZATION_CATEGORY_COLORS[category.code] ?? 'rgb(147 13 42)'
               : 'rgb(148 163 184)'
@@ -258,7 +256,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
           {outerPoints.map((_, index) => {
             const category = categories[index]
             const labelPoint = pointOnCircle(index, categories.length, radius * 1.22, center)
-            const isTopCategory = topCategory?.code === category.code && category.progressRatio > 0
+            const isStrong = category.progressRatio >= STRONG_THRESHOLD
             return (
               <text
                 key={`label-${category.code}`}
@@ -266,12 +264,12 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
                 y={labelPoint.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill={isTopCategory ? VISUALIZATION_CATEGORY_COLORS[category.code] : 'currentColor'}
-                className={isTopCategory ? 'text-[13px] font-semibold text-fg' : 'text-[11px] text-fg-muted'}
+                fill={isStrong ? VISUALIZATION_CATEGORY_COLORS[category.code] ?? 'rgb(147 13 42)' : 'currentColor'}
+                className={isStrong ? 'text-[13px] font-semibold text-fg' : 'text-[11px] text-fg-muted'}
                 style={{
                   fontFamily: 'Inter, sans-serif',
-                  fontSize: isTopCategory ? 13 : 11.5,
-                  fontWeight: isTopCategory ? 700 : 400,
+                  fontSize: isStrong ? 13 : 11.5,
+                  fontWeight: isStrong ? 700 : 400,
                   pointerEvents: 'none',
                 } as CSSProperties}
               >

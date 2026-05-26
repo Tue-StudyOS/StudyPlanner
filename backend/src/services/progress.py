@@ -64,14 +64,14 @@ def _match_regulation(
 
 
 def _grade_quality_multiplier(grade: float | None) -> float:
-    """Map grade (1.0 best ... 4.0 worst) to a quality multiplier.
+    """Map grade (1.0 best ... 4.0 worst) to a small quality multiplier.
 
-    Best grades count more strongly; two good courses outweigh three bad ones.
+    Better grades should matter, but only as a light tilt on top of the ECTS weight.
     """
     if grade is None:
         return 1.0
     clamped_grade = max(1.0, min(4.0, grade))
-    return max(0.4, 1.4 - (clamped_grade - 1.0) * 0.3)
+    return max(0.85, 1.05 - (clamped_grade - 1.0) * 0.06)
 
 
 def _build_completed_course_detail(completed_course: dict[str, Any]) -> dict[str, Any]:

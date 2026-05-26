@@ -1,5 +1,5 @@
 import type { ChangeEvent, DragEvent } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -355,7 +355,7 @@ function AuthenticatedTranscript() {
     }
   }, [importCandidates])
 
-  async function persistTranscriptIssues(nextIssues: SavedTranscriptIssue[]): Promise<boolean> {
+  const persistTranscriptIssues = useCallback(async (nextIssues: SavedTranscriptIssue[]): Promise<boolean> => {
     if (!token) {
       setIssuesError('Sign in to keep transcript issues in your account.')
       return false
@@ -376,7 +376,7 @@ function AuthenticatedTranscript() {
     } finally {
       setIsSavingIssues(false)
     }
-  }
+  }, [token])
 
   useEffect(() => {
     if (!token || !issueDraftDirty) {
@@ -482,10 +482,10 @@ function AuthenticatedTranscript() {
     }
   }
 
-  async function importCandidateBatch(
+  const importCandidateBatch = useCallback(async (
     candidates: TranscriptImportCandidate[],
     source: 'review' | 'issues',
-  ): Promise<void> {
+  ): Promise<void> => {
     clearCompletedCoursesError()
     setImportError(null)
     setImportNotice(null)
@@ -553,7 +553,7 @@ function AuthenticatedTranscript() {
         issueSyncFailed: !savedIssues,
       }),
     )
-  }
+  }, [clearCompletedCoursesError, importCompletedCourses, persistTranscriptIssues, persistedIssues])
 
   function openFilePicker(): void {
     fileInputRef.current?.click()
@@ -649,8 +649,13 @@ function AuthenticatedTranscript() {
     if (validImportCandidates.length === 0) {
       return
     }
-    void importCandidateBatch(validImportCandidates, 'review')
-  }, [importCandidates, importPhase, isSavingIssues])
+
+    const timeoutId = window.setTimeout(() => {
+      void importCandidateBatch(validImportCandidates, 'review')
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [importCandidateBatch, importCandidates, importPhase, isSavingIssues])
 
   useEffect(() => {
     if (importPhase === 'saving' || isSavingIssues || issueDraftDirty) {
@@ -662,8 +667,13 @@ function AuthenticatedTranscript() {
     if (validIssueCandidates.length === 0) {
       return
     }
-    void importCandidateBatch(validIssueCandidates, 'issues')
-  }, [importPhase, isSavingIssues, issueDraftDirty, savedIssueCandidates])
+
+    const timeoutId = window.setTimeout(() => {
+      void importCandidateBatch(validIssueCandidates, 'issues')
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [importCandidateBatch, importPhase, isSavingIssues, issueDraftDirty, savedIssueCandidates])
 
   function handleFileInputChange(event: ChangeEvent<HTMLInputElement>): void {
     const nextFile = event.target.files?.[0]
