@@ -25,7 +25,7 @@ export function TopBar() {
             <img src={logo} alt="" className="h-full w-full object-contain p-0.5" />
           </div>
           <span className="truncate font-serif text-base font-semibold text-white sm:text-lg">
-            {isMobileNavigation ? 'Study' : 'StudyPlanner'}
+            StudyPlanner
           </span>
         </a>
 

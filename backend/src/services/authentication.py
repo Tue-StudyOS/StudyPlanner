@@ -15,7 +15,6 @@ DEFAULT_SESSION_TTL_DAYS = 30
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
 SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
 SUPPORTED_REGULATION_PO_VERSION = '2021'
-ALLOWED_PLANNER_MOBILE_MODES = {'auto', 'mobile', 'desktop'}
 ALLOWED_PLANNER_MOBILE_LAYOUTS = {'compact-grid', 'weekly-list'}
 
 
@@ -280,7 +279,6 @@ async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
             'totalEcts': row.get('regulationTotalEcts') or row.get('studyProgramTotalEcts'),
             'regulationCode': row.get('regulationCode'),
             'regulationName': row.get('regulationName'),
-            'plannerMobileMode': row.get('plannerMobileMode') or 'auto',
             'plannerMobileLayout': row.get('plannerMobileLayout') or 'compact-grid',
         },
     }
@@ -661,11 +659,11 @@ async def update_current_user_profile(
             else None
         )
 
-    planner_mobile_mode = _safe_text(payload.get('plannerMobileMode')) if 'plannerMobileMode' in payload else (
-        _safe_text(current_profile_row.get('plannerMobileMode')) if current_profile_row else 'auto'
+    planner_mobile_mode = (
+        _safe_text(current_profile_row.get('plannerMobileMode'))
+        if current_profile_row and _safe_text(current_profile_row.get('plannerMobileMode'))
+        else 'auto'
     )
-    if planner_mobile_mode not in ALLOWED_PLANNER_MOBILE_MODES:
-        raise ProfileUpdateError('plannerMobileMode must be auto, mobile, or desktop.')
 
     planner_mobile_layout = _safe_text(payload.get('plannerMobileLayout')) if 'plannerMobileLayout' in payload else (
         _safe_text(current_profile_row.get('plannerMobileLayout')) if current_profile_row else 'compact-grid'

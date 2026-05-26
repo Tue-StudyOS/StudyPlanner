@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../../shared/utils/api'
 import { MoonIcon, SunIcon } from '../../layout/components/icons'
@@ -68,8 +68,11 @@ export function AccountPage() {
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false)
   const [draftStudyProgramId, setDraftStudyProgramId] = useState<number | null | undefined>(undefined)
   const [draftCurrentSemesterLabel, setDraftCurrentSemesterLabel] = useState<string | undefined>(undefined)
-  const [draftPlannerMobileMode, setDraftPlannerMobileMode] = useState<'auto' | 'mobile' | 'desktop' | undefined>(undefined)
-  const [draftPlannerMobileLayout, setDraftPlannerMobileLayout] = useState<'compact-grid' | 'weekly-list' | undefined>(undefined)
+  const [draftPlannerLayout, setDraftPlannerLayout] = useState<'compact-grid' | 'weekly-list' | undefined>(undefined)
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false)
+  const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [lastFailedProfileKey, setLastFailedProfileKey] = useState<string | null>(null)
 
   const [credCurrentPassword, setCredCurrentPassword] = useState<string>('')
   const [credNewIdentifier, setCredNewIdentifier] = useState<string>('')
@@ -92,14 +95,37 @@ export function AccountPage() {
       }
     }
     void loadOptions()
-    return () => { isActive = false }
+    return () => {
+      isActive = false
+    }
   }, [])
 
   const selectedStudyProgramId =
     draftStudyProgramId !== undefined ? draftStudyProgramId : (user?.profile.studyProgramId ?? null)
   const currentSemesterLabel = draftCurrentSemesterLabel ?? (user?.profile.currentSemesterLabel ?? '')
-  const plannerMobileMode = draftPlannerMobileMode ?? user?.profile.plannerMobileMode ?? 'auto'
-  const plannerMobileLayout = draftPlannerMobileLayout ?? user?.profile.plannerMobileLayout ?? 'compact-grid'
+  const plannerLayout = draftPlannerLayout ?? user?.profile.plannerMobileLayout ?? 'compact-grid'
+  const profileDraftKey = JSON.stringify({
+    studyProgramId: selectedStudyProgramId,
+    currentSemesterLabel,
+    plannerLayout,
+  })
+  const latestProfileDraftRef = useRef<{
+    studyProgramId: number | null
+    currentSemesterLabel: string
+    plannerLayout: 'compact-grid' | 'weekly-list'
+  }>({
+    studyProgramId: selectedStudyProgramId,
+    currentSemesterLabel,
+    plannerLayout,
+  })
+
+  const isProfileDirty = Boolean(
+    user && (
+      selectedStudyProgramId !== (user.profile.studyProgramId ?? null)
+      || currentSemesterLabel !== (user.profile.currentSemesterLabel ?? '')
+      || plannerLayout !== (user.profile.plannerMobileLayout ?? 'compact-grid')
+    ),
+  )
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -108,19 +134,28 @@ export function AccountPage() {
     setMessage(null)
     try {
       if (mode === 'register') {
-        await register({ identifier, password, studyProgramId: selectedStudyProgramId, currentSemesterLabel: currentSemesterLabel.trim() || null })
+        await register({
+          identifier,
+          password,
+          studyProgramId: selectedStudyProgramId,
+          currentSemesterLabel: currentSemesterLabel.trim() || null,
+        })
         setDraftStudyProgramId(undefined)
         setDraftCurrentSemesterLabel(undefined)
-        setDraftPlannerMobileMode(undefined)
-        setDraftPlannerMobileLayout(undefined)
+        setDraftPlannerLayout(undefined)
+        setProfileSaveState('idle')
+        setProfileError(null)
+        setLastFailedProfileKey(null)
         navigate(ROUTES.dashboard)
         return
       }
       await login({ identifier, password })
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerMobileMode(undefined)
-      setDraftPlannerMobileLayout(undefined)
+      setDraftPlannerLayout(undefined)
+      setProfileSaveState('idle')
+      setProfileError(null)
+      setLastFailedProfileKey(null)
       navigate(ROUTES.dashboard)
     } catch (submitError) {
       setError(normalizeErrorMessage(submitError))
@@ -137,35 +172,13 @@ export function AccountPage() {
       await logout()
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerMobileMode(undefined)
-      setDraftPlannerMobileLayout(undefined)
+      setDraftPlannerLayout(undefined)
+      setProfileSaveState('idle')
+      setProfileError(null)
+      setLastFailedProfileKey(null)
       navigate(ROUTES.dashboard)
     } catch (logoutError) {
       setError(normalizeErrorMessage(logoutError))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleProfileSave(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault()
-    setIsSubmitting(true)
-    setError(null)
-    setMessage(null)
-    try {
-      await saveProfile({
-        studyProgramId: selectedStudyProgramId,
-        currentSemesterLabel: currentSemesterLabel.trim() || null,
-        plannerMobileMode,
-        plannerMobileLayout,
-      })
-      setDraftStudyProgramId(undefined)
-      setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerMobileMode(undefined)
-      setDraftPlannerMobileLayout(undefined)
-      setMessage('Study profile updated.')
-    } catch (profileError) {
-      setError(normalizeErrorMessage(profileError))
     } finally {
       setIsSubmitting(false)
     }
@@ -201,6 +214,84 @@ export function AccountPage() {
       setIsSubmitting(false)
     }
   }
+
+  useEffect(() => {
+    latestProfileDraftRef.current = {
+      studyProgramId: selectedStudyProgramId,
+      currentSemesterLabel,
+      plannerLayout,
+    }
+  }, [currentSemesterLabel, plannerLayout, selectedStudyProgramId])
+
+  useEffect(() => {
+    if (profileSaveState !== 'saved') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setProfileSaveState('idle')
+    }, 1800)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [profileSaveState])
+
+  useEffect(() => {
+    if (
+      !isAuthenticated
+      || !user
+      || isLoadingOptions
+      || isSavingProfile
+      || !isProfileDirty
+      || lastFailedProfileKey === profileDraftKey
+    ) {
+      return
+    }
+
+    const snapshot = latestProfileDraftRef.current
+    const snapshotKey = profileDraftKey
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        setIsSavingProfile(true)
+        try {
+          await saveProfile({
+            studyProgramId: snapshot.studyProgramId,
+            currentSemesterLabel: snapshot.currentSemesterLabel.trim() || null,
+            plannerMobileLayout: snapshot.plannerLayout,
+          })
+          const latestSnapshot = latestProfileDraftRef.current
+          if (
+            latestSnapshot.studyProgramId === snapshot.studyProgramId
+            && latestSnapshot.currentSemesterLabel === snapshot.currentSemesterLabel
+            && latestSnapshot.plannerLayout === snapshot.plannerLayout
+          ) {
+            setDraftStudyProgramId(undefined)
+            setDraftCurrentSemesterLabel(undefined)
+            setDraftPlannerLayout(undefined)
+          }
+          setLastFailedProfileKey(null)
+          setProfileError(null)
+          setProfileSaveState('saved')
+        } catch (profileSaveError) {
+          setLastFailedProfileKey(snapshotKey)
+          setProfileSaveState('idle')
+          setProfileError(normalizeErrorMessage(profileSaveError))
+        } finally {
+          setIsSavingProfile(false)
+        }
+      })()
+    }, 500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [
+    isAuthenticated,
+    isLoadingOptions,
+    isProfileDirty,
+    isSavingProfile,
+    lastFailedProfileKey,
+    profileDraftKey,
+    saveProfile,
+    user,
+  ])
 
   const startSemesters = generateStartSemesters()
   const inputClass = 'w-full min-w-0 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary'
@@ -240,77 +331,6 @@ export function AccountPage() {
           </div>
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-            <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
-              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Study profile</h2>
-              <form onSubmit={(event) => void handleProfileSave(event)} className="flex min-w-0 flex-1 flex-col gap-3">
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
-                  <select
-                    value={toSelectValue(selectedStudyProgramId)}
-                    onChange={(event) => setDraftStudyProgramId(event.target.value ? Number(event.target.value) : null)}
-                    disabled={isLoadingOptions}
-                    className={inputClass}
-                  >
-                    <option value="">No study program selected</option>
-                    {studyPrograms.map((sp) => (
-                      <option key={sp.id} value={sp.id}>{sp.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                    Start semester
-                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
-                  </span>
-                  <select
-                    value={currentSemesterLabel}
-                    onChange={(event) => setDraftCurrentSemesterLabel(event.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Not specified</option>
-                    {startSemesters.map((sem) => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Planner mobile mode</span>
-                  <select
-                    value={plannerMobileMode}
-                    onChange={(event) => setDraftPlannerMobileMode(event.target.value as 'auto' | 'mobile' | 'desktop')}
-                    className={inputClass}
-                  >
-                    <option value="auto">Automatic by screen size</option>
-                    <option value="mobile">Always use mobile planner</option>
-                    <option value="desktop">Always use desktop planner</option>
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Planner mobile layout</span>
-                  <select
-                    value={plannerMobileLayout}
-                    onChange={(event) => setDraftPlannerMobileLayout(event.target.value as 'compact-grid' | 'weekly-list')}
-                    className={inputClass}
-                  >
-                    <option value="compact-grid">Compact weekly grid</option>
-                    <option value="weekly-list">Weekly list view</option>
-                  </select>
-                </label>
-                <div className="rounded-[10px] border border-border-light bg-surface-hover/40 px-4 py-3 text-[12px] text-fg-muted">
-                  Use these settings to try both mobile planner variants and to force mobile or desktop planner behavior when needed.
-                </div>
-                <div className="mt-auto flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || isLoadingOptions}
-                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Save study profile
-                  </button>
-                </div>
-              </form>
-            </section>
-
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
               <form onSubmit={(event) => void handleCredentialsSave(event)} className="flex min-w-0 flex-1 flex-col gap-3">
@@ -368,6 +388,82 @@ export function AccountPage() {
                   </button>
                 </div>
               </form>
+            </section>
+
+            <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-[13.5px] font-semibold text-fg">Study profile</h2>
+                <div className="text-[12px] text-fg-muted">
+                  {isSavingProfile || profileSaveState === 'saving'
+                    ? 'Saving changes...'
+                    : profileSaveState === 'saved'
+                      ? 'Saved automatically.'
+                      : 'Changes save automatically.'}
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
+                  <select
+                    value={toSelectValue(selectedStudyProgramId)}
+                    onChange={(event) => {
+                      setProfileError(null)
+                      setProfileSaveState('saving')
+                      setLastFailedProfileKey(null)
+                      setDraftStudyProgramId(event.target.value ? Number(event.target.value) : null)
+                    }}
+                    disabled={isLoadingOptions}
+                    className={inputClass}
+                  >
+                    <option value="">No study program selected</option>
+                    {studyPrograms.map((sp) => (
+                      <option key={sp.id} value={sp.id}>{sp.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                    Start semester
+                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
+                  </span>
+                  <select
+                    value={currentSemesterLabel}
+                    onChange={(event) => {
+                      setProfileError(null)
+                      setProfileSaveState('saving')
+                      setLastFailedProfileKey(null)
+                      setDraftCurrentSemesterLabel(event.target.value)
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Not specified</option>
+                    {startSemesters.map((sem) => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Planner layout</span>
+                  <select
+                    value={plannerLayout}
+                    onChange={(event) => {
+                      setProfileError(null)
+                      setProfileSaveState('saving')
+                      setLastFailedProfileKey(null)
+                      setDraftPlannerLayout(event.target.value as 'compact-grid' | 'weekly-list')
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="compact-grid">Compact weekly grid</option>
+                    <option value="weekly-list">Weekly list view</option>
+                  </select>
+                </label>
+                {profileError ? (
+                  <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[12px] text-primary">
+                    {profileError}
+                  </div>
+                ) : null}
+              </div>
             </section>
           </div>
 
