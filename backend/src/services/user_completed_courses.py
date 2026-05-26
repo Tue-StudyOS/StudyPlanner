@@ -7,6 +7,7 @@ from db.d1 import execute, fetch_all
 from services.authentication import require_authenticated_user
 
 ALLOWED_MASTER_CATEGORIES = {'TECH', 'THEO', 'PRAK', 'INFO', 'BASIS'}
+ALLOWED_GRADE_VALUES = (1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, 4.0)
 LEGACY_MASTER_CATEGORY_ALIASES = {'FOKUS': 'BASIS'}
 
 
@@ -38,6 +39,16 @@ def _normalize_master_cat(value: Any) -> str | None:
     if normalized_value is None:
         return None
     return LEGACY_MASTER_CATEGORY_ALIASES.get(normalized_value, normalized_value)
+
+
+def _normalize_grade(value: Any) -> float:
+    grade = _normalize_float(value, field_name='grade')
+    for allowed_grade in ALLOWED_GRADE_VALUES:
+        if abs(grade - allowed_grade) < 0.0001:
+            return allowed_grade
+    raise CompletedCourseUpdateError(
+        'grade must use the official ToR scale: 1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, or 4.0.'
+    )
 
 
 def _normalize_study_area_code(value: Any) -> str | None:
@@ -219,7 +230,7 @@ def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
     grade: float | None = None
     raw_grade = payload.get('grade')
     if raw_grade not in {None, ''}:
-        grade = _normalize_float(raw_grade, field_name='grade')
+        grade = _normalize_grade(raw_grade)
 
     return CompletedCoursePayload(
         courseId=course_id,
@@ -578,7 +589,7 @@ async def import_current_user_completed_courses(
             continue
 
         normalized_course = CompletedCoursePayload(
-            **course,
+            course,
             studyAreaCode=study_area_code,
             masterCat=resolved_master_cat,
         )
@@ -643,7 +654,7 @@ async def replace_current_user_completed_courses(
         )
         normalized_courses.append(
             CompletedCoursePayload(
-                **course,
+                course,
                 studyAreaCode=study_area_code,
                 masterCat=resolved_master_cat,
             )

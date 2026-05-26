@@ -8,7 +8,6 @@ export interface AuthProfile {
   regulationVersionLabel: string | null
   regulationCode: string | null
   regulationName: string | null
-  plannerMobileMode: 'auto' | 'mobile' | 'desktop'
   plannerMobileLayout: 'compact-grid' | 'weekly-list'
   totalEcts?: number | null
 }

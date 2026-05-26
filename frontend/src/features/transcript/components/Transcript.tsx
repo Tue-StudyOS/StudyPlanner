@@ -150,7 +150,7 @@ function UploadReviewSection({
   ).length
 
   return (
-    <section className="rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
+    <section className="min-w-0 rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[14px] font-semibold text-fg">{title}</div>
@@ -570,7 +570,7 @@ function AuthenticatedTranscript() {
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="min-w-0 grid gap-4 overflow-x-hidden">
       <input
         ref={fileInputRef}
         type="file"
@@ -579,7 +579,7 @@ function AuthenticatedTranscript() {
         onChange={handleFileInputChange}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
         <TranscriptUploadCard
           isDragActive={isDragActive}
           disabled={isLoadingCatalog}
@@ -592,8 +592,8 @@ function AuthenticatedTranscript() {
           onDrop={handleDrop}
         />
 
-        <div className="grid gap-4">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
+        <div className="grid min-w-0 gap-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
             {stats.map((stat) => (
               <div
                 key={stat.label}

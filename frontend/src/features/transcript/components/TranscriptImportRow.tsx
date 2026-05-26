@@ -5,6 +5,7 @@ import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../uti
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { TrashIcon } from './icons'
+import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
@@ -13,10 +14,6 @@ import {
 } from '../../../shared/utils/regulation'
 
 const ALL_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
-
-function formatOptionalNumber(value: number | null): string {
-  return value === null ? '' : String(value)
-}
 
 function formatGrade(value: number | null): string {
   return value === null ? 'No grade' : `Grade ${value.toFixed(1)}`
@@ -96,7 +93,7 @@ export function TranscriptImportRow({
   }, [areaOptions, candidate, candidate.masterCat, candidate.studyAreaCode, isAreaLocked, mappedAreaOptions, onChange])
 
   return (
-    <div className={`rounded-[10px] border px-3.5 py-3 ${cardClasses(hasIncomplete, isExpanded)}`}>
+    <div className={`min-w-0 overflow-hidden rounded-[10px] border px-3.5 py-3 ${cardClasses(hasIncomplete, isExpanded)}`}>
       <div className="flex items-start gap-2.5">
         <button
           type="button"
@@ -163,20 +160,15 @@ export function TranscriptImportRow({
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Grade
               </span>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                step="0.1"
-                value={formatOptionalNumber(candidate.grade)}
-                onChange={(event) =>
+              <TranscriptGradeSelect
+                value={candidate.grade}
+                onChange={(grade) =>
                   onChange(
                     updateTranscriptImportCandidate(candidate, {
-                      grade: event.target.value.trim() ? Number(event.target.value) : null,
+                      grade,
                     }),
                   )
                 }
-                placeholder="optional"
                 className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
               />
             </label>

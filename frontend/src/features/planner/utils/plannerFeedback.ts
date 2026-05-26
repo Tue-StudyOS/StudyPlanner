@@ -45,6 +45,7 @@ interface PlannerCoverageItem {
 
 export interface PlannerBlock {
   blockId: string
+  slotId: string
   courseId: string
   courseTitle: string
   day: (typeof DAY_ORDER)[number]
@@ -97,12 +98,13 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
       }
       blocks.push({
         blockId: `${course.id}-${index}`,
+        slotId: `${course.id}:${index}`,
         courseId: course.id,
         courseTitle: course.title,
         day: normalizedDay,
         startMinutes: timeRange.startMinutes,
         endMinutes: timeRange.endMinutes,
-        label: `${slot.type} · ${slot.time}`,
+        label: slot.time,
         room: slot.room,
         hasOverlap: false,
       })

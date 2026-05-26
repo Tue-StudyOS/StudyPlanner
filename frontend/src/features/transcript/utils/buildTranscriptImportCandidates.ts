@@ -10,6 +10,7 @@ import type {
   TranscriptImportCandidate,
   TranscriptImportStatus,
 } from '../types'
+import { isValidTranscriptGrade } from './grades'
 
 interface CourseMatchResult {
   preview: TranscriptCoursePreview
@@ -209,8 +210,8 @@ function getValidationIssues(candidate: TranscriptImportCandidate): string[] {
   if (candidate.ects === null || candidate.ects <= 0) {
     issues.push('ECTS must be greater than 0.')
   }
-  if (candidate.grade !== null && (candidate.grade < 1 || candidate.grade > 5)) {
-    issues.push('Grade must stay between 1.0 and 5.0.')
+  if (!isValidTranscriptGrade(candidate.grade)) {
+    issues.push('Grade must use the official ToR scale from 1.0 to 4.0.')
   }
   if ((candidate.matchedCourse?.regulationAreaCodes?.length ?? 0) > 1 && !candidate.studyAreaCode) {
     issues.push('Choose the correct regulation area for this course.')
@@ -423,7 +424,7 @@ export function canImportTranscriptCandidate(candidate: TranscriptImportCandidat
       candidate.ects !== null &&
       candidate.ects > 0 &&
       (!requiresAreaSelection || candidate.studyAreaCode) &&
-      (candidate.grade === null || (candidate.grade >= 1 && candidate.grade <= 5))
+      isValidTranscriptGrade(candidate.grade)
   )
 }
 

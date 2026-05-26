@@ -6,6 +6,7 @@ import { normalizeText, toTranscriptCoursePreview } from '../utils/buildTranscri
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
+import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
@@ -437,14 +438,9 @@ export function ManualCompletedCourseForm({
               <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Grade
               </span>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                step="0.1"
-                value={formatOptionalNumber(grade)}
-                onChange={(event) => setGrade(parseOptionalNumber(event.target.value))}
-                placeholder="optional"
+              <TranscriptGradeSelect
+                value={grade}
+                onChange={setGrade}
                 className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none focus:border-primary"
               />
             </label>

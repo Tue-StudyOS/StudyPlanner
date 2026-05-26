@@ -24,12 +24,12 @@ function normalizeErrorMessage(error: unknown): string {
   return 'Failed to synchronize your semester plan.'
 }
 
-function areCourseIdsEqual(left: string[], right: string[]): boolean {
+function areStringArraysEqual(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
     return false
   }
 
-  return left.every((courseId, index) => courseId === right[index])
+  return left.every((value, index) => value === right[index])
 }
 
 function areAssignmentsEqual(
@@ -49,6 +49,7 @@ interface UseSemesterPlannerResult {
   semesterOptions: string[]
   savedPlans: SemesterPlanSummary[]
   plannedCourseIds: string[]
+  hiddenSlotIds: string[]
   planAssignments: Record<string, string>
   savedPlan: SemesterPlan | null
   isEditing: boolean
@@ -60,6 +61,7 @@ interface UseSemesterPlannerResult {
   hasUnsavedChanges: boolean
   setActiveSemesterLabel: (semesterLabel: string) => void
   setPlannedCourseIds: (courseIds: string[]) => void
+  setHiddenSlotIds: (slotIds: string[]) => void
   setAssignment: (courseId: string, areaCode: string | null) => void
   startEditing: () => void
   cancelEditing: () => void
@@ -73,6 +75,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [savedPlans, setSavedPlans] = useState<SemesterPlanSummary[]>([])
   const [savedPlan, setSavedPlan] = useState<SemesterPlan | null>(null)
   const [plannedCourseIds, setPlannedCourseIds] = useState<string[]>([])
+  const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
   const [planAssignments, setPlanAssignments] = useState<Record<string, string>>({})
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [isLoadingPlanIndex, setIsLoadingPlanIndex] = useState<boolean>(false)
@@ -120,6 +123,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           setSavedPlans([])
           setSavedPlan(null)
           setPlannedCourseIds([])
+          setHiddenSlotIds([])
           setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(null)
@@ -171,12 +175,14 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         }
         setSavedPlan(nextSavedPlan)
         setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
+        setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
         setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
         setIsEditing(false)
       } catch (error) {
         if (isActive) {
           setSavedPlan(null)
           setPlannedCourseIds([])
+          setHiddenSlotIds([])
           setPlanAssignments({})
           setIsEditing(false)
           setPlannerError(normalizeErrorMessage(error))
@@ -197,9 +203,17 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
 
   const hasUnsavedChanges = useMemo(
     () =>
-      !areCourseIdsEqual(plannedCourseIds, savedPlan?.courseIds ?? []) ||
+      !areStringArraysEqual(plannedCourseIds, savedPlan?.courseIds ?? []) ||
+      !areStringArraysEqual(hiddenSlotIds, savedPlan?.hiddenSlotIds ?? []) ||
       !areAssignmentsEqual(planAssignments, savedPlan?.courseAssignments ?? {}),
-    [plannedCourseIds, savedPlan?.courseIds, planAssignments, savedPlan?.courseAssignments],
+    [
+      hiddenSlotIds,
+      planAssignments,
+      plannedCourseIds,
+      savedPlan?.courseAssignments,
+      savedPlan?.courseIds,
+      savedPlan?.hiddenSlotIds,
+    ],
   )
 
   const setActiveSemesterLabel = (semesterLabel: string): void => {
@@ -231,6 +245,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   function startEditing(): void {
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
+    setHiddenSlotIds(savedPlan?.hiddenSlotIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
     setIsEditing(true)
   }
@@ -238,6 +253,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   function cancelEditing(): void {
     setPlannerError(null)
     setPlannedCourseIds(savedPlan?.courseIds ?? [])
+    setHiddenSlotIds(savedPlan?.hiddenSlotIds ?? [])
     setPlanAssignments(savedPlan?.courseAssignments ?? {})
     setIsEditing(false)
   }
@@ -266,10 +282,12 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         title: null,
         notes: null,
         courseIds: plannedCourseIds,
+        hiddenSlotIds,
         courseAssignments: planAssignments,
       })
       setSavedPlan(nextSavedPlan)
       setPlannedCourseIds(nextSavedPlan.courseIds)
+      setHiddenSlotIds(nextSavedPlan.hiddenSlotIds)
       setPlanAssignments(nextSavedPlan.courseAssignments)
       setIsEditing(false)
       await refreshSavedPlans()
@@ -292,6 +310,8 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
       await deleteSemesterPlan(token, normalizedActiveSemesterLabel)
       setSavedPlan(null)
       setPlannedCourseIds([])
+      setHiddenSlotIds([])
+      setPlanAssignments({})
       setIsEditing(false)
       await refreshSavedPlans()
     } catch (error) {
@@ -306,6 +326,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     semesterOptions,
     savedPlans,
     plannedCourseIds,
+    hiddenSlotIds,
     planAssignments,
     savedPlan,
     isEditing,
@@ -317,6 +338,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
+    setHiddenSlotIds,
     setAssignment,
     startEditing,
     cancelEditing,

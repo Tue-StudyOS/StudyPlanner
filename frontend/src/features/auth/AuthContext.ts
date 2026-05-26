@@ -16,7 +16,6 @@ export interface LoginInput {
 export interface SaveProfileInput {
   studyProgramId: number | null
   currentSemesterLabel: string | null
-  plannerMobileMode: 'auto' | 'mobile' | 'desktop'
   plannerMobileLayout: 'compact-grid' | 'weekly-list'
 }
 

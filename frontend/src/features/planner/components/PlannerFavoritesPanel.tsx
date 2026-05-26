@@ -216,13 +216,13 @@ export function PlannerFavoritesPanel({
       <div className="border-b border-border px-6 py-5.5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-full border border-border bg-surface-hover/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            Favorites picker
+            Import favorites
           </div>
           <div className="text-[11.5px] text-fg-muted">{favoriteCourses.length} favorite(s)</div>
           <div className="text-[11.5px] text-fg-muted">{plannedCourseIds.length} already planned</div>
         </div>
         <p className="text-[12.5px] text-fg-muted">
-          Add or remove favorites for {activeSemesterLabel} and choose directly what each course should count as.
+          Add favorite courses to {activeSemesterLabel} and choose directly what each course should count as.
         </p>
       </div>
 
