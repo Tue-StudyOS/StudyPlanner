@@ -4,7 +4,8 @@ import type { TranscriptCoursePreview } from '../types'
 import { toTranscriptCoursePreview } from '../utils/buildTranscriptImportCandidates'
 
 const MIN_QUERY_LENGTH = 2
-const SEARCH_RESULT_LIMIT = 6
+const SEARCH_RESULT_LIMIT = 200
+const SUGGESTED_RESULT_LIMIT = 6
 
 interface CatalogCoursePickerProps {
   selectedCourse: TranscriptCoursePreview | null
@@ -41,7 +42,7 @@ export function CatalogCoursePicker({
   const trimmedQuery = query.trim()
   const hasSearchQuery = trimmedQuery.length >= MIN_QUERY_LENGTH
   const suggestedResults = useMemo(
-    () => uniqueCourses(suggestedCourses).slice(0, SEARCH_RESULT_LIMIT),
+    () => uniqueCourses(suggestedCourses).slice(0, SUGGESTED_RESULT_LIMIT),
     [suggestedCourses],
   )
   const visibleCourses = hasSearchQuery ? searchResults : suggestedResults
@@ -131,7 +132,9 @@ export function CatalogCoursePicker({
           ) : hasSearchQuery && visibleCourses.length === 0 ? (
             <div className="text-[12px] text-fg-muted">No matching catalog courses found.</div>
           ) : visibleCourses.length > 0 ? (
-            <div className="grid gap-1.5">
+            <div
+              className={`grid gap-1.5 ${hasSearchQuery ? 'max-h-[18rem] overflow-y-auto pr-1' : ''}`}
+            >
               {visibleCourses.map((course) => {
                 const isActive = course.id === selectedCourse?.id
 

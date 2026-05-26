@@ -23,6 +23,7 @@ import {
   updateTranscriptImportCandidate,
 } from '../utils/buildTranscriptImportCandidates'
 import { parseTranscriptPdf } from '../utils/parseTranscriptPdf'
+import { CloseIcon } from './icons'
 import { ManualCompletedCourseForm } from './ManualCompletedCourseForm'
 import { TranscriptImportRow } from './TranscriptImportRow'
 import { TranscriptUploadCard } from './TranscriptUploadCard'
@@ -118,79 +119,140 @@ function buildImportNotice(params: {
   return `${messageParts.join(' · ')}.`
 }
 
-function UploadReviewSection({
-  title,
-  description,
-  importCandidates,
-  importPhase,
+function formatCompletedSubtitle(course: CompletedCourse): string {
+  const parts = [
+    course.courseNumber ?? course.externalCourseCode ?? null,
+    course.ects ? `${course.ects} ECTS` : null,
+    course.semester || null,
+    course.grade !== null ? `Note ${course.grade.toFixed(1)}` : null,
+    course.studyAreaCode ?? null,
+  ].filter((part): part is string => Boolean(part && part.trim().length > 0))
+  return parts.join(' · ')
+}
+
+function CompletedCourseRow({
+  course,
+  onDelete,
+}: {
+  course: CompletedCourse
+  onDelete: () => void
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5 rounded-[10px] border border-border-light bg-surface-hover/30 px-3.5 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold text-fg-mid">{course.title}</div>
+        <div className="mt-1 truncate text-[11.5px] text-fg-muted">{formatCompletedSubtitle(course)}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Remove ${course.title} from your personal course collection`}
+        className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
+      >
+        <CloseIcon />
+      </button>
+    </div>
+  )
+}
+
+function PersonalCourseCollection({
+  pendingCandidates,
+  completedCourses,
   studyProgramCode,
   regulationRuleGroups,
-  confirmLabel,
   isBusy,
-  onClearAll,
-  onDiscardCandidate,
-  onConfirm,
   onCandidateChange,
+  onDiscardCandidate,
+  onDeleteCompleted,
+  onClearAll,
 }: {
-  title: string
-  description: string
-  importCandidates: TranscriptImportCandidate[]
-  importPhase: TranscriptImportPhase
+  pendingCandidates: TranscriptImportCandidate[]
+  completedCourses: CompletedCourse[]
   studyProgramCode?: string | null
   regulationRuleGroups: RegulationRuleGroup[]
-  confirmLabel: string
   isBusy?: boolean
-  onClearAll: () => void
-  onDiscardCandidate: (candidateId: string) => void
-  onConfirm: () => Promise<void>
   onCandidateChange: (candidate: TranscriptImportCandidate) => void
+  onDiscardCandidate: (candidateId: string) => void
+  onDeleteCompleted: (completedCourseId: string) => void
+  onClearAll: () => void
 }) {
-  const blockingCandidateCount = importCandidates.filter(
-    (candidate) => !canImportTranscriptCandidate(candidate),
-  ).length
+  const [isEditing, setIsEditing] = useState<boolean>(false)
+  const hasContent = pendingCandidates.length > 0 || completedCourses.length > 0
 
   return (
-    <section className="min-w-0 rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+    <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
+      <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[14px] font-semibold text-fg">{title}</div>
-          <p className="mt-1 max-w-[48rem] text-[12px] leading-5 text-fg-muted">{description}</p>
+          <div className="text-[14px] font-semibold text-fg">Personal course collection</div>
           <p className="mt-1 text-[11.5px] text-fg-muted">
-            {importCandidates.length} course(s)
-            {blockingCandidateCount > 0 ? ` · ${blockingCandidateCount} still need fixes` : ' · ready'}
+            {pendingCandidates.length} need{pendingCandidates.length === 1 ? 's' : ''} attention · {completedCourses.length} credited
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={onClearAll}
-            className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover"
+            onClick={() => setIsEditing((value) => !value)}
+            className={`rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              isEditing
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-fg hover:bg-surface-hover'
+            }`}
           >
-            Clear
+            {isEditing ? 'Done' : 'Edit'}
           </button>
-          <button
-            type="button"
-            onClick={() => void onConfirm()}
-            disabled={isBusy || importPhase === 'saving'}
-            className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isBusy || importPhase === 'saving' ? 'Saving…' : confirmLabel}
-          </button>
+          {isEditing ? (
+            <button
+              type="button"
+              onClick={onClearAll}
+              disabled={!hasContent || isBusy}
+              className="rounded-md border border-primary/40 px-3 py-1.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear all
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid gap-2">
-        {importCandidates.map((candidate) => (
-          <TranscriptImportRow
-            key={candidate.id}
-            candidate={candidate}
-            studyProgramCode={studyProgramCode}
-            regulationRuleGroups={regulationRuleGroups}
-            onDiscard={() => onDiscardCandidate(candidate.id)}
-            onChange={onCandidateChange}
-          />
-        ))}
-      </div>
+      {!hasContent ? (
+        <div className="rounded-[10px] border border-dashed border-border px-4 py-6 text-center text-[12.5px] text-fg-muted">
+          Import a transcript or add a completed course manually to build your personal course collection.
+        </div>
+      ) : (
+        <div className="grid min-w-0 gap-3">
+          {pendingCandidates.length > 0 ? (
+            <div className="grid min-w-0 gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+                Needs attention
+              </div>
+              {pendingCandidates.map((candidate) => (
+                <TranscriptImportRow
+                  key={candidate.id}
+                  candidate={candidate}
+                  studyProgramCode={studyProgramCode}
+                  regulationRuleGroups={regulationRuleGroups}
+                  onDiscard={() => onDiscardCandidate(candidate.id)}
+                  onChange={onCandidateChange}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {completedCourses.length > 0 ? (
+            <div className="grid min-w-0 gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                Credited
+              </div>
+              {completedCourses.map((course) => (
+                <CompletedCourseRow
+                  key={course.id}
+                  course={course}
+                  onDelete={() => onDeleteCompleted(course.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
     </section>
   )
 }
@@ -216,10 +278,12 @@ function AuthenticatedTranscript() {
     regulationVersionError,
   } = useRegulationVersion(user?.profile.regulationVersionCode)
   const {
+    completedCourses,
     isSavingCompletedCourses,
     completedCoursesError,
     addCompletedCourse,
     importCompletedCourses,
+    removeCourse,
     clearCompletedCoursesError,
   } = useTranscript()
   const { totalEcts, requiredEcts, progress, averageGrade } = useStudyStats()
@@ -542,6 +606,65 @@ function AuthenticatedTranscript() {
     await persistTranscriptIssues([])
   }
 
+  const pendingCandidates = useMemo<TranscriptImportCandidate[]>(
+    () => [...importCandidates, ...savedIssueCandidates],
+    [importCandidates, savedIssueCandidates],
+  )
+
+  function handlePendingCandidateChange(nextCandidate: TranscriptImportCandidate): void {
+    const isFromImportBatch = importCandidates.some((candidate) => candidate.id === nextCandidate.id)
+    if (isFromImportBatch) {
+      updateImportCandidateById(nextCandidate)
+    } else {
+      updatePersistedIssueCandidate(nextCandidate)
+    }
+  }
+
+  function handlePendingCandidateDiscard(candidateId: string): void {
+    const isFromImportBatch = importCandidates.some((candidate) => candidate.id === candidateId)
+    if (isFromImportBatch) {
+      discardImportCandidate(candidateId)
+    } else {
+      void discardPersistedIssue(candidateId)
+    }
+  }
+
+  async function handleClearAll(): Promise<void> {
+    resetImportReview()
+    await clearPersistedIssues()
+    if (completedCourses.length > 0) {
+      for (const course of completedCourses) {
+        await removeCourse(course.id)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (importPhase === 'saving' || isSavingIssues) {
+      return
+    }
+    const validImportCandidates = importCandidates.filter((candidate) =>
+      canImportTranscriptCandidate(candidate),
+    )
+    if (validImportCandidates.length === 0) {
+      return
+    }
+    void importCandidateBatch(validImportCandidates, 'review')
+  }, [importCandidates, importPhase, isSavingIssues])
+
+  useEffect(() => {
+    if (importPhase === 'saving' || isSavingIssues || issueDraftDirty) {
+      return
+    }
+    const validIssueCandidates = savedIssueCandidates.filter((candidate) =>
+      canImportTranscriptCandidate(candidate),
+    )
+    if (validIssueCandidates.length === 0) {
+      return
+    }
+    void importCandidateBatch(validIssueCandidates, 'issues')
+  }, [importPhase, isSavingIssues, issueDraftDirty, savedIssueCandidates])
+
   function handleFileInputChange(event: ChangeEvent<HTMLInputElement>): void {
     const nextFile = event.target.files?.[0]
     if (nextFile) {
@@ -661,38 +784,17 @@ function AuthenticatedTranscript() {
         </div>
       ) : null}
 
-      {importCandidates.length > 0 ? (
-        <UploadReviewSection
-          title="Review extracted transcript courses"
-          description="Keep only the rows that should be credited now. Valid rows import immediately, and anything unfinished stays available for later fixes."
-          importCandidates={importCandidates}
-          importPhase={importPhase}
-          studyProgramCode={user?.profile.studyProgramCode}
-          regulationRuleGroups={regulationRuleGroups}
-          confirmLabel="Import valid courses"
-          onClearAll={resetImportReview}
-          onDiscardCandidate={discardImportCandidate}
-          onConfirm={() => importCandidateBatch(importCandidates, 'review')}
-          onCandidateChange={updateImportCandidateById}
-        />
-      ) : null}
-
-      {savedIssueCandidates.length > 0 ? (
-        <UploadReviewSection
-          title="Continue unfinished transcript rows"
-          description="These rows still need a course match, semester or grade fix, or a regulation-area choice before they can be credited."
-          importCandidates={savedIssueCandidates}
-          importPhase={importPhase}
-          studyProgramCode={user?.profile.studyProgramCode}
-          regulationRuleGroups={regulationRuleGroups}
-          confirmLabel="Retry saved issues"
-          isBusy={isSavingIssues}
-          onClearAll={() => void clearPersistedIssues()}
-          onDiscardCandidate={(candidateId) => void discardPersistedIssue(candidateId)}
-          onConfirm={() => importCandidateBatch(savedIssueCandidates, 'issues')}
-          onCandidateChange={updatePersistedIssueCandidate}
-        />
-      ) : null}
+      <PersonalCourseCollection
+        pendingCandidates={pendingCandidates}
+        completedCourses={completedCourses}
+        studyProgramCode={user?.profile.studyProgramCode}
+        regulationRuleGroups={regulationRuleGroups}
+        isBusy={isSavingIssues || importPhase === 'saving'}
+        onCandidateChange={handlePendingCandidateChange}
+        onDiscardCandidate={handlePendingCandidateDiscard}
+        onDeleteCompleted={(completedCourseId) => void removeCourse(completedCourseId)}
+        onClearAll={() => void handleClearAll()}
+      />
 
     </div>
   )
@@ -707,9 +809,6 @@ export function Transcript() {
         <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
           Upload Transcript
         </h1>
-        <p className="text-[13.5px] text-fg-muted">
-          Import your Transcript of Records, fix only the rows that still need attention, and rely on the dashboard for your saved completed-course overview.
-        </p>
       </div>
 
       {isAuthenticated ? (

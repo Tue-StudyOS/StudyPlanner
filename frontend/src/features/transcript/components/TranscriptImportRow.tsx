@@ -4,7 +4,7 @@ import type { TranscriptImportCandidate } from '../types'
 import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
-import { TrashIcon } from './icons'
+import { CloseIcon } from './icons'
 import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
@@ -119,13 +119,13 @@ export function TranscriptImportRow({
             aria-label={`Discard ${displayTitle} from transcript review`}
             className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
           >
-            <TrashIcon />
+            <CloseIcon />
           </button>
         </div>
       </div>
 
       {isExpanded ? (
-        <div className="mt-2.5 grid gap-2.5 border-t border-border-light pt-2.5">
+        <div className="mt-2.5 grid min-w-0 gap-2.5 border-t border-border-light pt-2.5">
           {candidate.extractedTitle !== displayTitle ? (
             <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
           ) : null}
@@ -140,7 +140,7 @@ export function TranscriptImportRow({
             />
           </div>
 
-          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,7rem)_minmax(0,1.4fr)]">
+          <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,7rem)_minmax(0,1.4fr)]">
             <label className="grid gap-1">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 Semester
