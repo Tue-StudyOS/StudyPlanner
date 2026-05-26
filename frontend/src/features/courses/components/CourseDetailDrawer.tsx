@@ -66,7 +66,7 @@ export function CourseDetailDrawer({
   ]
 
   return (
-    <aside className="flex h-full w-full max-w-[520px] flex-shrink-0 flex-col border-l border-border bg-bg shadow-[-12px_0_32px_rgba(0,0,0,0.12)] sm:w-[480px]">
+    <aside className="flex min-w-0 w-full flex-1 flex-col border-l border-border bg-bg shadow-[-12px_0_32px_rgba(0,0,0,0.12)] md:w-[480px] md:max-w-[520px] md:flex-shrink-0 md:flex-none">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-3.5">
         <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
           Course Details
@@ -81,8 +81,8 @@ export function CourseDetailDrawer({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        <div className="relative mb-6 rounded-[14px] border border-border bg-surface px-5 py-5">
+      <div className="min-h-0 min-w-0 flex-1 px-4 py-4 sm:px-5 sm:py-5">
+        <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
           <div className="absolute right-3.5 top-3.5">
             <FavStar
               active={isFavorite}
@@ -98,7 +98,7 @@ export function CourseDetailDrawer({
             <TypePill label={typeLabel} />
           </div>
 
-          <h1 className="font-serif text-[22px] font-semibold leading-tight tracking-[-0.02em] text-fg">
+          <h1 className="break-words font-serif text-[20px] font-semibold leading-tight tracking-[-0.02em] text-fg sm:text-[22px]">
             {course.title}
           </h1>
 
@@ -181,19 +181,19 @@ export function CourseDetailDrawer({
           )}
         </Section>
 
-        <div className="overflow-hidden rounded-[12px] border border-border bg-surface">
+        <div className="min-w-0 overflow-hidden rounded-[12px] border border-border bg-surface">
           <div className="border-b border-border px-4.5 py-3 text-[13px] font-semibold text-fg">
             Course Details
           </div>
           {metaRows.map(([key, value], index) => (
             <div
               key={key}
-              className={`grid grid-cols-[100px_1fr] gap-3 px-4.5 py-3 ${
+              className={`grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-3 px-4.5 py-3 sm:grid-cols-[100px_minmax(0,1fr)] ${
                 index < metaRows.length - 1 ? 'border-b border-border-light' : ''
               }`}
             >
               <span className="text-[12px] font-medium text-fg-muted">{key}</span>
-              <span className="text-[13px] text-fg">{value}</span>
+              <span className="break-words text-[13px] text-fg">{value}</span>
             </div>
           ))}
         </div>

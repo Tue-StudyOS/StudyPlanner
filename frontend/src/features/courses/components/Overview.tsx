@@ -132,8 +132,8 @@ export function CoursesOverview() {
   const gridColsClass = isDrawerOpen ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
+    <div className="flex min-h-0 min-w-0">
+      <div className={`min-w-0 flex-1 p-4 sm:p-8 ${isDrawerOpen ? 'hidden md:block' : ''}`}>
       <h2 className="mb-2 text-2xl font-bold">Course Catalog</h2>
       <p className="mb-6 text-fg-mid">Browse the Informatics catalog from the database.</p>
 
