@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import type { Course } from '../../features/courses'
-import { getCourseDetailRoute } from '../../features/routes'
 import { CatBadge } from './CatBadge'
+import { CompletedBadge } from './CompletedBadge'
 import { FavStar } from './FavStar'
 import { ClockIcon, PinIcon, UserIcon } from './icons'
 
 interface CourseCardProps {
   course: Course
   isFavorite: boolean
+  isActive?: boolean
+  isCompleted?: boolean
   favoriteDisabled?: boolean
+  onSelect: () => void
   onToggleFavorite: () => void
 }
 
@@ -44,22 +46,34 @@ function plainLecturerName(lecturer: string): string {
 export function CourseCard({
   course,
   isFavorite,
+  isActive = false,
+  isCompleted = false,
   favoriteDisabled = false,
+  onSelect,
   onToggleFavorite,
 }: CourseCardProps) {
   const slot = course.schedule.at(0)
-  const courseDetailRoute = getCourseDetailRoute(course.id)
+  const borderClasses = isActive
+    ? 'border-primary ring-1 ring-primary/40'
+    : 'border-border hover:border-primary/30'
 
   return (
-    <div className="group relative flex cursor-pointer flex-col gap-3 rounded-[10px] border border-border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors hover:border-primary/30">
-      <Link
-        to={courseDetailRoute}
-        aria-label={`Open ${course.title}`}
-        className="absolute inset-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      />
-
-      <div className="relative z-10 flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2 pointer-events-none">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      aria-label={`Kursdetails öffnen: ${course.title}`}
+      aria-pressed={isActive}
+      className={`group relative flex cursor-pointer flex-col gap-3 rounded-[10px] border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses}`}
+    >
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <TypePill label={course.types.join(' + ') || 'Course'} />
           <div className="flex flex-1 flex-wrap gap-0.75">
             {course.masterCats.map((cat) => (
@@ -67,28 +81,29 @@ export function CourseCard({
             ))}
           </div>
         </div>
-        <div className="relative z-20">
+        <div onClick={(event) => event.stopPropagation()}>
           <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
         </div>
       </div>
 
-      <div className="pointer-events-none relative z-10">
+      <div>
         <h3 className="mb-0.5 text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
           {course.title}
         </h3>
         <div className="text-[12px] text-fg-muted">{course.number}</div>
       </div>
 
-      <div className="pointer-events-none relative z-10 flex flex-col gap-1.5 border-t border-border-light pt-1">
+      <div className="flex flex-col gap-1.5 border-t border-border-light pt-1">
         <InfoRow icon={<UserIcon />} text={plainLecturerName(course.lecturer || 'TBA')} />
         {slot && <InfoRow icon={<ClockIcon />} text={`${slot.day}, ${slot.time}`} />}
         {slot && <InfoRow icon={<PinIcon />} text={slot.room} />}
       </div>
 
-      <div className="pointer-events-none relative z-10 flex items-center border-t border-border-light pt-1.5">
+      <div className="flex items-center justify-between gap-2 border-t border-border-light pt-1.5">
         <span className="text-[13px] font-bold text-fg">
           {formatEcts(course.ects)} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
         </span>
+        {isCompleted ? <CompletedBadge /> : null}
       </div>
     </div>
   )

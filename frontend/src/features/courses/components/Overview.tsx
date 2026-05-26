@@ -7,8 +7,10 @@ import {
 } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
+import { useTranscript } from '../../transcript'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
-import type { Course } from '../types'
+import type { CompletedCourse, Course } from '../types'
+import { CourseDetailDrawer } from './CourseDetailDrawer'
 
 const PAGE_SIZE = 30
 const CATALOG_LIMIT = 500
@@ -60,6 +62,7 @@ export function CoursesOverview() {
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
@@ -68,6 +71,21 @@ export function CoursesOverview() {
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
     useFavorites()
+  const { completedCourses } = useTranscript()
+
+  const completedByCourseKey = useMemo(() => {
+    const map = new Map<string, CompletedCourse>()
+    for (const completed of completedCourses) {
+      if (completed.courseId) map.set(completed.courseId, completed)
+      if (completed.courseNumber) map.set(completed.courseNumber, completed)
+      if (completed.externalCourseCode) map.set(completed.externalCourseCode, completed)
+    }
+    return map
+  }, [completedCourses])
+
+  function getCompletedFor(course: Course): CompletedCourse | undefined {
+    return completedByCourseKey.get(course.id) ?? completedByCourseKey.get(course.number)
+  }
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -110,8 +128,12 @@ export function CoursesOverview() {
   const hasMore = visibleCount < filteredCourses.length
   const hasActiveFilters = selectedEctsValues.length > 0 || selectedStudyAreaCodes.length > 0
 
+  const isDrawerOpen = selectedCourse !== null
+  const gridColsClass = isDrawerOpen ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+
   return (
-    <div className="p-4 sm:p-8">
+    <div className="flex h-full min-h-0">
+      <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
       <h2 className="mb-2 text-2xl font-bold">Course Catalog</h2>
       <p className="mb-6 text-fg-mid">Browse the Informatics catalog from the database.</p>
 
@@ -261,13 +283,16 @@ export function CoursesOverview() {
             Showing {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''}
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
-          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+          <div className={`grid gap-3.5 ${gridColsClass}`}>
             {visibleCourses.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}
                 isFavorite={isFavorite(course.id)}
+                isActive={selectedCourse?.id === course.id}
+                isCompleted={Boolean(getCompletedFor(course))}
                 favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+                onSelect={() => setSelectedCourse(course)}
                 onToggleFavorite={() => toggleFavorite(course.id)}
               />
             ))}
@@ -283,6 +308,17 @@ export function CoursesOverview() {
           ) : null}
         </>
       )}
+      </div>
+      {selectedCourse ? (
+        <CourseDetailDrawer
+          course={selectedCourse}
+          completedCourse={getCompletedFor(selectedCourse)}
+          isFavorite={isFavorite(selectedCourse.id)}
+          favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+          onToggleFavorite={() => toggleFavorite(selectedCourse.id)}
+          onClose={() => setSelectedCourse(null)}
+        />
+      ) : null}
     </div>
   )
 }

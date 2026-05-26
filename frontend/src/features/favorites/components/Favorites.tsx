@@ -1,10 +1,13 @@
+import { useNavigate } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useAuth } from '../../auth'
 import { useCatalogCourses } from '../../courses'
+import { getCourseDetailRoute } from '../../routes'
 import { useFavorites } from '../hooks/useFavorites'
 
 function AuthenticatedFavorites() {
+  const navigate = useNavigate()
   const { courses, isLoading, error } = useCatalogCourses('')
   const {
     favoriteIds,
@@ -49,6 +52,7 @@ function AuthenticatedFavorites() {
               course={course}
               isFavorite={isFavorite(course.id)}
               favoriteDisabled={isSavingFavorites}
+              onSelect={() => navigate(getCourseDetailRoute(course.id))}
               onToggleFavorite={() => toggleFavorite(course.id)}
             />
           ))}
