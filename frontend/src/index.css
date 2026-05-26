@@ -45,6 +45,11 @@
   --color-thesis: #1dd3b0;
 }
 
+html,
+body {
+  background-color: var(--color-bg);
+}
+
 .dark {
   --color-bg: rgb(26 28 32);
   --color-surface: #27292F;
