@@ -162,6 +162,63 @@ function buildBlockLeft(columnIndex: number, visibleColumnCount: number): string
   return `calc(${(100 / visibleColumnCount) * columnIndex}% + 0.25rem)`
 }
 
+function PlannerBlockDetailDialog({
+  block,
+  isEditing,
+  onClose,
+  onRemoveSlot,
+}: {
+  block: PlannerBlock
+  isEditing: boolean
+  onClose: () => void
+  onRemoveSlot: (slotId: string) => void
+}) {
+  const isMobileViewport = useMediaQuery('(max-width: 768px)')
+
+  return (
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/25" onClick={onClose}>
+      <div
+        className={
+          isMobileViewport
+            ? 'fixed inset-x-0 bottom-0 rounded-t-[18px] border-t border-border bg-surface px-5 py-5'
+            : 'mx-auto mt-20 w-[26rem] max-w-[calc(100vw-2rem)] rounded-[14px] border border-border bg-surface px-5 py-5 shadow-2xl'
+        }
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="break-words text-[15px] font-semibold text-fg">{block.courseTitle}</div>
+            <p className="mt-1 text-[12.5px] text-fg-muted">
+              {DAY_LABELS[block.day]} · {block.label}
+            </p>
+            {block.room ? (
+              <p className="mt-0.5 text-[12.5px] text-fg-muted">Room: {block.room}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-md border border-border px-3 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+          >
+            ×
+          </button>
+        </div>
+
+        {isEditing ? (
+          <button
+            type="button"
+            onClick={() => onRemoveSlot(block.slotId)}
+            className="w-full rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+          >
+            Remove this time slot
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function PlannerOverflowDialog({
   overflow,
   isEditing,
@@ -176,13 +233,13 @@ function PlannerOverflowDialog({
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/20" onClick={onClose}>
       <div
-        className={`absolute ${
+        className={
           isMobileViewport
-            ? 'inset-x-0 bottom-0 rounded-t-[18px] border-t border-border bg-surface px-5 py-5'
-            : 'left-1/2 top-20 w-[28rem] -translate-x-1/2 rounded-[14px] border border-border bg-surface px-5 py-5 shadow-2xl'
-        }`}
+            ? 'fixed inset-x-0 bottom-0 rounded-t-[18px] border-t border-border bg-surface px-5 py-5'
+            : 'mx-auto mt-20 w-[28rem] max-w-[calc(100vw-2rem)] rounded-[14px] border border-border bg-surface px-5 py-5 shadow-2xl'
+        }
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -200,7 +257,7 @@ function PlannerOverflowDialog({
           </button>
         </div>
 
-        <div className="grid max-h-[50vh] gap-2 overflow-y-auto">
+        <div className="grid gap-2">
           {overflow.blocks.map((block) => (
             <div
               key={block.blockId}
@@ -385,6 +442,7 @@ function PlannerGrid({
     [hiddenSlotIds, plannedCourses],
   )
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
+  const [activeBlock, setActiveBlock] = useState<PlannerBlock | null>(null)
   const isWeeklyListLayout = isMobilePlanner && mobileLayout === 'weekly-list'
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
   const dayLayouts = useMemo(
@@ -561,9 +619,12 @@ function PlannerGrid({
                         ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
                         * PIXELS_PER_HOUR
                       return (
-                        <div
+                        <button
                           key={block.blockId}
-                          className={`absolute rounded-[7px] border px-1 py-1 text-[9px] shadow-sm sm:px-2 sm:text-[11px] ${
+                          type="button"
+                          onClick={() => setActiveBlock(block)}
+                          aria-label={`Show details for ${block.courseTitle}`}
+                          className={`absolute overflow-hidden rounded-[7px] border px-0.5 py-0.5 text-left text-[7.5px] shadow-sm transition-colors hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 sm:text-[11px] ${
                             block.hasOverlap
                               ? 'border-primary/40 bg-primary/10 text-primary'
                               : 'border-border bg-surface text-fg dark:bg-surface-hover'
@@ -575,24 +636,36 @@ function PlannerGrid({
                             height: `${Math.max(height, 38)}px`,
                           }}
                         >
-                          <div className="flex items-start justify-between gap-1.5">
-                            <div className="min-w-0">
-                              <div className="truncate text-[9.5px] font-semibold leading-tight sm:text-[11px]">{block.courseTitle}</div>
-                              <div className="truncate text-[8.5px] opacity-80 sm:text-[10px]">{block.label}</div>
-                              <div className="truncate text-[8.5px] opacity-80 sm:text-[10px]">{block.room}</div>
+                          <div className="flex h-full items-start justify-between gap-1">
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[8px] font-semibold leading-tight sm:text-[11px]">
+                                {block.courseTitle}
+                              </div>
+                              <div className="truncate text-[7px] opacity-80 sm:text-[10px]">{block.room}</div>
                             </div>
                             {isEditing ? (
-                              <button
-                                type="button"
-                                onClick={() => onRemoveSlot(block.slotId)}
+                              <span
+                                role="button"
+                                tabIndex={0}
                                 aria-label={`Remove ${block.courseTitle} from this time slot`}
-                                className="rounded-sm p-1 opacity-70 hover:bg-surface-hover hover:opacity-100"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  onRemoveSlot(block.slotId)
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    onRemoveSlot(block.slotId)
+                                  }
+                                }}
+                                className="rounded-sm p-0.5 opacity-70 hover:bg-surface-hover hover:opacity-100 sm:p-1"
                               >
                                 <TrashIcon />
-                              </button>
+                              </span>
                             ) : null}
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
 
@@ -649,6 +722,18 @@ function PlannerGrid({
                   }
                 : null
             })
+          }}
+        />
+      ) : null}
+
+      {activeBlock ? (
+        <PlannerBlockDetailDialog
+          block={activeBlock}
+          isEditing={isEditing}
+          onClose={() => setActiveBlock(null)}
+          onRemoveSlot={(slotId) => {
+            onRemoveSlot(slotId)
+            setActiveBlock(null)
           }}
         />
       ) : null}

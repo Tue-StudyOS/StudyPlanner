@@ -212,7 +212,7 @@ export function PlannerFavoritesPanel({
   }
 
   return (
-    <aside className="overflow-hidden rounded-[10px] border border-border bg-surface lg:h-[44rem]">
+    <aside className="rounded-[10px] border border-border bg-surface">
       <div className="border-b border-border px-6 py-5.5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-full border border-border bg-surface-hover/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
@@ -226,7 +226,7 @@ export function PlannerFavoritesPanel({
         </p>
       </div>
 
-      <div className="max-h-[26rem] overflow-y-auto bg-surface-hover/30 px-6 py-4 lg:h-[calc(44rem-89px)] lg:max-h-none">
+      <div className="bg-surface-hover/30 px-6 py-4">
         {isLoading ? (
           <div className="text-[13px] text-fg-muted">Loading your favorite course candidates...</div>
         ) : error ? (
