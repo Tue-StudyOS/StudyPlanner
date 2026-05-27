@@ -33,7 +33,7 @@ export function TranscriptUploadCard({
         <div>
           <div className="text-[14px] font-semibold text-fg">Import Transcript PDF</div>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            Drop a PDF here or choose one manually. The file is parsed in your browser and is not stored permanently.
+            Drop a PDF here or choose one manually. The file is parsed in your browser, and each extracted row stays in review until you import, discard, or reset it.
           </p>
         </div>
         <span className="rounded-full border border-border-light px-2.5 py-1 text-[11px] font-medium text-fg-muted">
@@ -58,7 +58,7 @@ export function TranscriptUploadCard({
           <UploadIcon />
         </div>
         <div className="text-[15px] font-semibold text-fg">
-          {isBusy ? 'Processing transcript…' : 'Drag and drop your transcript PDF'}
+          {isBusy ? 'Preparing transcript review…' : 'Drag and drop your transcript PDF'}
         </div>
         <div className="text-[12px] text-fg-muted">
           {disabled ? 'The catalog is still loading. Please wait a moment.' : 'or click to choose a file'}
