@@ -1,6 +1,7 @@
 # Implementation Backlog
 
 Tracked upcoming frontend changes for the StudyPlaner app.
+Focus: remaining UX fixes for transcript import, mobile header stability, and specialization-profile polish for phone and desktop users.
 Each group = one dedicated branch. Prefer one focused feature/fix commit per group when practical; combine only tightly related changes. Branch name: `fix/<group-slug>` or `feat/<group-slug>`.
 
 ---
@@ -16,136 +17,70 @@ Each group = one dedicated branch. Prefer one focused feature/fix commit per gro
 
 ---
 
-## Group A — Account settings cleanup + device-driven layouts
+## Group A — Transcript import review must stay visible until the user acts
 
-**Branch:** `feat/account-settings-cleanup`
-**Files:** `frontend/src/features/auth/components/AccountPage.tsx`, `frontend/src/features/auth/{types.ts,api.ts,AuthContext.ts}`, `frontend/src/features/layout/components/TopBar.tsx`, `frontend/src/features/planner/components/SemesterPlanner.tsx`, `frontend/src/features/transcript/components/Transcript.tsx`, `backend/src/services/authentication.py`
+**Branch:** `fix/transcript-import-review-persistence`
+**Files:** `frontend/src/features/transcript/components/Transcript.tsx`, `frontend/src/features/transcript/components/TranscriptImportRow.tsx`, `frontend/src/features/transcript/components/TranscriptUploadCard.tsx`, transcript import helpers if needed
 
-- [x] **A-1** Auto-save study profile settings
-  - Remove the dedicated `Save study profile` button
-  - Save study program, start semester, and planner layout automatically after changes (debounced or blur-based)
-  - Keep saving/saved/error feedback visible but lightweight
+- [x] **A-1** Stop auto-clearing freshly parsed transcript rows
+  - Keep parsed Transcript of Records import candidates visible after upload instead of letting them disappear immediately
+  - Only remove a row after an explicit user action such as import, discard, or reset
 
-- [x] **A-2** Remove `Planner mobile mode` from settings and active profile usage
-  - Planner and transcript should decide mobile vs desktop behavior automatically from the viewport
-  - Remove the manual `auto / mobile / desktop` override from the account page
-  - Stop depending on that override in frontend state and backend profile update handling
+- [x] **A-2** Replace the implicit import jump with an explicit review/confirm step
+  - Let users inspect valid rows before they are persisted
+  - Keep the primary import action obvious and usable on both phone and desktop
 
-- [x] **A-3** Rename `Planner mobile layout` to `Planner layout`
-  - Keep the setting only for choosing the planner variant itself
-  - Remove the helper copy: `Use these settings to try both mobile planner variants and to force mobile or desktop planner behavior when needed.`
+- [x] **A-3** Preserve unfinished review state safely
+  - Keep in-progress import candidates stable across refreshes and route changes
+  - Avoid silent loss, duplication, or unexpected merging when saved transcript issues are reloaded
 
-- [x] **A-4** Reorder the account-page cards for mobile and desktop
-  - Apply the requested swap between `Study profile` and `Update credentials`
-  - Keep the higher-frequency study settings easier to reach than credential changes
-
-- [x] **A-5** Fix the mobile top-bar app name
-  - Change the mobile label from `Study` to `StudyPlanner`
+- [x] **A-4** Clarify post-import feedback
+  - Show what was imported successfully and what still needs attention
+  - Keep unresolved rows accessible until the user resolves or discards them
 
 ---
 
-## Group B — Planner header, actions, and copy cleanup
+## Group B — Mobile top-bar blocker must stay visually closed while scrolling
 
-**Branch:** `fix/planner-header-cleanup`
-**Files:** `frontend/src/features/planner/components/SemesterPlanner.tsx`, `frontend/src/features/planner/components/PlannerFavoritesPanel.tsx`
+**Branch:** `fix/mobile-topbar-overscroll-gap`
+**Files:** `frontend/src/features/layout/components/TopBar.tsx`, `frontend/src/features/layout/components/Layout.tsx`, `frontend/src/index.css`
 
-- [x] **B-1** Align the edit action with the semester selector
-  - Keep the `Edit semester` action on the same visual row/height as the semester picker
-  - Preserve a stable header layout in both view and edit states
+- [x] **B-1** Remove the white gap above the dark mobile header during aggressive scrolling
+  - Keep the dark top blocker visually continuous during fast up/down swipes
+  - Preserve the already-correct reload behavior
 
-- [x] **B-2** Remove redundant planner copy and status text
-  - Remove `Mobile planner active ...` from the page intro
-  - Remove `Mobile weekly list view enabled.`
-  - Remove `X saved course(s) for ...`
-  - Remove the extra `Semester` micro-label if the dropdown context is already clear
-  - Keep `You have unsaved changes.`
-
-- [x] **B-3** Surface `Delete saved plan` first in edit mode
-  - Put the destructive full-plan delete action before the other edit controls
-  - Keep the action clearly separated and confirmable
-
-- [x] **B-4** Rename the mobile edit entry from `Favorites` to `Import`
-  - Update related helper text so the drawer wording matches the action
+- [x] **B-2** Recheck sticky-header and safe-area behavior on mobile browsers
+  - Validate the fix against browser chrome collapse/expand and overscroll behavior
+  - Avoid regressions for desktop spacing, sticky positioning, and the mobile menu overlay
 
 ---
 
-## Group C — Planner slot removal + compact schedule readability
+## Group C — Specialization Profile light-mode contrast and marker polish
 
-**Branch:** `fix/planner-slot-removal`
-**Files:** `frontend/src/features/planner/components/SemesterPlanner.tsx`, planner helpers/types used for weekly blocks and saved-plan editing
+**Branch:** `fix/specialization-profile-light-mode-polish`
+**Files:** `frontend/src/features/dashboard/components/SpecializationCircle.tsx`, `frontend/src/features/dashboard/visualizationCategories.ts`, `frontend/src/index.css`
 
-- [x] **C-1** Remove individual planned time slots instead of removing every block for the same course
-  - Add a trash/delete icon directly on each rendered slot
-  - Cover grid blocks, mobile list rows, and overflow-dialog entries
+- [x] **C-1** Strengthen the weaker light-mode category highlights
+  - Increase the visible color strength for `Software Eng.`, `Cloud Dev`, and `Vision`
+  - Keep category contrast balanced without making dark mode harsher than necessary
 
-- [x] **C-2** Introduce slot-level identity for remove actions
-  - The current remove behavior appears course-based, which breaks duplicate-slot cleanup
-  - Use a stable slot identifier so one duplicate can be removed without deleting the other
+- [x] **C-2** Make the specialization point markers slightly smaller
+  - Reduce the marker size by about 5%
+  - Keep them readable on both compact mobile screens and desktop
 
-- [x] **C-3** Simplify the visible planner block content
-  - In the weekly plan, only show course title, time, and room
-  - Remove all other non-essential per-slot metadata from the main plan view
+- [x] **C-3** Replace the neutral gray marker fallback with the existing gold accent
+  - Reuse the established gold highlight color instead of a separate gray tone
+  - Apply the change consistently wherever the weaker/default markers are rendered
 
-- [x] **C-4** Improve `Compact weekly grid` on phones
-  - Rework density, truncation, and touch affordances
-  - Make the compact variant clearly usable instead of just technically available
-
----
-
-## Group D — Planner progress panel redesign
-
-**Branch:** `feat/planner-progress-redesign`
-**Files:** `frontend/src/features/planner/components/PlannerFeedback.tsx`, `frontend/src/features/planner/components/SemesterPlanner.tsx`, planner assignment/progress helpers
-
-- [x] **D-1** Move the regulation/progress panel below the weekly planner
-
-- [x] **D-2** Place `Planned ECTS` next to the regulation/progress panel on desktop
-  - Stack the cards on mobile
-
-- [x] **D-3** Rename `Fulfilled regulation parts`
-  - Replace it with a clearer label
-
-- [x] **D-4** Rebuild the planner regulation summary into a real progress view
-  - Show what is already credited and what the current plan adds
-  - Use clearly different visual weight/color for existing progress vs newly planned contribution
-  - Prefer a simple list/graph hybrid if that communicates progress better than the current fulfilled-only cards
-
-- [x] **D-5** Fix planner-progress correctness before the visual overhaul ships
-  - Validate assignment logic, counting, and regulation-area aggregation
-  - The current summary is not reliable enough for a pure UI refresh
-
-- [x] **D-6** Evaluate optional course auto-balancing only as a follow-up
-  - Do not block the redesign on this
-  - Kept the existing deterministic assignment suggestion and did not add a more opaque balancing layer.
-
----
-
-## Group E — Transcript import robustness + grade input constraints
-
-**Branch:** `fix/transcript-import-grade-ux`
-**Files:** `frontend/src/features/transcript/components/Transcript.tsx`, `frontend/src/features/transcript/components/TranscriptImportRow.tsx`, `frontend/src/features/transcript/components/ManualCompletedCourseForm.tsx`, `frontend/src/features/transcript/utils/buildTranscriptImportCandidates.ts`, transcript types/api/provider files, `backend/src/services/user_completed_courses.py`
-
-- [x] **E-1** Reproduce and fix the imported ToR save error
-  - Investigate the failing save path behind `The server hit an unexpected error while processing this request.`
-  - Check payload validation, duplicate handling, issue persistence, and backend write logic
-
-- [x] **E-2** Restrict transcript grades to the valid ToR scale
-  - Allow only `1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, 4.0`
-  - Replace the free numeric grade input with a scale-aware control
-
-- [x] **E-3** Enforce the same grade rules in frontend and backend
-  - Apply the same validation for imported rows, manual transcript edits, and persisted completed courses
-  - Reject `5.0` for credited ToR entries with a clear user-facing validation message
-
-- [x] **E-4** Fix the transcript mobile clipping regression
-  - Re-check the authenticated transcript layout on narrow screens
-  - Ensure the responsive layout decision is automatic and no account setting is required
+- [x] **C-4** Slightly darken the radar grid in light mode
+  - Increase grid and spoke contrast just enough to read better on bright screens
+  - Keep dark-mode grid contrast unchanged unless a matching adjustment is required for consistency
 
 ---
 
 ## Backlog notes
 
-- Implement each group on its own dedicated branch; prefer one focused feature/fix commit per group.
-- Combine adjacent groups only when that produces a clearer review than splitting them.
-- If removing `plannerMobileMode` touches stored profile data or API contracts, keep the compatibility path explicit.
-- Re-run planner + transcript mobile smoke tests after every affected group.
+- Prioritize functional fixes before visual polish: Group A → Group B → Group C.
+- Re-run transcript import smoke tests on phone and desktop after Group A.
+- Recheck iOS and Android scroll behavior after Group B.
+- Compare light-mode and dark-mode dashboard screenshots before shipping Group C.

@@ -119,6 +119,59 @@ function buildImportNotice(params: {
   return `${messageParts.join(' · ')}.`
 }
 
+function normalizeReviewCandidatePart(value: number | string | null | undefined): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+}
+
+function buildReviewCandidateKey(candidate: TranscriptImportCandidate): string {
+  return [
+    candidate.courseId,
+    candidate.courseNumber,
+    candidate.matchedCourse?.number,
+    candidate.extractedTitle,
+    candidate.title,
+    candidate.semester,
+    candidate.grade === null ? 'no-grade' : candidate.grade.toFixed(1),
+    candidate.ects,
+    candidate.rawText,
+  ]
+    .map((value) => normalizeReviewCandidatePart(value))
+    .join('::')
+}
+
+function mergeReviewCandidates(
+  existingCandidates: TranscriptImportCandidate[],
+  nextCandidates: TranscriptImportCandidate[],
+  additionalKnownCandidates: TranscriptImportCandidate[] = [],
+): {
+  candidates: TranscriptImportCandidate[]
+  addedCount: number
+  duplicateCount: number
+} {
+  const knownKeys = new Set(
+    [...existingCandidates, ...additionalKnownCandidates].map((candidate) => buildReviewCandidateKey(candidate)),
+  )
+  const candidates = [...existingCandidates]
+  let addedCount = 0
+  let duplicateCount = 0
+
+  nextCandidates.forEach((candidate) => {
+    const reviewKey = buildReviewCandidateKey(candidate)
+    if (knownKeys.has(reviewKey)) {
+      duplicateCount += 1
+      return
+    }
+
+    knownKeys.add(reviewKey)
+    candidates.push(candidate)
+    addedCount += 1
+  })
+
+  return { candidates, addedCount, duplicateCount }
+}
+
 function formatCompletedSubtitle(course: CompletedCourse): string {
   const parts = [
     course.courseNumber ?? course.externalCourseCode ?? null,
@@ -156,28 +209,46 @@ function CompletedCourseRow({
 }
 
 function PersonalCourseCollection({
-  pendingCandidates,
+  currentReviewCandidates,
+  savedIssueCandidates,
   completedCourses,
   studyProgramCode,
   regulationRuleGroups,
   isBusy,
-  onCandidateChange,
-  onDiscardCandidate,
+  currentReviewImportableCount,
+  savedIssueImportableCount,
+  onCurrentReviewCandidateChange,
+  onSavedIssueCandidateChange,
+  onDiscardCurrentReviewCandidate,
+  onDiscardSavedIssueCandidate,
+  onImportCurrentReview,
+  onImportSavedIssues,
+  onResetCurrentReview,
+  onClearSavedIssues,
   onDeleteCompleted,
   onClearAll,
 }: {
-  pendingCandidates: TranscriptImportCandidate[]
+  currentReviewCandidates: TranscriptImportCandidate[]
+  savedIssueCandidates: TranscriptImportCandidate[]
   completedCourses: CompletedCourse[]
   studyProgramCode?: string | null
   regulationRuleGroups: RegulationRuleGroup[]
   isBusy?: boolean
-  onCandidateChange: (candidate: TranscriptImportCandidate) => void
-  onDiscardCandidate: (candidateId: string) => void
+  currentReviewImportableCount: number
+  savedIssueImportableCount: number
+  onCurrentReviewCandidateChange: (candidate: TranscriptImportCandidate) => void
+  onSavedIssueCandidateChange: (candidate: TranscriptImportCandidate) => void
+  onDiscardCurrentReviewCandidate: (candidateId: string) => void
+  onDiscardSavedIssueCandidate: (candidateId: string) => void
+  onImportCurrentReview: () => void
+  onImportSavedIssues: () => void
+  onResetCurrentReview: () => void
+  onClearSavedIssues: () => void
   onDeleteCompleted: (completedCourseId: string) => void
   onClearAll: () => void
 }) {
   const [isEditing, setIsEditing] = useState<boolean>(false)
-  const hasContent = pendingCandidates.length > 0 || completedCourses.length > 0
+  const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
 
   return (
     <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
@@ -185,7 +256,7 @@ function PersonalCourseCollection({
         <div className="min-w-0">
           <div className="text-[14px] font-semibold text-fg">Personal course collection</div>
           <p className="mt-1 text-[11.5px] text-fg-muted">
-            {pendingCandidates.length} need{pendingCandidates.length === 1 ? 's' : ''} attention · {completedCourses.length} credited
+            {currentReviewCandidates.length} in review · {savedIssueCandidates.length} saved for later · {completedCourses.length} credited
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -218,20 +289,90 @@ function PersonalCourseCollection({
           Import a transcript or add a completed course manually to build your personal course collection.
         </div>
       ) : (
-        <div className="grid min-w-0 gap-3">
-          {pendingCandidates.length > 0 ? (
-            <div className="grid min-w-0 gap-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
-                Needs attention
+        <div className="grid min-w-0 gap-3.5">
+          {currentReviewCandidates.length > 0 ? (
+            <div className="grid min-w-0 gap-2.5">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+                    Current review
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-fg-muted">
+                    Ready now: {currentReviewImportableCount}/{currentReviewCandidates.length} row(s). Rows stay here until you import, discard, or reset them.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onImportCurrentReview}
+                    disabled={isBusy || currentReviewImportableCount === 0}
+                    className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Import ready rows{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onResetCurrentReview}
+                    disabled={isBusy}
+                    className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reset review
+                  </button>
+                </div>
               </div>
-              {pendingCandidates.map((candidate) => (
+
+              {currentReviewCandidates.map((candidate) => (
                 <TranscriptImportRow
                   key={candidate.id}
                   candidate={candidate}
                   studyProgramCode={studyProgramCode}
                   regulationRuleGroups={regulationRuleGroups}
-                  onDiscard={() => onDiscardCandidate(candidate.id)}
-                  onChange={onCandidateChange}
+                  onDiscard={() => onDiscardCurrentReviewCandidate(candidate.id)}
+                  onChange={onCurrentReviewCandidateChange}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {savedIssueCandidates.length > 0 ? (
+            <div className="grid min-w-0 gap-2.5">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                    Saved for later
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-fg-muted">
+                    Ready now: {savedIssueImportableCount}/{savedIssueCandidates.length} row(s). These rows stay in your account until you import or discard them.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onImportSavedIssues}
+                    disabled={isBusy || savedIssueImportableCount === 0}
+                    className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Import ready saved rows{savedIssueImportableCount > 0 ? ` (${savedIssueImportableCount})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClearSavedIssues}
+                    disabled={isBusy}
+                    className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Clear saved rows
+                  </button>
+                </div>
+              </div>
+
+              {savedIssueCandidates.map((candidate) => (
+                <TranscriptImportRow
+                  key={candidate.id}
+                  candidate={candidate}
+                  studyProgramCode={studyProgramCode}
+                  regulationRuleGroups={regulationRuleGroups}
+                  onDiscard={() => onDiscardSavedIssueCandidate(candidate.id)}
+                  onChange={onSavedIssueCandidateChange}
                 />
               ))}
             </div>
@@ -259,10 +400,11 @@ function PersonalCourseCollection({
 
 function AuthenticatedTranscript() {
   const { user, token } = useAuth()
-  const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoreImportCandidates)
+  const restoredImportCandidates = useMemo<TranscriptImportCandidate[]>(() => restoreImportCandidates(), [])
+  const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoredImportCandidates)
   const [persistedIssues, setPersistedIssues] = useState<SavedTranscriptIssue[]>([])
   const [importPhase, setImportPhase] = useState<TranscriptImportPhase>(() =>
-    restoreImportCandidates().length > 0 ? 'parsed' : 'idle',
+    restoredImportCandidates.length > 0 ? 'parsed' : 'idle',
   )
   const [importError, setImportError] = useState<string | null>(null)
   const [importNotice, setImportNotice] = useState<string | null>(null)
@@ -298,6 +440,14 @@ function AuthenticatedTranscript() {
     () => persistedIssues.map((issue) => issue.candidate),
     [persistedIssues],
   )
+  const importableReviewCandidateCount = useMemo(
+    () => importCandidates.filter((candidate) => canImportTranscriptCandidate(candidate)).length,
+    [importCandidates],
+  )
+  const importableSavedIssueCount = useMemo(
+    () => savedIssueCandidates.filter((candidate) => canImportTranscriptCandidate(candidate)).length,
+    [savedIssueCandidates],
+  )
 
   const stats = [
     { label: 'Progress', value: `${progress} %` },
@@ -326,7 +476,14 @@ function AuthenticatedTranscript() {
         if (!isActive) {
           return
         }
-        setPersistedIssues(transcriptIssues.map(toSavedIssue))
+        const restoredReviewKeys = new Set(
+          restoredImportCandidates.map((candidate) => buildReviewCandidateKey(candidate)),
+        )
+        setPersistedIssues(
+          transcriptIssues
+            .map(toSavedIssue)
+            .filter((issue) => !restoredReviewKeys.has(buildReviewCandidateKey(issue.candidate))),
+        )
         setIssueDraftDirty(false)
       } catch (error) {
         if (isActive) {
@@ -345,7 +502,7 @@ function AuthenticatedTranscript() {
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [restoredImportCandidates, token])
 
   useEffect(() => {
     if (importCandidates.length > 0) {
@@ -422,15 +579,13 @@ function AuthenticatedTranscript() {
     setImportError(null)
 
     if (!isPdfFile(file)) {
-      setImportPhase('failed')
-      setImportCandidates([])
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError('Only PDF transcripts are supported right now.')
       return
     }
 
     if (file.size > MAX_TRANSCRIPT_FILE_SIZE_BYTES) {
-      setImportPhase('failed')
-      setImportCandidates([])
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(
         `The selected file is too large. Please keep transcript PDFs below ${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB.`,
       )
@@ -438,15 +593,13 @@ function AuthenticatedTranscript() {
     }
 
     if (isLoadingCatalog) {
-      setImportPhase('failed')
-      setImportCandidates([])
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError('The course catalog is still loading. Please wait a moment and try the import again.')
       return
     }
 
     if (catalogError) {
-      setImportPhase('failed')
-      setImportCandidates([])
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(
         `The course catalog could not be loaded, so transcript matching is unavailable right now. ${catalogError}`,
       )
@@ -472,12 +625,31 @@ function AuthenticatedTranscript() {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
 
-      setImportCandidates(nextCandidates)
+      const { candidates: mergedCandidates, addedCount, duplicateCount } = mergeReviewCandidates(
+        importCandidates,
+        nextCandidates,
+        savedIssueCandidates,
+      )
+      setImportCandidates(mergedCandidates)
       setImportPhase('parsed')
-      setImportNotice(`Extracted ${nextCandidates.length} course(s). Review, fix, or discard anything before importing.`)
+
+      if (addedCount === 0) {
+        setImportNotice('All extracted rows are already waiting in your review or saved for later.')
+        return
+      }
+
+      const messageParts = [
+        importCandidates.length > 0
+          ? `Added ${addedCount} new course(s) to the current review`
+          : `Extracted ${addedCount} course(s)`,
+      ]
+      if (duplicateCount > 0) {
+        messageParts.push(`${duplicateCount} duplicate row(s) were already waiting in review or saved for later`)
+      }
+      messageParts.push('Review, fix, or discard anything before importing')
+      setImportNotice(`${messageParts.join(' · ')}.`)
     } catch (error) {
-      setImportPhase('failed')
-      setImportCandidates([])
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(error instanceof Error ? error.message : 'The selected PDF could not be parsed.')
     }
   }
@@ -495,25 +667,26 @@ function AuthenticatedTranscript() {
       return
     }
 
-    setImportPhase('saving')
     const blockingCandidates = candidates.filter((candidate) => !canImportTranscriptCandidate(candidate))
     const importableCandidates = candidates.filter((candidate) => canImportTranscriptCandidate(candidate))
 
-    const importResult = importableCandidates.length === 0
-      ? {
-          imported: [],
-          skippedDuplicates: [],
-          failed: [],
-        }
-      : await importCompletedCourses(
-          importableCandidates.map((candidate) => ({
-            id: candidate.id,
-            course: toImportedCompletedCourse(candidate),
-          })),
-        )
+    if (importableCandidates.length === 0) {
+      setImportError(
+        'No transcript rows are ready to import yet. Complete the missing course match, semester, grade, and regulation area first.',
+      )
+      return
+    }
+
+    setImportPhase('saving')
+    const importResult = await importCompletedCourses(
+      importableCandidates.map((candidate) => ({
+        id: candidate.id,
+        course: toImportedCompletedCourse(candidate),
+      })),
+    )
 
     if (importResult === null) {
-      setImportPhase('idle')
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'idle')
       return
     }
 
@@ -544,7 +717,11 @@ function AuthenticatedTranscript() {
       setImportCandidates(remainingIssueCandidates)
     }
 
-    setImportPhase('idle')
+    if (source === 'review') {
+      setImportPhase(savedIssues ? 'idle' : remainingIssueCandidates.length > 0 ? 'parsed' : 'idle')
+    } else {
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'idle')
+    }
     setImportNotice(
       buildImportNotice({
         importedCount: importResult.imported.length,
@@ -553,7 +730,7 @@ function AuthenticatedTranscript() {
         issueSyncFailed: !savedIssues,
       }),
     )
-  }, [clearCompletedCoursesError, importCompletedCourses, persistTranscriptIssues, persistedIssues])
+  }, [clearCompletedCoursesError, importCandidates, importCompletedCourses, persistTranscriptIssues, persistedIssues])
 
   function openFilePicker(): void {
     fileInputRef.current?.click()
@@ -606,29 +783,6 @@ function AuthenticatedTranscript() {
     await persistTranscriptIssues([])
   }
 
-  const pendingCandidates = useMemo<TranscriptImportCandidate[]>(
-    () => [...importCandidates, ...savedIssueCandidates],
-    [importCandidates, savedIssueCandidates],
-  )
-
-  function handlePendingCandidateChange(nextCandidate: TranscriptImportCandidate): void {
-    const isFromImportBatch = importCandidates.some((candidate) => candidate.id === nextCandidate.id)
-    if (isFromImportBatch) {
-      updateImportCandidateById(nextCandidate)
-    } else {
-      updatePersistedIssueCandidate(nextCandidate)
-    }
-  }
-
-  function handlePendingCandidateDiscard(candidateId: string): void {
-    const isFromImportBatch = importCandidates.some((candidate) => candidate.id === candidateId)
-    if (isFromImportBatch) {
-      discardImportCandidate(candidateId)
-    } else {
-      void discardPersistedIssue(candidateId)
-    }
-  }
-
   async function handleClearAll(): Promise<void> {
     resetImportReview()
     await clearPersistedIssues()
@@ -639,41 +793,13 @@ function AuthenticatedTranscript() {
     }
   }
 
-  useEffect(() => {
-    if (importPhase === 'saving' || isSavingIssues) {
-      return
-    }
-    const validImportCandidates = importCandidates.filter((candidate) =>
-      canImportTranscriptCandidate(candidate),
-    )
-    if (validImportCandidates.length === 0) {
-      return
-    }
+  function handleImportCurrentReview(): void {
+    void importCandidateBatch(importCandidates, 'review')
+  }
 
-    const timeoutId = window.setTimeout(() => {
-      void importCandidateBatch(validImportCandidates, 'review')
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [importCandidateBatch, importCandidates, importPhase, isSavingIssues])
-
-  useEffect(() => {
-    if (importPhase === 'saving' || isSavingIssues || issueDraftDirty) {
-      return
-    }
-    const validIssueCandidates = savedIssueCandidates.filter((candidate) =>
-      canImportTranscriptCandidate(candidate),
-    )
-    if (validIssueCandidates.length === 0) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void importCandidateBatch(validIssueCandidates, 'issues')
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [importCandidateBatch, importPhase, isSavingIssues, issueDraftDirty, savedIssueCandidates])
+  function handleImportSavedIssues(): void {
+    void importCandidateBatch(savedIssueCandidates, 'issues')
+  }
 
   function handleFileInputChange(event: ChangeEvent<HTMLInputElement>): void {
     const nextFile = event.target.files?.[0]
@@ -795,13 +921,22 @@ function AuthenticatedTranscript() {
       ) : null}
 
       <PersonalCourseCollection
-        pendingCandidates={pendingCandidates}
+        currentReviewCandidates={importCandidates}
+        savedIssueCandidates={savedIssueCandidates}
         completedCourses={completedCourses}
         studyProgramCode={user?.profile.studyProgramCode}
         regulationRuleGroups={regulationRuleGroups}
         isBusy={isSavingIssues || importPhase === 'saving'}
-        onCandidateChange={handlePendingCandidateChange}
-        onDiscardCandidate={handlePendingCandidateDiscard}
+        currentReviewImportableCount={importableReviewCandidateCount}
+        savedIssueImportableCount={importableSavedIssueCount}
+        onCurrentReviewCandidateChange={updateImportCandidateById}
+        onSavedIssueCandidateChange={updatePersistedIssueCandidate}
+        onDiscardCurrentReviewCandidate={discardImportCandidate}
+        onDiscardSavedIssueCandidate={(candidateId) => void discardPersistedIssue(candidateId)}
+        onImportCurrentReview={handleImportCurrentReview}
+        onImportSavedIssues={handleImportSavedIssues}
+        onResetCurrentReview={resetImportReview}
+        onClearSavedIssues={() => void clearPersistedIssues()}
         onDeleteCompleted={(completedCourseId) => void removeCourse(completedCourseId)}
         onClearAll={() => void handleClearAll()}
       />

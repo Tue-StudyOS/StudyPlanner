@@ -14,7 +14,7 @@ export function TopBar() {
   return (
     <>
       <header
-        className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
+        className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 [transform:translateZ(0)] sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <a

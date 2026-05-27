@@ -1,11 +1,16 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
+import { useTheme } from '../../theme'
 import type { VisualizationCategoryCourse, VisualizationCategoryProgress } from '../types'
-import { VISUALIZATION_CATEGORY_COLORS } from '../visualizationCategories'
+import { getVisualizationCategoryColor } from '../visualizationCategories'
 
 const EXTENDED_RING_SCALE = 1.1
 const MIN_POINT_SCALE = 0.1
 const STRONG_THRESHOLD = 0.55
+const LIGHT_MODE_GRID_STROKE = 'rgba(110, 118, 130, 0.34)'
+const DARK_MODE_GRID_STROKE = 'rgba(148, 163, 184, 0.25)'
+const GOLD_POINT_COLOR = 'rgb(156 109 0)'
+const POINT_RADIUS = 2.85
 
 interface Point {
   x: number
@@ -107,6 +112,7 @@ function SpecializationDetailModal({
 }
 
 export function SpecializationCircle({ categories }: SpecializationCircleProps) {
+  const { isDark } = useTheme()
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
   const [hoveredCode, setHoveredCode] = useState<string | null>(null)
 
@@ -129,6 +135,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
   const size = 420
   const center = size / 2
   const radius = 135
+  const gridStroke = isDark ? DARK_MODE_GRID_STROKE : LIGHT_MODE_GRID_STROKE
 
   const outerPoints = categories.map((_, index) => pointOnCircle(index, categories.length, radius, center))
   const extendedOuterPoints = categories.map((_, index) =>
@@ -162,7 +169,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
                 categories.map((_, index) => pointOnCircle(index, categories.length, radius * scale, center)),
               )}
               fill="none"
-              stroke="rgba(148, 163, 184, 0.25)"
+              stroke={gridStroke}
               strokeWidth="1"
             />
           ))}
@@ -170,7 +177,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
           <path
             d={polygonPath(extendedOuterPoints)}
             fill="none"
-            stroke="rgba(148, 163, 184, 0.25)"
+            stroke={gridStroke}
             strokeWidth="1"
           />
 
@@ -181,7 +188,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
               y1={center}
               x2={point.x}
               y2={point.y}
-              stroke="rgba(148, 163, 184, 0.25)"
+              stroke={gridStroke}
               strokeWidth="1"
             />
           ))}
@@ -198,7 +205,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
               nextMid,
             ])
             const fillOpacity = isActive ? 0.18 : isHovered ? 0.08 : 0
-            const fillColor = VISUALIZATION_CATEGORY_COLORS[category.code] ?? 'rgb(147 13 42)'
+            const fillColor = getVisualizationCategoryColor(category.code, isDark)
             return (
               <path
                 key={`slice-${category.code}`}
@@ -239,14 +246,14 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
             const category = categories[index]
             const isStrong = category.progressRatio >= STRONG_THRESHOLD
             const dotColor = isStrong
-              ? VISUALIZATION_CATEGORY_COLORS[category.code] ?? 'rgb(147 13 42)'
-              : 'rgb(148 163 184)'
+              ? getVisualizationCategoryColor(category.code, isDark)
+              : GOLD_POINT_COLOR
             return (
               <circle
                 key={`dot-${category.code}`}
                 cx={point.x}
                 cy={point.y}
-                r="3"
+                r={POINT_RADIUS}
                 fill={dotColor}
                 pointerEvents="none"
               />
@@ -264,7 +271,7 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
                 y={labelPoint.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill={isStrong ? VISUALIZATION_CATEGORY_COLORS[category.code] ?? 'rgb(147 13 42)' : 'currentColor'}
+                fill={isStrong ? getVisualizationCategoryColor(category.code, isDark) : 'currentColor'}
                 className={isStrong ? 'text-[13px] font-semibold text-fg' : 'text-[11px] text-fg-muted'}
                 style={{
                   fontFamily: 'Inter, sans-serif',

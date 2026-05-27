@@ -25,3 +25,17 @@ export const VISUALIZATION_CATEGORY_COLORS: Record<string, string> = {
   ROBOTICS: '#0077b6',
   CLOUD_DEV: '#06d6a0',
 }
+
+const LIGHT_MODE_VISUALIZATION_CATEGORY_OVERRIDES: Record<string, string> = {
+  SOFTWARE_ENG: '#169fd6',
+  VISION: '#1296cc',
+  CLOUD_DEV: '#05b487',
+}
+
+export function getVisualizationCategoryColor(code: string, isDark: boolean): string {
+  if (!isDark && LIGHT_MODE_VISUALIZATION_CATEGORY_OVERRIDES[code]) {
+    return LIGHT_MODE_VISUALIZATION_CATEGORY_OVERRIDES[code]
+  }
+
+  return VISUALIZATION_CATEGORY_COLORS[code] ?? 'rgb(147 13 42)'
+}
