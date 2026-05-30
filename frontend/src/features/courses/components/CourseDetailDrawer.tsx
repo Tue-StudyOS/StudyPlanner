@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { CatBadge } from '../../../shared/components/CatBadge'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { FavStar } from '../../../shared/components/FavStar'
@@ -53,6 +54,12 @@ export function CourseDetailDrawer({
   onToggleFavorite,
   onClose,
 }: CourseDetailDrawerProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [course.id])
+
   const typeLabel = course.types.join(' + ') || 'Course'
 
   const metaRows: Array<[string, string]> = [
@@ -66,7 +73,7 @@ export function CourseDetailDrawer({
   ]
 
   return (
-    <aside className="flex min-w-0 w-full flex-1 flex-col border-l border-border bg-bg shadow-[-12px_0_32px_rgba(0,0,0,0.12)] md:w-[480px] md:max-w-[520px] md:flex-shrink-0 md:flex-none">
+    <aside className="flex min-w-0 w-full flex-1 flex-col border-l border-border bg-bg shadow-[-12px_0_32px_rgba(0,0,0,0.12)] md:h-full md:w-[480px] md:max-w-[520px] md:flex-shrink-0 md:flex-none">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-3.5">
         <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
           Course Details
@@ -81,7 +88,7 @@ export function CourseDetailDrawer({
         </button>
       </div>
 
-      <div className="min-h-0 min-w-0 flex-1 px-4 py-4 sm:px-5 sm:py-5">
+      <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
         <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
           <div className="absolute right-3.5 top-3.5">
             <FavStar
