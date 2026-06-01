@@ -4,6 +4,7 @@ import logo from '../../../assets/logo.png'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
 import { AccountIcon, CloseIcon, GearIcon, MenuIcon } from './icons'
+import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../../config/routes'
 
 export function TopBar() {
@@ -30,14 +31,17 @@ export function TopBar() {
         </a>
 
         {isMobileNavigation ? (
-          <button
-            type="button"
-            onClick={() => setIsMenuOpen((currentValue) => !currentValue)}
-            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/85 transition-colors hover:text-white"
-          >
-            {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
-          </button>
+          <div className="flex items-center gap-2">
+            <HelpButton />
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen((currentValue) => !currentValue)}
+              aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/85 transition-colors hover:text-white"
+            >
+              {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+          </div>
         ) : (
           <>
             <nav className="mx-8 flex flex-1 gap-1">
@@ -66,17 +70,20 @@ export function TopBar() {
               ))}
             </nav>
 
-            <Link
-              to={ROUTES.account}
-              aria-label="Open account settings"
-              className={`flex h-10 w-10 items-center justify-center rounded-md border transition-colors ${
-                isOnAccountPage
-                  ? 'border-white/30 bg-sidebar-active text-white'
-                  : 'border-white/10 bg-sidebar-hover text-white/80 hover:text-white'
-              }`}
-            >
-              <GearIcon />
-            </Link>
+            <div className="flex items-center gap-2">
+              <HelpButton />
+              <Link
+                to={ROUTES.account}
+                aria-label="Open account settings"
+                className={`flex h-10 w-10 items-center justify-center rounded-md border transition-colors ${
+                  isOnAccountPage
+                    ? 'border-white/30 bg-sidebar-active text-white'
+                    : 'border-white/10 bg-sidebar-hover text-white/80 hover:text-white'
+                }`}
+              >
+                <GearIcon />
+              </Link>
+            </div>
           </>
         )}
       </header>

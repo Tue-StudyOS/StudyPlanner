@@ -7,6 +7,7 @@ import { CourseDetail, CoursesOverview } from './features/courses'
 import { FavoritesProvider } from './features/favorites'
 import { Transcript, TranscriptProvider } from './features/transcript'
 import { SemesterPlanner } from './features/planner'
+import { OnboardingProvider } from './features/onboarding'
 import { ROUTES } from './features/routes'
 
 function App() {
@@ -15,18 +16,20 @@ function App() {
       <AuthProvider>
         <FavoritesProvider>
           <TranscriptProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route element={<Layout />}>
-                  <Route path={ROUTES.dashboard} element={<Dashboard />} />
-                  <Route path={ROUTES.catalog} element={<CoursesOverview />} />
-                  <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
-                  <Route path={ROUTES.transcript} element={<Transcript />} />
-                  <Route path={ROUTES.planner} element={<SemesterPlanner />} />
-                  <Route path={ROUTES.account} element={<AccountPage />} />
-                </Route>
-              </Routes>
-            </BrowserRouter>
+            <OnboardingProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route element={<Layout />}>
+                    <Route path={ROUTES.dashboard} element={<Dashboard />} />
+                    <Route path={ROUTES.catalog} element={<CoursesOverview />} />
+                    <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
+                    <Route path={ROUTES.transcript} element={<Transcript />} />
+                    <Route path={ROUTES.planner} element={<SemesterPlanner />} />
+                    <Route path={ROUTES.account} element={<AccountPage />} />
+                  </Route>
+                </Routes>
+              </BrowserRouter>
+            </OnboardingProvider>
           </TranscriptProvider>
         </FavoritesProvider>
       </AuthProvider>
