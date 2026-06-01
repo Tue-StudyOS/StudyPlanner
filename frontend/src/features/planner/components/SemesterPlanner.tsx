@@ -743,7 +743,7 @@ function PlannerGrid({
 
 export function SemesterPlanner() {
   const { isAuthenticated, user } = useAuth()
-  const { favoriteIds } = useFavorites()
+  const { favoriteIds, toggleFavorite } = useFavorites()
   const { completedCourses } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
@@ -787,13 +787,13 @@ export function SemesterPlanner() {
     () => regulationVersion?.ruleGroups ?? [],
     [regulationVersion?.ruleGroups],
   )
-  const favoriteCourses = useMemo(() => {
-    const allFavorites = courses.filter((course) => favoriteIds.includes(course.id))
-    if (plannerRuleGroups.length === 0 || !plannerStudyProgramCode) return allFavorites
-    return allFavorites.filter(
-      (course) => getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups).length > 0,
-    )
-  }, [courses, favoriteIds, plannerRuleGroups, plannerStudyProgramCode])
+  // Show every favorited course in the planner. Courses that cannot be mapped to a
+  // regulation area for the selected study program are rendered dimmed (see
+  // PlannerFavoritesPanel) instead of being hidden, so favorites never silently disappear.
+  const favoriteCourses = useMemo(
+    () => courses.filter((course) => favoriteIds.includes(course.id)),
+    [courses, favoriteIds],
+  )
 
   function resolveAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
@@ -919,7 +919,7 @@ export function SemesterPlanner() {
           Semester Planner
         </h1>
         <p className="text-[13.5px] text-fg-muted">
-          Plan the selected semester in a fixed weekly view and import courses from your favorites when needed.
+          Plan the selected semester in a fixed weekly view.
         </p>
       </div>
 
@@ -935,7 +935,7 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
-      <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${isEditing && !isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
+      <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${!isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
         <div className="grid min-w-0 gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
             <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
@@ -967,11 +967,12 @@ export function SemesterPlanner() {
           )}
         </div>
 
-        {isEditing && !isMobilePlanner ? (
+        {!isMobilePlanner ? (
           <PlannerFavoritesPanel
             favoriteCourses={favoriteCourses}
             plannedCourseIds={plannedCourseIds}
             activeSemesterLabel={activeSemesterLabel}
+            isEditing={isEditing}
             isLoading={isLoading}
             error={error}
             studyProgramCode={plannerStudyProgramCode}
@@ -982,6 +983,7 @@ export function SemesterPlanner() {
             onSetAssignment={setAssignment}
             onAddCourse={handleAddCourse}
             onRemoveCourse={handleRemoveCourse}
+            onToggleFavorite={toggleFavorite}
           />
         ) : null}
       </div>
@@ -1002,6 +1004,7 @@ export function SemesterPlanner() {
           favoriteCourses={favoriteCourses}
           plannedCourseIds={plannedCourseIds}
           activeSemesterLabel={activeSemesterLabel}
+          isEditing={isEditing}
           isLoading={isLoading}
           error={error}
           studyProgramCode={plannerStudyProgramCode}
@@ -1012,6 +1015,7 @@ export function SemesterPlanner() {
           onSetAssignment={setAssignment}
           onAddCourse={handleAddCourse}
           onRemoveCourse={handleRemoveCourse}
+          onToggleFavorite={toggleFavorite}
         />
       </MobilePlannerFavoritesDrawer>
     </div>

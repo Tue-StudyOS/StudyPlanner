@@ -2,7 +2,6 @@ export const ROUTES = {
   dashboard: '/',
   catalog: '/catalog',
   catalogDetail: '/catalog/:courseId',
-  favorites: '/favorites',
   transcript: '/transcript',
   planner: '/planner',
   account: '/account',
