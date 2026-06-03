@@ -48,6 +48,27 @@ codes (e.g. `INFO-INFO`, `INFO-BASIS`) from its "Module / Studiengänge" tab.
 
 Output: `output/YYYY-MM-DD_HH-MM-SS/courses.json`
 
+### Multiple semesters
+
+Scrape every semester from a given label up to the most recent. Per-period
+the scraper switches via ALMA's Semesterauswahl dropdown and rediscovers the
+Informatik branch by title chain (the deep-path IDs differ between
+semesters):
+
+```powershell
+uv run python -m alma_scraper.cli --details --from-semester "Sommer 2022"
+```
+
+Each course in the output gets `period_id` and `period_label` fields so you
+can tell semesters apart. The output file is rewritten after every period,
+so an interrupted run still leaves a usable file.
+
+### List available semesters
+
+```powershell
+uv run python -m alma_scraper.cli --list-periods
+```
+
 ### Quick Test (2 minutes)
 
 Test scraping:
@@ -84,9 +105,11 @@ output/
 ## Options
 
 - `--details` - Fetch course details (recommended)
+- `--from-semester LABEL` - Scrape every semester from LABEL up to current
 - `--full-catalog` - Scrape entire catalog
 - `--max-courses N` - Stop after N courses
 - `--max-runtime-seconds N` - Stop after N seconds
 - `--pretty` - Pretty-print JSON
+- `--list-periods` - Print available period IDs and labels
 
 For full help: `uv run python -m alma_scraper.cli --help`

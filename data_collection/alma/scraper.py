@@ -6,7 +6,7 @@ import re
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -18,6 +18,17 @@ CATALOG_PREFIX = "hierarchy:content-container:courseCatalogFieldset:courseCatalo
 ALMA_BASE = "https://alma.uni-tuebingen.de"
 # ALMA caps the "Module / Studiengänge" page-size input ("Zeilen pro Seite") at 300.
 MODULE_ROWS_PER_PAGE = 300
+
+# ALMA labels periods as either "Sommer YYYY"/"Winter YYYY/YY" (term selector
+# in the catalog page) or the longer "Sommersemester YYYY" / "Wintersemester
+# YYYY/YY" elsewhere. Accept both shapes. We extract (year, kind) tuples so
+# periods can be sorted and filtered; kind 1 = summer (starts April),
+# 2 = winter (starts October).
+SUMMER_SEMESTER_KIND = 1
+WINTER_SEMESTER_KIND = 2
+SEMESTER_LABEL_RE = re.compile(
+    r"(Sommer|Winter)(?:semester)?\s+(\d{4})(?:/\d{2,4})?", re.IGNORECASE
+)
 
 
 @dataclass(slots=True)
@@ -34,6 +45,19 @@ class ScrapeOptions:
     restrict_to_start_path: bool = True
     max_runtime_seconds: int | None = None
     max_expansions: int | None = None
+
+
+@dataclass(slots=True)
+class PeriodOption:
+    """One entry from ALMA's semester selector.
+
+    ``semester`` is ``(year, kind)`` with ``kind`` in {1 = SoSe, 2 = WiSe}.
+    It is ``None`` if the label could not be parsed.
+    """
+
+    period_id: str
+    label: str
+    semester: tuple[int, int] | None = None
 
 
 @dataclass(slots=True)
@@ -72,6 +96,15 @@ class AlmaScraper:
         "path=title%3A18504%7Ctitle%3A18512%7Ctitle%3A19074%7Ctitle%3A19158&"
         "navigationPosition=studiesOffered,courseoverviewShow"
     )
+    # Title-chain to reach the Informatik index from the catalog root. The
+    # path-style URL above uses semester-specific title IDs, so for older
+    # periods we rediscover the branch by title text. Each entry is a
+    # case-insensitive substring matched against the catalog row title.
+    INFORMATICS_BRANCH_CHAIN: tuple[str, ...] = (
+        "Mathematisch-Naturwissenschaftliche",
+        "Informatik",
+        "Gesamtverzeichnis Lehrveranstaltungen Informatik",
+    )
 
     def __init__(
         self,
@@ -97,6 +130,141 @@ class AlmaScraper:
         self.skipped_old_version_node_ids: set[str] = set()
         self.start_catalog_path: str | None = None
         self.progress = progress
+
+    def _switch_to_period_raw(self, period_id: str) -> str:
+        """POST the Semesterauswahl dropdown change for ``period_id`` and
+        return the raw JSF partial-response body.
+
+        Split out from :meth:`switch_to_period` so the redirect-handling
+        branch reads cleanly; not part of the public API.
+        """
+        if not self.catalog_action_url or not self.view_state or not self.authenticity_token:
+            raise RuntimeError("Catalog session is not initialized.")
+        select_id = "hierarchy:content-container:term-selection-container:termSelection_input"
+        refresh_id = "hierarchy:content-container:term-selection-container:refresh"
+        data = {
+            "javax.faces.partial.ajax": "true",
+            "javax.faces.source": refresh_id,
+            "javax.faces.partial.execute": (
+                "@this hierarchy:content-container:term-selection-container:termSelection "
+            ),
+            "javax.faces.partial.render": "@form hierarchy:messages-infobox ",
+            "javax.faces.behavior.event": "action",
+            "DISABLE_VALIDATION": "true",
+            "hierarchy": "hierarchy",
+            "hierarchy_SUBMIT": "1",
+            "authenticity_token": self.authenticity_token,
+            "javax.faces.ViewState": self.view_state,
+            refresh_id: refresh_id,
+            select_id: period_id,
+        }
+        response = self.session.post(
+            self.catalog_action_url,
+            data=data,
+            headers={
+                "Faces-Request": "partial/ajax",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        response.encoding = "utf-8"
+        return response.text
+
+    def switch_to_period(self, period_id: str) -> str:
+        """Switch the active catalog to ``period_id`` via the Semesterauswahl
+        dropdown and return the resulting catalog HTML.
+
+        Simulates the JSF AJAX request the dropdown's ``onchange`` handler
+        fires: posts the form with the new ``termSelection_input`` value and
+        triggers the ``term-selection-container:refresh`` button. ALMA's
+        response is a JSF ``<partial-response><redirect/>`` to a fresh flow
+        state, so we follow that redirect and refresh the session's
+        ``hierarchy`` form state (action URL, ViewState, authenticity token)
+        from the new page.
+
+        Requires :meth:`fetch_catalog_page` to have run first.
+        """
+        raw = self._switch_to_period_raw(period_id)
+        redirect_url = _partial_redirect_url(raw)
+        if redirect_url is None:
+            self._update_view_state_from_partial(raw)
+            return self._partial_html(raw)
+        return self.fetch_catalog_page(urljoin(ALMA_BASE, redirect_url))
+
+    def find_branch_permalink(
+        self,
+        period_id: str,
+        title_chain: Sequence[str],
+    ) -> str | None:
+        """Switch to ``period_id`` via the Semesterauswahl dropdown and walk
+        the catalog by ``title_chain``, returning the matched node's permalink.
+
+        Each chain entry is matched against catalog row titles as a
+        case-insensitive substring; exact matches win over substring matches
+        when both children qualify. Returns ``None`` if any step has no
+        matching child. Requires :meth:`fetch_catalog_page` to have run
+        first so the session has a valid hierarchy form.
+        """
+        new_html = self.switch_to_period(period_id)
+        self.catalog_nodes = self.parse_catalog_nodes(new_html)
+        roots = [node for node in self.catalog_nodes.values() if node.parent_id is None]
+        if len(roots) != 1:
+            return None
+        parent_id: str | None = roots[0].node_id
+        current: CatalogNode | None = None
+        for index, target in enumerate(title_chain):
+            needle = target.casefold()
+            children = [
+                node
+                for node in self.catalog_nodes.values()
+                if node.parent_id == parent_id and needle in node.title.casefold()
+            ]
+            if not children:
+                return None
+            current = next(
+                (node for node in children if node.title.casefold() == needle),
+                children[0],
+            )
+            parent_id = current.node_id
+            is_last_step = index == len(title_chain) - 1
+            if not is_last_step and current.expandable and not current.expanded:
+                fragment = self.expand_node(current)
+                for node_id, new_node in self.parse_catalog_nodes(fragment).items():
+                    if node_id not in self.catalog_nodes:
+                        self.catalog_nodes[node_id] = new_node
+                time.sleep(self.polite_delay)
+        return current.permalink if current else None
+
+    def discover_periods(self) -> list[PeriodOption]:
+        """Fetch the catalog start page and return its semester selector
+        options, sorted oldest to newest.
+
+        Used both as the data path for the multi-semester scrape loop and
+        as the ``--list-periods`` recon command in the CLI.
+        """
+        text = self.fetch_catalog_page(self.DEFAULT_CATALOG_URL)
+        return parse_period_options(text)
+
+    def dump_period_candidates(self, dump_dir: str) -> dict[str, int]:
+        """Save the catalog start page and a structured summary of every
+        period-selector candidate it contains.
+
+        Useful when :meth:`discover_periods` returns no options and we need
+        to figure out which DOM shape ALMA is using this time. Writes two
+        files into ``dump_dir``: ``start_page.html`` and
+        ``period_candidates.json``. Returns counts per candidate source.
+        """
+        text = self.fetch_catalog_page(self.DEFAULT_CATALOG_URL)
+        target = Path(dump_dir)
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "start_page.html").write_text(text, encoding="utf-8")
+        summary = _summarize_period_candidates(text)
+        (target / "period_candidates.json").write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return {key: len(value) for key, value in summary.items()}
 
     def scrape(self, options: ScrapeOptions) -> dict[str, Any]:
         branch_title = repair_mojibake(options.branch_title) if options.branch_title else None
@@ -801,6 +969,103 @@ def _module_assignment_code(module_number: str, short_name: str) -> str | None:
         if candidate and not candidate.isdigit() and "|" not in candidate:
             return candidate
     return None
+
+
+def parse_semester_tuple(label: str) -> tuple[int, int] | None:
+    """Return ``(year, kind)`` for a German semester label, or ``None``.
+
+    ``kind`` is :data:`SUMMER_SEMESTER_KIND` for "Sommersemester" and
+    :data:`WINTER_SEMESTER_KIND` for "Wintersemester". This tuple is
+    monotonic in chronological order, so it doubles as a sort key.
+    """
+    match = SEMESTER_LABEL_RE.search(label)
+    if not match:
+        return None
+    kind = (
+        SUMMER_SEMESTER_KIND
+        if match.group(1).lower().startswith("sommer")
+        else WINTER_SEMESTER_KIND
+    )
+    return int(match.group(2)), kind
+
+
+def parse_period_options(html_text: str) -> list[PeriodOption]:
+    """Pull semester options from the Semesterauswahl ``<select>``.
+
+    Accepts any option whose value is numeric and whose label parses as a
+    German semester (``Sommer YYYY`` / ``Winter YYYY/YY``). Searches every
+    ``<select>`` on the page because the dropdown's JSF id is long and
+    could drift between releases. Results are deduplicated by
+    ``period_id`` and sorted oldest first.
+    """
+    soup = BeautifulSoup(html_text, "html.parser")
+    seen: dict[str, PeriodOption] = {}
+    for select in soup.find_all("select"):
+        for option in select.find_all("option"):
+            value = (option.get("value") or "").strip()
+            label = clean_text(option)
+            if not value.isdigit() or not label:
+                continue
+            semester = parse_semester_tuple(label)
+            if semester is None:
+                continue
+            seen.setdefault(value, PeriodOption(period_id=value, label=label, semester=semester))
+    options = list(seen.values())
+    options.sort(key=lambda item: item.semester or (0, 0))
+    return options
+
+
+def _summarize_period_candidates(html_text: str) -> dict[str, list[dict[str, str]]]:
+    """Group every DOM element that could plausibly carry a period choice.
+
+    Used by :meth:`AlmaScraper.dump_period_candidates`. We deliberately do
+    not filter on semester-label parsing here — the point is to see what
+    ALMA is offering so the real parser can be extended.
+    """
+    soup = BeautifulSoup(html_text, "html.parser")
+    selects: list[dict[str, str]] = []
+    for select in soup.find_all("select"):
+        selects.append(
+            {
+                "id": str(select.get("id") or ""),
+                "name": str(select.get("name") or ""),
+                "options": "; ".join(
+                    f"{opt.get('value', '')}={clean_text(opt)}"
+                    for opt in select.find_all("option")
+                )[:2000],
+            }
+        )
+    anchors: list[dict[str, str]] = []
+    for anchor in soup.find_all("a", href=re.compile(r"periodId=\d+")):
+        anchors.append(
+            {
+                "href": str(anchor.get("href", "")),
+                "text": clean_text(anchor),
+            }
+        )
+    forms: list[dict[str, str]] = []
+    for form in soup.find_all("form"):
+        forms.append(
+            {
+                "id": str(form.get("id") or ""),
+                "action": str(form.get("action") or ""),
+            }
+        )
+    return {"selects": selects, "period_anchors": anchors, "forms": forms}
+
+
+def _partial_redirect_url(partial_response: str) -> str | None:
+    """Extract the redirect URL from a JSF partial-response, if any.
+
+    A response like ``<partial-response><redirect url="/..."/></partial-response>``
+    means the server wants the client to navigate elsewhere. We follow it
+    in :meth:`AlmaScraper.switch_to_period` because semester changes
+    reinitialize the flow.
+    """
+    match = re.search(r'<redirect\s+url="([^"]+)"', partial_response)
+    if not match:
+        return None
+    return html.unescape(match.group(1))
 
 
 def _module_table_is_paginated(html_text: str) -> bool:
