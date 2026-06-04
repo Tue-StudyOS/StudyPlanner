@@ -63,6 +63,15 @@ Each course in the output gets `period_id` and `period_label` fields so you
 can tell semesters apart. The output file is rewritten after every period,
 so an interrupted run still leaves a usable file.
 
+If a run was interrupted, resume it without redoing the completed semesters:
+
+```powershell
+uv run python -m alma_scraper.cli --details --continue output/<timestamp>/courses_multi_semester.json
+```
+
+Fully completed periods are kept and skipped; partial or skipped ones are
+redone. Output is written back to the same path.
+
 ### List available semesters
 
 ```powershell
@@ -106,6 +115,7 @@ output/
 
 - `--details` - Fetch course details (recommended)
 - `--from-semester LABEL` - Scrape every semester from LABEL up to current
+- `--continue PATH` - Resume an interrupted multi-period scrape from PATH
 - `--full-catalog` - Scrape entire catalog
 - `--max-courses N` - Stop after N courses
 - `--max-runtime-seconds N` - Stop after N seconds

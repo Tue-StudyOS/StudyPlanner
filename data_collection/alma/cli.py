@@ -125,6 +125,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--continue",
+        dest="continue_from",
+        metavar="PATH",
+        help=(
+            "Resume an interrupted multi-period scrape from the JSON file "
+            "PATH (the courses_multi_semester.json from the previous run). "
+            "Fully completed periods are kept and skipped; partial/skipped "
+            "periods are redone. Output is written back to PATH. Inherits "
+            "--from-semester from the file unless explicitly overridden."
+        ),
+    )
+    parser.add_argument(
         "--probe-branch-permalink",
         metavar="PERIOD_ID",
         help=(
@@ -163,10 +175,13 @@ def main() -> None:
         print(f"period {args.probe_branch_permalink}: {permalink}")
         return
 
-    out_path, progress_path = _resolve_output_paths(args)
+    resume_state = _load_resume_state(args)
+    out_path, progress_path = _resolve_output_paths(args, resume_state)
 
-    if args.from_semester:
-        result = _run_multi_period_scrape(scraper, args, out_path, progress_path)
+    if args.from_semester or resume_state is not None:
+        result = _run_multi_period_scrape(
+            scraper, args, out_path, progress_path, resume_state
+        )
     else:
         result = _run_single_period_scrape(scraper, args, out_path, progress_path)
 
@@ -186,8 +201,18 @@ def main() -> None:
     )
 
 
-def _resolve_output_paths(args: argparse.Namespace) -> tuple[Path, str]:
-    """Return the (output_file, progress_file) pair to use for this run."""
+def _resolve_output_paths(
+    args: argparse.Namespace, resume_state: dict | None = None
+) -> tuple[Path, str]:
+    """Return the (output_file, progress_file) pair to use for this run.
+
+    When resuming, the output is written back to the original file so the
+    user ends up with a single merged JSON.
+    """
+    if resume_state is not None:
+        out_path = Path(args.continue_from)
+        progress_path = args.progress_file or str(out_path.parent / "progress.json")
+        return out_path, progress_path
     if not args.out:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output_dir = Path("output") / timestamp
@@ -210,6 +235,48 @@ def _resolve_output_paths(args: argparse.Namespace) -> tuple[Path, str]:
         out_path = Path(args.out)
         progress_path = args.progress_file or str(out_path.parent / "progress.json")
     return out_path, progress_path
+
+
+def _load_resume_state(args: argparse.Namespace) -> dict | None:
+    """Read the previous multi-period output and inherit ``from_semester``.
+
+    Returns a dict with keys ``courses``, ``catalog_nodes``,
+    ``per_period_summary``, ``completed_period_ids`` (a set of period IDs
+    that finished successfully and should be skipped on resume) and
+    ``completed_period_labels`` (the same set keyed by label, for files
+    written before catalog nodes were tagged with ``period_id``).
+    Returns ``None`` when no ``--continue`` was passed.
+    """
+    if not args.continue_from:
+        return None
+    path = Path(args.continue_from)
+    if not path.is_file():
+        raise SystemExit(f"--continue file not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    source = payload.get("source") or {}
+    if source.get("mode") != "multi-period":
+        raise SystemExit(
+            f"--continue file is not from a multi-period run: {path}"
+        )
+    summary = source.get("per_period_summary") or []
+    completed_entries = [
+        entry
+        for entry in summary
+        if not entry.get("partial") and not entry.get("skipped")
+    ]
+    completed_ids: set[str] = {entry["period_id"] for entry in completed_entries}
+    completed_labels: set[str] = {
+        entry["period_label"] for entry in completed_entries if entry.get("period_label")
+    }
+    if not args.from_semester:
+        args.from_semester = source.get("from_semester")
+    return {
+        "courses": payload.get("courses", []),
+        "catalog_nodes": payload.get("catalog_nodes", []),
+        "per_period_summary": completed_entries,
+        "completed_period_ids": completed_ids,
+        "completed_period_labels": completed_labels,
+    }
 
 
 def _run_single_period_scrape(
@@ -239,6 +306,7 @@ def _run_multi_period_scrape(
     args: argparse.Namespace,
     out_path: Path,
     progress_path: str,
+    resume_state: dict | None = None,
 ) -> dict:
     """Run the scraper once per discovered period and merge results.
 
@@ -253,6 +321,10 @@ def _run_multi_period_scrape(
 
     A checkpoint is written after every period so an interrupted run still
     leaves a usable output file.
+
+    With ``resume_state`` (from ``--continue``), already-completed periods
+    are skipped and their existing courses/nodes feed the accumulator
+    directly.
     """
     cutoff = parse_semester_tuple(args.from_semester)
     if cutoff is None:
@@ -265,20 +337,45 @@ def _run_multi_period_scrape(
     if not periods:
         raise SystemExit(f"No periods found at or after {args.from_semester!r}.")
 
-    print(
-        f"Scraping {len(periods)} period(s) from {periods[0].label} "
-        f"to {periods[-1].label}",
-        file=sys.stderr,
-        flush=True,
-    )
-
-    all_courses: list[dict] = []
-    all_catalog_nodes: list[dict] = []
-    per_period_summary: list[dict] = []
-
-    for index, period in enumerate(periods, start=1):
+    if resume_state is not None:
+        completed_ids = resume_state["completed_period_ids"]
+        completed_labels = resume_state["completed_period_labels"]
+        # period_label fallback handles files written before catalog nodes
+        # were tagged with period_id (those nodes only carry period_label,
+        # and course rows added before period_id was tagged carry neither).
+        all_courses = [
+            course for course in resume_state["courses"]
+            if course.get("period_id") in completed_ids
+               or course.get("period_label") in completed_labels
+        ]
+        all_catalog_nodes = [
+            node for node in resume_state["catalog_nodes"]
+            if node.get("period_id") in completed_ids
+               or node.get("period_label") in completed_labels
+        ]
+        per_period_summary = list(resume_state["per_period_summary"])
+        remaining = [p for p in periods if p.period_id not in completed_ids]
         print(
-            f"=== [{index}/{len(periods)}] period {period.period_id} "
+            f"Resuming: {len(completed_ids)} period(s) already complete, "
+            f"{len(remaining)} to go",
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        all_courses = []
+        all_catalog_nodes = []
+        per_period_summary = []
+        remaining = list(periods)
+        print(
+            f"Scraping {len(periods)} period(s) from {periods[0].label} "
+            f"to {periods[-1].label}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    for index, period in enumerate(remaining, start=1):
+        print(
+            f"=== [{index}/{len(remaining)}] period {period.period_id} "
             f"({period.label}) ===",
             file=sys.stderr,
             flush=True,
@@ -326,6 +423,7 @@ def _run_multi_period_scrape(
             course["period_id"] = period.period_id
             course["period_label"] = period.label
         for node in result["catalog_nodes"]:
+            node["period_id"] = period.period_id
             node["period_label"] = period.label
         all_courses.extend(result["courses"])
         all_catalog_nodes.extend(result["catalog_nodes"])
