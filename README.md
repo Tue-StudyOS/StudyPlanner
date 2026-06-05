@@ -21,46 +21,70 @@ The public catalog now reads from the Worker API and D1. Remaining temporary boo
 
 ## Local development
 
-### Frontend
+Use Windows commands from the repository root:
 
-```bash
-cd frontend
+### 1. Pull the real source database with Git LFS
+
+Install Git LFS once, then fetch the tracked database files:
+
+```powershell
+git lfs install
+git lfs pull
+```
+
+If Git LFS is not installed yet, install it first with `winget` or your preferred package manager.
+
+### 2. Install frontend dependencies
+
+```powershell
+Set-Location frontend
 npm install
+Set-Location ..
+```
+
+### 3. Apply the local D1 schema
+
+```powershell
+Set-Location backend
+npx wrangler d1 migrations apply studyplaner-db-test --local
+```
+
+### 4. Generate seed SQL from SQLite
+
+```powershell
+python scripts/export_sqlite_to_d1.py --data-out .tmp/d1-seed.sql
+```
+
+### 5. Import the seed into the local D1 database
+
+```powershell
+npx wrangler d1 execute studyplaner-db-test --local --file .tmp/d1-seed.sql
+Set-Location ..
+```
+
+### Daily workflow
+
+Run the app in two terminals.
+
+Terminal 1, frontend:
+
+```powershell
+Set-Location frontend
 npm run dev
+```
+
+Terminal 2, Worker API:
+
+```powershell
+Set-Location backend
+npx wrangler dev
 ```
 
 ### Frontend build
 
-```bash
-cd frontend
+```powershell
+Set-Location frontend
 npm run build
-```
-
-### Backend Worker
-
-```bash
-cd backend
-npx wrangler dev
-```
-
-### D1 migrations
-
-```bash
-cd backend
-npx wrangler d1 migrations apply studyplaner-db --local
-```
-
-### Export the local SQLite data for D1
-
-```bash
-python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql
-```
-
-Then import the generated file with Wrangler:
-
-```bash
-cd backend
-npx wrangler d1 execute studyplaner-db --local --file .tmp/d1-seed.sql
 ```
 
 ## Deployment
@@ -82,3 +106,4 @@ npx wrangler d1 execute studyplaner-db --local --file .tmp/d1-seed.sql
 - Mock-data status: `docs/mock-data-status.md`
 - Repo audit: `docs/repo-audit.md`
 - Backend details: `backend/README.md`
+
