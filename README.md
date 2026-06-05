@@ -37,15 +37,15 @@ If Git LFS is not installed yet, install it first with `winget` or your preferre
 ### 2. Install frontend dependencies
 
 ```powershell
-Set-Location frontend
+cd frontend
 npm install
-Set-Location ..
+cd ..
 ```
 
 ### 3. Apply the local D1 schema
 
 ```powershell
-Set-Location backend
+cd backend
 npx wrangler d1 migrations apply studyplaner-db-test --local
 ```
 
@@ -59,7 +59,7 @@ python scripts/export_sqlite_to_d1.py --data-out .tmp/d1-seed.sql
 
 ```powershell
 npx wrangler d1 execute studyplaner-db-test --local --file .tmp/d1-seed.sql
-Set-Location ..
+cd ..
 ```
 
 ### Daily workflow
@@ -69,21 +69,21 @@ Run the app in two terminals.
 Terminal 1, frontend:
 
 ```powershell
-Set-Location frontend
+cd frontend
 npm run dev
 ```
 
 Terminal 2, Worker API:
 
 ```powershell
-Set-Location backend
+cd backend
 npx wrangler dev
 ```
 
 ### Frontend build
 
 ```powershell
-Set-Location frontend
+cd frontend
 npm run build
 ```
 
