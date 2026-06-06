@@ -68,12 +68,14 @@ The feature must stay optional and must not block public catalog browsing or oth
 
 - a signed-in user can select one PDF and start the import flow
 - the upload flow validates file type and size before parsing
+- the parser accepts the current English and German Tübingen Transcript of Records variants, including German decimal commas and semester/date values
 - the UI shows success, validation, and processing errors clearly
 
 ### Review and matching
 
 - extracted transcript rows are shown before any progress data is changed
 - each row is labeled as matched, uncertain, or unmatched
+- unfinished or failed transcript rows are ignored, while extracted rows without a catalog match remain visible for manual review
 - the user can confirm, skip, or adjust uncertain rows before import
 
 ### Progress write-back

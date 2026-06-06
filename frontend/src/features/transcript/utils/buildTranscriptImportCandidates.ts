@@ -2,15 +2,15 @@ import type { Course, MasterCat, StudyAreaOption } from '../../courses'
 import {
   buildAssignableRegulationAreaOptions,
   buildRelevantCourseAreaOptions,
-} from '../../../shared/utils/regulation'
+} from '../../../shared/utils/regulation.ts'
 import type {
   ParsedTranscriptEntry,
   TranscriptCoursePreview,
   TranscriptImportBuildContext,
   TranscriptImportCandidate,
   TranscriptImportStatus,
-} from '../types'
-import { isValidTranscriptGrade } from './grades'
+} from '../types.ts'
+import { isValidTranscriptGrade } from './grades.ts'
 
 interface CourseMatchResult {
   preview: TranscriptCoursePreview

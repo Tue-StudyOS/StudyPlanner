@@ -38,26 +38,26 @@ Use the current shared implementation branch unless a later review decides to sp
 **Recommended commit:** `fix: support German transcript imports`
 **Primary files:** `frontend/src/features/transcript/utils/parseTranscriptPdf.ts`, `frontend/src/features/transcript/utils/buildTranscriptImportCandidates.ts`, `frontend/src/features/transcript/components/Transcript.tsx`, transcript import types/tests or fixtures if added
 
-- [ ] **A-1 Audit current English-only parser assumptions**
+- [x] **A-1 Audit current English-only parser assumptions**
   - Identify all labels, status texts, column headers, and date/grade formats that currently work only for the English ToR.
   - Compare them against the local German ToR fixture without committing that file.
 
-- [ ] **A-2 Add German ToR field recognition**
+- [x] **A-2 Add German ToR field recognition**
   - Support German labels for course/module names, ECTS/credits, grades, semester/date, attempts, and completion status.
   - Recognize German completion states such as passed/credited equivalents and ignore failed or unfinished rows.
   - Keep parser logic language-tolerant instead of branching into two unrelated parsers.
 
-- [ ] **A-3 Normalize grades, ECTS, and semester labels consistently**
+- [x] **A-3 Normalize grades, ECTS, and semester labels consistently**
   - Accept German decimal commas and English decimal dots where they appear.
   - Preserve the official ToR grade scale validation.
   - Map German semester/date values into the existing completed-course shape.
 
-- [ ] **A-4 Keep review behavior unchanged**
+- [x] **A-4 Keep review behavior unchanged**
   - German imports should produce the same review candidates as English imports.
   - Valid German rows should be importable without manual re-entry.
   - Unmatched rows should remain visible for review instead of being dropped silently.
 
-- [ ] **A-5 Add safe parser validation**
+- [x] **A-5 Add safe parser validation**
   - Add anonymized fixture-based tests if a lightweight test path exists.
   - Otherwise document a manual smoke checklist using the local uncommitted German PDF.
   - Verify English ToR import still works after the German changes.
