@@ -102,7 +102,7 @@ function AuthenticatedDashboard() {
 
       <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
         {stats.map((stat, i) => (
-          <div key={stat.label} className={i > 0 ? 'border-l border-border-light pl-3 sm:pl-6' : ''}>
+          <div key={stat.label} className={`min-w-0 overflow-hidden ${i > 0 ? 'border-l border-border-light pl-3 sm:pl-6' : ''}`}>
             <StatItem {...stat} />
           </div>
         ))}

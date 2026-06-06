@@ -303,7 +303,7 @@ export function ManualCompletedCourseForm({
 
       {isOpen ? (
         <div className="mt-4 grid gap-3.5">
-          <div className="inline-flex rounded-md border border-border bg-surface-hover/40 p-1">
+          <div className="flex flex-wrap rounded-md border border-border bg-surface-hover/40 p-1">
             {[
               ['catalog', 'Catalog course'],
               ['external', 'External course'],

@@ -372,7 +372,7 @@ function MobilePlannerFavoritesDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose}>
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-[18px] border-t border-border bg-surface px-4 py-4"
+        className="absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-[18px] border-t border-border bg-surface px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
