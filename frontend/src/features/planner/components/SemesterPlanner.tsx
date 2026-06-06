@@ -9,6 +9,7 @@ import { useCatalogCourses } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
+import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
@@ -407,11 +408,13 @@ function PlannerGrid({
   isDeletingSemesterPlan,
   savedCourseCount,
   hasUnsavedChanges,
+  canCompleteSemester,
   onSelectSemester,
   onStartEditing,
   onSave,
   onCancelEditing,
   onDelete,
+  onOpenCompletionDialog,
   onOpenFavorites,
   onDropCourse,
   onRemoveSlot,
@@ -428,11 +431,13 @@ function PlannerGrid({
   isDeletingSemesterPlan: boolean
   savedCourseCount: number
   hasUnsavedChanges: boolean
+  canCompleteSemester: boolean
   onSelectSemester: (semesterLabel: string) => void
   onStartEditing: () => void
   onSave: () => Promise<void>
   onCancelEditing: () => void
   onDelete: () => Promise<void>
+  onOpenCompletionDialog: () => void
   onOpenFavorites: () => void
   onDropCourse: (courseId: string, areaCode: string | null) => void
   onRemoveSlot: (slotId: string) => void
@@ -545,6 +550,14 @@ function PlannerGrid({
                     className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Edit semester
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenCompletionDialog}
+                    disabled={!canCompleteSemester || isLoadingSemesterPlan || isDeletingSemesterPlan}
+                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Mark as completed
                   </button>
                   <button
                     type="button"
@@ -744,9 +757,11 @@ function PlannerGrid({
 export function SemesterPlanner() {
   const { isAuthenticated, user } = useAuth()
   const { favoriteIds, toggleFavorite } = useFavorites()
-  const { completedCourses } = useTranscript()
+  const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
+  const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null)
   const { courses, isLoading, error } = useCatalogCourses('', 500)
   const {
     regulationVersion,
@@ -935,6 +950,18 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
+      {completedCoursesError ? (
+        <div className="mb-4 rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
+          {completedCoursesError}
+        </div>
+      ) : null}
+
+      {completionNotice ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg">
+          {completionNotice}
+        </div>
+      ) : null}
+
       <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${!isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
         <div className="grid min-w-0 gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
@@ -955,11 +982,17 @@ export function SemesterPlanner() {
               isDeletingSemesterPlan={isDeletingSemesterPlan}
               savedCourseCount={savedPlan?.courseCount ?? 0}
               hasUnsavedChanges={hasUnsavedChanges}
+              canCompleteSemester={plannedCourses.length > 0}
               onSelectSemester={setActiveSemesterLabel}
               onStartEditing={startEditing}
               onSave={saveCurrentSemesterPlan}
               onCancelEditing={cancelEditing}
               onDelete={deleteCurrentSemesterPlan}
+              onOpenCompletionDialog={() => {
+                clearCompletedCoursesError()
+                setCompletionNotice(null)
+                setIsCompletionDialogOpen(true)
+              }}
               onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
               onDropCourse={handleAddCourse}
               onRemoveSlot={handleRemoveSlot}
@@ -1018,6 +1051,21 @@ export function SemesterPlanner() {
           onToggleFavorite={toggleFavorite}
         />
       </MobilePlannerFavoritesDrawer>
+
+      {!isEditing && isCompletionDialogOpen ? (
+        <SemesterCompletionDialog
+          semesterLabel={activeSemesterLabel}
+          plannedCourses={plannedCourses}
+          planAssignments={planAssignments}
+          studyProgramCode={plannerStudyProgramCode}
+          regulationRuleGroups={plannerRuleGroups}
+          onClose={() => setIsCompletionDialogOpen(false)}
+          onSuccess={(message) => {
+            setCompletionNotice(message)
+            setIsCompletionDialogOpen(false)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

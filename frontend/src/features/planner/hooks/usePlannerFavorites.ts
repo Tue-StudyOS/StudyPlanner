@@ -11,6 +11,7 @@ import {
 export interface PlannerFavoriteCandidate {
   course: Course
   isPlanned: boolean
+  completedCourse: CompletedCourse | null
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
   suggestedAreaCode: string | null
@@ -49,6 +50,23 @@ export function usePlannerFavorites({
   onSetAssignment,
 }: UsePlannerFavoritesParams): UsePlannerFavoritesResult {
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({})
+  const completedCourseByCatalogKey = useMemo(() => {
+    const lookup = new Map<string, CompletedCourse>()
+
+    completedCourses.forEach((course) => {
+      if (course.courseId && !lookup.has(course.courseId)) {
+        lookup.set(course.courseId, course)
+      }
+      if (course.courseNumber && !lookup.has(course.courseNumber)) {
+        lookup.set(course.courseNumber, course)
+      }
+      if (course.externalCourseCode && !lookup.has(course.externalCourseCode)) {
+        lookup.set(course.externalCourseCode, course)
+      }
+    })
+
+    return lookup
+  }, [completedCourses])
 
   const candidates = useMemo<PlannerFavoriteCandidate[]>(() => {
     const isAssignable = (course: Course): boolean =>
@@ -94,7 +112,14 @@ export function usePlannerFavorites({
             })
           : suggestedAreaCode
 
-      return { course, isPlanned, options, selectedAreaCode, suggestedAreaCode }
+      return {
+        course,
+        isPlanned,
+        completedCourse: completedCourseByCatalogKey.get(course.id) ?? completedCourseByCatalogKey.get(course.number) ?? null,
+        options,
+        selectedAreaCode,
+        suggestedAreaCode,
+      }
     })
   }, [
     favoriteCourses,
@@ -105,6 +130,7 @@ export function usePlannerFavorites({
     planAssignments,
     plannedCourses,
     completedCourses,
+    completedCourseByCatalogKey,
     assignmentDrafts,
   ])
 

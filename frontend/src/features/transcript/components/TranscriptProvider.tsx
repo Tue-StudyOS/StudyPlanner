@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
 import { useAuth } from '../../auth'
@@ -10,6 +10,7 @@ import type {
   BulkCompletedCourseImportResult,
   TranscriptSaveResult,
 } from '../types'
+import { normalizeCompletedCourseKey } from '../utils/completedCourseKeys'
 
 interface TranscriptProviderProps {
   children: ReactNode
@@ -23,20 +24,6 @@ function normalizeErrorMessage(error: unknown): string {
     return error.message
   }
   return 'Failed to synchronize completed courses.'
-}
-
-function normalizeCompletedCourseKey(course: Pick<CompletedCourse, 'courseId' | 'title' | 'semester' | 'ects' | 'grade'>): string {
-  if (course.courseId) {
-    return `course:${course.courseId}`
-  }
-
-  return [
-    'manual',
-    course.title.trim().toLowerCase(),
-    course.semester.trim().toLowerCase(),
-    String(course.ects),
-    course.grade === null ? 'no-grade' : String(course.grade),
-  ].join(':')
 }
 
 function emptySaveResult(): TranscriptSaveResult {
@@ -281,9 +268,9 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return persistResult.saved
   }
 
-  function clearCompletedCoursesError(): void {
+  const clearCompletedCoursesError = useCallback((): void => {
     setCompletedCoursesError(null)
-  }
+  }, [])
 
   return (
     <TranscriptContext.Provider

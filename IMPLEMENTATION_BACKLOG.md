@@ -69,27 +69,27 @@ Use the current shared implementation branch unless a later review decides to sp
 **Recommended commit:** `feat: complete planned semester courses`
 **Primary files:** `frontend/src/features/planner/components/SemesterPlanner.tsx`, `frontend/src/features/planner/hooks/useSemesterPlanner.ts`, `frontend/src/features/transcript/components/TranscriptProvider.tsx`, `frontend/src/features/transcript/api.ts`, `backend/src/services/user_completed_courses.py` if a backend helper endpoint is needed
 
-- [ ] **B-1 Define the completion flow from the planner**
+- [x] **B-1 Define the completion flow from the planner**
   - Add an explicit action such as `Mark semester as completed` for a saved semester plan.
   - Let users choose all planned courses or selected courses from that semester.
   - Require sign-in and show a clear message if the user is signed out.
 
-- [ ] **B-2 Convert planned catalog courses into completed-course records**
+- [x] **B-2 Convert planned catalog courses into completed-course records**
   - Use catalog course title, course number, ECTS, and regulation/study-area assignment where available.
   - Use the selected semester label as the completed-course semester.
   - Keep grades optional so users can mark courses complete even before entering exact grades.
 
-- [ ] **B-3 Prevent duplicates and conflicting assignments**
+- [x] **B-3 Prevent duplicates and conflicting assignments**
   - Detect already completed planned courses and skip or explain them.
   - Reuse existing duplicate logic from transcript import/completed-course persistence.
   - If a course can count toward multiple regulation areas, require the user to choose before saving.
 
-- [ ] **B-4 Provide confirmation and undo-safe feedback**
+- [x] **B-4 Provide confirmation and undo-safe feedback**
   - Show a confirmation before writing multiple completed courses.
   - Show imported/skipped/needs-attention results after saving.
   - Refresh transcript, dashboard, favorites/planner completion badges, and progress state after success.
 
-- [ ] **B-5 Keep the flow usable on phone and desktop**
+- [x] **B-5 Keep the flow usable on phone and desktop**
   - The selection UI must not overflow on narrow screens.
   - Sticky or bottom actions must stay reachable with mobile browser chrome and safe areas.
 
