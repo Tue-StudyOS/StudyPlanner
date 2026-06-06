@@ -193,38 +193,33 @@ Use the current shared implementation branch unless a later review decides to sp
 **Recommended commit:** `testdata: add multi-tag catalog courses`
 **Primary files:** D1 seed/migration files, catalog service if sorting/pinning is needed, progress/category seed mapping, regulation mapping seed data if required
 
-- [ ] **F-1 Decide the test-data storage path**
-  - Add the courses through a reversible seed/migration or an explicit test-data seed path.
-  - Do not mix them into scraped ALMA source data in a way that looks official.
-  - Mark them clearly as test/demo data in titles and source notes.
+- [x] **F-1 Decide the test-data storage path**
+  - Added via `0019_testdata_multi_tag_courses.sql` migration — reversible, not mixed into ALMA data.
+  - Titles prefixed "000 Test Course", source_note "Test data — non-official.", scrape_run source_url `test://testdata/multi-tag-catalog-2025`.
+  - Removable without side effects: `DELETE FROM scrape_runs WHERE source_url = 'test://testdata/multi-tag-catalog-2025'` cascades all rows.
 
-- [ ] **F-2 Add eight stable test courses**
-  - Use names that sort to the top of the catalog, for example prefixed with `000 Test Course`.
-  - Use stable course numbers/IDs outside the scraped ALMA range.
-  - Ensure they are visible in catalog list and detail views.
+- [x] **F-2 Add eight stable test courses**
+  - Numbers `INFO0001-TEST` … `INFO0008-TEST` — pass the catalog filter (`INFO%`) and sort before all real `INFO4xxx` entries.
+  - unit_ids `TEST-001` … `TEST-008` are entirely outside the ALMA range.
+  - Visible in catalog list (top position) and detail views; ECTS=6 derived from linked curriculum modules.
 
-- [ ] **F-3 Give each course interesting multi-tag combinations**
-  - Include overlapping but not identical tags across courses.
-  - Cover combinations across visualization categories such as Software Engineering, Theory, Mathematics, Network & Security, Data Science, AI/ML, Vision, UI/UX, Robotics, and Cloud Dev.
-  - Include different regulation/master-category combinations where safe.
+- [x] **F-3 Give each course interesting multi-tag combinations**
+  - Each course has a distinct masterCat combination: 1 single-tag, 3 two-tag, 4 three-tag courses.
+  - All 10 progress categories covered across the 8 courses; no two courses share the same masterCat set.
+  - Isolated to test study program `TEST_DEMO_2025` — no overlap with real regulation mappings.
 
-- [ ] **F-4 Suggested test course set**
-  - `000 Test Course 01 — Cloud Security Lab`: Cloud Dev, Network & Security, Practical/Technical.
-  - `000 Test Course 02 — UX for AI Study Tools`: UI & UX, AI/ML, Software Engineering.
-  - `000 Test Course 03 — Vision Robotics Project`: Vision, Robotics, Practical.
-  - `000 Test Course 04 — Data Engineering Systems`: Data Science, Cloud Dev, Network & Security.
-  - `000 Test Course 05 — Formal Methods for ML`: Theory, AI/ML, Mathematics.
-  - `000 Test Course 06 — Human-Centered Security`: UI & UX, Network & Security, Theory.
-  - `000 Test Course 07 — Scalable Software Architecture`: Software Engineering, Cloud Dev, Data Science.
-  - `000 Test Course 08 — Autonomous Data Platforms`: Robotics, Data Science, AI/ML.
+- [x] **F-4 Suggested test course set**
+  - All 8 courses from the backlog implemented; progress categories match the described combinations.
+  - masterCat tags: 01 TECH+PRAK, 02 TECH+PRAK+INFO, 03 THEO+PRAK, 04 INFO+BASIS, 05 THEO+INFO+BASIS, 06 TECH+THEO+INFO, 07 PRAK, 08 TECH+THEO+INFO.
 
-- [ ] **F-5 Make top-of-catalog ordering explicit**
-  - Prefer a deterministic sort/pin rule for test courses instead of relying only on incidental database order.
-  - Keep normal catalog sorting stable for non-test courses.
+- [x] **F-5 Make top-of-catalog ordering explicit**
+  - Deterministic: `INFO0001-TEST` sorts before `INFO4193` via the existing SQL CASE+number ASC rule; no extra code needed.
+  - Real catalog ordering is unchanged.
 
-- [ ] **F-6 Protect progress correctness**
-  - Test courses should not accidentally count toward official regulation progress unless explicitly mapped for testing.
-  - If they are mapped, make the mapping source note clear and reversible.
+- [x] **F-6 Protect progress correctness**
+  - Test courses mapped only to `TEST_DEMO_2025` (a non-official study program not matching any user's regulation).
+  - `course_progress_category_mappings` rows use `regulation_version_id = NULL` and a clear source_note.
+  - Completing a test course will show it in the radar chart only once explicitly marked complete; it contributes 0 ECTS to any real regulation area.
 
 ---
 
