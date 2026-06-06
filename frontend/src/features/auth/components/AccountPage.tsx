@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../../shared/utils/api'
 import { MoonIcon, SunIcon } from '../../layout/components/icons'
+import {
+  buildSemesterOptions,
+  getCurrentSemesterLabel,
+  getRelativeSemesterLabel,
+} from '../../planner/utils/semesterLabels'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 import { fetchStudyPrograms } from '../api'
@@ -13,35 +18,14 @@ type AuthMode = 'login' | 'register'
 
 const EARLIEST_SEMESTER = 'WS 2021/22'
 
-function getCurrentSemester(): string {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  if (month >= 4 && month <= 9) return `SS ${year}`
-  const ws = month >= 10 ? year : year - 1
-  return `WS ${ws}/${String(ws + 1).slice(-2)}`
-}
-
 function generateStartSemesters(): string[] {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  let isSummer = month >= 4 && month <= 9
-  let y = isSummer ? year : (month >= 10 ? year : year - 1)
-  const list: string[] = []
-  while (true) {
-    const sem = isSummer ? `SS ${y}` : `WS ${y}/${String(y + 1).slice(-2)}`
-    list.push(sem)
-    if (sem === EARLIEST_SEMESTER) break
-    if (isSummer) {
-      isSummer = false
-    } else {
-      y -= 1
-      isSummer = true
-    }
-    if (y < 2015) break
-  }
-  return list
+  const currentSemesterLabel = getCurrentSemesterLabel()
+  return buildSemesterOptions(
+    [],
+    currentSemesterLabel,
+    EARLIEST_SEMESTER,
+    getRelativeSemesterLabel(currentSemesterLabel, 1),
+  ).reverse()
 }
 
 function normalizeErrorMessage(error: unknown): string {
@@ -424,7 +408,7 @@ export function AccountPage() {
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                     Start semester
-                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
+                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemesterLabel()})</span>
                   </span>
                   <select
                     value={currentSemesterLabel}
