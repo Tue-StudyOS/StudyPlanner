@@ -14,7 +14,7 @@ import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
-import { getPlannerCourseAreaOptions, getSuggestedPlannerAssignment } from '../utils/plannerAssignments'
+import { getPlannerCourseAreaOptions } from '../utils/plannerAssignments'
 import { useTranscript } from '../../transcript'
 
 const START_HOUR = 8
@@ -427,6 +427,7 @@ function PlannerGrid({
   onOpenFavorites,
   onDropCourse,
   onRemoveSlot,
+  onRemoveCourse,
 }: {
   plannedCourses: Course[]
   activeSemesterLabel: string
@@ -450,11 +451,16 @@ function PlannerGrid({
   onOpenFavorites: () => void
   onDropCourse: (courseId: string, areaCode: string | null) => void
   onRemoveSlot: (slotId: string) => void
+  onRemoveCourse: (courseId: string) => void
 }) {
   const blocks = useMemo(
     () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
     [hiddenSlotIds, plannedCourses],
   )
+  const unscheduledPlannedCourses = useMemo(() => {
+    const scheduledCourseIds = new Set(blocks.map((block) => block.courseId))
+    return plannedCourses.filter((course) => !scheduledCourseIds.has(course.id))
+  }, [blocks, plannedCourses])
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
   const [activeBlock, setActiveBlock] = useState<PlannerBlock | null>(null)
   const isWeeklyListLayout = isMobilePlanner && mobileLayout === 'weekly-list'
@@ -717,6 +723,40 @@ function PlannerGrid({
           </div>
         )}
 
+        {unscheduledPlannedCourses.length > 0 ? (
+          <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">
+            <div className="text-[12.5px] font-semibold text-fg">Unscheduled planned courses</div>
+            <p className="mt-1 text-[11.5px] text-fg-muted">
+              These courses are in this semester plan but do not have a concrete weekday/time yet.
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {unscheduledPlannedCourses.map((course) => (
+                <div
+                  key={course.id}
+                  className="flex min-w-0 items-start justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="break-words text-[12px] font-semibold text-fg">{course.title}</div>
+                    <div className="text-[11.5px] text-fg-muted">
+                      {course.number} · {course.ects ?? 'unknown'} ECTS
+                    </div>
+                  </div>
+                  {isEditing ? (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveCourse(course.id)}
+                      aria-label={`Remove ${course.title} from semester plan`}
+                      className="shrink-0 rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
+                    >
+                      <TrashIcon />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {!isEditing && plannedCourses.length === 0 ? (
           <div className="mt-4 rounded-[10px] border border-dashed border-border px-5 py-4 text-center text-[13px] text-fg-muted">
             No courses are saved for this semester yet. Use Edit semester to start planning.
@@ -775,6 +815,7 @@ export function SemesterPlanner() {
   const { courses, isLoading, error } = useCatalogCourses('', 500)
   const {
     regulationVersion,
+    isLoadingRegulationVersion,
     regulationVersionError,
   } = useRegulationVersion(user?.profile.regulationVersionCode)
   const {
@@ -821,7 +862,7 @@ export function SemesterPlanner() {
     [courses, favoriteIds],
   )
 
-  function resolveAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
+  function resolveExplicitAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
     if (!course) {
       return null
@@ -831,14 +872,7 @@ export function SemesterPlanner() {
     if (preferredAreaCode && options.some((option) => option.code === preferredAreaCode)) {
       return preferredAreaCode
     }
-
-    return getSuggestedPlannerAssignment(course, {
-      studyProgramCode: plannerStudyProgramCode,
-      regulationRuleGroups: plannerRuleGroups,
-      planAssignments,
-      plannedCourses,
-      completedCourses,
-    })
+    return null
   }
 
   function clearHiddenSlotsForCourse(courseId: string): void {
@@ -852,7 +886,7 @@ export function SemesterPlanner() {
       setPlannedCourseIds([...plannedCourseIds, courseId])
     }
     clearHiddenSlotsForCourse(courseId)
-    setAssignment(courseId, resolveAddAssignment(courseId, preferredAreaCode))
+    setAssignment(courseId, resolveExplicitAddAssignment(courseId, preferredAreaCode))
   }
 
   function handleRemoveCourse(courseId: string): void {
@@ -921,26 +955,17 @@ export function SemesterPlanner() {
     plannedCourses.forEach((course) => {
       const options = getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups)
       const currentAssignment = planAssignments[course.id] ?? null
-      const nextAssignment = options.length === 0
-        ? null
-        : getSuggestedPlannerAssignment(course, {
-            studyProgramCode: plannerStudyProgramCode,
-            regulationRuleGroups: plannerRuleGroups,
-            planAssignments,
-            plannedCourses,
-            completedCourses,
-          })
-
+      if (!currentAssignment) {
+        return
+      }
       const currentIsValid = Boolean(
         currentAssignment && options.some((option) => option.code === currentAssignment),
       )
-      if (currentIsValid || currentAssignment === nextAssignment) {
-        return
+      if (!currentIsValid) {
+        setAssignment(course.id, null)
       }
-      setAssignment(course.id, nextAssignment)
     })
   }, [
-    completedCourses,
     isEditing,
     planAssignments,
     plannedCourses,
@@ -1038,6 +1063,7 @@ export function SemesterPlanner() {
               onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
               onDropCourse={handleAddCourse}
               onRemoveSlot={handleRemoveSlot}
+              onRemoveCourse={handleRemoveCourse}
             />
           )}
           <PlannerFeedback
@@ -1046,10 +1072,12 @@ export function SemesterPlanner() {
             studyProgramCode={plannerStudyProgramCode}
             planAssignments={planAssignments}
             regulationRuleGroups={plannerRuleGroups}
+            isLoadingRegulationVersion={isLoadingRegulationVersion}
             isEditing={isEditing}
             isBalancing={isBalancingAssignments}
             balanceMessage={balanceMessage}
-            onSetAssignment={setAssignment}
+            onSetAssignments={setAssignments}
+            onRemoveCourse={handleRemoveCourse}
             onAutoBalance={handleAutoBalanceAssignments}
           />
         </div>
