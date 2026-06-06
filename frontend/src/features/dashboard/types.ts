@@ -66,6 +66,22 @@ export interface ProgressSummary {
   averageGrade: number | null
 }
 
+export interface IntermediateExamQualifyingGroup {
+  code: string
+  name: string
+  description: string
+  isFulfilled: boolean
+}
+
+export interface IntermediateExamStatus {
+  isFulfilled: boolean
+  mathFulfilled: boolean
+  piFulfilled: boolean
+  mathQualifyingCourse: RegulationAreaCourse | null
+  piQualifyingCourse: RegulationAreaCourse | null
+  qualifyingGroups: IntermediateExamQualifyingGroup[]
+}
+
 export interface ProgressSnapshot {
   summary: ProgressSummary
   masterCategoryProgress: Array<{
@@ -84,4 +100,5 @@ export interface ProgressSnapshot {
     semester: string
     masterCat: MasterCat
   }>
+  intermediateExam: IntermediateExamStatus | null
 }

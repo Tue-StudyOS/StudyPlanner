@@ -1,5 +1,5 @@
 import { createAuthHeaders, fetchJson } from '../../shared/utils/api'
-import type { ProgressSnapshot, ProgressSummary } from './types'
+import type { IntermediateExamStatus, ProgressSnapshot, ProgressSummary } from './types'
 
 type ProgressSnapshotResponse = Omit<Partial<ProgressSnapshot>, 'summary'> & {
   summary?: Partial<ProgressSummary>
@@ -37,6 +37,10 @@ function normalizeProgressSnapshot(snapshot: ProgressSnapshotResponse): Progress
     unmappedCompletedCourses: Array.isArray(snapshot.unmappedCompletedCourses)
       ? snapshot.unmappedCompletedCourses
       : [],
+    intermediateExam:
+      snapshot.intermediateExam !== undefined
+        ? (snapshot.intermediateExam as IntermediateExamStatus | null)
+        : null,
   }
 }
 

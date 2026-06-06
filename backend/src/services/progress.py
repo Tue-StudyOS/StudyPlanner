@@ -352,6 +352,92 @@ async def _build_regulation_progress(
     return [_finalize_regulation_area(area) for area in ordered_raw_areas]
 
 
+async def _evaluate_intermediate_exam(
+    env: Any,
+    active_regulation_version_id: int | None,
+    study_program_code: str | None,
+    completed_courses: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if study_program_code != 'BSC_INFO_2021':
+        return None
+    if active_regulation_version_id is None:
+        return None
+
+    math_rows = await fetch_all(
+        env,
+        """
+        SELECT DISTINCT rcm.course_id AS courseId
+        FROM regulation_course_mappings AS rcm
+        JOIN regulation_rule_groups AS rrg ON rrg.id = rcm.rule_group_id
+        WHERE rcm.regulation_version_id = ?
+          AND rrg.code = 'MATH'
+        """,
+        [active_regulation_version_id],
+    )
+    math_course_ids: set[int] = {int(row['courseId']) for row in math_rows}
+
+    pi_rows = await fetch_all(
+        env,
+        """
+        SELECT DISTINCT rcm.course_id AS courseId
+        FROM regulation_course_mappings AS rcm
+        JOIN regulation_rule_groups AS rrg ON rrg.id = rcm.rule_group_id
+        JOIN courses AS c ON c.id = rcm.course_id
+        WHERE rcm.regulation_version_id = ?
+          AND rrg.code = 'INF'
+          AND c.title LIKE '%Praktische Informatik%'
+        """,
+        [active_regulation_version_id],
+    )
+    pi_course_ids: set[int] = {int(row['courseId']) for row in pi_rows}
+
+    math_fulfilled = False
+    pi_fulfilled = False
+    math_qualifying_course: dict[str, Any] | None = None
+    pi_qualifying_course: dict[str, Any] | None = None
+
+    for course in completed_courses:
+        course_id = int(course['courseId']) if course.get('courseId') is not None else None
+        title = _safe_text(course.get('title')) or ''
+        study_area_code = _normalize_study_area_code(course.get('studyAreaCode'))
+
+        is_math = (course_id is not None and course_id in math_course_ids) or study_area_code == 'MATH'
+        is_pi = (
+            (course_id is not None and course_id in pi_course_ids)
+            or (study_area_code == 'INF' and 'Praktische Informatik' in title)
+            or ('Praktische Informatik' in title and study_area_code in {None, 'INF'})
+        )
+
+        if is_math and not math_fulfilled:
+            math_fulfilled = True
+            math_qualifying_course = _build_completed_course_detail(course)
+        if is_pi and not pi_fulfilled:
+            pi_fulfilled = True
+            pi_qualifying_course = _build_completed_course_detail(course)
+
+    return {
+        'isFulfilled': math_fulfilled and pi_fulfilled,
+        'mathFulfilled': math_fulfilled,
+        'piFulfilled': pi_fulfilled,
+        'mathQualifyingCourse': math_qualifying_course,
+        'piQualifyingCourse': pi_qualifying_course,
+        'qualifyingGroups': [
+            {
+                'code': 'MATH',
+                'name': 'Mathematik (Pflicht)',
+                'description': 'Mindestens eine Prüfungsleistung aus den vier Pflichtmodulen Mathematik für Informatik',
+                'isFulfilled': math_fulfilled,
+            },
+            {
+                'code': 'PI',
+                'name': 'Praktische Informatik (Pflicht)',
+                'description': 'Mindestens eine Prüfungsleistung aus den vier Pflichtmodulen Praktische Informatik',
+                'isFulfilled': pi_fulfilled,
+            },
+        ],
+    }
+
+
 async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
     username = str(user['username'])
@@ -521,6 +607,12 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         study_program_code,
         completed_courses,
     )
+    intermediate_exam = await _evaluate_intermediate_exam(
+        env,
+        active_regulation_version_id,
+        study_program_code,
+        completed_courses,
+    )
 
     return {
         'summary': {
@@ -534,4 +626,5 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         'visualizationCategories': visualization_categories,
         'profileName': profile_name,
         'unmappedCompletedCourses': unmapped_completed_courses,
+        'intermediateExam': intermediate_exam,
     }

@@ -6,6 +6,7 @@ import { MASTER_CATEGORY_META } from '../masterCategoryMeta'
 import type { CategoryProgress as CategoryProgressItem, ProgressSnapshot, ThesisProgress } from '../types'
 import { useProgressSnapshot } from '../hooks/useProgressSnapshot'
 import { CategoryProgress } from './CategoryProgress'
+import { IntermediateExamNotice } from './IntermediateExamNotice'
 import { RegulationProgress } from './RegulationProgress'
 import { SpecializationCircle } from './SpecializationCircle'
 import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
@@ -107,6 +108,13 @@ function AuthenticatedDashboard() {
           </div>
         ))}
       </div>
+
+      {progressSnapshot.intermediateExam !== null &&
+        !progressSnapshot.intermediateExam.isFulfilled && (
+          <div className="mt-4.5">
+            <IntermediateExamNotice status={progressSnapshot.intermediateExam} />
+          </div>
+        )}
 
       <div className="mt-4.5 grid grid-cols-1 gap-4.5 lg:grid-cols-2">
         {progressSnapshot.regulationProgress.length > 0 ? (
