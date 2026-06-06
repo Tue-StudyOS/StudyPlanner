@@ -280,25 +280,6 @@ def build_migration_sql() -> str:
                     ]
                 )
 
-        lines.extend(
-            [
-                '-- Merge the former FOKUS bucket into BASIS so only the visible category remains.',
-                "UPDATE user_completed_courses",
-                "SET master_cat = 'BASIS'",
-                "WHERE master_cat = 'FOKUS';",
-                '',
-                '-- Existing accounts must choose their study program / PO again in Account settings.',
-                'UPDATE user_profiles',
-                'SET',
-                '    study_program_id = NULL,',
-                '    regulation_version_id = NULL,',
-                '    updated_at_unix = unixepoch()',
-                'WHERE study_program_id IS NOT NULL',
-                '   OR regulation_version_id IS NOT NULL;',
-                '',
-            ]
-        )
-
         return '\n'.join(lines)
     finally:
         sqlite_conn.close()

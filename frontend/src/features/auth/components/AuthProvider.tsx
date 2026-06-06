@@ -12,7 +12,7 @@ import {
 } from '../api'
 import type { AuthUser } from '../types'
 
-const STORAGE_KEY = 'studyplaner.auth.token'
+const STORAGE_KEY = 'studyplanner.auth.token'
 
 function loadStoredToken(): string | null {
   try {

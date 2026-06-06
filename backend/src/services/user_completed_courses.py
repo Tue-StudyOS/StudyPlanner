@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-import time
 from typing import Any
 
-from db.d1 import execute, fetch_all
+from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
+from services.user_data import (
+    load_user_progress_json,
+    now_unix,
+    parse_json_array,
+    update_user_progress_json,
+)
 
 ALLOWED_MASTER_CATEGORIES = {'TECH', 'THEO', 'PRAK', 'INFO', 'BASIS'}
 ALLOWED_GRADE_VALUES = (1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, 4.0)
@@ -34,6 +39,13 @@ def _normalize_float(value: Any, *, field_name: str) -> float:
     return normalized_value
 
 
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _normalize_master_cat(value: Any) -> str | None:
     normalized_value = _safe_text(value)
     if normalized_value is None:
@@ -49,6 +61,15 @@ def _normalize_grade(value: Any) -> float:
     raise CompletedCourseUpdateError(
         'grade must use the official ToR scale: 1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, or 4.0.'
     )
+
+
+def _coerce_grade(value: Any) -> float | None:
+    if value in {None, ''}:
+        return None
+    try:
+        return _normalize_grade(value)
+    except CompletedCourseUpdateError:
+        return None
 
 
 def _normalize_study_area_code(value: Any) -> str | None:
@@ -108,10 +129,6 @@ def _is_flexible_rule_group(code: str, name: str | None, group_type: str | None)
         keyword in normalized_name
         for keyword in ('wahl', 'elective', 'fokus', 'basis', 'diverse', 'expanded')
     )
-
-
-def _now_unix() -> int:
-    return int(time.time())
 
 
 async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
@@ -203,6 +220,23 @@ async def _load_course_rule_group_options(
     return options_by_course_id
 
 
+async def _load_course_numbers_by_id(env: Any, course_ids: list[int]) -> dict[int, str]:
+    if not course_ids:
+        return {}
+    unique_course_ids = sorted(set(course_ids))
+    placeholders = ', '.join('?' for _ in unique_course_ids)
+    rows = await fetch_all(
+        env,
+        f'SELECT id, number FROM courses WHERE id IN ({placeholders})',
+        unique_course_ids,
+    )
+    return {
+        int(row['id']): str(row['number'])
+        for row in rows
+        if row.get('number') is not None
+    }
+
+
 def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
     if not isinstance(payload, dict):
         raise CompletedCourseUpdateError('Each completed course must be a JSON object.')
@@ -233,6 +267,7 @@ def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
         grade = _normalize_grade(raw_grade)
 
     return CompletedCoursePayload(
+        id=_safe_text(payload.get('id')),
         courseId=course_id,
         externalCourseCode=_safe_text(payload.get('externalCourseCode')),
         title=title,
@@ -363,35 +398,98 @@ def _resolve_assignment(
     return None, str(course['masterCat']), False, []
 
 
+def _coerce_stored_completed_course(raw_course: Any, fallback_id: str) -> dict[str, Any] | None:
+    if not isinstance(raw_course, dict):
+        return None
+    title = _safe_text(raw_course.get('title'))
+    semester = _safe_text(raw_course.get('semester'))
+    master_cat = _normalize_master_cat(raw_course.get('masterCat'))
+    if not title or not semester or master_cat not in ALLOWED_MASTER_CATEGORIES:
+        return None
+
+    course_id: int | None = None
+    raw_course_id = raw_course.get('courseId')
+    if raw_course_id not in {None, ''}:
+        try:
+            course_id = int(raw_course_id)
+        except (TypeError, ValueError):
+            course_id = None
+
+    return {
+        'id': _safe_text(raw_course.get('id')) or fallback_id,
+        'courseId': course_id,
+        'externalCourseCode': _safe_text(raw_course.get('externalCourseCode')),
+        'title': title,
+        'ects': _coerce_float(raw_course.get('ects')),
+        'masterCat': master_cat,
+        'studyAreaCode': _normalize_study_area_code(raw_course.get('studyAreaCode')),
+        'grade': _coerce_grade(raw_course.get('grade')),
+        'semester': semester,
+        'source': _safe_text(raw_course.get('source')) or 'manual',
+        'createdAtUnix': int(_coerce_float(raw_course.get('createdAtUnix'))),
+        'updatedAtUnix': int(_coerce_float(raw_course.get('updatedAtUnix'))),
+    }
+
+
+async def _load_stored_completed_courses(env: Any, username: str) -> list[dict[str, Any]]:
+    stored_value = await load_user_progress_json(env, username, 'completed_courses_json')
+    completed_courses: list[dict[str, Any]] = []
+    for index, raw_course in enumerate(parse_json_array(stored_value)):
+        completed_course = _coerce_stored_completed_course(raw_course, str(index + 1))
+        if completed_course is not None:
+            completed_courses.append(completed_course)
+    return completed_courses
+
+
+def _next_completed_course_id(used_ids: set[str], current_unix: int, offset: int) -> str:
+    candidate = str((current_unix * 1000) + offset)
+    while candidate in used_ids:
+        offset += 1
+        candidate = str((current_unix * 1000) + offset)
+    used_ids.add(candidate)
+    return candidate
+
+
+def _stored_completed_course(
+    course: CompletedCoursePayload,
+    completed_course_id: str,
+    *,
+    created_at_unix: int,
+    updated_at_unix: int,
+) -> dict[str, Any]:
+    return {
+        'id': completed_course_id,
+        'courseId': course['courseId'],
+        'externalCourseCode': course['externalCourseCode'],
+        'title': course['title'],
+        'ects': course['ects'],
+        'masterCat': course['masterCat'],
+        'studyAreaCode': course['studyAreaCode'],
+        'grade': course['grade'],
+        'semester': course['semester'],
+        'source': course['source'],
+        'createdAtUnix': created_at_unix,
+        'updatedAtUnix': updated_at_unix,
+    }
+
+
 async def _serialize_completed_courses(
     env: Any,
-    user_id: int,
+    username: str,
     regulation_version_id: int | None,
 ) -> list[dict[str, Any]]:
-    rows = await fetch_all(
-        env,
-        """
-        SELECT
-            ucc.id,
-            ucc.course_id AS courseId,
-            c.number AS courseNumber,
-            ucc.external_course_code AS externalCourseCode,
-            ucc.title,
-            ucc.ects,
-            ucc.master_cat AS masterCat,
-            ucc.study_area_code AS studyAreaCode,
-            ucc.grade,
-            ucc.semester,
-            ucc.source
-        FROM user_completed_courses AS ucc
-        LEFT JOIN courses AS c ON c.id = ucc.course_id
-        WHERE ucc.user_id = ?
-        ORDER BY ucc.semester DESC, ucc.created_at_unix DESC, ucc.id ASC
-        """,
-        [user_id],
+    rows = await _load_stored_completed_courses(env, username)
+    rows.sort(
+        key=lambda row: (
+            str(row.get('semester') or ''),
+            int(row.get('createdAtUnix') or 0),
+            str(row.get('id') or ''),
+        ),
+        reverse=True,
     )
 
     course_ids = [int(row['courseId']) for row in rows if row.get('courseId') is not None]
+    course_numbers = await _load_course_numbers_by_id(env, course_ids)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, course_ids)
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
 
@@ -428,9 +526,9 @@ async def _serialize_completed_courses(
 
         serialized_courses.append(
             {
-                'id': str(int(row['id'])),
+                'id': str(row['id']),
                 'courseId': str(course_id) if course_id is not None else None,
-                'courseNumber': _safe_text(row.get('courseNumber')),
+                'courseNumber': course_numbers.get(course_id) if course_id is not None else None,
                 'externalCourseCode': _safe_text(row.get('externalCourseCode')),
                 'title': row['title'],
                 'ects': float(row['ects']),
@@ -452,7 +550,7 @@ async def get_current_user_completed_courses(env: Any, request: Any) -> dict[str
     user = await require_authenticated_user(env, request)
     completed_courses = await _serialize_completed_courses(
         env,
-        int(user['id']),
+        str(user['username']),
         int(user['profile']['regulationVersionId']) if user['profile'].get('regulationVersionId') is not None else None,
     )
     return {
@@ -461,55 +559,13 @@ async def get_current_user_completed_courses(env: Any, request: Any) -> dict[str
     }
 
 
-async def _insert_completed_course(
-    env: Any,
-    user_id: int,
-    course: CompletedCoursePayload,
-    *,
-    now_unix: int,
-) -> None:
-    await execute(
-        env,
-        """
-        INSERT INTO user_completed_courses (
-            user_id,
-            course_id,
-            external_course_code,
-            title,
-            ects,
-            master_cat,
-            study_area_code,
-            grade,
-            semester,
-            source,
-            created_at_unix,
-            updated_at_unix
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            user_id,
-            course['courseId'],
-            course['externalCourseCode'],
-            course['title'],
-            course['ects'],
-            course['masterCat'],
-            course['studyAreaCode'],
-            course['grade'],
-            course['semester'],
-            course['source'],
-            now_unix,
-            now_unix,
-        ],
-    )
-
-
 async def import_current_user_completed_courses(
     env: Any,
     request: Any,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
-    user_id = int(user['id'])
+    username = str(user['username'])
     regulation_version_id = (
         int(user['profile']['regulationVersionId'])
         if user['profile'].get('regulationVersionId') is not None
@@ -557,21 +613,14 @@ async def import_current_user_completed_courses(
 
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, incoming_course_ids)
-    existing_rows = await fetch_all(
-        env,
-        """
-        SELECT course_id AS courseId, title, semester, ects, grade
-        FROM user_completed_courses
-        WHERE user_id = ?
-        """,
-        [user_id],
-    )
-    seen_keys = {_normalize_completed_course_key(row) for row in existing_rows}
+    stored_completed_courses = await _load_stored_completed_courses(env, username)
+    seen_keys = {_normalize_completed_course_key(row) for row in stored_completed_courses}
+    used_ids = {str(course.get('id')) for course in stored_completed_courses if course.get('id') is not None}
     imported: list[dict[str, str]] = []
     skipped_duplicates: list[dict[str, str]] = []
-    now_unix = _now_unix()
+    current_unix = now_unix()
 
-    for item_id, course in parsed_imports:
+    for index, (item_id, course) in enumerate(parsed_imports):
         course_id = int(course['courseId']) if course['courseId'] is not None else None
         if course_id is not None and course_id not in valid_course_ids:
             failed.append({'id': item_id, 'message': f'Unknown course id in completed-course payload: {course_id}'})
@@ -600,11 +649,19 @@ async def import_current_user_completed_courses(
             )
             continue
 
-        await _insert_completed_course(env, user_id, normalized_course, now_unix=now_unix)
+        stored_completed_courses.append(
+            _stored_completed_course(
+                normalized_course,
+                _next_completed_course_id(used_ids, current_unix, index),
+                created_at_unix=current_unix,
+                updated_at_unix=current_unix,
+            )
+        )
         seen_keys.add(course_key)
         imported.append({'id': item_id, 'message': 'Imported successfully.'})
 
-    saved_completed_courses = await _serialize_completed_courses(env, user_id, regulation_version_id)
+    await update_user_progress_json(env, username, 'completed_courses_json', stored_completed_courses)
+    saved_completed_courses = await _serialize_completed_courses(env, username, regulation_version_id)
     return {
         'completedCourses': saved_completed_courses,
         'count': len(saved_completed_courses),
@@ -623,7 +680,7 @@ async def replace_current_user_completed_courses(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
-    user_id = int(user['id'])
+    username = str(user['username'])
     regulation_version_id = (
         int(user['profile']['regulationVersionId'])
         if user['profile'].get('regulationVersionId') is not None
@@ -643,61 +700,48 @@ async def replace_current_user_completed_courses(
 
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, validated_course_ids)
+    existing_courses = await _load_stored_completed_courses(env, username)
+    existing_by_id = {
+        str(course['id']): course
+        for course in existing_courses
+        if course.get('id') is not None
+    }
+    used_ids: set[str] = set()
+    current_unix = now_unix()
 
-    normalized_courses: list[CompletedCoursePayload] = []
-    for course in completed_courses:
+    normalized_courses: list[dict[str, Any]] = []
+    for index, course in enumerate(completed_courses):
         mapped_options = course_options.get(int(course['courseId']), []) if course['courseId'] is not None else []
         study_area_code, resolved_master_cat, _, _ = _resolve_assignment(
             course,
             mapped_options,
             rule_groups_by_code,
         )
+        normalized_course = CompletedCoursePayload(
+            course,
+            studyAreaCode=study_area_code,
+            masterCat=resolved_master_cat,
+        )
+        requested_id = _safe_text(normalized_course.get('id'))
+        completed_course_id = requested_id if requested_id and requested_id not in used_ids else None
+        if completed_course_id is None:
+            completed_course_id = _next_completed_course_id(used_ids, current_unix, index)
+        else:
+            used_ids.add(completed_course_id)
+        existing_course = existing_by_id.get(completed_course_id)
+        created_at_unix = int(existing_course.get('createdAtUnix') or current_unix) if existing_course else current_unix
         normalized_courses.append(
-            CompletedCoursePayload(
-                course,
-                studyAreaCode=study_area_code,
-                masterCat=resolved_master_cat,
+            _stored_completed_course(
+                normalized_course,
+                completed_course_id,
+                created_at_unix=created_at_unix,
+                updated_at_unix=current_unix,
             )
         )
 
-    await execute(env, 'DELETE FROM user_completed_courses WHERE user_id = ?', [user_id])
-    now_unix = _now_unix()
-    for course in normalized_courses:
-        await execute(
-            env,
-            """
-            INSERT INTO user_completed_courses (
-                user_id,
-                course_id,
-                external_course_code,
-                title,
-                ects,
-                master_cat,
-                study_area_code,
-                grade,
-                semester,
-                source,
-                created_at_unix,
-                updated_at_unix
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                user_id,
-                course['courseId'],
-                course['externalCourseCode'],
-                course['title'],
-                course['ects'],
-                course['masterCat'],
-                course['studyAreaCode'],
-                course['grade'],
-                course['semester'],
-                course['source'],
-                now_unix,
-                now_unix,
-            ],
-        )
+    await update_user_progress_json(env, username, 'completed_courses_json', normalized_courses)
 
-    saved_completed_courses = await _serialize_completed_courses(env, user_id, regulation_version_id)
+    saved_completed_courses = await _serialize_completed_courses(env, username, regulation_version_id)
     return {
         'completedCourses': saved_completed_courses,
         'count': len(saved_completed_courses),

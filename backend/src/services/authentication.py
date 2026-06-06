@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
+import json
 import secrets
-import time
 from typing import Any
 
 from db.d1 import execute, fetch_one
 from env_config import get_env_value
 from http_utils import get_request_header
+from services.user_data import ensure_user_progress, ensure_user_state, now_unix
 
 PASSWORD_PBKDF2_ITERATIONS = 310_000
-DEFAULT_SESSION_TTL_DAYS = 30
+DEFAULT_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
+AUTH_TOKEN_MAX_CLOCK_SKEW_SECONDS = 60
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
 SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
 SUPPORTED_REGULATION_PO_VERSION = '2021'
@@ -38,6 +41,10 @@ class CredentialUpdateError(ValueError):
     """Raised when a credential (email/password) update is invalid."""
 
 
+class AuthConfigurationError(RuntimeError):
+    """Raised when authentication cannot run safely because configuration is missing."""
+
+
 def _safe_text(value: Any) -> str | None:
     if value is None:
         return None
@@ -45,17 +52,20 @@ def _safe_text(value: Any) -> str | None:
     return text or None
 
 
-def _now_unix() -> int:
-    return int(time.time())
-
-
-def _session_ttl_days(env: Any) -> int:
-    raw_value = get_env_value(env, 'SESSION_TTL_DAYS', str(DEFAULT_SESSION_TTL_DAYS))
+def _auth_token_ttl_seconds(env: Any) -> int:
+    raw_value = get_env_value(env, 'AUTH_TOKEN_TTL_SECONDS', str(DEFAULT_AUTH_TOKEN_TTL_SECONDS))
     try:
-        ttl_days = int(raw_value or DEFAULT_SESSION_TTL_DAYS)
+        ttl_seconds = int(raw_value or DEFAULT_AUTH_TOKEN_TTL_SECONDS)
     except ValueError:
-        ttl_days = DEFAULT_SESSION_TTL_DAYS
-    return max(1, ttl_days)
+        ttl_seconds = DEFAULT_AUTH_TOKEN_TTL_SECONDS
+    return max(60, ttl_seconds)
+
+
+def _get_auth_token_secret(env: Any) -> str:
+    token_secret = get_env_value(env, 'AUTH_TOKEN_SECRET')
+    if not token_secret:
+        raise AuthConfigurationError('AUTH_TOKEN_SECRET must be configured as a Worker secret.')
+    return token_secret
 
 
 def _hash_password(password: str, salt_hex: str) -> str:
@@ -74,8 +84,90 @@ def _create_password_hash(password: str) -> tuple[str, str]:
     return _hash_password(password, salt_hex), salt_hex
 
 
-def _hash_session_token(token: str) -> str:
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+def _base64url_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode('ascii').rstrip('=')
+
+
+def _base64url_decode(value: str) -> bytes:
+    padding = '=' * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode('ascii'))
+
+
+def _json_token_part(value: dict[str, Any]) -> str:
+    return _base64url_encode(json.dumps(value, separators=(',', ':'), sort_keys=True).encode('utf-8'))
+
+
+def _sign_token_input(token_input: str, secret: str) -> str:
+    signature = hmac.new(
+        secret.encode('utf-8'),
+        token_input.encode('ascii'),
+        hashlib.sha256,
+    ).digest()
+    return _base64url_encode(signature)
+
+
+def _create_auth_token(env: Any, username: str) -> str:
+    secret = _get_auth_token_secret(env)
+    issued_at_unix = now_unix()
+    expires_at_unix = issued_at_unix + _auth_token_ttl_seconds(env)
+    header = {
+        'alg': 'HS256',
+        'typ': 'StudyPlannerAuthToken',
+    }
+    payload = {
+        'username': username,
+        'iat': issued_at_unix,
+        'exp': expires_at_unix,
+    }
+    unsigned_token = f'{_json_token_part(header)}.{_json_token_part(payload)}'
+    signature = _sign_token_input(unsigned_token, secret)
+    return f'{unsigned_token}.{signature}'
+
+
+def _verify_auth_token(env: Any, token: str) -> dict[str, Any] | None:
+    secret = _get_auth_token_secret(env)
+    token_parts = token.split('.')
+    if len(token_parts) != 3:
+        return None
+
+    encoded_header, encoded_payload, provided_signature = token_parts
+    unsigned_token = f'{encoded_header}.{encoded_payload}'
+    expected_signature = _sign_token_input(unsigned_token, secret)
+    if not hmac.compare_digest(provided_signature, expected_signature):
+        return None
+
+    try:
+        header = json.loads(_base64url_decode(encoded_header).decode('utf-8'))
+        payload = json.loads(_base64url_decode(encoded_payload).decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+    if not isinstance(header, dict) or not isinstance(payload, dict):
+        return None
+    if header.get('alg') != 'HS256' or header.get('typ') != 'StudyPlannerAuthToken':
+        return None
+
+    username = _safe_text(payload.get('username'))
+    if not username:
+        return None
+
+    try:
+        issued_at_unix = int(payload.get('iat'))
+        expires_at_unix = int(payload.get('exp'))
+    except (TypeError, ValueError):
+        return None
+
+    current_unix = now_unix()
+    if expires_at_unix <= current_unix:
+        return None
+    if issued_at_unix > current_unix + AUTH_TOKEN_MAX_CLOCK_SKEW_SECONDS:
+        return None
+
+    return {
+        'username': username,
+        'iat': issued_at_unix,
+        'exp': expires_at_unix,
+    }
 
 
 def _validate_login_identifier(identifier: str | None) -> str:
@@ -91,7 +183,7 @@ def _validate_login_identifier(identifier: str | None) -> str:
 
 def _derive_display_name(identifier: str) -> str:
     base = identifier.split('@', 1)[0] if '@' in identifier else identifier
-    return base.strip()[:80]
+    return base.strip()[:80] or identifier[:80]
 
 
 def _validate_password(password: Any) -> str:
@@ -112,19 +204,31 @@ def _extract_bearer_token(request: Any) -> str | None:
     return token or None
 
 
+def _registration_identity(payload: dict[str, Any]) -> tuple[str, str, str]:
+    raw_identifier = payload.get('identifier')
+    raw_username = payload.get('username')
+    raw_email = payload.get('email')
+
+    username = _validate_login_identifier(_safe_text(raw_username or raw_identifier or raw_email))
+    email = _validate_login_identifier(_safe_text(raw_email or raw_identifier or username))
+    display_name = _safe_text(payload.get('displayName')) or _derive_display_name(username)
+    return username, email, display_name[:80]
+
+
 async def _get_user_by_identifier(env: Any, identifier: str) -> dict[str, Any] | None:
     sql = """
         SELECT
-            id,
-            email,
-            password_hash AS passwordHash,
-            password_salt AS passwordSalt,
-            display_name AS displayName
-        FROM users
-        WHERE email = ?
+            ua.username,
+            ua.email,
+            ua.password_hash AS passwordHash,
+            ua.password_salt AS passwordSalt,
+            us.display_name AS displayName
+        FROM user_auth AS ua
+        LEFT JOIN user_state AS us ON us.username = ua.username
+        WHERE ua.username = ? OR ua.email = ?
         LIMIT 1
     """
-    return await fetch_one(env, sql, [identifier])
+    return await fetch_one(env, sql, [identifier, identifier])
 
 
 async def _get_supported_study_program_by_id(
@@ -233,13 +337,13 @@ async def _get_supported_regulation_version_by_code(
     )
 
 
-async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
+async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
     sql = """
         SELECT
-            u.id,
-            u.email,
-            u.display_name AS displayName,
-            up.current_semester_label AS currentSemesterLabel,
+            ua.username,
+            ua.email,
+            us.display_name AS displayName,
+            us.current_semester_label AS currentSemesterLabel,
             sp.id AS studyProgramId,
             sp.code AS studyProgramCode,
             sp.name AS studyProgramName,
@@ -249,25 +353,27 @@ async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
             rv.total_ects AS regulationTotalEcts,
             er.code AS regulationCode,
             er.name AS regulationName,
-            up.planner_mobile_mode AS plannerMobileMode,
-            up.planner_mobile_layout AS plannerMobileLayout,
+            us.planner_mobile_mode AS plannerMobileMode,
+            us.planner_mobile_layout AS plannerMobileLayout,
             sp.total_ects AS studyProgramTotalEcts
-        FROM users AS u
-        LEFT JOIN user_profiles AS up ON up.user_id = u.id
-        LEFT JOIN study_programs AS sp ON sp.id = up.study_program_id
-        LEFT JOIN regulation_versions AS rv ON rv.id = up.regulation_version_id
+        FROM user_auth AS ua
+        LEFT JOIN user_state AS us ON us.username = ua.username
+        LEFT JOIN study_programs AS sp ON sp.id = us.study_program_id
+        LEFT JOIN regulation_versions AS rv ON rv.id = us.regulation_version_id
         LEFT JOIN examination_regulations AS er ON er.id = rv.regulation_id
-        WHERE u.id = ?
+        WHERE ua.username = ?
         LIMIT 1
     """
-    row = await fetch_one(env, sql, [user_id])
+    row = await fetch_one(env, sql, [username])
     if row is None:
         return None
 
+    row_username = str(row['username'])
     return {
-        'id': row['id'],
+        'id': row_username,
+        'username': row_username,
         'email': row['email'],
-        'displayName': row['displayName'],
+        'displayName': row.get('displayName') or _derive_display_name(row_username),
         'profile': {
             'currentSemesterLabel': row.get('currentSemesterLabel'),
             'studyProgramId': row.get('studyProgramId'),
@@ -284,62 +390,33 @@ async def _get_user_profile(env: Any, user_id: int) -> dict[str, Any] | None:
     }
 
 
-async def _create_session(env: Any, user_id: int, user_agent: str | None) -> str:
-    session_token = secrets.token_urlsafe(32)
-    token_hash = _hash_session_token(session_token)
-    now_unix = _now_unix()
-    expires_at_unix = now_unix + (_session_ttl_days(env) * 24 * 60 * 60)
-
-    await execute(
-        env,
-        """
-        INSERT INTO user_sessions (
-            user_id,
-            token_hash,
-            created_at_unix,
-            expires_at_unix,
-            last_seen_at_unix,
-            user_agent
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        [user_id, token_hash, now_unix, expires_at_unix, now_unix, user_agent],
-    )
-    return session_token
-
-
 async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
-    raw_identifier = payload.get('identifier')
-    if raw_identifier in (None, ''):
-        raw_identifier = payload.get('email')
-    identifier = _validate_login_identifier(_safe_text(raw_identifier))
-    display_name = _derive_display_name(identifier)
+    del request
+    username, email, display_name = _registration_identity(payload)
     password = _validate_password(payload.get('password'))
 
-    existing_user = await _get_user_by_identifier(env, identifier)
-    if existing_user is not None:
+    if await _get_user_by_identifier(env, username) is not None:
+        raise RegistrationError('An account already exists for this email or username.')
+    if email != username and await _get_user_by_identifier(env, email) is not None:
         raise RegistrationError('An account already exists for this email or username.')
 
     password_hash, password_salt = _create_password_hash(password)
-    now_unix = _now_unix()
+    current_unix = now_unix()
 
     await execute(
         env,
         """
-        INSERT INTO users (
+        INSERT INTO user_auth (
+            username,
             email,
             password_hash,
             password_salt,
-            display_name,
             created_at_unix,
             updated_at_unix
         ) VALUES (?, ?, ?, ?, ?, ?)
         """,
-        [identifier, password_hash, password_salt, display_name, now_unix, now_unix],
+        [username, email, password_hash, password_salt, current_unix, current_unix],
     )
-
-    created_user = await _get_user_by_identifier(env, identifier)
-    if created_user is None:
-        raise RegistrationError('The account could not be created.')
 
     reg_study_program_id: int | None = None
     raw_sp = payload.get('studyProgramId')
@@ -362,37 +439,43 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
     await execute(
         env,
         """
-        INSERT INTO user_profiles (
-            user_id,
+        INSERT INTO user_state (
+            username,
+            display_name,
             study_program_id,
             regulation_version_id,
             current_semester_label,
             created_at_unix,
             updated_at_unix
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        [created_user['id'], reg_study_program_id, reg_regulation_version_id, reg_semester_label, now_unix, now_unix],
+        [
+            username,
+            display_name,
+            reg_study_program_id,
+            reg_regulation_version_id,
+            reg_semester_label,
+            current_unix,
+            current_unix,
+        ],
     )
+    await ensure_user_progress(env, username)
 
-    session_token = await _create_session(
-        env,
-        int(created_user['id']),
-        _safe_text(get_request_header(request, 'User-Agent')),
-    )
-    user = await _get_user_profile(env, int(created_user['id']))
+    user = await _get_user_profile(env, username)
     if user is None:
         raise RegistrationError('The new account profile could not be loaded.')
 
     return {
-        'token': session_token,
+        'token': _create_auth_token(env, username),
         'user': user,
     }
 
 
 async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
+    del request
     raw_identifier = payload.get('identifier')
     if raw_identifier in (None, ''):
-        raw_identifier = payload.get('email')
+        raw_identifier = payload.get('email') or payload.get('username')
     identifier = _validate_login_identifier(_safe_text(raw_identifier))
     password = _validate_password(payload.get('password'))
 
@@ -404,17 +487,15 @@ async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[st
     if not hmac.compare_digest(str(user_row['passwordHash']), expected_hash):
         raise AuthenticationError('Invalid credentials.')
 
-    session_token = await _create_session(
-        env,
-        int(user_row['id']),
-        _safe_text(get_request_header(request, 'User-Agent')),
-    )
-    user = await _get_user_profile(env, int(user_row['id']))
+    username = str(user_row['username'])
+    await ensure_user_state(env, username)
+    await ensure_user_progress(env, username)
+    user = await _get_user_profile(env, username)
     if user is None:
         raise AuthenticationError('The account profile could not be loaded.')
 
     return {
-        'token': session_token,
+        'token': _create_auth_token(env, username),
         'user': user,
     }
 
@@ -424,37 +505,11 @@ async def get_authenticated_user(env: Any, request: Any) -> dict[str, Any] | Non
     if not token:
         return None
 
-    token_hash = _hash_session_token(token)
-    session_sql = """
-        SELECT
-            id,
-            user_id AS userId,
-            expires_at_unix AS expiresAtUnix,
-            revoked_at_unix AS revokedAtUnix
-        FROM user_sessions
-        WHERE token_hash = ?
-        LIMIT 1
-    """
-    session = await fetch_one(env, session_sql, [token_hash])
-    if session is None:
+    token_payload = _verify_auth_token(env, token)
+    if token_payload is None:
         return None
 
-    now_unix = _now_unix()
-    if session.get('revokedAtUnix') is not None:
-        return None
-    if int(session['expiresAtUnix']) <= now_unix:
-        return None
-
-    await execute(
-        env,
-        """
-        UPDATE user_sessions
-        SET last_seen_at_unix = ?
-        WHERE id = ?
-        """,
-        [now_unix, session['id']],
-    )
-    return await _get_user_profile(env, int(session['userId']))
+    return await _get_user_profile(env, str(token_payload['username']))
 
 
 async def require_authenticated_user(env: Any, request: Any) -> dict[str, Any]:
@@ -465,20 +520,10 @@ async def require_authenticated_user(env: Any, request: Any) -> dict[str, Any]:
 
 
 async def logout_user(env: Any, request: Any) -> None:
-    token = _extract_bearer_token(request)
-    if not token:
-        raise AuthorizationError('Authentication is required for this endpoint.')
-
-    await execute(
-        env,
-        """
-        UPDATE user_sessions
-        SET revoked_at_unix = ?
-        WHERE token_hash = ?
-          AND revoked_at_unix IS NULL
-        """,
-        [_now_unix(), _hash_session_token(token)],
-    )
+    del env, request
+    # Stateless tokens cannot be revoked without reintroducing server-side token state.
+    # The frontend performs logout by deleting its stored bearer token.
+    return None
 
 
 async def get_current_user_profile(env: Any, request: Any) -> dict[str, Any]:
@@ -601,7 +646,8 @@ async def update_current_user_profile(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     current_user = await require_authenticated_user(env, request)
-    user_id = int(current_user['id'])
+    username = str(current_user['username'])
+    await ensure_user_state(env, username)
     current_profile_row = await fetch_one(
         env,
         """
@@ -611,11 +657,11 @@ async def update_current_user_profile(
             current_semester_label AS currentSemesterLabel,
             planner_mobile_mode AS plannerMobileMode,
             planner_mobile_layout AS plannerMobileLayout
-        FROM user_profiles
-        WHERE user_id = ?
+        FROM user_state
+        WHERE username = ?
         LIMIT 1
         """,
-        [user_id],
+        [username],
     )
 
     current_study_program_id = current_profile_row.get('studyProgramId') if current_profile_row else None
@@ -671,11 +717,11 @@ async def update_current_user_profile(
     if planner_mobile_layout not in ALLOWED_PLANNER_MOBILE_LAYOUTS:
         raise ProfileUpdateError('plannerMobileLayout must be compact-grid or weekly-list.')
 
-    now_unix = _now_unix()
+    current_unix = now_unix()
     await execute(
         env,
         """
-        UPDATE user_profiles
+        UPDATE user_state
         SET
             study_program_id = ?,
             regulation_version_id = ?,
@@ -683,7 +729,7 @@ async def update_current_user_profile(
             planner_mobile_mode = ?,
             planner_mobile_layout = ?,
             updated_at_unix = ?
-        WHERE user_id = ?
+        WHERE username = ?
         """,
         [
             next_study_program_id,
@@ -691,12 +737,12 @@ async def update_current_user_profile(
             current_semester_label,
             planner_mobile_mode,
             planner_mobile_layout,
-            now_unix,
-            user_id,
+            current_unix,
+            username,
         ],
     )
 
-    updated_profile = await _get_user_profile(env, user_id)
+    updated_profile = await _get_user_profile(env, username)
     if updated_profile is None:
         raise ProfileUpdateError('The updated profile could not be loaded.')
     return updated_profile
@@ -708,7 +754,7 @@ async def update_user_credentials(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     current_user = await require_authenticated_user(env, request)
-    user_id = int(current_user['id'])
+    username = str(current_user['username'])
 
     current_password = payload.get('currentPassword')
     if not current_password or not isinstance(current_password, str):
@@ -716,8 +762,8 @@ async def update_user_credentials(
 
     user_row = await fetch_one(
         env,
-        'SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM users WHERE id = ?',
-        [user_id],
+        'SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM user_auth WHERE username = ?',
+        [username],
     )
     if user_row is None:
         raise CredentialUpdateError('User not found.')
@@ -726,34 +772,48 @@ async def update_user_credentials(
     if not hmac.compare_digest(str(user_row['passwordHash']), expected_hash):
         raise CredentialUpdateError('Current password is incorrect.')
 
-    updates: dict[str, Any] = {}
+    auth_updates: dict[str, Any] = {}
+    state_updates: dict[str, Any] = {}
 
-    if 'identifier' in payload:
-        new_identifier = _validate_login_identifier(_safe_text(payload.get('identifier')))
-        existing = await _get_user_by_identifier(env, new_identifier)
-        if existing is not None and int(existing['id']) != user_id:
+    if 'identifier' in payload or 'email' in payload:
+        raw_identifier = payload.get('email') if 'email' in payload else payload.get('identifier')
+        new_email = _validate_login_identifier(_safe_text(raw_identifier))
+        existing = await _get_user_by_identifier(env, new_email)
+        if existing is not None and str(existing['username']) != username:
             raise CredentialUpdateError('This email or username is already taken.')
-        updates['email'] = new_identifier
-        updates['display_name'] = _derive_display_name(new_identifier)
+        auth_updates['email'] = new_email
+        state_updates['display_name'] = _derive_display_name(new_email)
 
     if 'newPassword' in payload:
         new_password = _validate_password(payload.get('newPassword'))
         pw_hash, pw_salt = _create_password_hash(new_password)
-        updates['password_hash'] = pw_hash
-        updates['password_salt'] = pw_salt
+        auth_updates['password_hash'] = pw_hash
+        auth_updates['password_salt'] = pw_salt
 
-    if not updates:
-        return await _get_user_profile(env, user_id) or {}
+    if not auth_updates and not state_updates:
+        return await _get_user_profile(env, username) or {}
 
-    set_clauses = ', '.join(f'{k} = ?' for k in updates)
-    values = list(updates.values()) + [_now_unix(), user_id]
-    await execute(
-        env,
-        f'UPDATE users SET {set_clauses}, updated_at_unix = ? WHERE id = ?',  # noqa: S608
-        values,
-    )
+    current_unix = now_unix()
+    if auth_updates:
+        set_clauses = ', '.join(f'{column_name} = ?' for column_name in auth_updates)
+        values = list(auth_updates.values()) + [current_unix, username]
+        await execute(
+            env,
+            f'UPDATE user_auth SET {set_clauses}, updated_at_unix = ? WHERE username = ?',  # noqa: S608
+            values,
+        )
 
-    updated = await _get_user_profile(env, user_id)
+    if state_updates:
+        await ensure_user_state(env, username)
+        state_set_clauses = ', '.join(f'{column_name} = ?' for column_name in state_updates)
+        state_values = list(state_updates.values()) + [current_unix, username]
+        await execute(
+            env,
+            f'UPDATE user_state SET {state_set_clauses}, updated_at_unix = ? WHERE username = ?',  # noqa: S608
+            state_values,
+        )
+
+    updated = await _get_user_profile(env, username)
     if updated is None:
         raise CredentialUpdateError('The updated profile could not be loaded.')
     return updated

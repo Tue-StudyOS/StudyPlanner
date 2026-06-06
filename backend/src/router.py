@@ -8,6 +8,7 @@ from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
 from http_utils import empty_response, error_response, json_response
 from request_utils import RequestBodyError, read_json_object
 from services.authentication import (
+    AuthConfigurationError,
     AuthenticationError,
     AuthorizationError,
     CredentialUpdateError,
@@ -303,7 +304,7 @@ async def route_request(request: Any, env: Any) -> Any:
         if path == "/":
             return json_response(
                 {
-                    "service": "studyplaner-api",
+                    "service": "studyplanner-api",
                     "status": "ready",
                     "routes": {
                         "health": "/health",
@@ -334,7 +335,7 @@ async def route_request(request: Any, env: Any) -> Any:
             return json_response(
                 {
                     "ok": True,
-                    "service": "studyplaner-api",
+                    "service": "studyplanner-api",
                     "database": await _database_status(env),
                 },
                 request=request,
@@ -574,6 +575,14 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=401,
+        )
+    except AuthConfigurationError as exc:
+        return error_response(
+            code="authentication_not_configured",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=500,
         )
     except AuthorizationError as exc:
         return error_response(

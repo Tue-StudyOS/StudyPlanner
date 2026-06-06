@@ -32,7 +32,7 @@ Apply local migrations:
 
 ```bash
 cd backend
-npx wrangler d1 migrations apply studyplaner-db --local
+npx wrangler d1 migrations apply studyplanner-db --local
 ```
 
 Create a D1 seed from the tracked SQLite source:
@@ -45,7 +45,7 @@ Import it into local D1:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --local --file .tmp/d1-seed.sql
+npx wrangler d1 execute studyplanner-db --local --file .tmp/d1-seed.sql
 ```
 
 ## Deploy workflow
@@ -81,7 +81,7 @@ Important variables:
 For Pages preview deployments, `ALLOWED_ORIGINS` should allow both the production Pages origin and preview subdomains, for example:
 
 ```text
-https://studyplaner.pages.dev,https://*.studyplaner.pages.dev
+https://studyplanner.pages.dev,https://*.studyplanner.pages.dev
 ```
 
 ## Smoke tests

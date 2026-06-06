@@ -19,7 +19,7 @@ export function TopBar() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <a
-          href="https://studyplaner.pages.dev/"
+          href="https://studyplanner.pages.dev/"
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">

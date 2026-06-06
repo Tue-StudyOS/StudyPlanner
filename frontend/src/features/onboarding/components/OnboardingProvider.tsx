@@ -8,7 +8,7 @@ interface OnboardingProviderProps {
   children: ReactNode
 }
 
-function seenStorageKey(userId: number): string {
+function seenStorageKey(userId: string): string {
   return `studyplanner.onboarding.seen.${userId}`
 }
 

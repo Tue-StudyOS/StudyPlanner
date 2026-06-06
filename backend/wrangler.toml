@@ -1,4 +1,4 @@
-name = "studyplaner-api"
+name = "studyplanner-api"
 main = "src/main.py"
 compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
@@ -6,9 +6,10 @@ workers_dev = true
 
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
+ALLOWED_ORIGINS = "https://studyplanner.pages.dev,https://*.studyplanner.pages.dev,http://localhost:5173"
+AUTH_TOKEN_TTL_SECONDS = "2592000"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "studyplaner-db-test"
-database_id = "297f7a28-9069-431d-b989-49acf2537513"
+database_name = "studyplanner-db"
+database_id = "80ca9092-ddc6-454a-b04a-8ccae85ef2f5"

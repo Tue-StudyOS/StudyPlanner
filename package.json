@@ -1,13 +1,13 @@
 {
-  "name": "studyplaner",
+  "name": "studyplanner",
   "private": true,
   "scripts": {
     "dev:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build",
     "dev:backend": "cd backend && npx wrangler dev",
     "deploy:backend": "cd backend && npx wrangler deploy",
-    "db:migrate:local": "cd backend && npx wrangler d1 migrations apply studyplaner-db --local",
-    "db:migrate:remote": "cd backend && npx wrangler d1 migrations apply studyplaner-db --remote",
+    "db:migrate:local": "cd backend && npx wrangler d1 migrations apply studyplanner-db --local",
+    "db:migrate:remote": "cd backend && npx wrangler d1 migrations apply studyplanner-db --remote",
     "db:export:d1": "python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql"
   }
 }

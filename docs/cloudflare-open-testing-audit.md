@@ -41,7 +41,7 @@ This audit can confirm the repo configuration, but it cannot fully confirm the l
 
 - Worker source: `backend/src/main.py`
 - Worker router: `backend/src/router.py`
-- Worker name in `backend/wrangler.toml`: `studyplaner-api`
+- Worker name in `backend/wrangler.toml`: `studyplanner-api`
 - Compatibility date: `2025-05-20`
 - Compatibility flag: `python_workers`
 - `workers_dev = true`
@@ -50,9 +50,9 @@ This audit can confirm the repo configuration, but it cannot fully confirm the l
 ### D1
 
 - The repo is built around **one D1 binding** named `DB`.
-- `backend/wrangler.toml` currently points that binding at a database named **`studyplaner-db-test`**.
-- Root helper scripts and several docs still refer to **`studyplaner-db`**, so the repo currently has **name drift** between documentation/scripts and the checked-in Worker binding.
-- The checked-in migration set builds **39 tables and 2 views**.
+- `backend/wrangler.toml` currently points that binding at the correctly named database **`studyplanner-db`**.
+- The legacy typo-named `studyplaner-db-test` exists only as a source/template backup outside the checked-in runtime config.
+- The checked-in migration set builds the public catalog/regulation tables plus the reduced `user_auth`, `user_state`, and `user_progress` user schema.
 
 ### Frontend / Pages
 
@@ -120,7 +120,7 @@ public ALMA pages
 
 | Area | Repo-confirmed current state | Why it matters |
 | --- | --- | --- |
-| D1 naming | `backend/wrangler.toml` uses `studyplaner-db-test`, while scripts/docs often use `studyplaner-db` | Commands and docs can drift from the bound database |
+| D1 remote safety | `studyplanner-db` is configured, while legacy `studyplaner-db-test` may still hold source/template data remotely | Remote rebuilds must back up both databases and avoid destructive D1 changes without approval |
 | Cloudflare docs | Some docs still describe a migration/test setup instead of the current single active D1 direction | Open-testing guidance is harder to trust |
 | Legacy tracked data | `backend/data/courses.json`, `backend/data/Alma_courses.json`, and `backend/data/regulations/*` are still tracked | They add ambiguity around the real source of truth |
 | Live inventory proof | No checked-in dashboard export or Wrangler remote inventory | The repo alone cannot prove live resource names/domains |
@@ -203,14 +203,11 @@ That means the practical current split is:
 
 | Table | Purpose | Data ownership | Key columns | Upstream source | Main consumers | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `users` | Account identity and password hashes | Private user data | `id`, `email`, `password_hash`, `password_salt`, `display_name` | auth API writes | `authentication.py` | Keep |
-| `user_profiles` | Per-user profile and planner preferences | Private user data | `user_id`, `study_program_id`, `regulation_version_id`, `current_semester_label`, `planner_mobile_layout` | auth/profile API writes | `authentication.py`, planner/profile UI, progress | Keep |
-| `user_sessions` | Bearer-token session store | Private user data | `id`, `user_id`, `token_hash`, `expires_at_unix`, `revoked_at_unix` | auth API writes | `authentication.py` | Keep |
-| `user_favorites` | User favorite-course set | Private user data | `user_id`, `course_id`, `created_at_unix` | favorites API writes | `user_favorites.py`, planner favorites UI | Keep |
-| `user_completed_courses` | User transcript/progress course records | Private user data | `id`, `user_id`, `course_id`, `external_course_code`, `study_area_code`, `grade` | completed-course API writes/import | `user_completed_courses.py`, `progress.py` | Keep |
-| `user_transcript_issues` | Unresolved transcript import candidates | Private user data | `id`, `user_id`, `issue_key`, `candidate_json`, `updated_at_unix` | transcript-issue API writes | `user_transcript_issues.py` | Keep |
-| `user_semester_plans` | One semester-plan header per user/semester | Private user data | `id`, `user_id`, `semester_label`, `hidden_slot_ids`, `updated_at_unix` | planner API writes | `user_semester_plans.py`, planner UI | Keep |
-| `user_semester_plan_courses` | Ordered courses saved inside a semester plan | Private user data | `plan_id`, `course_id`, `position`, `study_area_code` | planner API writes | `user_semester_plans.py`, planner UI | Keep |
+| `user_auth` | Credential-only account identity | Private user data | `username`, `email`, `password_hash`, `password_salt` | auth API writes / legacy migration | `authentication.py` | Keep |
+| `user_state` | Profile/settings/favorites/planner state | Private user data | `username`, `study_program_id`, `regulation_version_id`, `favorites_json`, `semester_plans_json` | auth/profile/favorites/planner API writes / legacy migration | auth, favorites, planner services | Keep |
+| `user_progress` | Completed courses and transcript review state | Private user data | `username`, `completed_courses_json`, `transcript_review_items_json` | completed-course/transcript API writes / legacy migration | completed-course, transcript, progress services | Keep |
+
+The older normalized account tables are migration sources only and are dropped by the user-schema overhaul migration.
 
 ### Views
 
@@ -296,15 +293,15 @@ The repo already behaves like there is only **one active remote D1**.
 
 Target naming should therefore be production-like and no longer suggest an isolated migration sandbox. The desired end state is:
 
-- D1: `studyplaner-db`
-- Worker: `studyplaner-api`
-- Pages: `studyplaner-web`
+- D1: `studyplanner-db`
+- Worker: `studyplanner-api`
+- Pages: `studyplanner-web`
 
-However, the repo currently still points at `studyplaner-db-test` in `backend/wrangler.toml`. Because the live Cloudflare account is not available from the repo alone, the safe repo-side conclusion is:
+The repo now points at `studyplanner-db` in `backend/wrangler.toml`. The safe repo-side conclusion is:
 
-- **current configured remote name:** `studyplaner-db-test`
-- **target normalized name:** `studyplaner-db`
-- **required live follow-up:** rename or recreate the D1 resource in Cloudflare, then update `backend/wrangler.toml`, helper scripts, and docs together
+- **current configured remote name:** `studyplanner-db`
+- **legacy source/template name:** `studyplaner-db-test`
+- **required live follow-up:** export/backup both D1 databases, then ask for explicit confirmation before applying remote schema changes
 
 ### Architecture decision summary
 
@@ -562,7 +559,7 @@ When the scraper/importer evolves, prefer this order:
 
 | Topic | Current repo-confirmed state | Target state |
 | --- | --- | --- |
-| runtime database | one D1 binding, currently configured as `studyplaner-db-test` | one D1 with normalized production-like naming |
+| runtime database | one D1 binding configured as `studyplanner-db` | keep one D1 with normalized production-like naming |
 | source-of-truth model | D1 at runtime, SQLite still used as import/bootstrap source | D1 canonical for app data, ingestion path can remain transitional |
 | public data surface | public catalog endpoints already available | keep public catalog as the only open-testing surface |
 | account-backed features | deployed in the Worker and backed by D1 | keep internal-only during first open testing |

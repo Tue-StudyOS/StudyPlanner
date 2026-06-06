@@ -4,6 +4,7 @@ from typing import Any
 
 from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
+from services.user_data import load_user_progress_json, parse_json_array
 
 MASTER_CATEGORY_ORDER = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
 
@@ -51,6 +52,13 @@ def _normalize_master_cat(value: Any) -> str | None:
     return normalized_value
 
 
+def _coerce_unix(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _normalize_study_area_code(value: Any) -> str | None:
     normalized_value = _safe_text(value)
     return normalized_value.upper() if normalized_value else None
@@ -75,14 +83,14 @@ def _grade_quality_multiplier(grade: float | None) -> float:
 
 
 def _build_completed_course_detail(completed_course: dict[str, Any]) -> dict[str, Any]:
-    completed_course_id = int(completed_course['id'])
+    completed_course_id = str(completed_course['id'])
     direct_course_id = (
         int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
     )
     course_number = _safe_text(completed_course.get('courseNumber'))
     external_course_code = _safe_text(completed_course.get('externalCourseCode'))
     return {
-        'completedCourseId': str(completed_course_id),
+        'completedCourseId': completed_course_id,
         'courseId': str(direct_course_id) if direct_course_id is not None else None,
         'courseNumber': course_number or external_course_code,
         'title': _safe_text(completed_course.get('title')) or 'Untitled course',
@@ -132,6 +140,71 @@ def _finalize_regulation_area(area_entry: dict[str, Any]) -> dict[str, Any]:
         'isFulfilled': earned_ects >= required_ects if required_ects > 0 else earned_ects > 0,
         'courses': courses,
     }
+
+
+async def _load_course_numbers_by_id(env: Any, course_ids: list[int]) -> dict[int, str]:
+    if not course_ids:
+        return {}
+    unique_course_ids = sorted(set(course_ids))
+    placeholders = ', '.join('?' for _ in unique_course_ids)
+    rows = await fetch_all(
+        env,
+        f'SELECT id, number FROM courses WHERE id IN ({placeholders})',
+        unique_course_ids,
+    )
+    return {
+        int(row['id']): str(row['number'])
+        for row in rows
+        if row.get('number') is not None
+    }
+
+
+def _coerce_completed_course_for_progress(raw_course: Any, fallback_id: str) -> dict[str, Any] | None:
+    if not isinstance(raw_course, dict):
+        return None
+    title = _safe_text(raw_course.get('title'))
+    semester = _safe_text(raw_course.get('semester'))
+    if not title or not semester:
+        return None
+
+    course_id: int | None = None
+    raw_course_id = raw_course.get('courseId')
+    if raw_course_id not in {None, ''}:
+        try:
+            course_id = int(raw_course_id)
+        except (TypeError, ValueError):
+            course_id = None
+
+    grade = _normalize_float(raw_course.get('grade')) if raw_course.get('grade') not in {None, ''} else None
+    return {
+        'id': _safe_text(raw_course.get('id')) or fallback_id,
+        'courseId': course_id,
+        'courseNumber': None,
+        'externalCourseCode': _safe_text(raw_course.get('externalCourseCode')),
+        'title': title,
+        'ects': _normalize_float(raw_course.get('ects')) or 0.0,
+        'masterCat': _normalize_master_cat(raw_course.get('masterCat')),
+        'studyAreaCode': _normalize_study_area_code(raw_course.get('studyAreaCode')),
+        'grade': grade,
+        'semester': semester,
+        'createdAtUnix': _coerce_unix(raw_course.get('createdAtUnix')),
+    }
+
+
+async def _load_completed_courses_for_progress(env: Any, username: str) -> list[dict[str, Any]]:
+    stored_value = await load_user_progress_json(env, username, 'completed_courses_json')
+    completed_courses = [
+        completed_course
+        for index, raw_course in enumerate(parse_json_array(stored_value))
+        if (completed_course := _coerce_completed_course_for_progress(raw_course, str(index + 1))) is not None
+    ]
+    course_ids = [int(course['courseId']) for course in completed_courses if course.get('courseId') is not None]
+    course_numbers = await _load_course_numbers_by_id(env, course_ids)
+    for completed_course in completed_courses:
+        course_id = int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
+        completed_course['courseNumber'] = course_numbers.get(course_id) if course_id is not None else None
+    completed_courses.sort(key=lambda course: (course.get('createdAtUnix') or 0, str(course.get('id') or '')))
+    return completed_courses
 
 
 def _group_bachelor_dashboard_areas(raw_areas: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -281,34 +354,14 @@ async def _build_regulation_progress(
 
 async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
-    user_id = int(user['id'])
+    username = str(user['username'])
     active_regulation_version_id = user['profile'].get('regulationVersionId')
     study_program_code = _safe_text(user['profile'].get('studyProgramCode'))
     required_ects = _normalize_float(user['profile'].get('totalEcts'))
     if required_ects is None:
         required_ects = 120.0
 
-    completed_courses = await fetch_all(
-        env,
-        """
-        SELECT
-            ucc.id,
-            ucc.course_id AS courseId,
-            c.number AS courseNumber,
-            ucc.external_course_code AS externalCourseCode,
-            ucc.title,
-            ucc.ects,
-            ucc.master_cat AS masterCat,
-            ucc.study_area_code AS studyAreaCode,
-            ucc.grade,
-            ucc.semester
-        FROM user_completed_courses AS ucc
-        LEFT JOIN courses AS c ON c.id = ucc.course_id
-        WHERE ucc.user_id = ?
-        ORDER BY ucc.created_at_unix ASC, ucc.id ASC
-        """,
-        [user_id],
-    )
+    completed_courses = await _load_completed_courses_for_progress(env, username)
 
     progress_categories = await fetch_all(
         env,
@@ -383,11 +436,11 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         for category in progress_categories
     }
 
-    used_category_assignments: set[tuple[int, int]] = set()
+    used_category_assignments: set[tuple[str, int]] = set()
     unmapped_completed_courses: list[dict[str, Any]] = []
 
     for completed_course in completed_courses:
-        completed_course_id = int(completed_course['id'])
+        completed_course_id = str(completed_course['id'])
         direct_course_id = (
             int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
         )

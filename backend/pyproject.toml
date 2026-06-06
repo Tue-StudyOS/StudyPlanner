@@ -1,7 +1,7 @@
 [project]
-name = "studyplaner-api"
+name = "studyplanner-api"
 version = "0.1.0"
-description = "Cloudflare Worker API and D1 import tooling for StudyPlaner."
+description = "Cloudflare Worker API and D1 import tooling for StudyPlanner."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []

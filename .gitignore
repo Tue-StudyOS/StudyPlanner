@@ -167,8 +167,10 @@ venv.bak/
 backend/.tmp/
 backend/.dev.vars
 
-# Local agent notes
+# Local agent notes and fixtures
+.pi/
 cloudflare_migration_agent_prompt.md
+*.pdf
 
 # Spyder project settings
 .spyderproject

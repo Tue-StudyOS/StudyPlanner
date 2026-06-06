@@ -2,26 +2,33 @@ from __future__ import annotations
 
 from typing import Any
 
-from db.d1 import execute, fetch_all
+from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
+from services.user_data import load_user_state_json, parse_json_array, update_user_state_json
 
 
 class FavoriteUpdateError(ValueError):
     """Raised when a favorite update payload is invalid."""
 
 
-async def _list_favorite_course_ids(env: Any, user_id: int) -> list[str]:
-    rows = await fetch_all(
-        env,
-        """
-        SELECT course_id AS courseId
-        FROM user_favorites
-        WHERE user_id = ?
-        ORDER BY created_at_unix ASC, course_id ASC
-        """,
-        [user_id],
-    )
-    return [str(int(row['courseId'])) for row in rows]
+def _normalize_stored_course_ids(values: list[Any]) -> list[str]:
+    normalized_ids: list[str] = []
+    seen_ids: set[int] = set()
+    for raw_value in values:
+        try:
+            course_id = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if course_id in seen_ids:
+            continue
+        seen_ids.add(course_id)
+        normalized_ids.append(str(course_id))
+    return normalized_ids
+
+
+async def _list_favorite_course_ids(env: Any, username: str) -> list[str]:
+    stored_value = await load_user_state_json(env, username, 'favorites_json')
+    return _normalize_stored_course_ids(parse_json_array(stored_value))
 
 
 def _normalize_course_ids(payload: dict[str, Any]) -> list[int]:
@@ -68,7 +75,7 @@ async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
 
 async def get_current_user_favorites(env: Any, request: Any) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
-    favorite_course_ids = await _list_favorite_course_ids(env, int(user['id']))
+    favorite_course_ids = await _list_favorite_course_ids(env, str(user['username']))
     return {
         'favoriteCourseIds': favorite_course_ids,
         'count': len(favorite_course_ids),
@@ -81,19 +88,13 @@ async def replace_current_user_favorites(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
-    user_id = int(user['id'])
+    username = str(user['username'])
     course_ids = _normalize_course_ids(payload)
     await _validate_course_ids(env, course_ids)
 
-    await execute(env, 'DELETE FROM user_favorites WHERE user_id = ?', [user_id])
-    for course_id in course_ids:
-        await execute(
-            env,
-            'INSERT INTO user_favorites (user_id, course_id) VALUES (?, ?)',
-            [user_id, course_id],
-        )
+    await update_user_state_json(env, username, 'favorites_json', [str(course_id) for course_id in course_ids])
 
-    favorite_course_ids = await _list_favorite_course_ids(env, user_id)
+    favorite_course_ids = await _list_favorite_course_ids(env, username)
     return {
         'favoriteCourseIds': favorite_course_ids,
         'count': len(favorite_course_ids),
