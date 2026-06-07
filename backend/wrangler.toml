@@ -6,7 +6,7 @@ workers_dev = true
 
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://studyplanner.pages.dev,https://*.studyplanner.pages.dev,http://localhost:5173"
+ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
 AUTH_TOKEN_TTL_SECONDS = "2592000"
 
 [[d1_databases]]

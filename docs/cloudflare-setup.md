@@ -125,7 +125,7 @@ Make sure the Worker has the `DB` D1 binding and the `ALLOWED_ORIGINS` variable.
 Recommended `ALLOWED_ORIGINS` value for Pages production plus preview deployments:
 
 ```text
-https://studyplanner.pages.dev,https://*.studyplanner.pages.dev,http://localhost:5173
+https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173
 ```
 
 ## 10. Domains

@@ -18,8 +18,8 @@ export function TopBar() {
         className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 [transform:translateZ(0)] sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
-        <a
-          href="https://studyplanner.pages.dev/"
+        <Link
+          to={ROUTES.dashboard}
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">
@@ -28,7 +28,7 @@ export function TopBar() {
           <span className="truncate font-serif text-base font-semibold text-white sm:text-lg">
             StudyPlanner
           </span>
-        </a>
+        </Link>
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">

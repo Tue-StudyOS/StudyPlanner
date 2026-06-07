@@ -81,7 +81,7 @@ Important variables:
 For Pages preview deployments, `ALLOWED_ORIGINS` should allow both the production Pages origin and preview subdomains, for example:
 
 ```text
-https://studyplanner.pages.dev,https://*.studyplanner.pages.dev
+https://studyplaner.pages.dev,https://*.studyplaner.pages.dev
 ```
 
 ## Smoke tests

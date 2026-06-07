@@ -9,6 +9,7 @@ import { useCatalogCourses } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
+import { balanceSemesterPlan } from '../api'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
@@ -72,6 +73,14 @@ function EmptyGridState({ isEditing }: { isEditing: boolean }) {
           : 'No courses are saved for this semester yet. Use Edit semester to start planning.'}
       </div>
     </div>
+  )
+}
+
+function UnsavedPlannerDraftIndicator() {
+  return (
+    <span className="rounded-full border border-primary/25 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+      Unsaved semester draft
+    </span>
   )
 }
 
@@ -481,7 +490,10 @@ function PlannerGrid({
       >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
+              {hasUnsavedChanges ? <UnsavedPlannerDraftIndicator /> : null}
+            </div>
             <p className="mt-1 text-[12.5px] text-fg-muted">
               Plan the selected semester here and keep only the schedule details that matter.
             </p>
@@ -572,10 +584,6 @@ function PlannerGrid({
             </div>
           </div>
         </div>
-
-        {hasUnsavedChanges ? (
-          <div className="mb-4 text-[12.5px] text-primary">You have unsaved changes.</div>
-        ) : null}
 
         {isWeeklyListLayout ? (
           <PlannerWeeklyListView
@@ -755,11 +763,13 @@ function PlannerGrid({
 }
 
 export function SemesterPlanner() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, token, user } = useAuth()
   const { favoriteIds, toggleFavorite } = useFavorites()
   const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
+  const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
+  const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
   const [completionNotice, setCompletionNotice] = useState<string | null>(null)
   const { courses, isLoading, error } = useCatalogCourses('', 500)
@@ -784,6 +794,7 @@ export function SemesterPlanner() {
     setPlannedCourseIds,
     setHiddenSlotIds,
     setAssignment,
+    setAssignments,
     startEditing,
     cancelEditing,
     saveCurrentSemesterPlan,
@@ -869,6 +880,37 @@ export function SemesterPlanner() {
     }
 
     setHiddenSlotIds(nextHiddenSlotIds)
+  }
+
+  async function handleAutoBalanceAssignments(): Promise<void> {
+    if (!token) {
+      setBalanceMessage('Sign in to auto-balance planner areas.')
+      return
+    }
+    if (plannedCourseIds.length === 0) {
+      setBalanceMessage('Add courses before auto-balancing planner areas.')
+      return
+    }
+
+    setIsBalancingAssignments(true)
+    setBalanceMessage(null)
+    try {
+      const result = await balanceSemesterPlan(token, activeSemesterLabel, {
+        courseIds: plannedCourseIds,
+        courseAssignments: planAssignments,
+      })
+      setAssignments(result.assignments)
+      if (result.strictSolutionFound && result.warnings.length === 0) {
+        setBalanceMessage(null)
+        return
+      }
+      const warningText = result.warnings.at(0)?.message
+      setBalanceMessage(warningText || 'No complete capacity-safe composition could be found.')
+    } catch (error) {
+      setBalanceMessage(error instanceof Error ? error.message : 'Auto-balancing failed.')
+    } finally {
+      setIsBalancingAssignments(false)
+    }
   }
 
   useEffect(() => {
@@ -998,6 +1040,18 @@ export function SemesterPlanner() {
               onRemoveSlot={handleRemoveSlot}
             />
           )}
+          <PlannerFeedback
+            plannedCourses={plannedCourses}
+            completedCourses={completedCourses}
+            studyProgramCode={plannerStudyProgramCode}
+            planAssignments={planAssignments}
+            regulationRuleGroups={plannerRuleGroups}
+            isEditing={isEditing}
+            isBalancing={isBalancingAssignments}
+            balanceMessage={balanceMessage}
+            onSetAssignment={setAssignment}
+            onAutoBalance={handleAutoBalanceAssignments}
+          />
         </div>
 
         {!isMobilePlanner ? (
@@ -1020,14 +1074,6 @@ export function SemesterPlanner() {
           />
         ) : null}
       </div>
-
-      <PlannerFeedback
-        plannedCourses={plannedCourses}
-        completedCourses={completedCourses}
-        studyProgramCode={plannerStudyProgramCode}
-        planAssignments={planAssignments}
-        regulationRuleGroups={plannerRuleGroups}
-      />
 
       <MobilePlannerFavoritesDrawer
         isOpen={isEditing && isMobilePlanner && isMobileFavoritesOpen}

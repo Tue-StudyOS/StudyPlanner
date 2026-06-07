@@ -17,6 +17,29 @@ interface SaveSemesterPlanInput {
   courseAssignments?: Record<string, string>
 }
 
+export interface PlannerBalanceWarning {
+  type: string
+  courseId?: string
+  courseTitle?: string
+  message: string
+}
+
+export interface PlannerBalanceSummaryArea {
+  areaCode: string
+  areaName: string
+  creditedEcts: number
+  plannedEcts: number
+  capacityEcts: number | null
+}
+
+export interface PlannerBalanceResult {
+  assignments: Record<string, string>
+  warnings: PlannerBalanceWarning[]
+  unassignedCourseIds: string[]
+  summary: PlannerBalanceSummaryArea[]
+  strictSolutionFound: boolean
+}
+
 export async function fetchSemesterPlans(token: string): Promise<SemesterPlanSummary[]> {
   const response = await fetchJson<SemesterPlansResponse>('/api/me/semester-plans', {
     headers: {
@@ -74,4 +97,25 @@ export async function deleteSemesterPlan(token: string, semesterLabel: string): 
       ...createAuthHeaders(token),
     },
   })
+}
+
+export async function balanceSemesterPlan(
+  token: string,
+  semesterLabel: string,
+  input: {
+    courseIds: string[]
+    courseAssignments: Record<string, string>
+  },
+): Promise<PlannerBalanceResult> {
+  return await fetchJson<PlannerBalanceResult>(
+    `/api/me/semester-plans/${encodeURIComponent(semesterLabel)}/balance`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...createAuthHeaders(token),
+      },
+      body: JSON.stringify(input),
+    },
+  )
 }
