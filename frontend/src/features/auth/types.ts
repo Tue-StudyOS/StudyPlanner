@@ -13,7 +13,8 @@ export interface AuthProfile {
 }
 
 export interface AuthUser {
-  id: number
+  id: string
+  username: string
   email: string
   displayName: string
   profile: AuthProfile

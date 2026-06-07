@@ -8,6 +8,7 @@ from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
 from http_utils import empty_response, error_response, json_response
 from request_utils import RequestBodyError, read_json_object
 from services.authentication import (
+    AuthConfigurationError,
     AuthenticationError,
     AuthorizationError,
     CredentialUpdateError,
@@ -28,6 +29,10 @@ from services.course_catalog import (
     list_courses,
 )
 from services.progress import get_current_user_progress
+from services.planner_assignments import (
+    PlannerAssignmentError,
+    balance_current_user_semester_plan,
+)
 from services.regulations import (
     get_regulation_version,
     list_regulation_course_categories,
@@ -264,6 +269,20 @@ async def route_request(request: Any, env: Any) -> Any:
             semester_plans = await list_current_user_semester_plans(env, request)
             return json_response(semester_plans, request=request, env=env)
 
+        if path.startswith("/api/me/semester-plans/") and path.endswith("/balance"):
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+
+            semester_label = unquote(
+                path.removeprefix("/api/me/semester-plans/").removesuffix("/balance")
+            )
+            balance_result = await balance_current_user_semester_plan(
+                env,
+                request,
+                await read_json_object(request),
+            )
+            return json_response(balance_result, request=request, env=env)
+
         if path.startswith("/api/me/semester-plans/"):
             semester_label = unquote(path.removeprefix("/api/me/semester-plans/"))
             if method == "GET":
@@ -303,7 +322,7 @@ async def route_request(request: Any, env: Any) -> Any:
         if path == "/":
             return json_response(
                 {
-                    "service": "studyplaner-api",
+                    "service": "studyplanner-api",
                     "status": "ready",
                     "routes": {
                         "health": "/health",
@@ -316,6 +335,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "completedCoursesImport": "/api/me/completed-courses/import",
                         "transcriptIssues": "/api/me/transcript-issues",
                         "semesterPlans": "/api/me/semester-plans",
+                        "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
@@ -334,7 +354,7 @@ async def route_request(request: Any, env: Any) -> Any:
             return json_response(
                 {
                     "ok": True,
-                    "service": "studyplaner-api",
+                    "service": "studyplanner-api",
                     "database": await _database_status(env),
                 },
                 request=request,
@@ -567,6 +587,14 @@ async def route_request(request: Any, env: Any) -> Any:
             env=env,
             status=400,
         )
+    except PlannerAssignmentError as exc:
+        return error_response(
+            code="planner_assignment_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
     except AuthenticationError as exc:
         return error_response(
             code="authentication_failed",
@@ -574,6 +602,14 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=401,
+        )
+    except AuthConfigurationError as exc:
+        return error_response(
+            code="authentication_not_configured",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=500,
         )
     except AuthorizationError as exc:
         return error_response(

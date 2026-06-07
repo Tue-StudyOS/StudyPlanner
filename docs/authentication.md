@@ -2,42 +2,47 @@
 
 ## Decision
 
-Use a first-party email/password flow backed by Cloudflare D1.
+Use a first-party email/password flow backed by Cloudflare D1 for credentials and stateless signed bearer tokens for API authentication.
 
 ## Why this approach
 
 - no new production dependency is required
-- favorites and personal progress need an application-owned user record anyway
-- the current Worker + D1 stack can support a small, explicit auth layer
-- the session model stays portable if the project later moves to another identity provider
+- favorites and personal progress need application-owned user state anyway
+- the Worker can verify tokens without a `user_sessions` table lookup
+- the D1 user schema stays small: `user_auth`, `user_state`, and `user_progress`
 
 ## Flow
 
-1. the user registers with email, display name, and password
-2. the backend stores a PBKDF2-SHA256 password hash plus a per-user random salt
-3. on successful sign-in, the backend creates a random session token
-4. only the SHA-256 hash of that session token is stored in D1
-5. the frontend keeps the raw token and sends it as `Authorization: Bearer <token>`
-6. authenticated endpoints resolve the session, load the user, and reject expired or revoked tokens
+1. the user registers with an email/username and password
+2. the backend stores a PBKDF2-SHA256 password hash plus a per-user random salt in `user_auth`
+3. on successful sign-in, the backend signs a bearer token with the Worker secret `AUTH_TOKEN_SECRET`
+4. the token payload contains at least `username`, `iat`, and `exp`
+5. the frontend keeps the token and sends it as `Authorization: Bearer <token>`
+6. authenticated endpoints verify the signature and expiry, then load user state from D1
+7. logout deletes the client-side token only
 
 ## Security rules
 
 - passwords are never stored or logged in plain text
-- session tokens are random, opaque, and revocable
-- only hashed session tokens are stored in the database
+- `AUTH_TOKEN_SECRET` must be configured with `wrangler secret put AUTH_TOKEN_SECRET` and must never be committed
 - authenticated requests require HTTPS in Cloudflare deployments
 - CORS must allow the real frontend origin before production use
-- logout revokes the current session row explicitly
+- token lifetime is configured through `AUTH_TOKEN_TTL_SECONDS`
 
-## Scope of the first implementation
+## Stateless-token trade-off
+
+Removing server-side sessions also removes immediate server-side revocation for already-issued tokens. A logout can only delete the client's local token; other devices remain authenticated until their token expires. Reintroduce a revocation table only if immediate all-device logout becomes a hard requirement.
+
+## Scope
 
 Included now:
 
 - register
 - sign in
-- sign out
+- sign out as a client-side token deletion flow
 - fetch current session/user
-- store the selected study program including PO plus the start semester in the profile
+- store the selected study program including PO plus the start semester in `user_state`
+- store favorites, semester plans, completed courses, and transcript review items as JSON in the reduced user tables
 
 Not included yet:
 
@@ -47,13 +52,6 @@ Not included yet:
 - multi-factor authentication
 - admin roles
 
-## Frontend behavior
-
-- anonymous users can still browse the public catalog
-- authenticated features such as persistent favorites and personal progress require sign-in
-- the frontend restores the last session token from local storage on reload
-
 ## Cloudflare note
 
-No manual Cloudflare identity-provider setup is required for this first-party auth flow.
-Only the database migration and Worker deployment must be applied after the code changes.
+No manual Cloudflare identity-provider setup is required for this first-party auth flow. Apply migrations locally first, back up/export remote D1 databases, and only then apply remote database changes after explicit confirmation.

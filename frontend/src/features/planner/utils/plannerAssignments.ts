@@ -1,6 +1,9 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { buildAssignableRegulationAreaOptions } from '../../../shared/utils/regulation'
+import {
+  buildMappedCourseAreaOptions,
+  getEffectiveRuleGroupCapacity,
+} from '../../../shared/utils/regulation'
 
 interface PlannerAssignmentContext {
   studyProgramCode: string | null
@@ -10,9 +13,9 @@ interface PlannerAssignmentContext {
   completedCourses: CompletedCourse[]
 }
 
-function getRequiredEctsByArea(ruleGroups: RegulationRuleGroup[]): Map<string, number> {
+function getCapacityEctsByArea(ruleGroups: RegulationRuleGroup[]): Map<string, number | null> {
   return new Map(
-    ruleGroups.map((ruleGroup) => [ruleGroup.code, ruleGroup.requiredEcts ?? 0]),
+    ruleGroups.map((ruleGroup) => [ruleGroup.code, getEffectiveRuleGroupCapacity(ruleGroup)]),
   )
 }
 
@@ -62,15 +65,14 @@ export function getPlannerCourseAreaOptions(
   studyProgramCode: string | null,
   regulationRuleGroups: RegulationRuleGroup[],
 ): RegulationAreaOption[] {
+  void regulationRuleGroups
   const hasAnyCategory = (course.studyAreaOptions?.length ?? 0) > 0 || course.masterCats.length > 0
   if (!hasAnyCategory) {
     return []
   }
-  return buildAssignableRegulationAreaOptions(
+  return buildMappedCourseAreaOptions(
     course.studyAreaOptions,
     studyProgramCode,
-    regulationRuleGroups,
-    course.masterCats,
   )
 }
 
@@ -110,16 +112,12 @@ export function getSuggestedPlannerAssignment(
     return null
   }
 
-  const currentAssignment = getCurrentPlannerAssignment(course, {
-    studyProgramCode: context.studyProgramCode,
-    regulationRuleGroups: context.regulationRuleGroups,
-    planAssignments: context.planAssignments,
-  })
-  if (currentAssignment) {
-    return currentAssignment
+  const manualAssignment = context.planAssignments[course.id]
+  if (manualAssignment && options.some((option) => option.code === manualAssignment)) {
+    return manualAssignment
   }
 
-  const requiredEctsByArea = getRequiredEctsByArea(context.regulationRuleGroups)
+  const capacityEctsByArea = getCapacityEctsByArea(context.regulationRuleGroups)
   const creditedEctsByArea = buildCreditedEctsByArea(
     context.completedCourses,
     context.plannedCourses,
@@ -129,14 +127,32 @@ export function getSuggestedPlannerAssignment(
     course.id,
   )
 
-  return [...options]
+  const courseEcts = course.ects ?? 0
+  const optionsWithCapacity = options.filter((option) => {
+    const capacityEcts = capacityEctsByArea.get(option.code)
+    if (capacityEcts === undefined || capacityEcts === null) {
+      return true
+    }
+    const creditedEcts = creditedEctsByArea.get(option.code) ?? 0
+    return creditedEcts + courseEcts <= capacityEcts
+  })
+
+  if (optionsWithCapacity.length === 0) {
+    return null
+  }
+
+  return [...optionsWithCapacity]
     .sort((left, right) => {
-      const leftRequiredEcts = requiredEctsByArea.get(left.code) ?? 0
-      const rightRequiredEcts = requiredEctsByArea.get(right.code) ?? 0
+      const leftCapacityEcts = capacityEctsByArea.get(left.code)
+      const rightCapacityEcts = capacityEctsByArea.get(right.code)
       const leftCreditedEcts = creditedEctsByArea.get(left.code) ?? 0
       const rightCreditedEcts = creditedEctsByArea.get(right.code) ?? 0
-      const leftRemainingEcts = leftRequiredEcts - leftCreditedEcts
-      const rightRemainingEcts = rightRequiredEcts - rightCreditedEcts
+      const leftRemainingEcts = leftCapacityEcts === null || leftCapacityEcts === undefined
+        ? Number.POSITIVE_INFINITY
+        : leftCapacityEcts - leftCreditedEcts
+      const rightRemainingEcts = rightCapacityEcts === null || rightCapacityEcts === undefined
+        ? Number.POSITIVE_INFINITY
+        : rightCapacityEcts - rightCreditedEcts
 
       if (rightRemainingEcts !== leftRemainingEcts) {
         return rightRemainingEcts - leftRemainingEcts

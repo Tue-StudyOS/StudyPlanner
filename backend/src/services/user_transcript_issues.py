@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import json
-import time
 from typing import Any
 
-from db.d1 import execute, fetch_all
 from services.authentication import require_authenticated_user
+from services.user_data import (
+    load_user_progress_json,
+    now_unix,
+    parse_json_array,
+    update_user_progress_json,
+)
 
 
 class TranscriptIssueUpdateError(ValueError):
@@ -14,35 +17,6 @@ class TranscriptIssueUpdateError(ValueError):
 
 class TranscriptIssuePayload(dict[str, Any]):
     pass
-
-
-async def _ensure_transcript_issues_table(env: Any) -> None:
-    await execute(
-        env,
-        """
-        CREATE TABLE IF NOT EXISTS user_transcript_issues (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            issue_key TEXT NOT NULL,
-            candidate_json TEXT NOT NULL,
-            created_at_unix INTEGER NOT NULL,
-            updated_at_unix INTEGER NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            UNIQUE(user_id, issue_key)
-        )
-        """,
-    )
-    await execute(
-        env,
-        """
-        CREATE INDEX IF NOT EXISTS idx_user_transcript_issues_user_id
-        ON user_transcript_issues(user_id, updated_at_unix DESC, id ASC)
-        """,
-    )
-
-
-def _now_unix() -> int:
-    return int(time.time())
 
 
 def _normalize_issue_payload(payload: Any) -> TranscriptIssuePayload:
@@ -60,37 +34,38 @@ def _normalize_issue_payload(payload: Any) -> TranscriptIssuePayload:
     return TranscriptIssuePayload(id=issue_id, candidate=candidate)
 
 
+def _serialize_stored_issue(raw_issue: Any) -> dict[str, Any] | None:
+    if not isinstance(raw_issue, dict):
+        return None
+    issue_id = str(raw_issue.get('id') or '').strip()
+    candidate = raw_issue.get('candidate')
+    if not issue_id or not isinstance(candidate, dict):
+        return None
+    try:
+        updated_at_unix = int(raw_issue.get('updatedAtUnix') or 0)
+    except (TypeError, ValueError):
+        updated_at_unix = 0
+    return {
+        'id': issue_id,
+        'candidate': candidate,
+        'updatedAtUnix': updated_at_unix,
+    }
+
+
+async def _load_transcript_issues(env: Any, username: str) -> list[dict[str, Any]]:
+    stored_value = await load_user_progress_json(env, username, 'transcript_review_items_json')
+    transcript_issues = [
+        serialized_issue
+        for raw_issue in parse_json_array(stored_value)
+        if (serialized_issue := _serialize_stored_issue(raw_issue)) is not None
+    ]
+    transcript_issues.sort(key=lambda issue: (-int(issue.get('updatedAtUnix') or 0), str(issue.get('id') or '')))
+    return transcript_issues
+
+
 async def get_current_user_transcript_issues(env: Any, request: Any) -> dict[str, Any]:
-    await _ensure_transcript_issues_table(env)
     user = await require_authenticated_user(env, request)
-    rows = await fetch_all(
-        env,
-        """
-        SELECT id, issue_key AS issueKey, candidate_json AS candidateJson, updated_at_unix AS updatedAtUnix
-        FROM user_transcript_issues
-        WHERE user_id = ?
-        ORDER BY updated_at_unix DESC, id ASC
-        """,
-        [int(user['id'])],
-    )
-
-    transcript_issues: list[dict[str, Any]] = []
-    for row in rows:
-        try:
-            candidate = json.loads(row['candidateJson'])
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(candidate, dict):
-            continue
-
-        transcript_issues.append(
-            {
-                'id': str(row['issueKey']),
-                'candidate': candidate,
-                'updatedAtUnix': int(row['updatedAtUnix'] or 0),
-            }
-        )
-
+    transcript_issues = await _load_transcript_issues(env, str(user['username']))
     return {
         'transcriptIssues': transcript_issues,
         'count': len(transcript_issues),
@@ -102,9 +77,8 @@ async def replace_current_user_transcript_issues(
     request: Any,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    await _ensure_transcript_issues_table(env)
     user = await require_authenticated_user(env, request)
-    user_id = int(user['id'])
+    username = str(user['username'])
 
     raw_transcript_issues = payload.get('transcriptIssues')
     if raw_transcript_issues is None:
@@ -112,30 +86,20 @@ async def replace_current_user_transcript_issues(
     if not isinstance(raw_transcript_issues, list):
         raise TranscriptIssueUpdateError('transcriptIssues must be an array.')
 
-    transcript_issues = [_normalize_issue_payload(item) for item in raw_transcript_issues]
-
-    await execute(env, 'DELETE FROM user_transcript_issues WHERE user_id = ?', [user_id])
-    now_unix = _now_unix()
-
-    for issue in transcript_issues:
-        await execute(
-            env,
-            """
-            INSERT INTO user_transcript_issues (
-                user_id,
-                issue_key,
-                candidate_json,
-                created_at_unix,
-                updated_at_unix
-            ) VALUES (?, ?, ?, ?, ?)
-            """,
-            [
-                user_id,
-                issue['id'],
-                json.dumps(issue['candidate'], ensure_ascii=False, separators=(',', ':')),
-                now_unix,
-                now_unix,
-            ],
-        )
+    current_unix = now_unix()
+    transcript_issues = [
+        {
+            'id': issue['id'],
+            'candidate': issue['candidate'],
+            'updatedAtUnix': current_unix,
+        }
+        for issue in [_normalize_issue_payload(item) for item in raw_transcript_issues]
+    ]
+    await update_user_progress_json(
+        env,
+        username,
+        'transcript_review_items_json',
+        transcript_issues,
+    )
 
     return await get_current_user_transcript_issues(env, request)

@@ -152,10 +152,10 @@ export function CourseDetailDrawer({
               {course.exams.map((exam, index) => (
                 <div
                   key={`${exam.type}-${exam.date}-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-border border-l-[3px] border-l-primary bg-surface px-4 py-3"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border border-l-[3px] border-l-primary bg-surface px-4 py-3"
                 >
-                  <span className="text-[13.5px] font-medium text-fg">{exam.type}</span>
-                  <div className="flex items-center gap-3 text-[12.5px] text-fg-muted">
+                  <span className="min-w-0 flex-1 break-words text-[13.5px] font-medium text-fg">{exam.type}</span>
+                  <div className="shrink-0 flex items-center gap-3 text-[12.5px] text-fg-muted">
                     <span>{exam.date}</span>
                     {exam.duration && exam.duration !== '–' ? <span>{exam.duration}</span> : null}
                   </div>

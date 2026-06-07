@@ -1,6 +1,6 @@
 # masterCat Mapping
 
-All regulation areas collapse to five universal categories stored in `user_completed_courses.master_cat`.
+All regulation areas collapse to five universal categories stored as `masterCat` values inside `user_progress.completed_courses_json`.
 
 ## Category values
 

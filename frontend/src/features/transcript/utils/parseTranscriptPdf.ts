@@ -25,11 +25,81 @@ interface ParsedTranscriptRow {
   grade: number | null
   ects: number | null
   hasDetailTokens: boolean
+  parseIssues: string[]
 }
 
-const SEMESTER_TOKEN_PATTERN = /(?:wt|st)\s+\d{4}(?:\/\d{2})?/i
-const SEMESTER_VALUE_PATTERN = /^(?:wt|st)\s+\d{4}(?:\/\d{2})?$/i
-const STATUS_VALUE_PATTERN = /^[A-Z]{1,6}$/
+export interface TranscriptRowColumns {
+  title: string
+  semesterText: string
+  examinerText?: string
+  formText?: string
+  gradeText: string
+  statusText: string
+  ectsText: string
+  rawText: string
+}
+
+interface TranscriptRowContext {
+  page: number
+  y: number
+  section: string | null
+}
+
+export type TranscriptCompletionStatus = 'completed' | 'ignored' | 'unknown'
+
+const SEMESTER_OR_DATE_VALUE_SOURCE = String.raw`(?:\b(?:wt|st|ws|ss|wise|sose|winter(?:\s+(?:term|semester))?|summer(?:\s+(?:term|semester))?)\s+\d{2,4}(?:\s*\/\s*\d{2,4})?\b|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b)`
+const SEMESTER_OR_DATE_SEGMENT_PATTERN = new RegExp(SEMESTER_OR_DATE_VALUE_SOURCE, 'i')
+const JOINED_SEMESTER_OR_DATE_PATTERN = new RegExp(String.raw`([^\s])(${SEMESTER_OR_DATE_VALUE_SOURCE})`, 'gi')
+const DATE_VALUE_PATTERN = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/
+const SUMMER_SEMESTER_VALUE_PATTERN = /^(?:st|ss|sose|summer(?:\s+(?:term|semester))?)\s+(\d{2,4})$/i
+const WINTER_SEMESTER_VALUE_PATTERN = /^(?:wt|ws|wise|winter(?:\s+(?:term|semester))?)\s+(\d{2,4})(?:\s*\/\s*(\d{2,4}))?$/i
+const SECTION_HEADING_PATTERN = /area:|professional skills|unassigned elements|pflichtbereich|wahl?pflichtfach|studium professionale|unzugeordnete elemente/i
+
+const COMPLETED_STATUS_VALUES = new Set([
+  'be',
+  'vbe',
+  'anerkannt',
+  'angerechnet',
+  'bestanden',
+  'completed',
+  'credit',
+  'credited',
+  'equivalent',
+  'erbracht',
+  'pass',
+  'passed',
+  'recognised',
+  'recognized',
+  'successful',
+])
+
+const IGNORED_STATUS_VALUES = new Set([
+  'abgebrochen',
+  'begonnen',
+  'examregistered',
+  'f',
+  'fail',
+  'failed',
+  'inprogress',
+  'mb',
+  'modulbegonnen',
+  'na',
+  'nb',
+  'nbe',
+  'nf',
+  'nichtabgeschlossen',
+  'nichtbestanden',
+  'notpassed',
+  'ongoing',
+  'open',
+  'pending',
+  'progress',
+  'prufungvorhanden',
+  'pv',
+  'registered',
+  'unfinished',
+  'withdrawn',
+])
 
 const SEMESTER_COLUMN_MIN_X = 295
 const EXAMINER_COLUMN_MIN_X = 360
@@ -66,7 +136,7 @@ function createId(prefix: string, index: number): string {
 function normalizeLineText(text: string): string {
   return text
     .replace(/\s+/g, ' ')
-    .replace(/([^\s])((?:wt|st)\s+\d{4}(?:\/\d{2})?)/gi, '$1 $2')
+    .replace(JOINED_SEMESTER_OR_DATE_PATTERN, '$1 $2')
     .replace(/\s+([,.)])/g, '$1')
     .trim()
 }
@@ -88,7 +158,7 @@ function buildLineText(items: TextItemLike[]): string {
       text.length > 0 &&
       !text.endsWith(' ') &&
       (segment.startsWith('(') ||
-        SEMESTER_TOKEN_PATTERN.test(segment) ||
+        SEMESTER_OR_DATE_SEGMENT_PATTERN.test(segment) ||
         (previousRightEdge !== null && currentX - previousRightEdge > 1.5))
 
     if (needsSpace) {
@@ -120,14 +190,23 @@ function isHeaderOrFooter(line: TranscriptLine): boolean {
   return (
     /transcript of records/i.test(line.text) ||
     /^page \d+ of \d+$/i.test(line.text) ||
+    /^seite\s*\d+\s*von\s*\d+$/i.test(line.text) ||
     /student id no:/i.test(line.text) ||
     /student id number:/i.test(line.text) ||
+    /^name des\/der studierenden:/i.test(line.text) ||
+    /^geburtsdatum und -ort:/i.test(line.text) ||
+    /^geschlecht:/i.test(line.text) ||
+    /^\(angestrebter\) abschluss:/i.test(line.text) ||
+    /^studienfach\/-fächer:/i.test(line.text) ||
+    /^matrikelnummer:/i.test(line.text) ||
+    /^heimathochschule:/i.test(line.text) ||
+    /^bezeichnung der leistung/i.test(line.text) ||
     /^tübingen, /i.test(line.text)
   )
 }
 
 function isSectionHeading(text: string): boolean {
-  return /area:|professional skills|unassigned elements/i.test(text)
+  return SECTION_HEADING_PATTERN.test(text)
 }
 
 function extractSectionHeadingText(line: TranscriptLine): string {
@@ -137,28 +216,180 @@ function extractSectionHeadingText(line: TranscriptLine): string {
 
 function toDefaultMasterCat(section: string | null): MasterCat {
   const normalizedSection = section?.toLowerCase() ?? ''
-  if (normalizedSection.includes('practical computer science')) {
+  if (normalizedSection.includes('practical computer science') || normalizedSection.includes('praktische informatik')) {
     return 'PRAK'
   }
-  if (normalizedSection.includes('theoretical computer science') || normalizedSection.includes('logics')) {
+  if (
+    normalizedSection.includes('theoretical computer science') ||
+    normalizedSection.includes('theoretische informatik') ||
+    normalizedSection.includes('logics')
+  ) {
     return 'THEO'
   }
-  if (normalizedSection.includes('technical computer science') || normalizedSection.includes('robotik')) {
+  if (
+    normalizedSection.includes('technical computer science') ||
+    normalizedSection.includes('technische informatik') ||
+    normalizedSection.includes('robotik')
+  ) {
     return 'TECH'
   }
-  if (normalizedSection.includes('mathematics')) {
+  if (normalizedSection.includes('mathematics') || normalizedSection.includes('mathematik')) {
     return 'BASIS'
   }
-  // Professional skills and compulsory/mandatory areas → BASIS.
-  // When the correct area is ambiguous, prefer BASIS.
-  if (normalizedSection.includes('professional skills') || normalizedSection.includes('compulsory')) {
+  // Professional skills and similar cross-area sections fall back to BASIS.
+  if (
+    normalizedSection.includes('professional skills') ||
+    normalizedSection.includes('studium professionale') ||
+    normalizedSection.includes('compulsory') ||
+    normalizedSection.includes('übk') ||
+    normalizedSection.includes('ubk')
+  ) {
     return 'BASIS'
   }
   return 'INFO'
 }
 
-function normalizeSemesterLabel(semester: string): string {
-  return semester.replace(/^wt/i, 'WS').replace(/^st/i, 'SS')
+function containsSemesterOrDateToken(value: string): boolean {
+  return SEMESTER_OR_DATE_SEGMENT_PATTERN.test(value)
+}
+
+function normalizeYearValue(value: string): number {
+  const parsedYear = Number(value)
+  if (!Number.isInteger(parsedYear)) {
+    return Number.NaN
+  }
+  if (value.length === 2) {
+    return parsedYear >= 70 ? 1900 + parsedYear : 2000 + parsedYear
+  }
+  return parsedYear
+}
+
+function formatTwoDigitYear(year: number): string {
+  return String(year).slice(-2).padStart(2, '0')
+}
+
+function formatWinterSemesterLabel(startYear: number, endYear: number = startYear + 1): string {
+  return `WS ${startYear}/${formatTwoDigitYear(endYear)}`
+}
+
+export function parseTranscriptSemesterValue(value: string): string | null {
+  const normalizedValue = normalizeLineText(value).replace(/[.\s]+$/g, '')
+  if (!normalizedValue) {
+    return null
+  }
+
+  const winterMatch = normalizedValue.match(WINTER_SEMESTER_VALUE_PATTERN)
+  if (winterMatch) {
+    const startYear = normalizeYearValue(winterMatch[1])
+    const endYear = winterMatch[2] ? normalizeYearValue(winterMatch[2]) : startYear + 1
+    if (Number.isFinite(startYear) && Number.isFinite(endYear)) {
+      return formatWinterSemesterLabel(startYear, endYear)
+    }
+  }
+
+  const summerMatch = normalizedValue.match(SUMMER_SEMESTER_VALUE_PATTERN)
+  if (summerMatch) {
+    const year = normalizeYearValue(summerMatch[1])
+    if (Number.isFinite(year)) {
+      return `SS ${year}`
+    }
+  }
+
+  const dateMatch = normalizedValue.match(DATE_VALUE_PATTERN)
+  if (dateMatch) {
+    const month = Number(dateMatch[2])
+    const year = normalizeYearValue(dateMatch[3])
+    if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12) {
+      return null
+    }
+    if (month >= 4 && month <= 9) {
+      return `SS ${year}`
+    }
+    if (month >= 10) {
+      return formatWinterSemesterLabel(year)
+    }
+    return formatWinterSemesterLabel(year - 1, year)
+  }
+
+  return null
+}
+
+function parseTranscriptNumber(value: string): number | null {
+  const normalizedValue = value.replace(/\s+/g, '').replace(',', '.')
+  if (!normalizedValue) {
+    return null
+  }
+  if (!/^-?\d+(?:\.\d+)?$/.test(normalizedValue)) {
+    return null
+  }
+
+  const parsedValue = Number(normalizedValue)
+  return Number.isFinite(parsedValue) ? parsedValue : null
+}
+
+function normalizeStatusValue(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+function splitMergedStatusAndEcts(statusText: string, ectsText: string): { statusText: string; ectsText: string } {
+  const normalizedStatusText = normalizeLineText(statusText)
+  const normalizedEctsText = normalizeLineText(ectsText)
+
+  if (normalizedEctsText) {
+    return {
+      statusText: normalizedStatusText,
+      ectsText: normalizedEctsText,
+    }
+  }
+
+  const mergedMatch = normalizedStatusText.match(/^(.*?)(\d+(?:[.,]\d+)?)$/)
+  if (!mergedMatch) {
+    return {
+      statusText: normalizedStatusText,
+      ectsText: normalizedEctsText,
+    }
+  }
+
+  const mergedStatusText = normalizeLineText(mergedMatch[1])
+  const mergedEctsText = mergedMatch[2]
+  if (!mergedStatusText || parseTranscriptNumber(mergedEctsText) === null) {
+    return {
+      statusText: normalizedStatusText,
+      ectsText: normalizedEctsText,
+    }
+  }
+
+  return {
+    statusText: mergedStatusText,
+    ectsText: mergedEctsText,
+  }
+}
+
+export function classifyTranscriptCompletionStatus(value: string): TranscriptCompletionStatus {
+  const normalizedValue = normalizeStatusValue(value)
+  if (!normalizedValue) {
+    return 'unknown'
+  }
+  if (COMPLETED_STATUS_VALUES.has(normalizedValue)) {
+    return 'completed'
+  }
+  if (IGNORED_STATUS_VALUES.has(normalizedValue)) {
+    return 'ignored'
+  }
+  if (/bestand|pass|credit|anerk|angerech|recogn/.test(normalizedValue)) {
+    return 'completed'
+  }
+  if (/fail|nicht|begonn|pending|ongoing|withdrawn|abgebroch|vorhand|registered|unfinished|progress/.test(normalizedValue)) {
+    return 'ignored'
+  }
+  if (/^[a-z]{1,6}$/.test(normalizedValue)) {
+    return 'completed'
+  }
+  return 'unknown'
 }
 
 function shouldAppendContinuation(previousLine: TranscriptLine | null, currentLine: TranscriptLine): boolean {
@@ -168,7 +399,7 @@ function shouldAppendContinuation(previousLine: TranscriptLine | null, currentLi
   if (previousLine.page !== currentLine.page) {
     return false
   }
-  if (SEMESTER_TOKEN_PATTERN.test(currentLine.text)) {
+  if (containsSemesterOrDateToken(currentLine.text)) {
     return false
   }
   if (currentLine.x >= SEMESTER_COLUMN_MIN_X) {
@@ -182,36 +413,67 @@ function shouldAppendContinuation(previousLine: TranscriptLine | null, currentLi
   return distance > 0 && distance <= 16
 }
 
-function parseTranscriptRow(line: TranscriptLine, section: string | null): ParsedTranscriptRow | null {
-  const title = extractColumnText(line, 0, SEMESTER_COLUMN_MIN_X)
-  const semesterText = extractColumnText(line, SEMESTER_COLUMN_MIN_X, EXAMINER_COLUMN_MIN_X)
-  const examinerText = extractColumnText(line, EXAMINER_COLUMN_MIN_X, FORM_COLUMN_MIN_X)
-  const formText = extractColumnText(line, FORM_COLUMN_MIN_X, GRADE_COLUMN_MIN_X)
-  const gradeText = extractColumnText(line, GRADE_COLUMN_MIN_X, STATUS_COLUMN_MIN_X)
-  const statusText = extractColumnText(line, STATUS_COLUMN_MIN_X, ECTS_COLUMN_MIN_X)
-  const ectsText = extractColumnText(line, ECTS_COLUMN_MIN_X)
+export function parseTranscriptRowColumns(
+  columns: TranscriptRowColumns,
+  context: TranscriptRowContext,
+): ParsedTranscriptRow | null {
+  const title = normalizeLineText(columns.title)
+  const semester = parseTranscriptSemesterValue(columns.semesterText)
+  const { statusText, ectsText } = splitMergedStatusAndEcts(columns.statusText, columns.ectsText)
 
-  if (!title || !SEMESTER_VALUE_PATTERN.test(semesterText) || !STATUS_VALUE_PATTERN.test(statusText) || !ectsText) {
+  if (!title || !semester || !statusText) {
     return null
   }
 
-  const grade = gradeText ? Number(gradeText) : null
-  const ects = Number(ectsText)
-  if (!Number.isFinite(ects) || (grade !== null && !Number.isFinite(grade))) {
+  const ects = parseTranscriptNumber(ectsText)
+  const gradeText = normalizeLineText(columns.gradeText)
+  const grade = gradeText ? parseTranscriptNumber(gradeText) : null
+
+  if (ects === null || (gradeText && grade === null)) {
     return null
   }
+
+  const completionStatus = classifyTranscriptCompletionStatus(statusText)
+  if (completionStatus === 'ignored') {
+    return null
+  }
+
+  const parseIssues = completionStatus === 'unknown'
+    ? [`Completion status "${statusText}" could not be verified automatically.`]
+    : []
 
   return {
-    page: line.page,
-    y: line.y,
-    section,
-    rawText: line.text,
+    page: context.page,
+    y: context.y,
+    section: context.section,
+    rawText: normalizeLineText(columns.rawText),
     title,
-    semester: normalizeSemesterLabel(semesterText),
+    semester,
     grade,
     ects,
-    hasDetailTokens: Boolean(examinerText || formText),
+    hasDetailTokens: Boolean(normalizeLineText(columns.examinerText ?? '') || normalizeLineText(columns.formText ?? '')),
+    parseIssues,
   }
+}
+
+function parseTranscriptRow(line: TranscriptLine, section: string | null): ParsedTranscriptRow | null {
+  return parseTranscriptRowColumns(
+    {
+      title: extractColumnText(line, 0, SEMESTER_COLUMN_MIN_X),
+      semesterText: extractColumnText(line, SEMESTER_COLUMN_MIN_X, EXAMINER_COLUMN_MIN_X),
+      examinerText: extractColumnText(line, EXAMINER_COLUMN_MIN_X, FORM_COLUMN_MIN_X),
+      formText: extractColumnText(line, FORM_COLUMN_MIN_X, GRADE_COLUMN_MIN_X),
+      gradeText: extractColumnText(line, GRADE_COLUMN_MIN_X, STATUS_COLUMN_MIN_X),
+      statusText: extractColumnText(line, STATUS_COLUMN_MIN_X, ECTS_COLUMN_MIN_X),
+      ectsText: extractColumnText(line, ECTS_COLUMN_MIN_X),
+      rawText: line.text,
+    },
+    {
+      page: line.page,
+      y: line.y,
+      section,
+    },
+  )
 }
 
 function haveMatchingRowOutcome(currentRow: ParsedTranscriptRow, nextRow: ParsedTranscriptRow): boolean {
@@ -219,8 +481,7 @@ function haveMatchingRowOutcome(currentRow: ParsedTranscriptRow, nextRow: Parsed
     currentRow.section === nextRow.section &&
     currentRow.semester === nextRow.semester &&
     currentRow.grade === nextRow.grade &&
-    currentRow.ects === nextRow.ects &&
-    currentRow.hasDetailTokens !== nextRow.hasDetailTokens
+    currentRow.ects === nextRow.ects
   )
 }
 
@@ -229,8 +490,16 @@ function areLikelyDuplicateRows(currentRow: ParsedTranscriptRow, nextRow: Parsed
     return false
   }
 
+  const normalizedCurrentTitle = normalizeLineText(currentRow.title)
+  const normalizedNextTitle = normalizeLineText(nextRow.title)
+  const haveMatchingTitles = normalizedCurrentTitle.length > 0 && normalizedCurrentTitle === normalizedNextTitle
+
   if (currentRow.page === nextRow.page) {
-    return currentRow.y - nextRow.y > 0 && currentRow.y - nextRow.y <= 28
+    return (
+      currentRow.y - nextRow.y > 0 &&
+      currentRow.y - nextRow.y <= 28 &&
+      (haveMatchingTitles || currentRow.hasDetailTokens !== nextRow.hasDetailTokens)
+    )
   }
 
   if (nextRow.page !== currentRow.page + 1) {
@@ -301,7 +570,7 @@ export async function parseTranscriptPdf(file: File): Promise<ParsedTranscriptEn
         continue
       }
 
-      if (isSectionHeading(line.text) && !SEMESTER_TOKEN_PATTERN.test(line.text)) {
+      if (isSectionHeading(line.text) && !containsSemesterOrDateToken(line.text)) {
         activeSection = extractSectionHeadingText(line)
         continuationAnchorLine = null
         continuationRowIndex = null
@@ -340,21 +609,18 @@ export async function parseTranscriptPdf(file: File): Promise<ParsedTranscriptEn
     const nextRow = parsedRows[index + 1]
     const titleCandidates = [currentRow.title]
     const rawTextCandidates = [currentRow.rawText]
+    const parseIssues = [...currentRow.parseIssues]
 
     if (nextRow && areLikelyDuplicateRows(currentRow, nextRow)) {
       titleCandidates.push(nextRow.title)
       rawTextCandidates.push(nextRow.rawText)
+      parseIssues.push(...nextRow.parseIssues)
       index += 1
     }
 
     const uniqueTitleCandidates = [...new Set(titleCandidates.map((title) => normalizeLineText(title)).filter(Boolean))]
     const uniqueRawTextCandidates = [...new Set(rawTextCandidates.map((text) => normalizeLineText(text)).filter(Boolean))]
     const extractedTitle = uniqueTitleCandidates[0] ?? currentRow.title
-    const parseIssues: string[] = []
-
-    if (currentRow.ects === null) {
-      parseIssues.push('ECTS could not be extracted automatically.')
-    }
 
     entries.push({
       id: createId('transcript-entry', index),
@@ -367,7 +633,7 @@ export async function parseTranscriptPdf(file: File): Promise<ParsedTranscriptEn
       extractedEcts: currentRow.ects,
       extractedSemester: currentRow.semester,
       defaultMasterCat: toDefaultMasterCat(currentRow.section),
-      parseIssues,
+      parseIssues: [...new Set(parseIssues)],
     })
   }
 

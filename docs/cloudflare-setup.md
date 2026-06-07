@@ -20,7 +20,7 @@ From `backend/`:
 
 ```bash
 cd backend
-npx wrangler d1 create studyplaner-db
+npx wrangler d1 create studyplanner-db
 ```
 
 Copy the returned `database_id` into `backend/wrangler.toml`.
@@ -31,14 +31,14 @@ Local:
 
 ```bash
 cd backend
-npx wrangler d1 migrations apply studyplaner-db --local
+npx wrangler d1 migrations apply studyplanner-db --local
 ```
 
 Remote:
 
 ```bash
 cd backend
-npx wrangler d1 migrations apply studyplaner-db --remote
+npx wrangler d1 migrations apply studyplanner-db --remote
 ```
 
 ## 4. Export the tracked SQLite data for D1
@@ -55,14 +55,14 @@ Local:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --local --file .tmp/d1-seed.sql
+npx wrangler d1 execute studyplanner-db --local --file .tmp/d1-seed.sql
 ```
 
 Remote:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --remote --file .tmp/d1-seed.sql
+npx wrangler d1 execute studyplanner-db --remote --file .tmp/d1-seed.sql
 ```
 
 ## 6. Run the backend locally

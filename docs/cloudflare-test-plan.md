@@ -34,9 +34,9 @@ This means tomorrow's test proves:
 
 Use separate Cloudflare test resources.
 
-- Pages project: `studyplaner-web-test`
-- Worker: `studyplaner-api-test`
-- D1 database: `studyplaner-db-test`
+- Pages project: `studyplanner-web-test`
+- Worker: `studyplanner-api-test`
+- D1 database: `studyplanner-db`
 
 Recommended branch for all tests:
 
@@ -151,7 +151,7 @@ Note:
 
 ```bash
 cd backend
-npx wrangler d1 migrations apply studyplaner-db --local --persist-to .wrangler/state
+npx wrangler d1 migrations apply studyplanner-db --local --persist-to .wrangler/state
 cd ..
 ```
 
@@ -159,7 +159,7 @@ cd ..
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --local --persist-to .wrangler/state --file .tmp/d1-seed.sql > ../d1-local-import.log
+npx wrangler d1 execute studyplanner-db --local --persist-to .wrangler/state --file .tmp/d1-seed.sql > ../d1-local-import.log
 cd ..
 ```
 
@@ -172,7 +172,7 @@ Why the log file is recommended:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --local --persist-to .wrangler/state --command "SELECT (SELECT COUNT(*) FROM courses) AS courses_count, (SELECT COUNT(*) FROM catalog_nodes) AS catalog_nodes_count, (SELECT COUNT(*) FROM study_programs) AS study_programs_count;" --json
+npx wrangler d1 execute studyplanner-db --local --persist-to .wrangler/state --command "SELECT (SELECT COUNT(*) FROM courses) AS courses_count, (SELECT COUNT(*) FROM catalog_nodes) AS catalog_nodes_count, (SELECT COUNT(*) FROM study_programs) AS study_programs_count;" --json
 cd ..
 ```
 
@@ -220,31 +220,31 @@ From `backend/` choose one of the following.
 
 ```bash
 cd backend
-npx wrangler d1 create studyplaner-db-test --location weur
+npx wrangler d1 create studyplanner-db --location weur
 ```
 
 ### Option B: EU-only
 
 ```bash
 cd backend
-npx wrangler d1 create studyplaner-db-test --jurisdiction eu
+npx wrangler d1 create studyplanner-db --jurisdiction eu
 ```
 
 Copy the returned values and update `backend/wrangler.toml`:
 
-- `database_name = "studyplaner-db-test"`
+- `database_name = "studyplanner-db"`
 - `database_id = "<real id from Cloudflare>"`
 
 Optional but recommended for clarity during testing:
 
 - keep the repo branch as `cloudflare-migration-test`
-- deploy the Worker under the explicit test name `studyplaner-api-test`
+- deploy the Worker under the explicit test name `studyplanner-api-test`
 
 ## Step 4: apply the schema to the remote test D1 database
 
 ```bash
 cd backend
-npx wrangler d1 migrations apply studyplaner-db-test --remote
+npx wrangler d1 migrations apply studyplanner-db --remote
 cd ..
 ```
 
@@ -252,7 +252,7 @@ cd ..
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db-test --remote --file .tmp/d1-seed.sql > ../d1-remote-import.log
+npx wrangler d1 execute studyplanner-db --remote --file .tmp/d1-seed.sql > ../d1-remote-import.log
 cd ..
 ```
 
@@ -266,7 +266,7 @@ Notes:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db-test --remote --command "SELECT (SELECT COUNT(*) FROM courses) AS courses_count, (SELECT COUNT(*) FROM catalog_nodes) AS catalog_nodes_count, (SELECT COUNT(*) FROM study_programs) AS study_programs_count;" --json
+npx wrangler d1 execute studyplanner-db --remote --command "SELECT (SELECT COUNT(*) FROM courses) AS courses_count, (SELECT COUNT(*) FROM catalog_nodes) AS catalog_nodes_count, (SELECT COUNT(*) FROM study_programs) AS study_programs_count;" --json
 cd ..
 ```
 
@@ -282,7 +282,7 @@ From `backend/`:
 
 ```bash
 cd backend
-npx wrangler deploy --name studyplaner-api-test
+npx wrangler deploy --name studyplanner-api-test
 cd ..
 ```
 
@@ -293,7 +293,7 @@ Expected result:
 Example shape:
 
 ```text
-https://studyplaner-api-test.<your-subdomain>.workers.dev
+https://studyplanner-api-test.<your-subdomain>.workers.dev
 ```
 
 ## Step 8: verify the deployed Worker
@@ -301,10 +301,10 @@ https://studyplaner-api-test.<your-subdomain>.workers.dev
 Replace the base URL below with your real Worker URL.
 
 ```bash
-curl https://studyplaner-api-test.<your-subdomain>.workers.dev/health
-curl "https://studyplaner-api-test.<your-subdomain>.workers.dev/api/courses?limit=2"
-curl "https://studyplaner-api-test.<your-subdomain>.workers.dev/api/courses/91"
-curl https://studyplaner-api-test.<your-subdomain>.workers.dev/api/study-programs
+curl https://studyplanner-api-test.<your-subdomain>.workers.dev/health
+curl "https://studyplanner-api-test.<your-subdomain>.workers.dev/api/courses?limit=2"
+curl "https://studyplanner-api-test.<your-subdomain>.workers.dev/api/courses/91"
+curl https://studyplanner-api-test.<your-subdomain>.workers.dev/api/study-programs
 ```
 
 Expected result:
@@ -319,7 +319,7 @@ Expected result:
 Create the Pages project:
 
 ```bash
-npx wrangler pages project create studyplaner-web-test --production-branch cloudflare-migration-test
+npx wrangler pages project create studyplanner-web-test --production-branch cloudflare-migration-test
 ```
 
 Build and deploy:
@@ -328,7 +328,7 @@ Build and deploy:
 cd frontend
 npm install
 npm run build
-npx wrangler pages deploy dist --project-name studyplaner-web-test --branch cloudflare-migration-test
+npx wrangler pages deploy dist --project-name studyplanner-web-test --branch cloudflare-migration-test
 cd ..
 ```
 
@@ -355,7 +355,7 @@ Production branch: cloudflare-migration-test
 Set this in Cloudflare Pages for the test project:
 
 ```text
-VITE_API_BASE_URL=https://studyplaner-api-test.<your-subdomain>.workers.dev
+VITE_API_BASE_URL=https://studyplanner-api-test.<your-subdomain>.workers.dev
 ```
 
 Important current limitation:
@@ -455,14 +455,14 @@ For a future safer setup, this would be useful:
 - [ ] Test `/health`
 - [ ] Test `/api/courses?limit=2`
 - [ ] Test `/api/courses/91`
-- [ ] Create `studyplaner-db-test`
+- [ ] Create `studyplanner-db`
 - [ ] Update `backend/wrangler.toml` with the real D1 test id
 - [ ] Apply remote D1 migration
 - [ ] Import remote D1 seed
 - [ ] Verify remote table counts
-- [ ] Deploy Worker as `studyplaner-api-test`
+- [ ] Deploy Worker as `studyplanner-api-test`
 - [ ] Test deployed Worker routes
-- [ ] Create or connect `studyplaner-web-test`
+- [ ] Create or connect `studyplanner-web-test`
 - [ ] Set `VITE_API_BASE_URL`
 - [ ] Test frontend routes on Pages
 - [ ] Decide next step: API integration, auth, or user data model

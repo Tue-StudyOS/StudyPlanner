@@ -39,7 +39,7 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="relative w-full max-w-lg overflow-hidden rounded-[16px] border border-border bg-surface shadow-2xl"
+        className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-[16px] border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <button

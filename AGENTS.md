@@ -25,6 +25,17 @@ Project-wide instructions for AI coding agents.
 - Validate external input at boundaries.
 - Handle errors explicitly; do not hide failures.
 
+## Frontend compatibility
+
+Every new frontend feature must work on both phone and desktop.
+
+- No horizontal overflow, clipped cards, cut-off modals, or unreachable buttons on any viewport.
+- Use `w-full`, `max-w-full`, `min-w-0` on containers; avoid fixed widths without a paired `max-w-*`.
+- Long German labels, long course names, and user-facing strings must wrap or truncate safely at narrow widths (320px–375px).
+- Prefer `flex-wrap` and responsive grid patterns over fixed-column layouts.
+- Sticky and modal elements must account for mobile browser chrome and safe-area insets.
+- Check at minimum: 320px, 375px, 768px, and desktop width; both light and dark mode.
+
 ## Workflow
 
 Before changing code:

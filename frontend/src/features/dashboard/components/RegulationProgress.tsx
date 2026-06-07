@@ -42,7 +42,7 @@ function RegulationAreaDetailModal({
                 {(area.rawAreaCodes ?? []).length > 1 ? `Includes ${area.rawAreaCodes?.join(', ')}` : area.name}
               </span>
             </div>
-            <h3 id="regulation-area-modal-title" className="text-[20px] font-semibold text-fg">
+            <h3 id="regulation-area-modal-title" className="break-words text-[20px] font-semibold text-fg">
               {area.name}
             </h3>
             <p className="mt-1 text-[12.5px] text-fg-muted">

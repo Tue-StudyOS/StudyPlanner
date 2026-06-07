@@ -9,6 +9,8 @@ import { useCatalogCourses } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
+import { balanceSemesterPlan } from '../api'
+import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, type PlannerBlock } from '../utils/plannerFeedback'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
@@ -71,6 +73,14 @@ function EmptyGridState({ isEditing }: { isEditing: boolean }) {
           : 'No courses are saved for this semester yet. Use Edit semester to start planning.'}
       </div>
     </div>
+  )
+}
+
+function UnsavedPlannerDraftIndicator() {
+  return (
+    <span className="rounded-full border border-primary/25 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+      Unsaved semester draft
+    </span>
   )
 }
 
@@ -371,7 +381,7 @@ function MobilePlannerFavoritesDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose}>
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-[18px] border-t border-border bg-surface px-4 py-4"
+        className="absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-[18px] border-t border-border bg-surface px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -407,11 +417,13 @@ function PlannerGrid({
   isDeletingSemesterPlan,
   savedCourseCount,
   hasUnsavedChanges,
+  canCompleteSemester,
   onSelectSemester,
   onStartEditing,
   onSave,
   onCancelEditing,
   onDelete,
+  onOpenCompletionDialog,
   onOpenFavorites,
   onDropCourse,
   onRemoveSlot,
@@ -428,11 +440,13 @@ function PlannerGrid({
   isDeletingSemesterPlan: boolean
   savedCourseCount: number
   hasUnsavedChanges: boolean
+  canCompleteSemester: boolean
   onSelectSemester: (semesterLabel: string) => void
   onStartEditing: () => void
   onSave: () => Promise<void>
   onCancelEditing: () => void
   onDelete: () => Promise<void>
+  onOpenCompletionDialog: () => void
   onOpenFavorites: () => void
   onDropCourse: (courseId: string, areaCode: string | null) => void
   onRemoveSlot: (slotId: string) => void
@@ -476,7 +490,10 @@ function PlannerGrid({
       >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
+              {hasUnsavedChanges ? <UnsavedPlannerDraftIndicator /> : null}
+            </div>
             <p className="mt-1 text-[12.5px] text-fg-muted">
               Plan the selected semester here and keep only the schedule details that matter.
             </p>
@@ -548,6 +565,14 @@ function PlannerGrid({
                   </button>
                   <button
                     type="button"
+                    onClick={onOpenCompletionDialog}
+                    disabled={!canCompleteSemester || isLoadingSemesterPlan || isDeletingSemesterPlan}
+                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Mark as completed
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void onDelete()}
                     disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
                     className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
@@ -559,10 +584,6 @@ function PlannerGrid({
             </div>
           </div>
         </div>
-
-        {hasUnsavedChanges ? (
-          <div className="mb-4 text-[12.5px] text-primary">You have unsaved changes.</div>
-        ) : null}
 
         {isWeeklyListLayout ? (
           <PlannerWeeklyListView
@@ -742,11 +763,15 @@ function PlannerGrid({
 }
 
 export function SemesterPlanner() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, token, user } = useAuth()
   const { favoriteIds, toggleFavorite } = useFavorites()
-  const { completedCourses } = useTranscript()
+  const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
+  const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
+  const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
+  const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null)
   const { courses, isLoading, error } = useCatalogCourses('', 500)
   const {
     regulationVersion,
@@ -769,6 +794,7 @@ export function SemesterPlanner() {
     setPlannedCourseIds,
     setHiddenSlotIds,
     setAssignment,
+    setAssignments,
     startEditing,
     cancelEditing,
     saveCurrentSemesterPlan,
@@ -856,6 +882,37 @@ export function SemesterPlanner() {
     setHiddenSlotIds(nextHiddenSlotIds)
   }
 
+  async function handleAutoBalanceAssignments(): Promise<void> {
+    if (!token) {
+      setBalanceMessage('Sign in to auto-balance planner areas.')
+      return
+    }
+    if (plannedCourseIds.length === 0) {
+      setBalanceMessage('Add courses before auto-balancing planner areas.')
+      return
+    }
+
+    setIsBalancingAssignments(true)
+    setBalanceMessage(null)
+    try {
+      const result = await balanceSemesterPlan(token, activeSemesterLabel, {
+        courseIds: plannedCourseIds,
+        courseAssignments: planAssignments,
+      })
+      setAssignments(result.assignments)
+      if (result.strictSolutionFound && result.warnings.length === 0) {
+        setBalanceMessage(null)
+        return
+      }
+      const warningText = result.warnings.at(0)?.message
+      setBalanceMessage(warningText || 'No complete capacity-safe composition could be found.')
+    } catch (error) {
+      setBalanceMessage(error instanceof Error ? error.message : 'Auto-balancing failed.')
+    } finally {
+      setIsBalancingAssignments(false)
+    }
+  }
+
   useEffect(() => {
     if (!isEditing || !user) {
       return
@@ -935,6 +992,18 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
+      {completedCoursesError ? (
+        <div className="mb-4 rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
+          {completedCoursesError}
+        </div>
+      ) : null}
+
+      {completionNotice ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg">
+          {completionNotice}
+        </div>
+      ) : null}
+
       <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${!isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
         <div className="grid min-w-0 gap-4.5">
           {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
@@ -955,16 +1024,34 @@ export function SemesterPlanner() {
               isDeletingSemesterPlan={isDeletingSemesterPlan}
               savedCourseCount={savedPlan?.courseCount ?? 0}
               hasUnsavedChanges={hasUnsavedChanges}
+              canCompleteSemester={plannedCourses.length > 0}
               onSelectSemester={setActiveSemesterLabel}
               onStartEditing={startEditing}
               onSave={saveCurrentSemesterPlan}
               onCancelEditing={cancelEditing}
               onDelete={deleteCurrentSemesterPlan}
+              onOpenCompletionDialog={() => {
+                clearCompletedCoursesError()
+                setCompletionNotice(null)
+                setIsCompletionDialogOpen(true)
+              }}
               onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
               onDropCourse={handleAddCourse}
               onRemoveSlot={handleRemoveSlot}
             />
           )}
+          <PlannerFeedback
+            plannedCourses={plannedCourses}
+            completedCourses={completedCourses}
+            studyProgramCode={plannerStudyProgramCode}
+            planAssignments={planAssignments}
+            regulationRuleGroups={plannerRuleGroups}
+            isEditing={isEditing}
+            isBalancing={isBalancingAssignments}
+            balanceMessage={balanceMessage}
+            onSetAssignment={setAssignment}
+            onAutoBalance={handleAutoBalanceAssignments}
+          />
         </div>
 
         {!isMobilePlanner ? (
@@ -988,14 +1075,6 @@ export function SemesterPlanner() {
         ) : null}
       </div>
 
-      <PlannerFeedback
-        plannedCourses={plannedCourses}
-        completedCourses={completedCourses}
-        studyProgramCode={plannerStudyProgramCode}
-        planAssignments={planAssignments}
-        regulationRuleGroups={plannerRuleGroups}
-      />
-
       <MobilePlannerFavoritesDrawer
         isOpen={isEditing && isMobilePlanner && isMobileFavoritesOpen}
         onClose={() => setIsMobileFavoritesOpen(false)}
@@ -1018,6 +1097,21 @@ export function SemesterPlanner() {
           onToggleFavorite={toggleFavorite}
         />
       </MobilePlannerFavoritesDrawer>
+
+      {!isEditing && isCompletionDialogOpen ? (
+        <SemesterCompletionDialog
+          semesterLabel={activeSemesterLabel}
+          plannedCourses={plannedCourses}
+          planAssignments={planAssignments}
+          studyProgramCode={plannerStudyProgramCode}
+          regulationRuleGroups={plannerRuleGroups}
+          onClose={() => setIsCompletionDialogOpen(false)}
+          onSuccess={(message) => {
+            setCompletionNotice(message)
+            setIsCompletionDialogOpen(false)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

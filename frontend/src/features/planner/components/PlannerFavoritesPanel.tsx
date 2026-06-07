@@ -1,5 +1,6 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { FavStar } from '../../../shared/components/FavStar'
 import { usePlannerFavorites } from '../hooks/usePlannerFavorites'
 
@@ -55,6 +56,7 @@ function CandidateCard({
   options,
   selectedAreaCode,
   suggestedAreaCode,
+  completedCourse,
   onSelectAssignment,
   onAddCourse,
   onRemoveCourse,
@@ -66,6 +68,7 @@ function CandidateCard({
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
   suggestedAreaCode: string | null
+  completedCourse: CompletedCourse | null
   onSelectAssignment: (areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onRemoveCourse: (courseId: string) => void
@@ -100,6 +103,11 @@ function CandidateCard({
           <div className="break-words text-[12px] text-fg-muted">
             {course.number} · {course.ects ?? '–'} ECTS
           </div>
+          {completedCourse ? (
+            <div className="mt-1">
+              <CompletedBadge grade={completedCourse.grade} semester={completedCourse.semester} />
+            </div>
+          ) : null}
           <div className="mt-1 break-words text-[11px] text-fg-muted">
             {course.schedule.at(0)?.day ?? 'Day tba'} · {course.schedule.at(0)?.time ?? 'Time tba'}
           </div>
@@ -243,6 +251,7 @@ export function PlannerFavoritesPanel({
                 options={candidate.options}
                 selectedAreaCode={candidate.selectedAreaCode}
                 suggestedAreaCode={candidate.suggestedAreaCode}
+                completedCourse={candidate.completedCourse}
                 onSelectAssignment={(areaCode) =>
                   selectAssignment(candidate.course.id, candidate.isPlanned, areaCode)
                 }

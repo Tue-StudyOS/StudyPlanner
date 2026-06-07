@@ -54,6 +54,29 @@ return { data, isLoading, error, refetch };
 return [data, isLoading];
 ```
 
+## Responsive rules
+
+Every new feature must work on phone and desktop. These rules are non-negotiable.
+
+**Forbidden — never introduce:**
+- Horizontal overflow or viewport-breaking scroll
+- Clipped cards, images, or boxes that hide content
+- Modals or drawers that exceed viewport height or width without scroll
+- Buttons or interactive elements that are partially hidden or unreachable
+
+**Implementation checks:**
+- Containers: prefer `w-full`, `max-w-full`, `min-w-0`; never use a fixed width without a paired `max-w-*`
+- Text: long German labels, long course names, and email strings must wrap or truncate safely at 320px
+- Grids: prefer `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` over fixed-column layouts
+- Flex rows: add `flex-wrap` unless items are guaranteed to fit; never rely on content fitting at a fixed width
+- Sticky headers, bottom bars, drawers, and modals: account for mobile browser chrome and `safe-area-inset-*`
+- Inline width values are only acceptable for animations or JS-calculated dimensions
+
+**Viewport checks before finishing any feature:**
+- Minimum widths to verify: 320px, 375px, 768px, 1024px, desktop
+- Both light and dark mode
+- With long German text and long course names
+
 ## What the Agent Should NOT Do
 
 - Do not install new dependencies (npm packages) without explicit approval.
