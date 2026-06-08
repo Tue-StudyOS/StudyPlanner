@@ -16,8 +16,8 @@ function App() {
       <AuthProvider>
         <FavoritesProvider>
           <TranscriptProvider>
-            <OnboardingProvider>
-              <BrowserRouter>
+            <BrowserRouter>
+              <OnboardingProvider>
                 <Routes>
                   <Route element={<Layout />}>
                     <Route path={ROUTES.dashboard} element={<Dashboard />} />
@@ -28,8 +28,8 @@ function App() {
                     <Route path={ROUTES.account} element={<AccountPage />} />
                   </Route>
                 </Routes>
-              </BrowserRouter>
-            </OnboardingProvider>
+              </OnboardingProvider>
+            </BrowserRouter>
           </TranscriptProvider>
         </FavoritesProvider>
       </AuthProvider>
