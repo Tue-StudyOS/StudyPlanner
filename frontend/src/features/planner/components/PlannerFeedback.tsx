@@ -241,7 +241,7 @@ export function PlannerFeedback({
     <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-[13px] font-semibold text-fg">Regulation outlook</div>
+            <div className="text-[14px] font-semibold text-fg">Regulation Outlook</div>
             <p className="mt-1 text-[12px] text-fg-muted">
               See what is already credited and what this semester plan would add.
             </p>
@@ -323,12 +323,8 @@ export function PlannerFeedback({
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
-                        <div className="min-w-0 text-[12.5px] font-semibold text-fg">{area.name}</div>
-                        <div className="text-[11.5px] text-fg-muted">{area.code}</div>
-                      </div>
-                      <div className="mt-1 text-[11.5px] text-fg-muted">
-                        Current {roundEcts(area.creditedEcts)} ECTS
-                        {area.plannedEcts > 0 ? ` - +${roundEcts(area.plannedEcts)} planned` : ''}
+                        <div className="text-[12.5px] font-semibold text-fg">{area.code}</div>
+                        <div className="min-w-0 truncate text-[11.5px] text-fg-muted">{area.name}</div>
                       </div>
                     </div>
                     <div className="text-right text-[12px] font-semibold text-fg">

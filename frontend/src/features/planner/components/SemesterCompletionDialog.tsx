@@ -379,7 +379,7 @@ export function SemesterCompletionDialog({
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold text-fg">Mark planned courses as completed</div>
+            <div className="text-[15px] font-semibold text-fg">Mark Planned Courses as Completed</div>
             <p className="mt-1 text-[12.5px] text-fg-muted">
               Move all or selected planned courses from {semesterLabel} into your completed-course history without re-entering them manually.
             </p>

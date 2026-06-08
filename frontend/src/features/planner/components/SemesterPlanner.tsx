@@ -254,7 +254,7 @@ function PlannerOverflowDialog({
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[14px] font-semibold text-fg">Additional overlapping courses</div>
+            <div className="text-[14px] font-semibold text-fg">Additional Overlapping Courses</div>
             <p className="mt-1 text-[12px] text-fg-muted">{overflow.title}</p>
           </div>
           <button
@@ -386,7 +386,7 @@ function MobilePlannerFavoritesDrawer({
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <div className="text-[14px] font-semibold text-fg">Import courses</div>
+            <div className="text-[14px] font-semibold text-fg">Import Courses</div>
             <div className="text-[12px] text-fg-muted">Add favorite courses to this semester plan</div>
           </div>
           <button
@@ -491,7 +491,7 @@ function PlannerGrid({
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[14px] font-semibold text-fg">Weekly schedule</div>
+              <div className="text-[14px] font-semibold text-fg">Weekly Schedule</div>
               {hasUnsavedChanges ? <UnsavedPlannerDraftIndicator /> : null}
             </div>
             <p className="mt-1 text-[12.5px] text-fg-muted">
