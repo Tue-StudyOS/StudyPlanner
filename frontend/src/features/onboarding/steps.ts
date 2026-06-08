@@ -5,6 +5,7 @@ import {
   TranscriptIcon,
   WelcomeIcon,
 } from './components/icons'
+import { ROUTES } from '../routes'
 import type { OnboardingStep } from './types'
 
 export const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -26,6 +27,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
       "Add courses manually — enter individual courses by hand if you don't have a PDF.",
     ],
     Icon: TranscriptIcon,
+    route: ROUTES.transcript,
   },
   {
     id: 'dashboard',
@@ -39,6 +41,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
       'A grade overview across your completed courses.',
     ],
     Icon: DashboardIcon,
+    route: ROUTES.dashboard,
   },
   {
     id: 'catalog',
@@ -47,6 +50,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Browse the Catalog to explore the full course offering. Star the courses you are interested in to add them to your favorites — they become the building blocks for planning your semester.',
     Icon: CatalogIcon,
+    route: ROUTES.catalog,
   },
   {
     id: 'planner',
@@ -55,5 +59,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'In the Planner, assemble upcoming semesters from your favorited courses. You get recommendations based on the category requirements of your study program, so each semester moves you toward your degree.',
     Icon: PlannerIcon,
+    route: ROUTES.planner,
   },
 ]

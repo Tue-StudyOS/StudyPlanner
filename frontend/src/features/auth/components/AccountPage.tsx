@@ -332,7 +332,7 @@ export function AccountPage() {
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
-              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
+              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update Credentials</h2>
               <form onSubmit={(event) => void handleCredentialsSave(event)} className="flex min-w-0 flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
@@ -392,7 +392,7 @@ export function AccountPage() {
 
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-[13.5px] font-semibold text-fg">Study profile</h2>
+                <h2 className="text-[13.5px] font-semibold text-fg">Study Profile</h2>
                 <div className="text-[12px] text-fg-muted">
                   {isSavingProfile || profileSaveState === 'saving'
                     ? 'Saving changes...'
@@ -532,7 +532,7 @@ export function AccountPage() {
           </section>
 
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
-            <h2 className="mb-3 text-[14px] font-semibold text-fg">What you get with an account</h2>
+            <h2 className="mb-3 text-[14px] font-semibold text-fg">What You Get with an Account</h2>
             <ul className="grid gap-2 pl-5 text-[13.5px] leading-6 text-fg-mid">
               <li className="list-disc">Persist favorite courses across devices</li>
               <li className="list-disc">Store your study program incl. PO and your start semester</li>
@@ -542,7 +542,7 @@ export function AccountPage() {
 
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5 lg:col-span-2">
             <div className="mb-4">
-              <h2 className="text-[14px] font-semibold text-fg">Public study programs</h2>
+              <h2 className="text-[14px] font-semibold text-fg">Public Study Programs</h2>
               <p className="text-[12.5px] text-fg-muted">Browsing the public catalog does not require an account.</p>
             </div>
             {isLoadingOptions ? (

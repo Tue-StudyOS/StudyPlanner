@@ -254,7 +254,7 @@ function PersonalCourseCollection({
     <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[14px] font-semibold text-fg">Personal course collection</div>
+          <div className="text-[14px] font-semibold text-fg">Personal Course Collection</div>
           <p className="mt-1 text-[11.5px] text-fg-muted">
             {currentReviewCandidates.length} in review · {savedIssueCandidates.length} saved for later · {completedCourses.length} credited
           </p>

@@ -285,7 +285,7 @@ export function ManualCompletedCourseForm({
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[14px] font-semibold text-fg">Add completed courses manually</div>
+          <div className="text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
           <p className="mt-1 text-[12.5px] text-fg-muted">
             Add a catalog course or external course and place it in a compatible regulation area.
           </p>
@@ -384,7 +384,7 @@ export function ManualCompletedCourseForm({
                     <div className="text-[12.5px] text-fg-muted">Checking the active regulation...</div>
                   ) : matchedExternalCourse ? (
                     <div className="rounded-lg border border-border bg-surface px-4 py-3">
-                      <div className="text-[13px] font-semibold text-fg">Matched regulation course</div>
+                      <div className="text-[13px] font-semibold text-fg">Matched Regulation Course</div>
                       <div className="mt-1 text-[12px] text-fg-muted">
                         {matchedExternalCourse.title} · {matchedExternalCourse.number || 'Catalog course'}
                       </div>
