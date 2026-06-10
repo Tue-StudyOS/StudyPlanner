@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
+  getCurrentPlannerAssignment,
   getPlannerCourseAreaOptions,
   getResolvedPlannerAssignment,
   getSuggestedPlannerAssignment,
@@ -14,6 +15,7 @@ export interface PlannerFavoriteCandidate {
   completedCourse: CompletedCourse | null
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
+  explicitAreaCode: string | null
   suggestedAreaCode: string | null
 }
 
@@ -100,6 +102,13 @@ export function usePlannerFavorites({
         completedCourses,
       })
       const draftValue = assignmentDrafts[course.id]
+      const currentAssignment = isPlanned
+        ? getCurrentPlannerAssignment(course, {
+            studyProgramCode,
+            regulationRuleGroups,
+            planAssignments,
+          })
+        : null
       const selectedAreaCode = draftValue
         ? draftValue
         : isPlanned
@@ -111,6 +120,7 @@ export function usePlannerFavorites({
               completedCourses,
             })
           : suggestedAreaCode
+      const explicitAreaCode = draftValue ?? currentAssignment
 
       return {
         course,
@@ -118,6 +128,7 @@ export function usePlannerFavorites({
         completedCourse: completedCourseByCatalogKey.get(course.id) ?? completedCourseByCatalogKey.get(course.number) ?? null,
         options,
         selectedAreaCode,
+        explicitAreaCode,
         suggestedAreaCode,
       }
     })

@@ -1,7 +1,7 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
-  buildMappedCourseAreaOptions,
+  buildAssignableRegulationAreaOptions,
   getEffectiveRuleGroupCapacity,
 } from '../../../shared/utils/regulation'
 
@@ -11,6 +11,24 @@ interface PlannerAssignmentContext {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+}
+
+export interface PlannerAutomaticAssignmentCandidate {
+  course: Course
+  index: number
+  options: RegulationAreaOption[]
+}
+
+export interface PlannerAssignmentAreaState {
+  code: string
+  capacityEcts: number | null
+  creditedEcts: number
+  plannedEcts: number
+}
+
+export interface PlannerAutomaticAssignment {
+  areaCode: string
+  ects: number
 }
 
 function getCapacityEctsByArea(ruleGroups: RegulationRuleGroup[]): Map<string, number | null> {
@@ -65,15 +83,29 @@ export function getPlannerCourseAreaOptions(
   studyProgramCode: string | null,
   regulationRuleGroups: RegulationRuleGroup[],
 ): RegulationAreaOption[] {
-  void regulationRuleGroups
   const hasAnyCategory = (course.studyAreaOptions?.length ?? 0) > 0 || course.masterCats.length > 0
   if (!hasAnyCategory) {
     return []
   }
-  return buildMappedCourseAreaOptions(
+  return buildAssignableRegulationAreaOptions(
     course.studyAreaOptions,
     studyProgramCode,
+    regulationRuleGroups,
+    course.masterCats,
   )
+}
+
+export function getPlannerCourseEctsForArea(
+  course: Course,
+  areaCode: string,
+  studyProgramCode: string | null,
+): number {
+  const matchingOptions = course.studyAreaOptions?.filter((option) =>
+    option.studyAreaCode === areaCode
+    && (!studyProgramCode || option.programCode === studyProgramCode),
+  ) ?? []
+  const matchingOption = matchingOptions.find((option) => typeof option.ectsCounted === 'number')
+  return matchingOption?.ectsCounted ?? course.ects ?? 0
 }
 
 export function getCurrentPlannerAssignment(
@@ -174,4 +206,153 @@ export function getResolvedPlannerAssignment(
     regulationRuleGroups: context.regulationRuleGroups,
     planAssignments: context.planAssignments,
   }) ?? getSuggestedPlannerAssignment(course, context)
+}
+
+function buildAreaSortOrder(regulationRuleGroups: RegulationRuleGroup[]): Map<string, number> {
+  return new Map(
+    regulationRuleGroups.map((ruleGroup) => [ruleGroup.code, ruleGroup.sortOrder ?? 0]),
+  )
+}
+
+function scoreAutomaticAssignmentSolution(
+  assignments: Map<string, PlannerAutomaticAssignment>,
+  totalsByArea: Map<string, number>,
+  areas: PlannerAssignmentAreaState[],
+  areaSortOrder: Map<string, number>,
+): number[] {
+  let remainingCapacity = 0
+  const fillRatios: number[] = []
+
+  areas.forEach((area) => {
+    const capacityEcts = area.capacityEcts
+    if (capacityEcts === null) {
+      return
+    }
+    const areaTotal = totalsByArea.get(area.code) ?? 0
+    remainingCapacity += Math.max(0, capacityEcts - areaTotal)
+    if (capacityEcts > 0) {
+      fillRatios.push(Math.max(0, areaTotal / capacityEcts))
+    }
+  })
+
+  const maxFillRatio = fillRatios.length > 0 ? Math.max(...fillRatios) : 0
+  const meanFillRatio = fillRatios.length > 0
+    ? fillRatios.reduce((sum, ratio) => sum + ratio, 0) / fillRatios.length
+    : 0
+  const fillVariance = fillRatios.reduce(
+    (sum, ratio) => sum + ((ratio - meanFillRatio) ** 2),
+    0,
+  )
+  const filledAreaCount = fillRatios.filter((ratio) => ratio > 0.0001).length
+  const sortPenalty = [...assignments.values()].reduce(
+    (sum, assignment) => sum + (areaSortOrder.get(assignment.areaCode) ?? 0),
+    0,
+  )
+
+  return [
+    assignments.size,
+    -remainingCapacity,
+    -maxFillRatio,
+    -fillVariance,
+    filledAreaCount,
+    -sortPenalty,
+  ]
+}
+
+function isScoreBetter(candidate: number[], current: number[] | null): boolean {
+  if (current === null) {
+    return true
+  }
+
+  for (let index = 0; index < candidate.length; index += 1) {
+    const candidateValue = candidate[index] ?? 0
+    const currentValue = current[index] ?? 0
+    if (candidateValue !== currentValue) {
+      return candidateValue > currentValue
+    }
+  }
+  return false
+}
+
+export function resolveAutomaticPlannerAssignments({
+  candidates,
+  areas,
+  regulationRuleGroups,
+  studyProgramCode,
+}: {
+  candidates: PlannerAutomaticAssignmentCandidate[]
+  areas: PlannerAssignmentAreaState[]
+  regulationRuleGroups: RegulationRuleGroup[]
+  studyProgramCode: string | null
+}): Map<string, PlannerAutomaticAssignment> {
+  const areaByCode = new Map(areas.map((area) => [area.code, area]))
+  const areaSortOrder = buildAreaSortOrder(regulationRuleGroups)
+  const orderedCandidates = [...candidates].sort((left, right) => {
+    const leftOptionCount = left.options.length || Number.POSITIVE_INFINITY
+    const rightOptionCount = right.options.length || Number.POSITIVE_INFINITY
+    return (
+      leftOptionCount - rightOptionCount
+      || left.course.title.localeCompare(right.course.title)
+      || left.index - right.index
+    )
+  })
+  const initialTotals = new Map(
+    areas.map((area) => [area.code, area.creditedEcts + area.plannedEcts]),
+  )
+  let bestAssignments = new Map<string, PlannerAutomaticAssignment>()
+  let bestScore: number[] | null = null
+
+  function visit(
+    index: number,
+    currentAssignments: Map<string, PlannerAutomaticAssignment>,
+    currentTotals: Map<string, number>,
+  ): void {
+    if (index >= orderedCandidates.length) {
+      const score = scoreAutomaticAssignmentSolution(
+        currentAssignments,
+        currentTotals,
+        areas,
+        areaSortOrder,
+      )
+      if (isScoreBetter(score, bestScore)) {
+        bestScore = score
+        bestAssignments = new Map(currentAssignments)
+      }
+      return
+    }
+
+    const candidate = orderedCandidates[index]
+    const sortedOptions = [...candidate.options].sort((left, right) => {
+      const sortOrderDifference =
+        (areaSortOrder.get(left.code) ?? 0) - (areaSortOrder.get(right.code) ?? 0)
+      return sortOrderDifference || left.label.localeCompare(right.label)
+    })
+
+    sortedOptions.forEach((option) => {
+      const area = areaByCode.get(option.code)
+      if (!area) {
+        return
+      }
+      const ects = getPlannerCourseEctsForArea(candidate.course, option.code, studyProgramCode)
+      const currentAreaTotal = currentTotals.get(option.code) ?? 0
+      const capacityEcts = area.capacityEcts
+      if (capacityEcts !== null && currentAreaTotal + ects > capacityEcts + 0.0001) {
+        return
+      }
+
+      const nextAssignments = new Map(currentAssignments)
+      const nextTotals = new Map(currentTotals)
+      nextAssignments.set(candidate.course.id, {
+        areaCode: option.code,
+        ects,
+      })
+      nextTotals.set(option.code, currentAreaTotal + ects)
+      visit(index + 1, nextAssignments, nextTotals)
+    })
+
+    visit(index + 1, currentAssignments, currentTotals)
+  }
+
+  visit(0, new Map(), initialTotals)
+  return bestAssignments
 }

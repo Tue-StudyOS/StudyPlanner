@@ -1,4 +1,4 @@
-import type { Course, MasterCat, StudyAreaOption } from '../../courses'
+import type { Course } from '../../courses'
 
 export const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
@@ -28,21 +28,6 @@ const DAY_ALIASES: Record<string, (typeof DAY_ORDER)[number]> = {
   friday: 'Friday',
 }
 
-const MASTER_CATEGORY_LABELS: Record<MasterCat, string> = {
-  TECH: 'Technical Computer Science',
-  THEO: 'Theoretical Computer Science',
-  PRAK: 'Practical Computer Science',
-  INFO: 'Computer Science',
-  BASIS: 'Foundations',
-}
-
-interface PlannerCoverageItem {
-  key: string
-  label: string
-  courseCount: number
-  ects: number
-}
-
 export interface PlannerBlock {
   blockId: string
   slotId: string
@@ -56,24 +41,12 @@ export interface PlannerBlock {
   hasOverlap: boolean
 }
 
-export interface PlannerFeedbackSummary {
-  totalCourses: number
-  totalEcts: number
-  totalBlocks: number
-  scheduledHours: number
-  overlapCount: number
-  unscheduledCourses: Course[]
-  coverageLabel: string
-  coverageItems: PlannerCoverageItem[]
-  scheduledBlocks: PlannerBlock[]
-}
-
 function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
   return DAY_ALIASES[value.trim().toLowerCase()] ?? null
 }
 
 function parseTimeRange(timeText: string): { startMinutes: number; endMinutes: number } | null {
-  const match = timeText.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/)
+  const match = timeText.match(/(\d{1,2}:\d{2})\s*(?:-|\u2013|\u2014)\s*(\d{1,2}:\d{2})/)
   if (!match) {
     return null
   }
@@ -128,103 +101,4 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
       }
       return left.startMinutes - right.startMinutes
     })
-}
-
-function buildCoverageFromStudyAreas(
-  courses: Course[],
-  studyProgramCode: string | null,
-): PlannerCoverageItem[] {
-  const coverageByKey = new Map<string, PlannerCoverageItem>()
-
-  courses.forEach((course) => {
-    const programSpecificOptions = (course.studyAreaOptions ?? []).filter(
-      (option) => !studyProgramCode || option.programCode === studyProgramCode,
-    )
-    const fallbackOptions = course.studyAreaOptions ?? []
-    const relevantOptions = programSpecificOptions.length > 0 ? programSpecificOptions : fallbackOptions
-    const uniqueKeys = new Set<string>()
-
-    relevantOptions.forEach((option) => {
-      const key = buildStudyAreaKey(option)
-      if (!key || uniqueKeys.has(key)) {
-        return
-      }
-      uniqueKeys.add(key)
-
-      const nextItem = coverageByKey.get(key) ?? {
-        key,
-        label: option.studyAreaName || option.studyAreaCode || 'Unassigned study area',
-        courseCount: 0,
-        ects: 0,
-      }
-      nextItem.courseCount += 1
-      nextItem.ects += course.ects ?? 0
-      coverageByKey.set(key, nextItem)
-    })
-  })
-
-  return [...coverageByKey.values()].sort((left, right) => right.ects - left.ects || left.label.localeCompare(right.label))
-}
-
-function buildStudyAreaKey(option: StudyAreaOption): string | null {
-  if (option.studyAreaCode) {
-    return option.studyAreaCode
-  }
-  if (option.studyAreaName) {
-    return option.studyAreaName
-  }
-  return null
-}
-
-function buildCoverageFromMasterCategories(courses: Course[]): PlannerCoverageItem[] {
-  const coverageByKey = new Map<string, PlannerCoverageItem>()
-
-  courses.forEach((course) => {
-    const uniqueCategories = [...new Set(course.masterCats)]
-    uniqueCategories.forEach((masterCategory) => {
-      const nextItem = coverageByKey.get(masterCategory) ?? {
-        key: masterCategory,
-        label: MASTER_CATEGORY_LABELS[masterCategory],
-        courseCount: 0,
-        ects: 0,
-      }
-      nextItem.courseCount += 1
-      nextItem.ects += course.ects ?? 0
-      coverageByKey.set(masterCategory, nextItem)
-    })
-  })
-
-  return [...coverageByKey.values()].sort((left, right) => right.ects - left.ects || left.label.localeCompare(right.label))
-}
-
-export function calculatePlannerFeedback(
-  courses: Course[],
-  studyProgramCode: string | null,
-): PlannerFeedbackSummary {
-  const scheduledBlocks = buildPlannerBlocks(courses)
-  const totalEcts = courses.reduce((sum, course) => sum + (course.ects ?? 0), 0)
-  const overlapCount = scheduledBlocks.filter((block) => block.hasOverlap).length
-  const scheduledHours = scheduledBlocks.reduce(
-    (sum, block) => sum + (block.endMinutes - block.startMinutes) / 60,
-    0,
-  )
-  const unscheduledCourses = courses.filter(
-    (course) => !scheduledBlocks.some((block) => block.courseId === course.id),
-  )
-
-  const studyAreaCoverage = buildCoverageFromStudyAreas(courses, studyProgramCode)
-  const coverageItems = studyAreaCoverage.length > 0 ? studyAreaCoverage : buildCoverageFromMasterCategories(courses)
-
-  return {
-    totalCourses: courses.length,
-    totalEcts: totalEcts,
-    totalBlocks: scheduledBlocks.length,
-    scheduledHours,
-    overlapCount,
-    unscheduledCourses,
-    coverageLabel:
-      studyAreaCoverage.length > 0 ? 'Elective block coverage' : 'Master category coverage',
-    coverageItems,
-    scheduledBlocks,
-  }
 }

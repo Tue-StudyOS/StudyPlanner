@@ -85,6 +85,7 @@ async def load_course_options_for_regulation(
         env,
         regulation_version_id,
         course_ids,
+        allowed_only=True,
     )
     options_by_course_id: dict[int, list[CourseOption]] = {}
     for course_id, options in rows.items():
@@ -273,21 +274,38 @@ def _score_solution(
     area_totals: dict[str, float],
     preferred_assignments: dict[str, str],
     rule_groups: dict[str, RuleGroup],
-) -> tuple[int, float, int, float]:
+) -> tuple[int, float, float, float, int, int, float]:
     assigned_count = len(assignments)
     remaining_capacity = 0.0
+    fill_ratios: list[float] = []
     for area_code, rule_group in rule_groups.items():
         capacity = _effective_capacity(rule_group)
         if capacity is None:
             continue
-        remaining_capacity += max(0.0, capacity - area_totals.get(area_code, 0.0))
+        area_total = area_totals.get(area_code, 0.0)
+        remaining_capacity += max(0.0, capacity - area_total)
+        if capacity > 0:
+            fill_ratios.append(max(0.0, area_total / capacity))
+
+    max_fill_ratio = max(fill_ratios, default=0.0)
+    mean_fill_ratio = sum(fill_ratios) / len(fill_ratios) if fill_ratios else 0.0
+    fill_variance = sum((ratio - mean_fill_ratio) ** 2 for ratio in fill_ratios)
+    filled_area_count = sum(1 for ratio in fill_ratios if ratio > 0.0001)
     kept_preferences = sum(
         1
         for course_id, area_code in assignments.items()
         if preferred_assignments.get(str(course_id)) == area_code
     )
     sort_penalty = sum(rule_groups[area_code].sort_order for area_code in assignments.values())
-    return assigned_count, -remaining_capacity, kept_preferences, -sort_penalty
+    return (
+        assigned_count,
+        -remaining_capacity,
+        -max_fill_ratio,
+        -fill_variance,
+        filled_area_count,
+        kept_preferences,
+        -sort_penalty,
+    )
 
 
 def _balance_assignments(
@@ -343,7 +361,7 @@ def _balance_assignments(
 
     best_assignments: dict[int, str] = {}
     best_totals: dict[str, float] = dict(completed_ects_by_area)
-    best_score: tuple[int, float, int, float] | None = None
+    best_score: tuple[int, float, float, float, int, int, float] | None = None
 
     def visit(
         index: int,

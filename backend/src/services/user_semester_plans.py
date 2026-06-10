@@ -284,14 +284,13 @@ async def replace_current_user_semester_plan(
     normalized_payload = _normalize_plan_payload(payload)
     course_ids = [int(course_id) for course_id in normalized_payload['courseIds']]
     hidden_slot_ids = normalized_payload['hiddenSlotIds']
-    course_assignments = normalized_payload['courseAssignments']
     await _validate_course_ids(env, course_ids)
 
     validated_assignments = await validate_plan_course_assignments(
         env,
         user,
         course_ids,
-        course_assignments,
+        normalized_payload['courseAssignments'],
     )
 
     stored_plans = await _load_stored_plans(env, username)

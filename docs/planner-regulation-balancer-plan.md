@@ -339,5 +339,5 @@ Deployment:
 - Changed Regulation outlook placement so fixed/single-option planned courses consume capacity first and flexible courses move to `Needs assignment` when no mapped area has enough remaining capacity.
 - Relaxed the Regulation outlook capacity rule for manual assignments: automatic placement stays capacity-safe, but a user-selected compatible area is honored even if it temporarily overfills the area.
 - Moved Regulation outlook into the main planner column directly below the weekly schedule, removed the separate Planned ECTS card, and folded planned ECTS/course count into the Regulation outlook header.
-- Added session-backed unsaved planner drafts per user and semester so tab changes do not wipe edit-mode changes, and show a compact in-header "Unsaved semester draft" indicator without extra draft actions.
-- Audited branch cleanup: kept planner draft storage local because no generic frontend storage helper exists, and extracted duplicated backend regulation rule-group/course-option SQL loaders into `services/regulation_assignment_options.py`.
+- Removed planner draft persistence while keeping the compact in-header "Unsaved semester draft" indicator for current in-memory changes.
+- Audited branch cleanup and extracted duplicated backend regulation rule-group/course-option SQL loaders into `services/regulation_assignment_options.py`.
