@@ -13,6 +13,14 @@ Project-wide instructions for AI coding agents.
 - Ask before adding new production dependencies.
 - Never commit secrets, tokens, passwords, private keys, or generated credentials.
 
+## Testing
+
+- Frontend unit tests live in `frontend/tests/` and run with the Node test runner.
+- Run them with `npm run test:frontend` from the repo root (or `npm test` inside `frontend/`).
+- Run `npm run lint` and `npm run build` (typecheck + build) inside `frontend/` before committing frontend changes.
+- New or changed frontend logic must come with tests; prefer extracting pure utilities so they are testable without a DOM.
+- Modules under test must use explicit `.ts` extensions on runtime imports (e.g. `from './x.ts'`), otherwise the Node test runner cannot resolve them.
+
 ## Coding conventions
 
 - Use English for all code, comments, variable names, function names, class names, commit messages, and documentation.

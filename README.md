@@ -26,6 +26,17 @@ npm install
 npm run dev
 ```
 
+### Frontend tests
+
+Run before every commit that touches frontend code:
+
+```bash
+npm run test:frontend   # from the repo root, or: cd frontend && npm test
+```
+
+This runs all `frontend/tests/**/*.test.ts` files with the Node test runner.
+Lint and typecheck via `npm run lint` and `npm run build` inside `frontend/`.
+
 ### Frontend build
 
 ```bash
