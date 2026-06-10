@@ -36,6 +36,13 @@ Every new frontend feature must work on both phone and desktop.
 - Sticky and modal elements must account for mobile browser chrome and safe-area insets.
 - Check at minimum: 320px, 375px, 768px, and desktop width; both light and dark mode.
 
+## Cloudflare runtime config guardrails
+
+- Current active D1 for deployments is `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) through the Worker binding `DB`.
+- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is reserved for a later production cutover and must not be configured as the active runtime DB without explicit human approval.
+- The D1 database name and UUID are public Cloudflare binding config and may be committed; never commit `AUTH_TOKEN_SECRET` or any generated secret value.
+- Run `npm run db:verify-config` before deploys or after touching Cloudflare/Pages config. The GitHub workflow with the same check should be required on `main` branch protection.
+
 ## Workflow
 
 Before changing code:

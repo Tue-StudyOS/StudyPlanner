@@ -1,0 +1,11 @@
+# Cloudflare Pages project config.
+# VITE_API_BASE_URL is public build-time config, not a secret.
+name = "studyplaner"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-05-21"
+
+[vars]
+VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
+
+[env.production.vars]
+VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"

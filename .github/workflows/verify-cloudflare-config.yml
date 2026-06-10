@@ -1,0 +1,20 @@
+name: Verify Cloudflare config
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  verify-cloudflare-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify checked-in Cloudflare config
+        run: python backend/scripts/verify_cloudflare_config.py

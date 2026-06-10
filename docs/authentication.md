@@ -24,7 +24,7 @@ Use a first-party email/password flow backed by Cloudflare D1 for credentials an
 ## Security rules
 
 - passwords are never stored or logged in plain text
-- `AUTH_TOKEN_SECRET` must be configured with `wrangler secret put AUTH_TOKEN_SECRET` and must never be committed
+- `AUTH_TOKEN_SECRET` must be configured with `wrangler secret put AUTH_TOKEN_SECRET --name studyplanner-api` and must never be committed
 - authenticated requests require HTTPS in Cloudflare deployments
 - CORS must allow the real frontend origin before production use
 - token lifetime is configured through `AUTH_TOKEN_TTL_SECONDS`
@@ -54,4 +54,4 @@ Not included yet:
 
 ## Cloudflare note
 
-No manual Cloudflare identity-provider setup is required for this first-party auth flow. Apply migrations locally first, back up/export remote D1 databases, and only then apply remote database changes after explicit confirmation.
+No manual Cloudflare identity-provider setup is required for this first-party auth flow. The current active D1 binding is `studyplaner-db-test`; `studyplanner-db` is reserved for a later production cutover. See `docs/cloudflare-runtime-config.md` before changing Worker, Pages, or D1 names. Apply migrations locally first, back up/export remote D1 databases, and only then apply remote database changes after explicit confirmation.

@@ -1,5 +1,7 @@
 # Cloudflare Migration Test Plan
 
+> Historical note: this file describes the original migration-test branch. For current deployments, use `docs/cloudflare-runtime-config.md`; the active runtime D1 is now `studyplaner-db-test` and `studyplanner-db` is reserved for a later production cutover.
+
 This document is the practical test guide for the `cloudflare-migration-test` branch.
 
 ## Goal

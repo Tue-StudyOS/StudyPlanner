@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document is the canonical repo-side audit and planning note for the first open-testing Cloudflare setup.
+This document is the canonical repo-side audit and planning note for the first open-testing Cloudflare setup. For the current deployable resource names and guard commands, see `docs/cloudflare-runtime-config.md`.
 
 It combines:
 
@@ -50,8 +50,8 @@ This audit can confirm the repo configuration, but it cannot fully confirm the l
 ### D1
 
 - The repo is built around **one D1 binding** named `DB`.
-- `backend/wrangler.toml` currently points that binding at the correctly named database **`studyplanner-db`**.
-- The legacy typo-named `studyplaner-db-test` exists only as a source/template backup outside the checked-in runtime config.
+- `backend/wrangler.toml` currently points that binding at the active test database **`studyplaner-db-test`** (`297f7a28-9069-431d-b989-49acf2537513`).
+- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is reserved for a later production cutover and must not be used yet without explicit human approval.
 - The checked-in migration set builds the public catalog/regulation tables plus the reduced `user_auth`, `user_state`, and `user_progress` user schema.
 
 ### Frontend / Pages
@@ -120,7 +120,7 @@ public ALMA pages
 
 | Area | Repo-confirmed current state | Why it matters |
 | --- | --- | --- |
-| D1 remote safety | `studyplanner-db` is configured, while legacy `studyplaner-db-test` may still hold source/template data remotely | Remote rebuilds must back up both databases and avoid destructive D1 changes without approval |
+| D1 remote safety | `studyplaner-db-test` is the active runtime DB, while `studyplanner-db` is reserved for a later production cutover | Remote rebuilds must back up both databases and avoid destructive D1 changes or DB switches without approval |
 | Cloudflare docs | Some docs still describe a migration/test setup instead of the current single active D1 direction | Open-testing guidance is harder to trust |
 | Legacy tracked data | `backend/data/courses.json`, `backend/data/Alma_courses.json`, and `backend/data/regulations/*` are still tracked | They add ambiguity around the real source of truth |
 | Live inventory proof | No checked-in dashboard export or Wrangler remote inventory | The repo alone cannot prove live resource names/domains |
@@ -289,19 +289,20 @@ Costs:
 
 ### Naming direction
 
-The repo already behaves like there is only **one active remote D1**.
+The repo currently has one active app D1 binding plus one reserved future production D1.
 
-Target naming should therefore be production-like and no longer suggest an isolated migration sandbox. The desired end state is:
+Current naming must stay:
 
-- D1: `studyplanner-db`
-- Worker: `studyplanner-api`
-- Pages: `studyplanner-web`
+- active runtime D1: `studyplaner-db-test`
+- reserved future production D1: `studyplanner-db`
+- canonical Worker: `studyplanner-api`
+- Pages project: `studyplaner`
 
-The repo now points at `studyplanner-db` in `backend/wrangler.toml`. The safe repo-side conclusion is:
+The repo now points at `studyplaner-db-test` in `backend/wrangler.toml`. The safe repo-side conclusion is:
 
-- **current configured remote name:** `studyplanner-db`
-- **legacy source/template name:** `studyplaner-db-test`
-- **required live follow-up:** export/backup both D1 databases, then ask for explicit confirmation before applying remote schema changes
+- **current configured remote name:** `studyplaner-db-test`
+- **reserved production name:** `studyplanner-db`
+- **required live follow-up:** export/backup both D1 databases, then ask for explicit confirmation before applying remote schema changes or switching the active binding
 
 ### Architecture decision summary
 
@@ -559,7 +560,7 @@ When the scraper/importer evolves, prefer this order:
 
 | Topic | Current repo-confirmed state | Target state |
 | --- | --- | --- |
-| runtime database | one D1 binding configured as `studyplanner-db` | keep one D1 with normalized production-like naming |
+| runtime database | one D1 binding configured as `studyplaner-db-test` | keep this active until the approved `studyplanner-db` production cutover |
 | source-of-truth model | D1 at runtime, SQLite still used as import/bootstrap source | D1 canonical for app data, ingestion path can remain transitional |
 | public data surface | public catalog endpoints already available | keep public catalog as the only open-testing surface |
 | account-backed features | deployed in the Worker and backed by D1 | keep internal-only during first open testing |
@@ -595,7 +596,7 @@ When the scraper/importer evolves, prefer this order:
 ### Repo/config
 
 - [ ] Canonical audit doc exists and is linked from the main Cloudflare docs
-- [ ] `backend/wrangler.toml`, helper scripts, and docs use consistent D1 naming
+- [ ] `backend/wrangler.toml`, helper scripts, and docs use consistent D1 naming and pass `npm run db:verify-config`
 - [ ] stale migration-test wording is removed or clearly marked historical
 - [ ] low-risk legacy tracked data is removed
 
