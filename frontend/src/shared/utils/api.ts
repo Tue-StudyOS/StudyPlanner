@@ -10,14 +10,28 @@ export class ApiError extends Error {
   }
 }
 
+const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
+const PRODUCTION_PAGES_HOST = 'studyplaner.pages.dev'
+const PRODUCTION_PAGES_PREVIEW_SUFFIX = '.studyplaner.pages.dev'
+
+function isProductionPagesHost(hostname: string): boolean {
+  return hostname === PRODUCTION_PAGES_HOST || hostname.endsWith(PRODUCTION_PAGES_PREVIEW_SUFFIX)
+}
+
 export function getApiBaseUrl(): string {
   const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
   if (configuredBaseUrl) {
     return configuredBaseUrl.replace(/\/$/, '')
   }
 
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:8787'
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'localhost') {
+      return 'http://localhost:8787'
+    }
+    if (isProductionPagesHost(hostname)) {
+      return PRODUCTION_API_BASE_URL
+    }
   }
 
   return ''

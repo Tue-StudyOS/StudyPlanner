@@ -78,6 +78,8 @@ Important variables:
 - `ALLOWED_ORIGINS`
 - D1 binding `DB`
 
+The frontend still expects `VITE_API_BASE_URL` to be set during Pages builds. As a production safeguard, the client falls back to `https://studyplanner-api.ben-tischberger.workers.dev` only when it is running on `studyplaner.pages.dev` or a `*.studyplaner.pages.dev` preview host.
+
 For Pages preview deployments, `ALLOWED_ORIGINS` should allow both the production Pages origin and preview subdomains, for example:
 
 ```text
