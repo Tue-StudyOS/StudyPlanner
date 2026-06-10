@@ -3,7 +3,7 @@ import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/
 import {
   buildAssignableRegulationAreaOptions,
   getEffectiveRuleGroupCapacity,
-} from '../../../shared/utils/regulation'
+} from '../../../shared/utils/regulation.ts'
 
 interface PlannerAssignmentContext {
   studyProgramCode: string | null
@@ -296,18 +296,40 @@ export function resolveAutomaticPlannerAssignments({
       || left.index - right.index
     )
   })
-  const initialTotals = new Map(
+  // Resolve sorting, area lookup, and per-area ECTS once per candidate so the
+  // exponential search below only does cheap number comparisons per node.
+  const preparedCandidates = orderedCandidates.map((candidate) => ({
+    courseId: candidate.course.id,
+    options: [...candidate.options]
+      .sort((left, right) => {
+        const sortOrderDifference =
+          (areaSortOrder.get(left.code) ?? 0) - (areaSortOrder.get(right.code) ?? 0)
+        return sortOrderDifference || left.label.localeCompare(right.label)
+      })
+      .filter((option) => areaByCode.has(option.code))
+      .map((option) => ({
+        areaCode: option.code,
+        capacityEcts: areaByCode.get(option.code)?.capacityEcts ?? null,
+        ects: getPlannerCourseEctsForArea(candidate.course, option.code, studyProgramCode),
+      })),
+  }))
+  const currentTotals = new Map(
     areas.map((area) => [area.code, area.creditedEcts + area.plannedEcts]),
   )
+  const currentAssignments = new Map<string, PlannerAutomaticAssignment>()
   let bestAssignments = new Map<string, PlannerAutomaticAssignment>()
   let bestScore: number[] | null = null
+  let bestAssignmentCount = -1
 
-  function visit(
-    index: number,
-    currentAssignments: Map<string, PlannerAutomaticAssignment>,
-    currentTotals: Map<string, number>,
-  ): void {
-    if (index >= orderedCandidates.length) {
+  function visit(index: number): void {
+    // The assignment count dominates the lexicographic score, so any branch
+    // that cannot reach the best count anymore can never win. Equal counts
+    // are still explored to keep the tie-breaking results identical.
+    if (currentAssignments.size + (preparedCandidates.length - index) < bestAssignmentCount) {
+      return
+    }
+
+    if (index >= preparedCandidates.length) {
       const score = scoreAutomaticAssignmentSolution(
         currentAssignments,
         currentTotals,
@@ -316,43 +338,32 @@ export function resolveAutomaticPlannerAssignments({
       )
       if (isScoreBetter(score, bestScore)) {
         bestScore = score
+        bestAssignmentCount = currentAssignments.size
         bestAssignments = new Map(currentAssignments)
       }
       return
     }
 
-    const candidate = orderedCandidates[index]
-    const sortedOptions = [...candidate.options].sort((left, right) => {
-      const sortOrderDifference =
-        (areaSortOrder.get(left.code) ?? 0) - (areaSortOrder.get(right.code) ?? 0)
-      return sortOrderDifference || left.label.localeCompare(right.label)
-    })
-
-    sortedOptions.forEach((option) => {
-      const area = areaByCode.get(option.code)
-      if (!area) {
-        return
-      }
-      const ects = getPlannerCourseEctsForArea(candidate.course, option.code, studyProgramCode)
-      const currentAreaTotal = currentTotals.get(option.code) ?? 0
-      const capacityEcts = area.capacityEcts
-      if (capacityEcts !== null && currentAreaTotal + ects > capacityEcts + 0.0001) {
-        return
+    const candidate = preparedCandidates[index]
+    for (const option of candidate.options) {
+      const currentAreaTotal = currentTotals.get(option.areaCode) ?? 0
+      if (option.capacityEcts !== null && currentAreaTotal + option.ects > option.capacityEcts + 0.0001) {
+        continue
       }
 
-      const nextAssignments = new Map(currentAssignments)
-      const nextTotals = new Map(currentTotals)
-      nextAssignments.set(candidate.course.id, {
-        areaCode: option.code,
-        ects,
+      currentAssignments.set(candidate.courseId, {
+        areaCode: option.areaCode,
+        ects: option.ects,
       })
-      nextTotals.set(option.code, currentAreaTotal + ects)
-      visit(index + 1, nextAssignments, nextTotals)
-    })
+      currentTotals.set(option.areaCode, currentAreaTotal + option.ects)
+      visit(index + 1)
+      currentTotals.set(option.areaCode, currentAreaTotal)
+      currentAssignments.delete(candidate.courseId)
+    }
 
-    visit(index + 1, currentAssignments, currentTotals)
+    visit(index + 1)
   }
 
-  visit(0, new Map(), initialTotals)
+  visit(0)
   return bestAssignments
 }

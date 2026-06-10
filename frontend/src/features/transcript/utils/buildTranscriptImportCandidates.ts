@@ -2,6 +2,7 @@ import type { Course, MasterCat, StudyAreaOption } from '../../courses'
 import {
   buildAssignableRegulationAreaOptions,
   buildRelevantCourseAreaOptions,
+  studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation.ts'
 import type {
   ParsedTranscriptEntry,
@@ -52,41 +53,6 @@ function tokenize(value: string): string[] {
   return normalizeText(value)
     .split(' ')
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token))
-}
-
-export function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefined): MasterCat | null {
-  const normalizedCode = studyAreaCode?.trim().toUpperCase() ?? ''
-  if (!normalizedCode) {
-    return null
-  }
-  if (normalizedCode.endsWith('TECH')) {
-    return 'TECH'
-  }
-  if (normalizedCode.endsWith('THEO')) {
-    return 'THEO'
-  }
-  if (normalizedCode.endsWith('PRAK')) {
-    return 'PRAK'
-  }
-  if (normalizedCode === 'INFO' || normalizedCode === 'INFO-INFO' || normalizedCode === 'ML-CS' || normalizedCode.endsWith('-INFO')) {
-    return 'INFO'
-  }
-  if (
-    normalizedCode === 'ELECTIVE'
-    || normalizedCode === 'INFO-FOKUS'
-    || normalizedCode === 'ML-DIVERSE'
-    || normalizedCode === 'ML-EXP'
-    || normalizedCode === 'PROSEM'
-    || normalizedCode === 'UEBK'
-    || normalizedCode === 'MATH'
-    || normalizedCode === 'INF'
-    || normalizedCode === 'INFO-BASIS'
-    || normalizedCode === 'ML-FOUND'
-    || normalizedCode.endsWith('BASIS')
-  ) {
-    return 'BASIS'
-  }
-  return null
 }
 
 function buildPreferredMasterCats(
