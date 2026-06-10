@@ -5,7 +5,9 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build",
     "dev:backend": "cd backend && npx wrangler dev",
+    "predeploy:backend": "python backend/scripts/verify_cloudflare_config.py",
     "deploy:backend": "cd backend && npx wrangler deploy",
+    "db:verify-config": "python backend/scripts/verify_cloudflare_config.py",
     "db:migrate:local": "cd backend && npx wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "cd backend && npx wrangler d1 migrations apply DB --remote",
     "db:export:d1": "python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql"

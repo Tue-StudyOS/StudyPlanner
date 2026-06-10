@@ -1,6 +1,6 @@
 # StudyPlanner API Backend
 
-This folder contains the Cloudflare Worker API and D1 migration assets.
+This folder contains the Cloudflare Worker API and D1 migration assets. See `../docs/cloudflare-runtime-config.md` for the canonical active Cloudflare resource names.
 
 ## Structure
 
@@ -28,8 +28,9 @@ backend/
 
 ## D1 databases
 
-- `studyplanner-db` is the correctly named target database and the only database configured in `wrangler.toml`.
-- The legacy typo-named `studyplaner-db-test` is a data/schema source and backup template only.
+- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the current active runtime database configured in `wrangler.toml` through the `DB` binding.
+- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is reserved for a later production cutover and must not be used yet without explicit human approval.
+- Database names and UUIDs are public Cloudflare binding config; keep `AUTH_TOKEN_SECRET` as a Worker secret only.
 - Do not run destructive remote D1 commands until a human explicitly confirms the remote rebuild/migration step.
 
 ## User/auth schema
@@ -44,7 +45,7 @@ The user-owned schema is intentionally reduced to three tables:
 
 ```bash
 cd backend
-npx wrangler secret put AUTH_TOKEN_SECRET
+npx wrangler secret put AUTH_TOKEN_SECRET --name studyplanner-api
 ```
 
 Logout deletes the client-side token only. Trade-off: without server-side token state there is no immediate all-device revocation; tokens remain valid until `AUTH_TOKEN_TTL_SECONDS` expires.
@@ -60,11 +61,11 @@ For local auth testing, provide `AUTH_TOKEN_SECRET` via an ignored local `.dev.v
 
 ## D1 workflow
 
-Apply schema migrations locally first:
+Apply schema migrations locally first through the checked `DB` binding from the repo root:
 
 ```bash
-cd backend
-npx wrangler d1 migrations apply studyplanner-db --local
+npm run db:verify-config
+npm run db:migrate:local
 ```
 
 Create a data-only SQL dump from the tracked SQLite database plus the official PO 2021 JSON seeds from `einzupflegene_po/`:
@@ -77,7 +78,7 @@ Import the generated dump into the local D1 database:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplanner-db --local --file .tmp/d1-seed.sql
+npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
 ```
 
 ## Remote backup/export checklist
@@ -85,16 +86,16 @@ npx wrangler d1 execute studyplanner-db --local --file .tmp/d1-seed.sql
 Before any remote rebuild or destructive migration:
 
 1. Confirm the active Cloudflare account and list D1 databases with `npx wrangler d1 list`.
-2. Export/backup both databases, especially legacy `studyplaner-db-test` and target `studyplanner-db`.
+2. Export/backup both databases, especially active `studyplaner-db-test` and reserved production `studyplanner-db`.
 3. Store dumps outside the repo, not in `backend/.tmp/` if they contain private user data.
-4. Verify local migration plus API behavior against `studyplanner-db`.
-5. Ask for explicit approval before applying remote schema changes or deleting remote tables.
+4. Verify local migration plus API behavior against the checked `DB` binding.
+5. Ask for explicit approval before applying remote schema changes, deleting remote tables, or switching the app to `studyplanner-db`.
 
-Remote migration command, after approval only:
+Remote migration command from the repo root, after approval only:
 
 ```bash
-cd backend
-npx wrangler d1 migrations apply studyplanner-db --remote
+npm run db:verify-config
+npm run db:migrate:remote
 ```
 
 ## Notes

@@ -9,6 +9,9 @@ ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
 AUTH_TOKEN_TTL_SECONDS = "2592000"
 
+# Active runtime D1 for the current deployed app.
+# Keep this on studyplaner-db-test until a human explicitly approves the switch to studyplanner-db.
+# The database name and id are public Cloudflare binding config; AUTH_TOKEN_SECRET stays a Worker secret.
 [[d1_databases]]
 binding = "DB"
 database_name = "studyplaner-db-test"
