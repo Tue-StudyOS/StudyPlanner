@@ -3,7 +3,7 @@ import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/
 import {
   buildAssignableRegulationAreaOptions,
   getEffectiveRuleGroupCapacity,
-} from '../../../shared/utils/regulation'
+} from '../../../shared/utils/regulation.ts'
 
 interface PlannerAssignmentContext {
   studyProgramCode: string | null
