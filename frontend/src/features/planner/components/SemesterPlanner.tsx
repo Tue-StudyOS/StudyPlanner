@@ -15,6 +15,10 @@ import { PlannerGrid } from './PlannerGrid'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { buildPlannerBlocks } from '../utils/plannerFeedback'
 import { getPlannerCourseAreaOptions } from '../utils/plannerAssignments'
+import {
+  getPlannerFavoritesLayout,
+  PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY,
+} from '../utils/favoritesLayout.ts'
 import { useTranscript } from '../../transcript'
 
 export function SemesterPlanner() {
@@ -22,6 +26,7 @@ export function SemesterPlanner() {
   const { favoriteIds, toggleFavorite } = useFavorites()
   const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
+  const hasSidebarSpace = useMediaQuery(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY)
   const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
   const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
   const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
@@ -59,6 +64,7 @@ export function SemesterPlanner() {
 
   const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
   const isMobilePlanner = isSmallViewport
+  const favoritesLayout = getPlannerFavoritesLayout(isMobilePlanner, hasSidebarSpace)
   const courseById = new Map(courses.map((course) => [course.id, course]))
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
@@ -209,6 +215,26 @@ export function SemesterPlanner() {
     )
   }
 
+  const plannerFavoritesPanel = (
+    <PlannerFavoritesPanel
+      favoriteCourses={favoriteCourses}
+      plannedCourseIds={plannedCourseIds}
+      activeSemesterLabel={activeSemesterLabel}
+      isEditing={isEditing}
+      isLoading={isLoading}
+      error={error}
+      studyProgramCode={plannerStudyProgramCode}
+      regulationRuleGroups={plannerRuleGroups}
+      planAssignments={planAssignments}
+      plannedCourses={plannedCourses}
+      completedCourses={completedCourses}
+      onSetAssignment={setAssignment}
+      onAddCourse={handleAddCourse}
+      onRemoveCourse={handleRemoveCourse}
+      onToggleFavorite={toggleFavorite}
+    />
+  )
+
   return (
     <div className="min-w-0 p-4 sm:p-8">
       <div className="mb-6">
@@ -244,101 +270,74 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
-      <div className={`mt-4.5 grid min-w-0 items-start gap-4.5 ${!isMobilePlanner ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}>
-        <div className="grid min-w-0 gap-4.5">
-          {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
-            <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-              Loading your saved plan for {activeSemesterLabel}...
-            </div>
-          ) : (
-            <PlannerGrid
-              plannedCourses={plannedCourses}
-              activeSemesterLabel={activeSemesterLabel}
-              semesterOptions={semesterOptions}
-              isEditing={isEditing}
-              isMobilePlanner={isMobilePlanner}
-              mobileLayout={plannerMobileLayout}
-              hiddenSlotIds={hiddenSlotIds}
-              isLoadingSemesterPlan={isLoadingSemesterPlan}
-              isSavingSemesterPlan={isSavingSemesterPlan}
-              isDeletingSemesterPlan={isDeletingSemesterPlan}
-              savedCourseCount={savedPlan?.courseCount ?? 0}
-              hasUnsavedChanges={hasUnsavedChanges}
-              canCompleteSemester={plannedCourses.length > 0}
-              onSelectSemester={setActiveSemesterLabel}
-              onStartEditing={startEditing}
-              onSave={saveCurrentSemesterPlan}
-              onCancelEditing={cancelEditing}
-              onDelete={deleteCurrentSemesterPlan}
-              onOpenCompletionDialog={() => {
-                clearCompletedCoursesError()
-                setCompletionNotice(null)
-                setIsCompletionDialogOpen(true)
-              }}
-              onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
-              onDropCourse={handleAddCourse}
-              onRemoveSlot={handleRemoveSlot}
-              onRemoveCourse={handleRemoveCourse}
-            />
-          )}
-          <PlannerFeedback
-            plannedCourses={plannedCourses}
-            completedCourses={completedCourses}
-            studyProgramCode={plannerStudyProgramCode}
-            planAssignments={planAssignments}
-            regulationRuleGroups={plannerRuleGroups}
-            isLoadingRegulationVersion={isLoadingRegulationVersion}
-            isEditing={isEditing}
-            isBalancing={isBalancingAssignments}
-            balanceMessage={balanceMessage}
-            onSetAssignments={setAssignments}
-            onRemoveCourse={handleRemoveCourse}
-            onAutoBalance={handleAutoBalanceAssignments}
-          />
+      <div className="mt-4.5 grid min-w-0 gap-4.5">
+        <div
+          className={`grid min-w-0 items-start gap-4.5 ${
+            favoritesLayout === 'sidebar' ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_20rem]' : ''
+          }`}
+        >
+          <div className="grid min-w-0 gap-4.5">
+            {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
+              <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
+                Loading your saved plan for {activeSemesterLabel}...
+              </div>
+            ) : (
+              <PlannerGrid
+                plannedCourses={plannedCourses}
+                activeSemesterLabel={activeSemesterLabel}
+                semesterOptions={semesterOptions}
+                isEditing={isEditing}
+                isMobilePlanner={isMobilePlanner}
+                mobileLayout={plannerMobileLayout}
+                hiddenSlotIds={hiddenSlotIds}
+                isLoadingSemesterPlan={isLoadingSemesterPlan}
+                isSavingSemesterPlan={isSavingSemesterPlan}
+                isDeletingSemesterPlan={isDeletingSemesterPlan}
+                savedCourseCount={savedPlan?.courseCount ?? 0}
+                hasUnsavedChanges={hasUnsavedChanges}
+                canCompleteSemester={plannedCourses.length > 0}
+                onSelectSemester={setActiveSemesterLabel}
+                onStartEditing={startEditing}
+                onSave={saveCurrentSemesterPlan}
+                onCancelEditing={cancelEditing}
+                onDelete={deleteCurrentSemesterPlan}
+                onOpenCompletionDialog={() => {
+                  clearCompletedCoursesError()
+                  setCompletionNotice(null)
+                  setIsCompletionDialogOpen(true)
+                }}
+                onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
+                onDropCourse={handleAddCourse}
+                onRemoveSlot={handleRemoveSlot}
+                onRemoveCourse={handleRemoveCourse}
+              />
+            )}
+          </div>
+
+          {favoritesLayout !== 'drawer' ? plannerFavoritesPanel : null}
         </div>
 
-        {!isMobilePlanner ? (
-          <PlannerFavoritesPanel
-            favoriteCourses={favoriteCourses}
-            plannedCourseIds={plannedCourseIds}
-            activeSemesterLabel={activeSemesterLabel}
-            isEditing={isEditing}
-            isLoading={isLoading}
-            error={error}
-            studyProgramCode={plannerStudyProgramCode}
-            regulationRuleGroups={plannerRuleGroups}
-            planAssignments={planAssignments}
-            plannedCourses={plannedCourses}
-            completedCourses={completedCourses}
-            onSetAssignment={setAssignment}
-            onAddCourse={handleAddCourse}
-            onRemoveCourse={handleRemoveCourse}
-            onToggleFavorite={toggleFavorite}
-          />
-        ) : null}
+        <PlannerFeedback
+          plannedCourses={plannedCourses}
+          completedCourses={completedCourses}
+          studyProgramCode={plannerStudyProgramCode}
+          planAssignments={planAssignments}
+          regulationRuleGroups={plannerRuleGroups}
+          isLoadingRegulationVersion={isLoadingRegulationVersion}
+          isEditing={isEditing}
+          isBalancing={isBalancingAssignments}
+          balanceMessage={balanceMessage}
+          onSetAssignments={setAssignments}
+          onRemoveCourse={handleRemoveCourse}
+          onAutoBalance={handleAutoBalanceAssignments}
+        />
       </div>
 
       <MobilePlannerFavoritesDrawer
-        isOpen={isEditing && isMobilePlanner && isMobileFavoritesOpen}
+        isOpen={isEditing && favoritesLayout === 'drawer' && isMobileFavoritesOpen}
         onClose={() => setIsMobileFavoritesOpen(false)}
       >
-        <PlannerFavoritesPanel
-          favoriteCourses={favoriteCourses}
-          plannedCourseIds={plannedCourseIds}
-          activeSemesterLabel={activeSemesterLabel}
-          isEditing={isEditing}
-          isLoading={isLoading}
-          error={error}
-          studyProgramCode={plannerStudyProgramCode}
-          regulationRuleGroups={plannerRuleGroups}
-          planAssignments={planAssignments}
-          plannedCourses={plannedCourses}
-          completedCourses={completedCourses}
-          onSetAssignment={setAssignment}
-          onAddCourse={handleAddCourse}
-          onRemoveCourse={handleRemoveCourse}
-          onToggleFavorite={toggleFavorite}
-        />
+        {plannerFavoritesPanel}
       </MobilePlannerFavoritesDrawer>
 
       {!isEditing && isCompletionDialogOpen ? (

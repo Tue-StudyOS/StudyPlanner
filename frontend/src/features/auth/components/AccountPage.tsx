@@ -1,7 +1,6 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError } from '../../../shared/utils/api'
 import { MoonIcon, SunIcon } from '../../layout/components/icons'
 import {
   buildSemesterOptions,
@@ -13,6 +12,7 @@ import { useTheme } from '../../theme'
 import { fetchStudyPrograms } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import type { StudyProgramOption } from '../types'
+import { normalizeAuthErrorMessage } from '../utils/authErrors.ts'
 
 type AuthMode = 'login' | 'register'
 
@@ -29,9 +29,10 @@ function generateStartSemesters(): string[] {
 }
 
 function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error) return error.message
-  return 'Something went wrong.'
+  return normalizeAuthErrorMessage(error, {
+    isLocalDevelopment:
+      typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname),
+  })
 }
 
 function toSelectValue(value: number | null | undefined): string {
@@ -282,6 +283,27 @@ export function AccountPage() {
 
   return (
     <div className="min-w-0 p-4 pb-6 sm:p-8">
+      {error ? (
+        <div className="pointer-events-none fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top,0px))] z-50 flex justify-center sm:justify-end">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="pointer-events-auto w-full max-w-xl rounded-[10px] border border-primary/30 bg-surface px-4 py-3 text-[13px] text-primary shadow-lg"
+          >
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1 break-words">{error}</div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="shrink-0 rounded-md border border-primary/20 px-2.5 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
@@ -468,14 +490,22 @@ export function AccountPage() {
             <div className="mb-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => setMode('login')}
+                onClick={() => {
+                  setError(null)
+                  setMessage(null)
+                  setMode('login')
+                }}
                 className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${mode === 'login' ? 'bg-primary text-white' : 'border border-border bg-transparent text-fg-mid'}`}
               >
                 Sign in
               </button>
               <button
                 type="button"
-                onClick={() => setMode('register')}
+                onClick={() => {
+                  setError(null)
+                  setMessage(null)
+                  setMode('register')
+                }}
                 className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${mode === 'register' ? 'bg-primary text-white' : 'border border-border bg-transparent text-fg-mid'}`}
               >
                 Register
@@ -554,11 +584,6 @@ export function AccountPage() {
         </div>
       ) : null}
 
-      {error ? (
-        <div className="mt-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
-          {error}
-        </div>
-      ) : null}
     </div>
   )
 }
