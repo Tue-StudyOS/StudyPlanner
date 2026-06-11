@@ -53,7 +53,6 @@ export function AccountPage() {
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false)
   const [draftStudyProgramId, setDraftStudyProgramId] = useState<number | null | undefined>(undefined)
   const [draftCurrentSemesterLabel, setDraftCurrentSemesterLabel] = useState<string | undefined>(undefined)
-  const [draftPlannerLayout, setDraftPlannerLayout] = useState<'compact-grid' | 'weekly-list' | undefined>(undefined)
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false)
   const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -88,27 +87,22 @@ export function AccountPage() {
   const selectedStudyProgramId =
     draftStudyProgramId !== undefined ? draftStudyProgramId : (user?.profile.studyProgramId ?? null)
   const currentSemesterLabel = draftCurrentSemesterLabel ?? (user?.profile.currentSemesterLabel ?? '')
-  const plannerLayout = draftPlannerLayout ?? user?.profile.plannerMobileLayout ?? 'compact-grid'
   const profileDraftKey = JSON.stringify({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
-    plannerLayout,
   })
   const latestProfileDraftRef = useRef<{
     studyProgramId: number | null
     currentSemesterLabel: string
-    plannerLayout: 'compact-grid' | 'weekly-list'
   }>({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
-    plannerLayout,
   })
 
   const isProfileDirty = Boolean(
     user && (
       selectedStudyProgramId !== (user.profile.studyProgramId ?? null)
       || currentSemesterLabel !== (user.profile.currentSemesterLabel ?? '')
-      || plannerLayout !== (user.profile.plannerMobileLayout ?? 'compact-grid')
     ),
   )
 
@@ -127,7 +121,6 @@ export function AccountPage() {
         })
         setDraftStudyProgramId(undefined)
         setDraftCurrentSemesterLabel(undefined)
-        setDraftPlannerLayout(undefined)
         setProfileSaveState('idle')
         setProfileError(null)
         setLastFailedProfileKey(null)
@@ -137,7 +130,6 @@ export function AccountPage() {
       await login({ identifier, password })
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerLayout(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
@@ -157,7 +149,6 @@ export function AccountPage() {
       await logout()
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerLayout(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
@@ -204,9 +195,8 @@ export function AccountPage() {
     latestProfileDraftRef.current = {
       studyProgramId: selectedStudyProgramId,
       currentSemesterLabel,
-      plannerLayout,
     }
-  }, [currentSemesterLabel, plannerLayout, selectedStudyProgramId])
+  }, [currentSemesterLabel, selectedStudyProgramId])
 
   useEffect(() => {
     if (profileSaveState !== 'saved') {
@@ -241,17 +231,14 @@ export function AccountPage() {
           await saveProfile({
             studyProgramId: snapshot.studyProgramId,
             currentSemesterLabel: snapshot.currentSemesterLabel.trim() || null,
-            plannerMobileLayout: snapshot.plannerLayout,
           })
           const latestSnapshot = latestProfileDraftRef.current
           if (
             latestSnapshot.studyProgramId === snapshot.studyProgramId
             && latestSnapshot.currentSemesterLabel === snapshot.currentSemesterLabel
-            && latestSnapshot.plannerLayout === snapshot.plannerLayout
           ) {
             setDraftStudyProgramId(undefined)
             setDraftCurrentSemesterLabel(undefined)
-            setDraftPlannerLayout(undefined)
           }
           setLastFailedProfileKey(null)
           setProfileError(null)
@@ -446,22 +433,6 @@ export function AccountPage() {
                     {startSemesters.map((sem) => (
                       <option key={sem} value={sem}>{sem}</option>
                     ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Planner layout</span>
-                  <select
-                    value={plannerLayout}
-                    onChange={(event) => {
-                      setProfileError(null)
-                      setProfileSaveState('saving')
-                      setLastFailedProfileKey(null)
-                      setDraftPlannerLayout(event.target.value as 'compact-grid' | 'weekly-list')
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="compact-grid">Compact weekly grid</option>
-                    <option value="weekly-list">Weekly list view</option>
                   </select>
                 </label>
                 {profileError ? (

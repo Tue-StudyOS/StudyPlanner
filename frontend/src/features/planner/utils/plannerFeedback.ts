@@ -59,6 +59,7 @@ export interface PlannerBlock {
   endMinutes: number
   label: string
   room: string
+  slotType: string
   hasOverlap: boolean
 }
 
@@ -124,6 +125,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         endMinutes: timeRange.endMinutes,
         label: slot.time,
         room: slot.room,
+        slotType: slot.type !== 'Course' ? slot.type : '',
         hasOverlap: false,
       })
     })

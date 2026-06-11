@@ -24,7 +24,7 @@ interface UserResponse {
 interface SaveProfileInput {
   studyProgramId: number | null
   currentSemesterLabel: string | null
-  plannerMobileLayout: 'compact-grid' | 'weekly-list'
+  plannerMobileLayout?: 'compact-grid' | 'weekly-list'
 }
 
 interface UpdateCredentialsInput {

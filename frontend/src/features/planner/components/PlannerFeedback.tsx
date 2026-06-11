@@ -1,18 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
-import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import {
-  formatRegulationAreaShortLabel,
-  getEffectiveRuleGroupCapacity,
-  studyAreaCodeToMasterCat,
-} from '../../../shared/utils/regulation'
+import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import {
-  getPlannerCourseAreaOptions,
-  getPlannerCourseEctsForArea,
-  resolveAutomaticPlannerAssignments,
-  type PlannerAutomaticAssignmentCandidate,
-} from '../utils/plannerAssignments'
+  buildPlannerProgressAreas,
+  roundEcts,
+  type PlannerProgressArea,
+} from '../utils/plannerProgress'
 
 const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
   TECH: 'bg-cat-tech',
@@ -22,94 +17,29 @@ const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } 
   BASIS: 'bg-cat-basis',
   default: 'bg-border',
 }
-const EDIT_REQUIRED_HINT = 'Click "Edit semester" first to add courses to your plan.'
 const ASSIGNMENT_CONTROL_GROUP_CLASS =
   'flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-[9.5rem] sm:shrink-0 sm:flex-nowrap'
 const ASSIGNMENT_SELECT_CLASS =
   'min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-fg outline-none focus:border-primary'
 
-interface PlannerProgressArea {
-  code: string
-  name: string
-  requiredEcts: number | null
-  capacityEcts: number | null
-  creditedEcts: number
-  plannedEcts: number
-  masterCat: MasterCat | null
-  plannedCourses: PlannerProgressCourse[]
-  creditedCourses: PlannerCreditedCourse[]
-}
-
-interface PlannerCreditedCourse {
-  id: string
-  title: string
-  ects: number
-  grade: number | null
-  semester: string
-}
-
-interface PlannerProgressCourse {
-  id: string
-  title: string
-  ects: number
-  assignedAreaCode: string
-  options: RegulationAreaOption[]
-}
-
-interface UnassignedPlannerCourse {
-  id: string
-  title: string
-  ects: number
-  options: RegulationAreaOption[]
-}
-
 function colorClass(masterCat: MasterCat | null): string {
   return (masterCat ? CAT_COLOR_CLASS[masterCat] : undefined) ?? CAT_COLOR_CLASS.default
 }
 
-function isVisiblePlannerRuleGroup(ruleGroup: RegulationRuleGroup): boolean {
-  return ruleGroup.code.trim().toUpperCase() !== 'THESIS'
-}
-
-function roundEcts(value: number): number {
-  return Math.round(value * 10) / 10
-}
-
-function getRuleGroupRequiredEcts(ruleGroup: RegulationRuleGroup): number | null {
-  return ruleGroup.requiredEcts ?? ruleGroup.minEcts ?? ruleGroup.maxEcts ?? null
-}
-
-function buildFallbackArea(option: RegulationAreaOption): PlannerProgressArea {
-  return {
-    code: option.code,
-    name: option.label,
-    requiredEcts: null,
-    capacityEcts: null,
-    creditedEcts: 0,
-    plannedEcts: 0,
-    masterCat: option.masterCat,
-    plannedCourses: [],
-    creditedCourses: [],
-  }
-}
-
 function RemovePlannerCourseButton({
   courseTitle,
-  isEditing,
   onRemove,
 }: {
   courseTitle: string
-  isEditing: boolean
   onRemove: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onRemove}
-      disabled={!isEditing}
       aria-label={`Remove ${courseTitle} from semester plan`}
-      title={isEditing ? 'Remove from semester plan' : EDIT_REQUIRED_HINT}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-fg-muted transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-fg-muted"
+      title="Remove from semester plan"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-fg-muted transition-colors hover:border-primary/40 hover:text-primary"
     >
       <svg aria-hidden="true" viewBox="0 0 12 12" className="h-2.5 w-2.5">
         <path
@@ -122,187 +52,6 @@ function RemovePlannerCourseButton({
       </svg>
     </button>
   )
-}
-
-function buildPlannerProgressAreas({
-  plannedCourses,
-  completedCourses,
-  studyProgramCode,
-  planAssignments,
-  regulationRuleGroups,
-}: {
-  plannedCourses: Course[]
-  completedCourses: CompletedCourse[]
-  studyProgramCode: string | null
-  planAssignments: Record<string, string>
-  regulationRuleGroups: RegulationRuleGroup[]
-}): {
-  areas: PlannerProgressArea[]
-  unassignedCourses: UnassignedPlannerCourse[]
-} {
-  const areas: PlannerProgressArea[] = regulationRuleGroups
-    .filter(isVisiblePlannerRuleGroup)
-    .map((ruleGroup) => ({
-      code: ruleGroup.code,
-      name: ruleGroup.name,
-      requiredEcts: getRuleGroupRequiredEcts(ruleGroup),
-      capacityEcts: getEffectiveRuleGroupCapacity(ruleGroup),
-      creditedEcts: 0,
-      plannedEcts: 0,
-      masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
-      plannedCourses: [],
-      creditedCourses: [],
-    }))
-  const areaByCode = new Map(areas.map((area) => [area.code, area]))
-  const unassignedCourses: UnassignedPlannerCourse[] = []
-  const automaticCandidates: PlannerAutomaticAssignmentCandidate[] = []
-
-  if (areas.length === 0) {
-    plannedCourses.forEach((course) => {
-      getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups).forEach((option) => {
-        if (!areaByCode.has(option.code)) {
-          const area = buildFallbackArea(option)
-          areas.push(area)
-          areaByCode.set(area.code, area)
-        }
-      })
-    })
-  }
-
-  completedCourses.forEach((course) => {
-    if (!course.studyAreaCode) {
-      return
-    }
-    let area = areaByCode.get(course.studyAreaCode)
-    if (!area && regulationRuleGroups.length === 0) {
-      area = {
-        code: course.studyAreaCode,
-        name: course.studyAreaName ?? course.studyAreaCode,
-        requiredEcts: null,
-        capacityEcts: null,
-        creditedEcts: 0,
-        plannedEcts: 0,
-        masterCat: course.masterCat,
-        plannedCourses: [],
-        creditedCourses: [],
-      }
-      areas.push(area)
-      areaByCode.set(area.code, area)
-    }
-    if (!area) {
-      return
-    }
-    area.creditedEcts += course.ects
-    area.creditedCourses.push({
-      id: course.id,
-      title: course.title,
-      ects: course.ects,
-      grade: course.grade,
-      semester: course.semester,
-    })
-  })
-
-  const completedCourseIds = new Set(
-    completedCourses
-      .map((course) => course.courseId)
-      .filter((courseId): courseId is string => Boolean(courseId)),
-  )
-
-  plannedCourses.forEach((course, index) => {
-    if (completedCourseIds.has(course.id)) {
-      return
-    }
-
-    const options = getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups)
-    const preferredAreaCode = planAssignments[course.id]
-    const manualOption = preferredAreaCode
-      ? options.find((option) => option.code === preferredAreaCode)
-      : undefined
-
-    if (manualOption) {
-      const area = areaByCode.get(manualOption.code)
-      if (!area) {
-        const courseEcts = getPlannerCourseEctsForArea(course, manualOption.code, studyProgramCode)
-        unassignedCourses.push({
-          id: course.id,
-          title: course.title,
-          ects: courseEcts,
-          options,
-        })
-        return
-      }
-      const courseEcts = getPlannerCourseEctsForArea(course, manualOption.code, studyProgramCode)
-      area.plannedEcts += courseEcts
-      area.plannedCourses.push({
-        id: course.id,
-        title: course.title,
-        ects: courseEcts,
-        assignedAreaCode: manualOption.code,
-        options,
-      })
-      return
-    }
-
-    if (options.length === 0) {
-      unassignedCourses.push({
-        id: course.id,
-        title: course.title,
-        ects: course.ects ?? 0,
-        options,
-      })
-      return
-    }
-
-    automaticCandidates.push({
-      course,
-      index,
-      options,
-    })
-  })
-
-  const automaticAssignments = resolveAutomaticPlannerAssignments({
-    candidates: automaticCandidates,
-    areas,
-    regulationRuleGroups,
-    studyProgramCode,
-  })
-
-  automaticCandidates.forEach(({ course, options }) => {
-    const automaticAssignment = automaticAssignments.get(course.id)
-    if (!automaticAssignment) {
-      unassignedCourses.push({
-        id: course.id,
-        title: course.title,
-        ects: course.ects ?? 0,
-        options,
-      })
-      return
-    }
-
-    const area = areaByCode.get(automaticAssignment.areaCode)
-    if (!area) {
-      unassignedCourses.push({
-        id: course.id,
-        title: course.title,
-        ects: automaticAssignment.ects,
-        options,
-      })
-      return
-    }
-    area.plannedEcts += automaticAssignment.ects
-    area.plannedCourses.push({
-      id: course.id,
-      title: course.title,
-      ects: automaticAssignment.ects,
-      assignedAreaCode: automaticAssignment.areaCode,
-      options,
-    })
-  })
-
-  return {
-    areas,
-    unassignedCourses,
-  }
 }
 
 function buildProgressWidths(area: PlannerProgressArea): {
@@ -329,7 +78,6 @@ interface PlannerFeedbackProps {
   planAssignments: Record<string, string>
   regulationRuleGroups: RegulationRuleGroup[]
   isLoadingRegulationVersion: boolean
-  isEditing: boolean
   isBalancing: boolean
   balanceMessage: string | null
   onSetAssignments: (assignments: Record<string, string>) => void
@@ -344,7 +92,6 @@ export function PlannerFeedback({
   planAssignments,
   regulationRuleGroups,
   isLoadingRegulationVersion,
-  isEditing,
   isBalancing,
   balanceMessage,
   onSetAssignments,
@@ -419,24 +166,14 @@ export function PlannerFeedback({
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <span className="group/btn relative inline-flex">
-              <button
-                type="button"
-                onClick={() => void onAutoBalance()}
-                disabled={!isEditing || isBalancing || plannedCourses.length === 0}
-                className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isBalancing ? 'Balancing...' : 'Balance planner'}
-              </button>
-              {!isEditing ? (
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 w-48 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium leading-snug text-fg-muted opacity-0 shadow-md transition-opacity duration-150 group-hover/btn:opacity-100"
-                >
-                  {EDIT_REQUIRED_HINT}
-                </span>
-              ) : null}
-            </span>
+            <button
+              type="button"
+              onClick={() => void onAutoBalance()}
+              disabled={isBalancing || plannedCourses.length === 0}
+              className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBalancing ? 'Balancing...' : 'Balance planner'}
+            </button>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-fg-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-primary/80" />
@@ -593,7 +330,7 @@ export function PlannerFeedback({
                             {course.title} - {roundEcts(course.ects)} ECTS
                           </span>
                           <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
-                            {isEditing && course.options.length > 1 ? (
+                            {course.options.length > 1 ? (
                               <select
                                 value={course.assignedAreaCode}
                                 onChange={(event) =>
@@ -614,7 +351,6 @@ export function PlannerFeedback({
                             )}
                             <RemovePlannerCourseButton
                               courseTitle={course.title}
-                              isEditing={isEditing}
                               onRemove={() => onRemoveCourse(course.id)}
                             />
                           </div>
@@ -643,7 +379,7 @@ export function PlannerFeedback({
                         {course.title} - {roundEcts(course.ects)} ECTS
                       </span>
                       <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
-                        {isEditing && course.options.length > 0 ? (
+                        {course.options.length > 0 ? (
                           <select
                             value=""
                             onChange={(event) =>
@@ -665,7 +401,6 @@ export function PlannerFeedback({
                         )}
                         <RemovePlannerCourseButton
                           courseTitle={course.title}
-                          isEditing={isEditing}
                           onRemove={() => onRemoveCourse(course.id)}
                         />
                       </div>

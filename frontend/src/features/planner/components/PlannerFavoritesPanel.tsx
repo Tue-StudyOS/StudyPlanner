@@ -1,95 +1,33 @@
 import type { CompletedCourse, Course } from '../../courses'
-import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { cleanCourseTitle, formatCourseTypeLabel } from '../../courses'
+import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { CatBadge } from '../../../shared/components/CatBadge'
 import { FavStar } from '../../../shared/components/FavStar'
-import { usePlannerFavorites } from '../hooks/usePlannerFavorites'
+import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 
-function AssignmentSelect({
-  options,
-  selectedAreaCode,
-  suggestedAreaCode,
-  isPlanned,
-  isEditing,
-  onSelectAssignment,
-}: {
-  options: RegulationAreaOption[]
-  selectedAreaCode: string | null
-  suggestedAreaCode: string | null
-  isPlanned: boolean
-  isEditing: boolean
-  onSelectAssignment: (areaCode: string | null) => void
-}) {
-  if (options.length === 0) {
-    return null
-  }
-
-  return (
-    <label className="grid gap-1">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-        Counts as
-      </span>
-      <select
-        value={selectedAreaCode ?? ''}
-        disabled={!isEditing}
-        onChange={(event) => onSelectAssignment(event.target.value || null)}
-        className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <option value="">
-          {suggestedAreaCode ? 'Automatic' : 'Choose area'}
-        </option>
-        {options.map((option) => (
-          <option key={option.code} value={option.code} title={option.label}>
-            {option.shortLabel}
-            {!isPlanned && suggestedAreaCode === option.code ? ' · suggested' : ''}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-const EDIT_REQUIRED_HINT = 'Click "Edit semester" first to add courses to your plan.'
 const NOT_ASSIGNABLE_HINT =
   "Can't be added: this course isn't part of your selected study program or examination regulations."
 
 function CandidateCard({
-  course,
-  isPlanned,
-  isEditing,
-  options,
-  selectedAreaCode,
-  explicitAreaCode,
-  suggestedAreaCode,
-  completedCourse,
-  onSelectAssignment,
-  onAddCourse,
-  onRemoveCourse,
+  candidate,
+  onOpenCourse,
   onToggleFavorite,
 }: {
-  course: Course
-  isPlanned: boolean
-  isEditing: boolean
-  options: RegulationAreaOption[]
-  selectedAreaCode: string | null
-  explicitAreaCode: string | null
-  suggestedAreaCode: string | null
-  completedCourse: CompletedCourse | null
-  onSelectAssignment: (areaCode: string | null) => void
-  onAddCourse: (courseId: string, areaCode: string | null) => void
-  onRemoveCourse: (courseId: string) => void
+  candidate: PlannerFavoriteCandidate
+  onOpenCourse: (course: Course) => void
   onToggleFavorite: (courseId: string) => void
 }) {
+  const { course, isPlanned, completedCourse, options, explicitAreaCode } = candidate
   const isAssignable = options.length > 0
-  const isDraggable = isEditing && isAssignable
-  // The assignability distinction (dimming + hint) only matters while editing.
-  // Outside edit mode every favorite is treated equally and just shows the edit hint.
-  const showNotAssignable = isEditing && !isAssignable
-  const dimClassName = showNotAssignable ? 'opacity-50' : completedCourse ? 'opacity-75' : ''
+  const dimClassName = !isAssignable ? 'opacity-50' : completedCourse ? 'opacity-75' : ''
 
   return (
     <div
-      draggable={isDraggable}
+      role="button"
+      tabIndex={0}
+      draggable={isAssignable}
       onDragStart={(event) => {
-        if (!isDraggable) {
+        if (!isAssignable) {
           event.preventDefault()
           return
         }
@@ -97,78 +35,45 @@ function CandidateCard({
         event.dataTransfer.setData('text/planner-area-code', explicitAreaCode ?? '')
         event.dataTransfer.effectAllowed = 'move'
       }}
-      className={`group/card relative rounded-[10px] border border-border-light px-4 py-3 transition-colors ${
+      onClick={() => onOpenCourse(course)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpenCourse(course)
+        }
+      }}
+      title={!isAssignable ? NOT_ASSIGNABLE_HINT : undefined}
+      className={`group/card cursor-pointer rounded-[10px] border border-border-light px-3.5 py-3 transition-colors hover:border-primary/30 ${
         completedCourse ? 'bg-surface-hover/20' : 'bg-surface'
-      } ${isDraggable ? 'cursor-grab hover:bg-surface-hover active:cursor-grabbing' : ''}`}
+      } ${isAssignable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className={`min-w-0 ${dimClassName}`}>
-          <div className="break-words text-[13px] font-semibold text-fg">
-            {course.title}
-            {completedCourse ? <span className="font-medium text-fg-muted"> - done</span> : null}
+      <div className="flex items-start justify-between gap-2">
+        <div className={`min-w-0 flex-1 ${dimClassName}`}>
+          <div className="break-words text-[13px] font-semibold leading-snug text-fg">
+            {cleanCourseTitle(course.title)}
           </div>
-          <div className="break-words text-[12px] text-fg-muted">
-            {course.number} · {course.ects ?? '–'} ECTS
-          </div>
-          <div className="mt-1 break-words text-[11px] text-fg-muted">
-            {course.schedule.at(0)?.day ?? 'Day tba'} · {course.schedule.at(0)?.time ?? 'Time tba'}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2 py-0.5 text-[10px] font-medium text-pill-text">
+              {formatCourseTypeLabel(course.types)}
+            </span>
+            {course.masterCats.map((cat) => (
+              <CatBadge key={cat} cat={cat} />
+            ))}
+            {isPlanned ? (
+              <span className="inline-block whitespace-nowrap rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
+                In plan
+              </span>
+            ) : null}
+            {completedCourse ? (
+              <span className="text-[10.5px] font-medium text-fg-muted">done</span>
+            ) : null}
           </div>
         </div>
 
-        <div className={`flex shrink-0 items-center gap-1.5 ${completedCourse ? 'opacity-80' : ''}`}>
-          <span className="group/btn relative inline-flex">
-            <button
-              type="button"
-              disabled={!isEditing || !isAssignable}
-              onClick={() => (isPlanned ? onRemoveCourse(course.id) : onAddCourse(course.id, explicitAreaCode))}
-              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                isPlanned
-                  ? 'border border-border bg-surface text-fg hover:bg-surface-hover'
-                  : 'bg-primary text-white hover:opacity-90'
-              }`}
-            >
-              {isPlanned ? 'Remove' : 'Add'}
-            </button>
-
-            {!isEditing ? (
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 w-48 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium leading-snug text-fg-muted opacity-0 shadow-md transition-opacity duration-150 group-hover/btn:opacity-100"
-              >
-                {EDIT_REQUIRED_HINT}
-              </span>
-            ) : null}
-          </span>
-
+        <div onClick={(event) => event.stopPropagation()}>
           <FavStar active onToggle={() => onToggleFavorite(course.id)} />
         </div>
       </div>
-
-      <div className={`mt-3 grid gap-2 ${dimClassName}`}>
-        <AssignmentSelect
-          options={options}
-          selectedAreaCode={selectedAreaCode}
-          suggestedAreaCode={suggestedAreaCode}
-          isPlanned={isPlanned}
-          isEditing={isEditing}
-          onSelectAssignment={onSelectAssignment}
-        />
-
-        {suggestedAreaCode && !isPlanned ? (
-          <div className="text-[11px] text-fg-muted">
-            Suggested automatically from your remaining regulation needs and already credited courses.
-          </div>
-        ) : null}
-      </div>
-
-      {showNotAssignable ? (
-        <span
-          role="tooltip"
-          className="pointer-events-none absolute bottom-full left-3 right-3 z-20 mb-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium leading-snug text-fg-muted opacity-0 shadow-md transition-opacity duration-150 group-hover/card:opacity-100"
-        >
-          {NOT_ASSIGNABLE_HINT}
-        </span>
-      ) : null}
     </div>
   )
 }
@@ -176,8 +81,6 @@ function CandidateCard({
 interface PlannerFavoritesPanelProps {
   favoriteCourses: Course[]
   plannedCourseIds: string[]
-  activeSemesterLabel: string
-  isEditing: boolean
   isLoading: boolean
   error: string | null
   studyProgramCode: string | null
@@ -186,16 +89,13 @@ interface PlannerFavoritesPanelProps {
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
   onSetAssignment: (courseId: string, areaCode: string | null) => void
-  onAddCourse: (courseId: string, areaCode: string | null) => void
-  onRemoveCourse: (courseId: string) => void
+  onOpenCourse: (course: Course) => void
   onToggleFavorite: (courseId: string) => void
 }
 
 export function PlannerFavoritesPanel({
   favoriteCourses,
   plannedCourseIds,
-  activeSemesterLabel,
-  isEditing,
   isLoading,
   error,
   studyProgramCode,
@@ -204,14 +104,12 @@ export function PlannerFavoritesPanel({
   plannedCourses,
   completedCourses,
   onSetAssignment,
-  onAddCourse,
-  onRemoveCourse,
+  onOpenCourse,
   onToggleFavorite,
 }: PlannerFavoritesPanelProps) {
-  const { candidates, selectAssignment } = usePlannerFavorites({
+  const { candidates } = usePlannerFavorites({
     favoriteCourses,
     plannedCourseIds,
-    isEditing,
     studyProgramCode,
     regulationRuleGroups,
     planAssignments,
@@ -222,14 +120,14 @@ export function PlannerFavoritesPanel({
 
   return (
     <aside className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full">
-      <div className="shrink-0 border-b border-border px-6 py-5.5">
-        <div className="mb-2 text-[14px] font-semibold text-fg">Interested</div>
-        <p className="text-[12.5px] text-fg-muted">
-          Add interested courses to {activeSemesterLabel} and choose directly what each course should count as.
+      <div className="shrink-0 border-b border-border px-5 py-4">
+        <div className="text-[14px] font-semibold text-fg">Interested</div>
+        <p className="mt-0.5 text-[12px] text-fg-muted">
+          Tap a course for details, drag it into the week to plan it.
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-hover/30 px-6 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-hover/30 px-4 py-3.5">
         {isLoading ? (
           <div className="text-[13px] text-fg-muted">Loading your interested courses...</div>
         ) : error ? (
@@ -239,23 +137,12 @@ export function PlannerFavoritesPanel({
             Star some courses in the catalog first, then come back here to plan with them.
           </div>
         ) : (
-          <div className="grid gap-2.5">
+          <div className="grid gap-2">
             {candidates.map((candidate) => (
               <CandidateCard
                 key={candidate.course.id}
-                course={candidate.course}
-                isPlanned={candidate.isPlanned}
-                isEditing={isEditing}
-                options={candidate.options}
-                selectedAreaCode={candidate.selectedAreaCode}
-                explicitAreaCode={candidate.explicitAreaCode}
-                suggestedAreaCode={candidate.suggestedAreaCode}
-                completedCourse={candidate.completedCourse}
-                onSelectAssignment={(areaCode) =>
-                  selectAssignment(candidate.course.id, candidate.isPlanned, areaCode)
-                }
-                onAddCourse={onAddCourse}
-                onRemoveCourse={onRemoveCourse}
+                candidate={candidate}
+                onOpenCourse={onOpenCourse}
                 onToggleFavorite={onToggleFavorite}
               />
             ))}

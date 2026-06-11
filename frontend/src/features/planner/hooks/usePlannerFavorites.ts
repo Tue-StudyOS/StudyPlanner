@@ -22,7 +22,6 @@ export interface PlannerFavoriteCandidate {
 interface UsePlannerFavoritesParams {
   favoriteCourses: Course[]
   plannedCourseIds: string[]
-  isEditing: boolean
   studyProgramCode: string | null
   regulationRuleGroups: RegulationRuleGroup[]
   planAssignments: Record<string, string>
@@ -43,7 +42,6 @@ interface UsePlannerFavoritesResult {
 export function usePlannerFavorites({
   favoriteCourses,
   plannedCourseIds,
-  isEditing,
   studyProgramCode,
   regulationRuleGroups,
   planAssignments,
@@ -75,13 +73,11 @@ export function usePlannerFavorites({
       getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups).length > 0
 
     const sorted = [...favoriteCourses].sort((leftCourse, rightCourse) => {
-      // While editing, push courses that can't be added to the plan to the bottom.
-      if (isEditing) {
-        const leftAssignable = isAssignable(leftCourse)
-        const rightAssignable = isAssignable(rightCourse)
-        if (leftAssignable !== rightAssignable) {
-          return Number(rightAssignable) - Number(leftAssignable)
-        }
+      // Courses that can't be added to the plan sort to the bottom.
+      const leftAssignable = isAssignable(leftCourse)
+      const rightAssignable = isAssignable(rightCourse)
+      if (leftAssignable !== rightAssignable) {
+        return Number(rightAssignable) - Number(leftAssignable)
       }
       const leftIsPlanned = plannedCourseIds.includes(leftCourse.id)
       const rightIsPlanned = plannedCourseIds.includes(rightCourse.id)
@@ -135,7 +131,6 @@ export function usePlannerFavorites({
   }, [
     favoriteCourses,
     plannedCourseIds,
-    isEditing,
     studyProgramCode,
     regulationRuleGroups,
     planAssignments,
