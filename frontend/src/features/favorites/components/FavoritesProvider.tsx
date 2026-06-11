@@ -16,7 +16,7 @@ function normalizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
   }
-  return 'Failed to synchronize favorites.'
+  return 'Failed to synchronize your interested courses.'
 }
 
 export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Element {
@@ -70,7 +70,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
 
   const toggleFavorite = (courseId: string): void => {
     if (!token) {
-      setFavoritesError('Sign in to save favorite courses across devices.')
+      setFavoritesError('Sign in to save interested courses across devices.')
       return
     }
 

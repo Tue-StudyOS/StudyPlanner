@@ -1,12 +1,12 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './features/auth'
 import { ThemeProvider } from './features/theme'
 import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
-import { ROUTES } from './features/routes'
+import { LEGACY_PLANNER_ROUTE, ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
 // shell and providers; each page becomes its own chunk.
@@ -44,12 +44,16 @@ function App() {
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
-                      <Route path={ROUTES.dashboard} element={<Dashboard />} />
+                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
                       <Route path={ROUTES.catalog} element={<CoursesOverview />} />
                       <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
+                      <Route path={ROUTES.overview} element={<Dashboard />} />
                       <Route path={ROUTES.transcript} element={<Transcript />} />
-                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
+                      <Route
+                        path={LEGACY_PLANNER_ROUTE}
+                        element={<Navigate to={ROUTES.planner} replace />}
+                      />
                     </Route>
                   </Routes>
                 </Suspense>

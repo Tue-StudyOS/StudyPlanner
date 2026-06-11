@@ -223,20 +223,20 @@ export function PlannerFavoritesPanel({
   return (
     <aside className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full">
       <div className="shrink-0 border-b border-border px-6 py-5.5">
-        <div className="mb-2 text-[14px] font-semibold text-fg">Favorites</div>
+        <div className="mb-2 text-[14px] font-semibold text-fg">Interested</div>
         <p className="text-[12.5px] text-fg-muted">
-          Add favorite courses to {activeSemesterLabel} and choose directly what each course should count as.
+          Add interested courses to {activeSemesterLabel} and choose directly what each course should count as.
         </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface-hover/30 px-6 py-4">
         {isLoading ? (
-          <div className="text-[13px] text-fg-muted">Loading your favorite course candidates...</div>
+          <div className="text-[13px] text-fg-muted">Loading your interested courses...</div>
         ) : error ? (
           <div className="text-[13px] text-primary">Failed to load planner candidates. {error}</div>
         ) : candidates.length === 0 ? (
           <div className="rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
-            Add some favorites in the catalog first, then come back here to plan with them.
+            Star some courses in the catalog first, then come back here to plan with them.
           </div>
         ) : (
           <div className="grid gap-2.5">

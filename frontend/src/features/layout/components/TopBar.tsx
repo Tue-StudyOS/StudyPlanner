@@ -6,7 +6,7 @@ import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
 import { AccountIcon, GearIcon, MenuIcon } from './icons'
 import { HelpButton } from '../../onboarding'
-import { ROUTES } from '../../../config/routes'
+import { ROUTES } from '../../routes'
 
 export function TopBar() {
   const isOnAccountPage = Boolean(useMatch(ROUTES.account))
@@ -20,7 +20,7 @@ export function TopBar() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <Link
-          to={ROUTES.dashboard}
+          to={ROUTES.planner}
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">
@@ -50,7 +50,7 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.dashboard}
+                  end={path === ROUTES.planner}
                   className={({ isActive }) =>
                     `group flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
                       isActive
@@ -115,7 +115,7 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.dashboard}
+                  end={path === ROUTES.planner}
                   onClick={() => setIsMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${

@@ -12,7 +12,7 @@ export function FavStar({ active, disabled = false, onToggle }: FavStarProps) {
       type="button"
       onClick={onToggle}
       disabled={disabled}
-      aria-label={active ? 'Remove from favorites' : 'Add to favorites'}
+      aria-label={active ? 'Remove from interested' : 'Mark as interested'}
       aria-pressed={active}
       className="flex shrink-0 items-center justify-center rounded-md p-1 text-primary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
     >

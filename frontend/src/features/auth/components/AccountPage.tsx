@@ -131,7 +131,7 @@ export function AccountPage() {
         setProfileSaveState('idle')
         setProfileError(null)
         setLastFailedProfileKey(null)
-        navigate(ROUTES.dashboard)
+        navigate(ROUTES.planner)
         return
       }
       await login({ identifier, password })
@@ -141,7 +141,7 @@ export function AccountPage() {
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
-      navigate(ROUTES.dashboard)
+      navigate(ROUTES.planner)
     } catch (submitError) {
       setError(normalizeErrorMessage(submitError))
     } finally {
@@ -161,7 +161,7 @@ export function AccountPage() {
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
-      navigate(ROUTES.dashboard)
+      navigate(ROUTES.planner)
     } catch (logoutError) {
       setError(normalizeErrorMessage(logoutError))
     } finally {
@@ -548,7 +548,7 @@ export function AccountPage() {
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
             <h2 className="mb-3 text-[14px] font-semibold text-fg">What You Get with an Account</h2>
             <ul className="grid gap-2 pl-5 text-[13.5px] leading-6 text-fg-mid">
-              <li className="list-disc">Persist favorite courses across devices</li>
+              <li className="list-disc">Persist interested courses across devices</li>
               <li className="list-disc">Store your study program incl. PO and your start semester</li>
               <li className="list-disc">Save completed courses and personal progress</li>
             </ul>

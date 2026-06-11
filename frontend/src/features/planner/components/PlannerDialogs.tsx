@@ -154,7 +154,7 @@ export function MobilePlannerFavoritesDrawer({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <div className="text-[14px] font-semibold text-fg">Import Courses</div>
-            <div className="text-[12px] text-fg-muted">Add favorite courses to this semester plan</div>
+            <div className="text-[12px] text-fg-muted">Add interested courses to this semester plan</div>
           </div>
           <button
             type="button"

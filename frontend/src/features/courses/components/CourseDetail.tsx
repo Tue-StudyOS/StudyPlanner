@@ -67,7 +67,7 @@ export function CourseDetail() {
     <div className="p-4 sm:p-8">
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          This is public catalog data from the database. Sign in only if you want to save favorites or personal progress.
+          This is public catalog data from the database. Sign in only if you want to save interested courses or personal progress.
         </div>
       ) : null}
 
@@ -109,7 +109,7 @@ export function CourseDetail() {
           disabled={isLoadingFavorites || isSavingFavorites}
           className="rounded-md border border-border bg-surface px-4 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isFavorite(course.id) ? 'Remove favorite' : 'Add favorite'}
+          {isFavorite(course.id) ? 'Remove from interested' : 'Mark as interested'}
         </button>
       </div>
 

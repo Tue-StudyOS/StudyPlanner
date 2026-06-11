@@ -216,7 +216,7 @@ export function SemesterPlanner() {
         </div>
         <PersonalFeatureNotice
           title="Planning is account-based"
-          description="Your weekly semester plan belongs to your account. Sign in to drag favorite courses into a personal plan and save the result per semester."
+          description="Your weekly semester plan belongs to your account. Sign in to drag interested courses into a personal plan and save the result per semester."
         />
       </div>
     )

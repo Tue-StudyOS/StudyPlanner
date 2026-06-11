@@ -149,7 +149,7 @@ export function CoursesOverview() {
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
           Public browsing is enabled. You only need an account for personal features such as
-          favorites and progress.
+          interested courses and progress.
         </div>
       ) : null}
 

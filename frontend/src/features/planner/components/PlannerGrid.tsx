@@ -24,7 +24,7 @@ function EmptyDayHint({ isEditing }: { isEditing: boolean }) {
     <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
       <div className="text-[10px] leading-relaxed text-fg-muted sm:text-[11px]">
         {isEditing
-          ? 'Drag a favorite course here.'
+          ? 'Drag an interested course here.'
           : 'No courses yet — use Edit semester.'}
       </div>
     </div>

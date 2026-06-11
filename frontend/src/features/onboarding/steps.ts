@@ -30,10 +30,10 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     route: ROUTES.transcript,
   },
   {
-    id: 'dashboard',
-    eyebrow: 'Dashboard',
+    id: 'overview',
+    eyebrow: 'Overview',
     title: 'See your progress at a glance',
-    description: 'The Dashboard gives you an overview of your studies so far:',
+    description: 'The Overview page shows your studies so far:',
     bullets: [
       'ECTS earned versus the credits your program requires.',
       'Progress per category and study area, so you see where requirements are still open.',
@@ -41,14 +41,14 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
       'A grade overview across your completed courses.',
     ],
     Icon: DashboardIcon,
-    route: ROUTES.dashboard,
+    route: ROUTES.overview,
   },
   {
     id: 'catalog',
     eyebrow: 'Catalog',
-    title: 'Discover and favorite courses',
+    title: 'Discover interesting courses',
     description:
-      'Browse the Catalog to explore the full course offering. Star the courses you are interested in to add them to your favorites — they become the building blocks for planning your semester.',
+      'Browse the Catalog to explore the full course offering. Star the courses you are interested in — they become the building blocks for planning your semester.',
     Icon: CatalogIcon,
     route: ROUTES.catalog,
   },
@@ -57,7 +57,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     eyebrow: 'Planner',
     title: 'Build your semester',
     description:
-      'In the Planner, assemble upcoming semesters from your favorited courses. You get recommendations based on the category requirements of your study program, so each semester moves you toward your degree.',
+      'In the Planner, assemble upcoming semesters from the courses you marked as interested. You get recommendations based on the category requirements of your study program, so each semester moves you toward your degree.',
     Icon: PlannerIcon,
     route: ROUTES.planner,
   },
