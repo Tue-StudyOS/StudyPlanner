@@ -15,6 +15,9 @@ interface CatalogPeriodsResponse {
 // retry transient failures before surfacing an error to the user.
 const RETRY_DELAYS_MS = [600, 1800]
 
+// Requests the deduplicated multi-period catalog instead of one semester slice.
+export const ALL_CATALOG_PERIODS = 'all'
+
 function isTransientError(error: unknown): boolean {
   if (error instanceof ApiError) {
     return error.status === 0 || error.status >= 500

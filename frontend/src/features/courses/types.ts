@@ -55,6 +55,14 @@ export interface CatalogPeriod {
   courseCount: number
 }
 
+export type CourseTermType = 'summer' | 'winter' | 'both' | 'unknown'
+
+export interface CourseExternalLink {
+  platform: string
+  url: string
+  label: string
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -86,4 +94,7 @@ export interface Course {
   moduleCode?: string | null
   moduleTitle?: string | null
   hasRegulationMapping?: boolean
+  offeredPeriods?: string[]
+  termType?: CourseTermType
+  externalLinks?: CourseExternalLink[]
 }
