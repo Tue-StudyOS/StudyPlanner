@@ -346,6 +346,8 @@ async def _load_catalog_related_chunk(
         chunk,
     )
 
+    # Module matches sort first (matchRank 0) so module code/title/ECTS stay
+    # the primary source; direct study-area links only contribute area badges.
     option_rows = await fetch_all(
         env,
         f"""
@@ -360,16 +362,37 @@ async def _load_catalog_related_chunk(
             sa.name AS studyAreaName,
             sa.area_type AS areaType,
             opt.status AS optionStatus,
-            opt.ects_counted AS ectsCounted
+            opt.ects_counted AS ectsCounted,
+            0 AS matchRank,
+            sa.sort_order AS areaSortOrder
         FROM course_curriculum_matches AS m
         JOIN curriculum_modules AS cm ON cm.id = m.module_id
         LEFT JOIN module_study_area_options AS opt ON opt.module_id = cm.id
         LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
         LEFT JOIN study_programs AS sp ON sp.id = sa.program_id
         WHERE m.course_id IN ({placeholders})
-        ORDER BY m.course_id ASC, sp.code ASC, sa.sort_order ASC, sa.name ASC
+        UNION ALL
+        SELECT
+            l.course_id AS courseId,
+            NULL AS moduleCode,
+            NULL AS moduleTitle,
+            NULL AS moduleEcts,
+            sp.code AS programCode,
+            sp.name AS programName,
+            sa.code AS studyAreaCode,
+            sa.name AS studyAreaName,
+            sa.area_type AS areaType,
+            'allowed' AS optionStatus,
+            NULL AS ectsCounted,
+            1 AS matchRank,
+            sa.sort_order AS areaSortOrder
+        FROM course_study_area_links AS l
+        JOIN study_areas AS sa ON sa.id = l.study_area_id
+        JOIN study_programs AS sp ON sp.id = sa.program_id
+        WHERE l.course_id IN ({placeholders})
+        ORDER BY courseId ASC, matchRank ASC, programCode ASC, areaSortOrder ASC, studyAreaName ASC
         """,
-        chunk,
+        [*chunk, *chunk],
     )
 
     return lecturer_rows, parallel_group_rows, appointment_rows, option_rows

@@ -59,3 +59,21 @@ The API cutover should use these public catalog responses:
      overview and the period-matched course list in the semester planner
 
 The frontend no longer needs `completedCourses` or `masterCategoryMeta` from the mock JSON once the catalog path is API-backed.
+
+## Curriculum links (masterCats / module badges)
+
+`masterCats`, `studyAreaOptions`, and `moduleCode`/`moduleTitle` come from two
+tables that the catalog seed rebuilds on every import from the scraped
+'Module / Studiengaenge' category codes (`_categories_json` course field):
+
+- `course_study_area_links` (migration 0020): direct course -> study-area
+  assignments for codes matching `study_areas.code` (INFO-BASIS, INFO-INFO, ...).
+  This is what drives the badges for most courses.
+- `course_curriculum_matches`: course -> module for codes or course numbers
+  matching `curriculum_modules.module_code`; matched modules also supply ECTS.
+
+Both tables are in the seed's DELETE order, so re-importing the catalog always
+replaces stale links (course ids are reassigned by the seed). Known gaps: the
+ML master's scraped codes are `MACH-*` but the seeded areas use `ML-*` (no
+confirmed alias mapping yet), and `study_areas`/`curriculum_modules` reference
+rows come from the legacy `alma.sqlite` export rather than a migration.

@@ -476,11 +476,45 @@ APPOINTMENT_COLUMNS = [
     "instructors_text", "expected_participants", "note", "cancellation_text", "raw_json",
 ]
 # Children before parents so the seed can be re-applied without FK violations.
+# The curriculum link tables must be cleared too: their course_id values are
+# meaningless once courses are re-inserted with fresh ids.
 SEEDED_TABLES_DELETE_ORDER = [
+    "course_study_area_links", "course_curriculum_matches",
     "appointments", "parallel_group_lecturers", "parallel_group_fields", "parallel_groups",
     "course_lecturers", "content_sections", "course_fields", "course_placements",
     "courses", "lecturers", "catalog_nodes", "scrape_runs",
 ]
+
+# Rebuild course -> curriculum links from the scraped 'Module / Studiengaenge'
+# category codes (the _categories_json course field). Set-based so the seed
+# links against whatever study_areas / curriculum_modules the target DB holds.
+CURRICULUM_LINK_REBUILD_SQL = """\
+-- Rebuild curriculum links from the scraped category codes.
+INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
+SELECT f.course_id, sa.id, je.value
+FROM course_fields AS f
+JOIN json_each(f.value) AS je
+JOIN study_areas AS sa ON sa.code = je.value
+WHERE f."key" = '_categories_json';
+
+INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+SELECT f.course_id, cm.id, 'category_code', 0.9
+FROM course_fields AS f
+JOIN json_each(f.value) AS je
+JOIN curriculum_modules AS cm ON cm.module_code = je.value
+WHERE f."key" = '_categories_json';
+
+INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+SELECT c.id, cm.id, 'exact_number', 1.0
+FROM courses AS c
+JOIN curriculum_modules AS cm ON cm.module_code = c.number;
+
+-- Course numbers like 'INF1020-V' belong to module 'INF1020'.
+INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+SELECT c.id, cm.id, 'number_variant', 0.8
+FROM courses AS c
+JOIN curriculum_modules AS cm ON c.number LIKE cm.module_code || '-%';
+"""
 
 
 def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
@@ -515,6 +549,7 @@ def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
         _write_rows(handle, "parallel_group_lecturers", PARALLEL_GROUP_LECTURER_COLUMNS, plan.parallel_group_lecturers)
         _write_rows(handle, "appointments", APPOINTMENT_COLUMNS, plan.appointments)
 
+        handle.write(CURRICULUM_LINK_REBUILD_SQL + "\n")
         handle.write("PRAGMA foreign_keys = ON;\n")
 
 

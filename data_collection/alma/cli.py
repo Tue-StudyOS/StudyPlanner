@@ -137,6 +137,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--redo-periods",
+        metavar="LABELS",
+        help=(
+            "With --continue: comma-separated period labels or ids to scrape "
+            "again even though the previous run completed them. Their old "
+            "courses are dropped and replaced by the fresh scrape."
+        ),
+    )
+    parser.add_argument(
+        "--probe-course-details",
+        metavar="DETAIL_URL",
+        help=(
+            "Fetch one course detail page and print what the parser "
+            "extracted (fields, categories, content sections, parallel "
+            "groups), then exit. Diagnostic for archived periods whose "
+            "Grunddaten fields come back empty."
+        ),
+    )
+    parser.add_argument(
         "--probe-branch-permalink",
         metavar="PERIOD_ID",
         help=(
@@ -165,6 +184,10 @@ def main() -> None:
         counts = scraper.dump_period_candidates(args.dump_period_candidates)
         for source, count in counts.items():
             print(f"{source}: {count}")
+        return
+
+    if args.probe_course_details:
+        _probe_course_details(scraper, args.probe_course_details)
         return
 
     if args.probe_branch_permalink:
@@ -199,6 +222,27 @@ def main() -> None:
         f"Wrote {len(result['courses'])} courses and "
         f"{len(result['catalog_nodes'])} catalog nodes to {out_path}"
     )
+
+
+def _probe_course_details(scraper: AlmaScraper, detail_url: str) -> None:
+    """Print a one-page summary of what the detail parser extracts.
+
+    Used to diagnose archived-period scrapes where Grunddaten fields came
+    back empty even though the detail pages were fetched.
+    """
+    details = scraper.fetch_course_details(detail_url)
+    fields = details.get("fields") or {}
+    categories = details.get("categories") or []
+    sections = (details.get("content") or {}).get("sections") or []
+    groups = details.get("parallel_groups") or []
+    print(f"url: {details.get('url')}")
+    print(f"page_title: {details.get('page_title')!r}")
+    print(f"fields ({len(fields)}):")
+    for key, value in fields.items():
+        print(f"  {key}: {value[:80]!r}")
+    print(f"categories ({len(categories)}): {categories}")
+    print(f"content sections ({len(sections)}): {[section.get('title') for section in sections]}")
+    print(f"parallel groups ({len(groups)}): {[group.get('title') for group in groups]}")
 
 
 def _resolve_output_paths(
@@ -259,10 +303,18 @@ def _load_resume_state(args: argparse.Namespace) -> dict | None:
             f"--continue file is not from a multi-period run: {path}"
         )
     summary = source.get("per_period_summary") or []
+    redo_tokens = {
+        token.strip()
+        for token in (args.redo_periods or "").split(",")
+        if token.strip()
+    }
     completed_entries = [
         entry
         for entry in summary
-        if not entry.get("partial") and not entry.get("skipped")
+        if not entry.get("partial")
+        and not entry.get("skipped")
+        and entry.get("period_id") not in redo_tokens
+        and entry.get("period_label") not in redo_tokens
     ]
     completed_ids: set[str] = {entry["period_id"] for entry in completed_entries}
     completed_labels: set[str] = {
