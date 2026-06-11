@@ -28,7 +28,16 @@ def _normalize_stored_course_ids(values: list[Any]) -> list[str]:
 
 async def _list_favorite_course_ids(env: Any, username: str) -> list[str]:
     stored_value = await load_user_state_json(env, username, 'favorites_json')
-    return _normalize_stored_course_ids(parse_json_array(stored_value))
+    course_ids = [int(course_id) for course_id in _normalize_stored_course_ids(parse_json_array(stored_value))]
+    existing_course_ids = await _filter_existing_course_ids(env, course_ids)
+    if existing_course_ids != course_ids:
+        await update_user_state_json(
+            env,
+            username,
+            'favorites_json',
+            [str(course_id) for course_id in existing_course_ids],
+        )
+    return [str(course_id) for course_id in existing_course_ids]
 
 
 def _normalize_course_ids(payload: dict[str, Any]) -> list[int]:
@@ -55,9 +64,9 @@ def _normalize_course_ids(payload: dict[str, Any]) -> list[int]:
     return normalized_ids
 
 
-async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
+async def _filter_existing_course_ids(env: Any, course_ids: list[int]) -> list[int]:
     if not course_ids:
-        return
+        return []
 
     placeholders = ', '.join('?' for _ in course_ids)
     rows = await fetch_all(
@@ -66,11 +75,7 @@ async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
         course_ids,
     )
     existing_ids = {int(row['id']) for row in rows}
-    missing_ids = [course_id for course_id in course_ids if course_id not in existing_ids]
-    if missing_ids:
-        raise FavoriteUpdateError(
-            f'Unknown course ids in favorites payload: {", ".join(str(course_id) for course_id in missing_ids)}'
-        )
+    return [course_id for course_id in course_ids if course_id in existing_ids]
 
 
 async def get_current_user_favorites(env: Any, request: Any) -> dict[str, Any]:
@@ -90,9 +95,14 @@ async def replace_current_user_favorites(
     user = await require_authenticated_user(env, request)
     username = str(user['username'])
     course_ids = _normalize_course_ids(payload)
-    await _validate_course_ids(env, course_ids)
+    existing_course_ids = await _filter_existing_course_ids(env, course_ids)
 
-    await update_user_state_json(env, username, 'favorites_json', [str(course_id) for course_id in course_ids])
+    await update_user_state_json(
+        env,
+        username,
+        'favorites_json',
+        [str(course_id) for course_id in existing_course_ids],
+    )
 
     favorite_course_ids = await _list_favorite_course_ids(env, username)
     return {
