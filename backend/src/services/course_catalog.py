@@ -29,6 +29,10 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "empfehlung",
 )
 ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects)\b', re.IGNORECASE)
+# ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
+PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
+# The label only exists inside the scraped course payload, so read it from raw_json.
+PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
 
 
 def _placeholders(count: int) -> str:
@@ -226,6 +230,52 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
     return ""
 
 
+def _period_sort_key(period_label: str) -> tuple[int, int, str]:
+    """Chronological key: within a year the summer term starts before the winter term."""
+    match = PERIOD_LABEL_PATTERN.match(period_label)
+    if not match:
+        return (0, 0, period_label)
+    season_rank = 0 if match.group(1).lower() == "sommer" else 1
+    return (int(match.group(2)), season_rank, period_label)
+
+
+async def list_catalog_periods(env: Any) -> list[dict[str, Any]]:
+    """Return the semesters present in the catalog, newest first."""
+    rows = await fetch_all(
+        env,
+        f"""
+        SELECT
+            c.period_id AS periodId,
+            MAX({PERIOD_LABEL_SQL}) AS periodLabel,
+            COUNT(*) AS courseCount
+        FROM courses AS c
+        WHERE {CATALOG_FILTER_SQL}
+        GROUP BY c.period_id
+        """,
+    )
+
+    periods = [
+        {
+            "periodId": str(row["periodId"]),
+            "label": _safe_text(row.get("periodLabel")) or str(row["periodId"]),
+            "courseCount": int(row.get("courseCount") or 0),
+        }
+        for row in rows
+        if row.get("periodId") is not None
+    ]
+    periods.sort(key=lambda period: _period_sort_key(period["label"]), reverse=True)
+    return periods
+
+
+async def _resolve_period_id(env: Any, period_id: str | None) -> str | None:
+    requested_period = _safe_text(period_id)
+    if requested_period:
+        return requested_period
+
+    periods = await list_catalog_periods(env)
+    return periods[0]["periodId"] if periods else None
+
+
 _D1_CHUNK_SIZE = 50
 
 
@@ -408,6 +458,8 @@ def _build_catalog_summary(
         "numericId": int(course["id"]),
         "number": _safe_text(course.get("number")) or _safe_text(course.get("courseKey")) or "",
         "title": _safe_text(course.get("title")) or "Untitled course",
+        "periodId": _safe_text(course.get("periodId")),
+        "periodLabel": _safe_text(course.get("periodLabel")),
         "lecturer": ", ".join(lecturer_names),
         "lecturers": lecturer_names,
         "room": first_slot["room"] if first_slot else "TBA",
@@ -439,8 +491,12 @@ async def list_catalog_courses(
     env: Any,
     limit: int = 100,
     search: str | None = None,
+    period_id: str | None = None,
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(limit, 500))
+    # Without a period filter the multi-semester catalog would repeat every course
+    # once per semester, so default to the most recent period.
+    resolved_period_id = await _resolve_period_id(env, period_id)
     params: list[Any] = []
     sql = f"""
         SELECT
@@ -455,10 +511,16 @@ async def list_catalog_courses(
             c.short_comment AS shortComment,
             c.semester_hours AS semesterHours,
             c.detail_url AS detailUrl,
-            c.detail_page_url AS detailPageUrl
+            c.detail_page_url AS detailPageUrl,
+            c.period_id AS periodId,
+            {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
         WHERE {CATALOG_FILTER_SQL}
     """
+
+    if resolved_period_id is not None:
+        sql += "\n          AND c.period_id = ?"
+        params.append(resolved_period_id)
 
     normalized_search = _safe_text(search)
     if normalized_search:
@@ -606,14 +668,15 @@ async def list_courses(env: Any, limit: int = 50) -> list[dict[str, Any]]:
 
 async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     """Return one course plus its related records from D1."""
-    course_sql = """
+    course_sql = f"""
         SELECT
-            id,
-            run_id AS runId,
-            node_id AS nodeId,
-            unit_id AS unitId,
-            period_id AS periodId,
-            title,
+            c.id,
+            c.run_id AS runId,
+            c.node_id AS nodeId,
+            c.unit_id AS unitId,
+            c.period_id AS periodId,
+            {PERIOD_LABEL_SQL} AS periodLabel,
+            c.title,
             number,
             catalog_title AS catalogTitle,
             organisation,
@@ -625,8 +688,8 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             detail_url AS detailUrl,
             detail_page_url AS detailPageUrl,
             raw_fields_json AS rawFieldsJson
-        FROM courses
-        WHERE id = ?
+        FROM courses AS c
+        WHERE c.id = ?
         LIMIT 1
     """
     course = await fetch_one(env, course_sql, [course_id])

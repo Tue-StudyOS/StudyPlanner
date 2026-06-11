@@ -4,7 +4,7 @@ import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
 import type { Course } from '../../courses'
-import { useCatalogCourses } from '../../courses'
+import { findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
@@ -30,7 +30,6 @@ export function SemesterPlanner() {
   const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
   const [completionNotice, setCompletionNotice] = useState<string | null>(null)
-  const { courses, isLoading, error } = useCatalogCourses('', 500)
   const {
     regulationVersion,
     isLoadingRegulationVersion,
@@ -59,6 +58,16 @@ export function SemesterPlanner() {
     saveCurrentSemesterPlan,
     deleteCurrentSemesterPlan,
   } = useSemesterPlanner()
+
+  // Load the catalog of the semester being planned so the weekly grid uses that
+  // semester's appointments. Falls back to the newest period (backend default)
+  // when the catalog has no data for the selected semester.
+  const { periods } = useCatalogPeriods()
+  const activePeriodId = useMemo(
+    () => findCatalogPeriodForSemesterLabel(periods, activeSemesterLabel)?.periodId,
+    [periods, activeSemesterLabel],
+  )
+  const { courses, isLoading, error } = useCatalogCourses('', 500, activePeriodId)
 
   const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
   const isMobilePlanner = isSmallViewport

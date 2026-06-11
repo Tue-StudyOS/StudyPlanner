@@ -26,6 +26,7 @@ from services.course_catalog import (
     get_catalog_course_detail,
     get_course_detail,
     list_catalog_courses,
+    list_catalog_periods,
     list_courses,
 )
 from services.progress import get_current_user_progress
@@ -339,7 +340,8 @@ async def route_request(request: Any, env: Any) -> Any:
                         "progress": "/api/me/progress",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
-                        "catalogCourses": "/api/catalog/courses?limit=100",
+                        "catalogPeriods": "/api/catalog/periods",
+                        "catalogCourses": "/api/catalog/courses?limit=100&period=<periodId>",
                         "catalogCourseDetail": "/api/catalog/courses/<id>",
                         "regulationVersions": "/api/regulation-versions",
                         "regulationCatalog": "/api/regulation-versions/<code>/courses?limit=100",
@@ -379,16 +381,33 @@ async def route_request(request: Any, env: Any) -> Any:
                 env=env,
             )
 
+        if path == "/api/catalog/periods":
+            periods = await list_catalog_periods(env)
+            return json_response(
+                {
+                    "count": len(periods),
+                    "periods": periods,
+                },
+                request=request,
+                env=env,
+            )
+
         if path == "/api/catalog/courses":
             query = parse_qs(parsed_url.query)
             limit_value = query.get("limit", ["100"])[0]
             search_value = query.get("q", [None])[0]
+            period_value = query.get("period", [None])[0]
             try:
                 limit = int(limit_value)
             except ValueError:
                 limit = 100
 
-            courses = await list_catalog_courses(env, limit=limit, search=search_value)
+            courses = await list_catalog_courses(
+                env,
+                limit=limit,
+                search=search_value,
+                period_id=period_value,
+            )
             return json_response(
                 {
                     "count": len(courses),

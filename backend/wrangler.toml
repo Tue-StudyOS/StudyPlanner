@@ -10,9 +10,9 @@ ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev
 AUTH_TOKEN_TTL_SECONDS = "2592000"
 
 # Active runtime D1 for the current deployed app.
-# Keep this on studyplaner-db-test until a human explicitly approves the switch to studyplanner-db.
+# studyplanner-db is the approved production database (multi-period ALMA catalog, integrate_new_db cutover).
 # The database name and id are public Cloudflare binding config; AUTH_TOKEN_SECRET stays a Worker secret.
 [[d1_databases]]
 binding = "DB"
-database_name = "studyplaner-db-test"
-database_id = "297f7a28-9069-431d-b989-49acf2537513"
+database_name = "studyplanner-db"
+database_id = "80ca9092-ddc6-454a-b04a-8ccae85ef2f5"

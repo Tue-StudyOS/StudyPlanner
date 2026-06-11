@@ -9,6 +9,7 @@ import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
 import { useTranscript } from '../../transcript'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
+import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course } from '../types'
 import { CourseDetailDrawer } from './CourseDetailDrawer'
 
@@ -63,10 +64,18 @@ export function CoursesOverview() {
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
+  // Empty string means "newest semester" (the backend default), so the catalog
+  // does not refetch once the period list arrives.
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
   const sentinelRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
-  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT)
+  const { periods, periodsError } = useCatalogPeriods()
+  const { courses, isLoading, error } = useCatalogCourses(
+    search,
+    CATALOG_LIMIT,
+    selectedPeriodId || undefined,
+  )
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
@@ -150,6 +159,12 @@ export function CoursesOverview() {
         </div>
       ) : null}
 
+      {periodsError ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+          {periodsError}
+        </div>
+      ) : null}
+
       {regulationVersionError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {regulationVersionError}
@@ -157,18 +172,40 @@ export function CoursesOverview() {
       ) : null}
 
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
-        <label className="block">
-          <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            Search
-          </span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by title, number, or organization"
-            className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
-          />
-        </label>
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <label className="block">
+            <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+              Search
+            </span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by title, number, or organization"
+              className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
+            />
+          </label>
+
+          <label className="block sm:w-48">
+            <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+              Semester
+            </span>
+            <select
+              aria-label="Select catalog semester"
+              value={selectedPeriodId || periods[0]?.periodId || ''}
+              onChange={(event) => setSelectedPeriodId(event.target.value)}
+              disabled={periods.length === 0}
+              className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors focus:border-primary disabled:opacity-60"
+            >
+              {periods.length === 0 ? <option value="">Loading...</option> : null}
+              {periods.map((period) => (
+                <option key={period.periodId} value={period.periodId}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div>

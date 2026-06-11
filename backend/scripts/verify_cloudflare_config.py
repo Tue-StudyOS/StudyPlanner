@@ -8,10 +8,12 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-EXPECTED_ACTIVE_D1_NAME = 'studyplaner-db-test'
-EXPECTED_ACTIVE_D1_ID = '297f7a28-9069-431d-b989-49acf2537513'
-RESERVED_PRODUCTION_D1_NAME = 'studyplanner-db'
-RESERVED_PRODUCTION_D1_ID = '80ca9092-ddc6-454a-b04a-8ccae85ef2f5'
+# Production cutover to studyplanner-db happens with the integrate_new_db branch
+# (multi-period ALMA catalog + 0018 user schema applied there).
+EXPECTED_ACTIVE_D1_NAME = 'studyplanner-db'
+EXPECTED_ACTIVE_D1_ID = '80ca9092-ddc6-454a-b04a-8ccae85ef2f5'
+PREVIOUS_TEST_D1_NAME = 'studyplaner-db-test'
+PREVIOUS_TEST_D1_ID = '297f7a28-9069-431d-b989-49acf2537513'
 EXPECTED_D1_BINDING = 'DB'
 EXPECTED_WORKER_NAME = 'studyplanner-api'
 LEGACY_WORKER_NAME = 'studyplaner-api'
@@ -122,7 +124,7 @@ def main() -> int:
     print(
         'Cloudflare config OK: '
         f'active D1 {EXPECTED_ACTIVE_D1_NAME} ({EXPECTED_ACTIVE_D1_ID}), '
-        f'reserved production D1 {RESERVED_PRODUCTION_D1_NAME} ({RESERVED_PRODUCTION_D1_ID}), '
+        f'previous test D1 {PREVIOUS_TEST_D1_NAME} ({PREVIOUS_TEST_D1_ID}), '
         f'Worker {EXPECTED_WORKER_NAME}, legacy Worker {LEGACY_WORKER_NAME}.'
     )
     return 0

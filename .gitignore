@@ -167,6 +167,12 @@ venv.bak/
 backend/.tmp/
 backend/.dev.vars
 
+# Generated catalog seed (rebuild with backend/scripts/import_alma_json_to_d1.py)
+backend/data/seed_alma_catalog.sql
+
+# Scraper run outputs
+data_collection/output/
+
 # Local agent notes and fixtures
 .pi/
 cloudflare_migration_agent_prompt.md
