@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchCatalogCourses } from '../api'
 import type { Course } from '../types'
 
-export function useCatalogCourses(search: string, limit: number = 200): {
+export function useCatalogCourses(search: string, limit: number = 200, periodId?: string): {
   courses: Course[]
   isLoading: boolean
   error: string | null
@@ -18,7 +18,7 @@ export function useCatalogCourses(search: string, limit: number = 200): {
       setIsLoading(true)
       setError(null)
       try {
-        const nextCourses = await fetchCatalogCourses(search, limit)
+        const nextCourses = await fetchCatalogCourses(search, limit, periodId)
         if (!isActive) {
           return
         }
@@ -41,7 +41,7 @@ export function useCatalogCourses(search: string, limit: number = 200): {
     return () => {
       isActive = false
     }
-  }, [limit, search])
+  }, [limit, periodId, search])
 
   return { courses, isLoading, error }
 }

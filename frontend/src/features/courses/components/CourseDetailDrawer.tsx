@@ -64,6 +64,7 @@ export function CourseDetailDrawer({
 
   const metaRows: Array<[string, string]> = [
     ['Course number', course.number],
+    ['Semester', course.periodLabel || '–'],
     ['Lecturer', course.lecturer || 'TBA'],
     ['Room', course.room || '–'],
     ['ECTS', course.ects === null ? '–' : formatEcts(course.ects)],

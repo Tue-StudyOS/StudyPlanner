@@ -49,11 +49,19 @@ export interface CompletedCourse {
   source?: string
 }
 
+export interface CatalogPeriod {
+  periodId: string
+  label: string
+  courseCount: number
+}
+
 export interface Course {
   id: string
   numericId?: number
   number: string
   title: string
+  periodId?: string | null
+  periodLabel?: string | null
   lecturer: string
   lecturers?: string[]
   room: string

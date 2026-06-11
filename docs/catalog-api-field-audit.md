@@ -46,11 +46,16 @@ The old `GET /api/courses` route only returns lightweight D1 rows and does not y
 
 ## Resulting implementation target
 
-The API cutover should use two public catalog responses:
+The API cutover should use these public catalog responses:
 
 1. `GET /api/catalog/courses`
    - frontend-ready list payload for the overview and favorites views
+   - accepts `period=<periodId>`; without it the newest semester is returned
 2. `GET /api/catalog/courses/<id>`
    - detail payload with schedule, content, exams, and regulation options
+3. `GET /api/catalog/periods`
+   - semesters available in the multi-period catalog (`periodId`, `label`,
+     `courseCount`), newest first; drives the semester selector in the catalog
+     overview and the period-matched course list in the semester planner
 
 The frontend no longer needs `completedCourses` or `masterCategoryMeta` from the mock JSON once the catalog path is API-backed.
