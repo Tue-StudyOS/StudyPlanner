@@ -6,6 +6,7 @@ import { toTranscriptCoursePreview } from '../utils/buildTranscriptImportCandida
 const MIN_QUERY_LENGTH = 2
 const SEARCH_RESULT_LIMIT = 200
 const SUGGESTED_RESULT_LIMIT = 6
+const SEARCH_DEBOUNCE_MS = 250
 
 interface CatalogCoursePickerProps {
   selectedCourse: TranscriptCoursePreview | null
@@ -86,10 +87,11 @@ export function CatalogCoursePicker({
       }
     }
 
-    void loadSearchResults()
+    const timeoutId = window.setTimeout(() => void loadSearchResults(), hasSearchQuery ? SEARCH_DEBOUNCE_MS : 0)
 
     return () => {
       isActive = false
+      window.clearTimeout(timeoutId)
     }
   }, [hasSearchQuery, studyProgramCode, trimmedQuery])
 

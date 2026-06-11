@@ -5,8 +5,6 @@ interface IntermediateExamNoticeProps {
 }
 
 export function IntermediateExamNotice({ status }: IntermediateExamNoticeProps) {
-  const pendingGroups = status.qualifyingGroups.filter((g) => !g.isFulfilled)
-
   return (
     <div className="rounded-[10px] border border-[#d4a800]/40 bg-[#fffbeb] dark:border-[#7a6000]/50 dark:bg-[#1c1600]/40 px-5 py-4">
       <div className="flex min-w-0 items-start gap-3">
@@ -55,15 +53,6 @@ export function IntermediateExamNotice({ status }: IntermediateExamNoticeProps) 
             ))}
           </div>
 
-          {pendingGroups.length > 0 && (
-            <div className="mt-2.5 space-y-1">
-              {pendingGroups.map((group) => (
-                <p key={group.code} className="text-[11.5px] text-fg-muted">
-                  {group.description}
-                </p>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>

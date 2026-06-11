@@ -143,7 +143,7 @@ export function CoursesOverview() {
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
       <div className={`min-w-0 flex-1 p-4 sm:p-8 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
-      <h2 className="mb-2 text-2xl font-bold">Course Catalog</h2>
+      <h1 className="mb-2 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">Course Catalog</h1>
       <p className="mb-6 text-fg-mid">Browse the Informatics catalog from the database.</p>
 
       {!isAuthenticated ? (
