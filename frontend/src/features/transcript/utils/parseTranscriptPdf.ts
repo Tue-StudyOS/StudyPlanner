@@ -542,7 +542,41 @@ function buildLineCollection(items: unknown[], pageNumber: number): TranscriptLi
     .filter((line) => line.text.length > 0)
 }
 
+// Safari and iOS browsers do not implement async iteration over ReadableStream,
+// which pdf.js relies on internally in getTextContent(). Without this polyfill the
+// parser throws "undefined is not a function (near '...value of readableStream...')".
+function ensureReadableStreamAsyncIterator(): void {
+  if (typeof ReadableStream === 'undefined') {
+    return
+  }
+
+  const streamPrototype = ReadableStream.prototype as ReadableStream & {
+    [Symbol.asyncIterator]?: () => AsyncIterableIterator<unknown>
+  }
+  if (typeof streamPrototype[Symbol.asyncIterator] === 'function') {
+    return
+  }
+
+  streamPrototype[Symbol.asyncIterator] = function asyncIterator(this: ReadableStream) {
+    const reader = this.getReader()
+    return {
+      next(): Promise<IteratorResult<unknown>> {
+        return reader.read() as Promise<IteratorResult<unknown>>
+      },
+      async return(value?: unknown): Promise<IteratorResult<unknown>> {
+        reader.releaseLock()
+        return { done: true, value }
+      },
+      [Symbol.asyncIterator]() {
+        return this
+      },
+    }
+  }
+}
+
 export async function parseTranscriptPdf(file: File): Promise<ParsedTranscriptEntry[]> {
+  ensureReadableStreamAsyncIterator()
+
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   if (typeof window !== 'undefined') {
     const workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
