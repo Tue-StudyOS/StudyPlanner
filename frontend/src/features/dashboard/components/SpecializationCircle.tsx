@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
+import { CloseIcon } from '../../../shared/components/icons'
 import { useTheme } from '../../theme'
 import type { VisualizationCategoryCourse, VisualizationCategoryProgress } from '../types'
 import { getVisualizationCategoryColor } from '../visualizationCategories'
@@ -78,9 +79,9 @@ function SpecializationDetailModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md border border-border px-3 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
           >
-            ×
+            <CloseIcon size={18} />
           </button>
         </div>
         <div className="px-6 py-5">

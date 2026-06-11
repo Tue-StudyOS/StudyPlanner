@@ -11,7 +11,7 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
-import { TrashIcon } from './icons'
+import { TrashIcon } from '../../../shared/components/icons'
 import {
   PlannerBlockDetailDialog,
   PlannerOverflowDialog,
@@ -162,7 +162,7 @@ export function PlannerGrid({
                     type="button"
                     onClick={() => void onSave()}
                     disabled={isSavingSemesterPlan || isDeletingSemesterPlan || isLoadingSemesterPlan}
-                    className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSavingSemesterPlan ? 'Saving...' : 'Save semester'}
                   </button>
@@ -180,7 +180,7 @@ export function PlannerGrid({
                     disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
                     className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
+                    {isDeletingSemesterPlan ? 'Deleting...' : 'Delete saved plan'}
                   </button>
                 </>
               ) : (
@@ -189,7 +189,7 @@ export function PlannerGrid({
                     type="button"
                     onClick={onStartEditing}
                     disabled={isLoadingSemesterPlan}
-                    className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Edit semester
                   </button>
@@ -199,7 +199,7 @@ export function PlannerGrid({
                     disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
                     className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
+                    {isDeletingSemesterPlan ? 'Deleting...' : 'Delete saved plan'}
                   </button>
                 </>
               )}
@@ -304,7 +304,7 @@ export function PlannerGrid({
                                 }}
                                 className="rounded-sm p-0.5 opacity-70 hover:bg-surface-hover hover:opacity-100 sm:p-1"
                               >
-                                <TrashIcon />
+                                <TrashIcon size={14} />
                               </span>
                             ) : null}
                           </div>
@@ -364,7 +364,7 @@ export function PlannerGrid({
                       aria-label={`Remove ${course.title} from semester plan`}
                       className="shrink-0 rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
                     >
-                      <TrashIcon />
+                      <TrashIcon size={14} />
                     </button>
                   ) : null}
                 </div>
@@ -386,7 +386,7 @@ export function PlannerGrid({
                 type="button"
                 onClick={onOpenCompletionDialog}
                 disabled={isLoadingSemesterPlan || isDeletingSemesterPlan}
-                className="rounded-md border border-border px-4 py-2.5 text-[12.5px] font-semibold text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Complete semester
               </button>

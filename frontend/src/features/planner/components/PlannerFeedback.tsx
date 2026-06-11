@@ -388,7 +388,7 @@ export function PlannerFeedback({
                 type="button"
                 onClick={() => void onAutoBalance()}
                 disabled={!isEditing || isBalancing || plannedCourses.length === 0}
-                className="rounded-md bg-primary px-4 py-2.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBalancing ? 'Balancing...' : 'Balance planner'}
               </button>

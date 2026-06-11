@@ -501,7 +501,7 @@ export function ManualCompletedCourseForm({
               type="button"
               onClick={() => void handleSave()}
               disabled={isSaving}
-              className="rounded-md bg-primary px-3.5 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-primary px-3.5 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? 'Saving…' : 'Save completed course'}
             </button>

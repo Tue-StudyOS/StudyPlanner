@@ -1,5 +1,5 @@
-// Icons for the onboarding feature. Kept local so the feature stays
-// self-contained and does not import across other feature boundaries.
+// Icons specific to the onboarding feature. Cross-cutting action icons
+// (close, trash, ...) live in shared/components/icons.tsx instead.
 
 export function HelpIcon() {
   return (
@@ -16,13 +16,6 @@ export function HelpIcon() {
   )
 }
 
-export function CloseIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export function ArrowLeftIcon() {
   return (

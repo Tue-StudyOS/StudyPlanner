@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, NavLink, useMatch } from 'react-router-dom'
 import logo from '../../../assets/logo.png'
+import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
-import { AccountIcon, CloseIcon, GearIcon, MenuIcon } from './icons'
+import { AccountIcon, GearIcon, MenuIcon } from './icons'
 import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../../config/routes'
 

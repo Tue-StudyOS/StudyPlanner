@@ -388,7 +388,7 @@ export function AccountPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting || !credCurrentPassword}
-                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Update credentials
                   </button>
@@ -478,7 +478,7 @@ export function AccountPage() {
               type="button"
               onClick={() => void handleLogout()}
               disabled={isSubmitting}
-              className="rounded-md bg-primary px-5 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-primary px-5 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Sign out
             </button>
@@ -539,7 +539,7 @@ export function AccountPage() {
                   </label>
                 </>
               ) : null}
-              <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
                 {isSubmitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Sign in'}
               </button>
             </form>
