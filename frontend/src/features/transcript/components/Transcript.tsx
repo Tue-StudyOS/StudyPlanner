@@ -491,7 +491,7 @@ function AuthenticatedTranscript() {
           onDrop={handleDrop}
         />
 
-        <div className="grid min-w-0 gap-4">
+        <div className="grid min-w-0 grid-rows-[auto_1fr] gap-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
             {stats.map((stat) => (
               <div
