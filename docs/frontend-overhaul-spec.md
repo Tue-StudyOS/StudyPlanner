@@ -184,14 +184,15 @@ Acceptance:
   (e.g. a small inline dropdown or chevron next to the heading) — no big selector UI.
 - Remove the "current semester" tag/badge; it is implied by the default.
 
-### 5.2 Remove ceremony
+### 5.2 Remove ceremony — no edit mode at all
+- The plan is **always editable**; there is no Edit/Save/Discard mode switch.
 - Delete the **"Delete plan" button** entirely.
 - Remove the helper texts: "Plan the selected semester here and keep only the
   schedule details that matter." and "Plan the selected semester in a fixed weekly
   view." and the **"Unsaved semester draft"** state.
-- **Auto-save**: every change (add/remove/move course) persists automatically.
-  There is no unsaved state and no explicit save action. `[BE]` if the current API
-  only supports whole-plan saves, debounce-save the whole plan on change.
+- **Auto-save**: every change (add/remove course, hide slot, change assignment)
+  persists automatically (debounced whole-plan save). The only feedback is a
+  subtle "Saving… / Saved" indicator next to the heading.
 
 ### 5.3 Removing a course from the plan
 - No trash icon on planned course blocks.
@@ -222,12 +223,13 @@ Acceptance:
 - Optional later: subscription URL (webcal). Out of scope for the first pass.
 
 ### 5.7 Mobile planner
-- The weekly grid is **no longer optional** — it must render usefully on all screen
-  sizes (320px up). Font sizes and block content scale down accordingly.
+- The weekly grid is **no longer optional** — the weekly-list layout option is
+  removed; the grid must render usefully on all screen sizes (320px up). Font
+  sizes and block content scale down accordingly.
 - Course blocks on small screens show only the **course name + lecture/exercise
-  tag**. Room and professor appear when tapping the block (detail view).
+  tag**. Room and professor appear when tapping the block (bottom-sheet detail).
 - Adding courses on mobile: the user taps **into the plan** — tapping an **empty
-  slot** opens the add flow (interested list / course picker). There is no
+  area of a day column** opens the add sheet (interested list). There is no
   permanently visible add-panel on mobile.
 
 Acceptance:
@@ -247,6 +249,48 @@ Acceptance:
   nothing else uses it.
 
 ---
+
+## WP7 — Onboarding overhaul `[FE]`
+
+The current onboarding is four differently-sized flashcards that jump from tab
+to tab. Replace it with a calm, genuinely useful guide:
+
+1. One **fixed-size modal** (consistent dimensions across steps, no layout
+   jumps, no route switching during the tour).
+2. Progress dots + Back/Next/Skip; closable at any time, reopenable via the
+   `?` button.
+3. Steps follow the real usage flow for a CS student at Uni Tübingen:
+   - What the app is: plan your Informatik degree and your next semester.
+   - Transcript: import your Transcript of Records first so progress is real.
+   - Catalog: browse all courses, what the offering tags mean
+     (likely / no current data), star what interests you.
+   - Planner: add interested courses to the current semester, auto-saved,
+     export to your calendar.
+   - Overview: track regulation progress per area.
+   - Finish: single CTA into the app.
+
+## WP8 — Settings placement `[FE]`
+
+- The **dark mode toggle moves into the top bar** as a small icon button
+  (desktop: next to the help button; mobile: inside the menu drawer). Theme is
+  an always-available preference, not an account setting.
+- Everything account-bound (profile, study program, regulation version,
+  credentials, planner preferences) stays behind the **gear icon → Account**.
+- Remove duplicated theme controls elsewhere.
+
+## UX guardrails (target audience)
+
+The app is for **Informatik students at Uni Tübingen** planning their semester
+and degree — on desktop and on the phone. Every screen should serve that goal:
+
+- Minimal first view, details on demand (click/tap opens detail views; those
+  may be rich).
+- No ceremony: no edit modes, save buttons, or confirmation banners where
+  auto-save works.
+- Progress toward the degree stays subtly visible while making decisions
+  (catalog sticky hint, planner progress strip).
+- Tübingen specifics are built in: lecture period rules, ALMA catalog data,
+  PO/regulation areas, German course-title conventions.
 
 ## Cross-cutting rules
 
