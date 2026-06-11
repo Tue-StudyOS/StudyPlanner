@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { MasterCat } from '../../features/courses'
+import { CloseIcon } from './icons'
 import { studyAreaCodeToMasterCat } from '../utils/regulation'
 import { REGULATION_AREA_INFO } from '../utils/regulationAreaInfo'
 
@@ -28,14 +29,15 @@ function RegulationAreasModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/45 px-4 py-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/45"
       role="dialog"
       aria-modal="true"
       aria-labelledby="regulation-areas-info-title"
       onClick={onClose}
     >
+      <div className="flex min-h-full items-center justify-center px-4 py-6">
       <div
-        className="mx-auto flex w-full max-w-2xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl"
+        className="flex w-full max-w-2xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
@@ -51,9 +53,9 @@ function RegulationAreasModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-md border border-border px-3 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
           >
-            ×
+            <CloseIcon size={18} />
           </button>
         </div>
 
@@ -72,6 +74,7 @@ function RegulationAreasModal({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

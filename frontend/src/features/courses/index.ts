@@ -1,6 +1,7 @@
-export { CourseDetail } from './components/CourseDetail'
+// The CourseDetail and CoursesOverview page components are intentionally not
+// re-exported here: they are lazy-loaded in App.tsx and static re-exports
+// would pull them into the initial bundle.
 export { CourseDetailDrawer } from './components/CourseDetailDrawer'
-export { CoursesOverview } from './components/Overview'
 export { useCatalogCourseDetail } from './hooks/useCatalogCourseDetail'
 export { useCatalogCourses } from './hooks/useCatalogCourses'
 export { useCatalogPeriods } from './hooks/useCatalogPeriods'

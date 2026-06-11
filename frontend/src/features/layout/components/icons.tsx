@@ -70,14 +70,6 @@ export function MenuIcon() {
   )
 }
 
-export function CloseIcon() {
-  return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" className="shrink-0">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 export function MoonIcon() {
   return (
     <svg width={15} height={15} viewBox="0 0 24 24" fill="none">

@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test \"tests/**/*.test.ts\"",
-    "test:transcript-parser": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/transcript/parseTranscriptPdf.test.ts"
+    "test:transcript-parser": "node --experimental-strip-types --experimental-specifier-resolution=node --test \"tests/transcript/*.test.ts\"",
+    "validate:transcripts": "node --experimental-strip-types scripts/validate-transcript-pdfs.ts"
   },
   "dependencies": {
     "pdfjs-dist": "^5.7.284",

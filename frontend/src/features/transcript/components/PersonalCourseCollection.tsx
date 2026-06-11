@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CompletedCourse } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import type { TranscriptImportCandidate } from '../types'
-import { CloseIcon } from './icons'
+import { CloseIcon } from '../../../shared/components/icons'
 import { TranscriptImportRow } from './TranscriptImportRow'
 
 function formatCompletedSubtitle(course: CompletedCourse): string {

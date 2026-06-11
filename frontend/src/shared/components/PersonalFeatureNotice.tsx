@@ -16,13 +16,13 @@ export function PersonalFeatureNotice({ title, description }: PersonalFeatureNot
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           to={ROUTES.account}
-          className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white"
+          className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
         >
           Sign in or create an account
         </Link>
         <Link
           to={ROUTES.catalog}
-          className="rounded-md border border-border px-4 py-2 text-[13px] font-medium text-fg"
+          className="rounded-md border border-border px-4 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
         >
           Browse the public catalog
         </Link>

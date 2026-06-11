@@ -10,6 +10,7 @@ import {
   classifyTranscriptCompletionStatus,
   parseTranscriptRowColumns,
   parseTranscriptSemesterValue,
+  toDefaultMasterCat,
 } from '../../src/features/transcript/utils/parseTranscriptPdf.ts'
 
 function createCourse(overrides: Partial<Course>): Course {
@@ -93,6 +94,116 @@ test('parseTranscriptSemesterValue keeps English semesters and maps date-based r
   assert.equal(parseTranscriptSemesterValue('SoSe 2025'), 'SS 2025')
   assert.equal(parseTranscriptSemesterValue('14.02.2025'), 'WS 2024/25')
   assert.equal(parseTranscriptSemesterValue('16.05.2025'), 'SS 2025')
+})
+
+test('parseTranscriptSemesterValue handles long forms, two-digit years, and invalid input', () => {
+  assert.equal(parseTranscriptSemesterValue('Winter term 2024/25'), 'WS 2024/25')
+  assert.equal(parseTranscriptSemesterValue('Summer semester 2025'), 'SS 2025')
+  assert.equal(parseTranscriptSemesterValue('WS 22/23'), 'WS 2022/23')
+  assert.equal(parseTranscriptSemesterValue('wt 2024 / 25'), 'WS 2024/25')
+  assert.equal(parseTranscriptSemesterValue('SoSe 2025.'), 'SS 2025')
+  assert.equal(parseTranscriptSemesterValue('31.02.2025'), 'WS 2024/25')
+  assert.equal(parseTranscriptSemesterValue('14.13.2025'), null)
+  assert.equal(parseTranscriptSemesterValue('Semester'), null)
+  assert.equal(parseTranscriptSemesterValue(''), null)
+})
+
+test('toDefaultMasterCat maps German and English sections of the same area identically', () => {
+  // Bachelor ToR sections.
+  assert.equal(toDefaultMasterCat('Pflichtbereich Informatik'), 'BASIS')
+  assert.equal(toDefaultMasterCat('Compulsory Area: Computer Science'), 'BASIS')
+  assert.equal(toDefaultMasterCat('Wahlpflichtfach Praktische Informatik'), 'PRAK')
+  assert.equal(toDefaultMasterCat('Elective Area: Practical Computer Science'), 'PRAK')
+  assert.equal(toDefaultMasterCat('Wahpflichtfach Theoretische Informatik'), 'THEO')
+  assert.equal(toDefaultMasterCat('Elective Area: Theoretical Computer Science'), 'THEO')
+  assert.equal(toDefaultMasterCat('Wahlpflichtfach Technische Informatik'), 'TECH')
+  assert.equal(toDefaultMasterCat('Elective Area: Technical Computer Science'), 'TECH')
+  assert.equal(toDefaultMasterCat('Wahlpflichtfach Informatik'), 'INFO')
+  assert.equal(toDefaultMasterCat('Elective Area: Computer Science'), 'INFO')
+  assert.equal(toDefaultMasterCat('Studium Professionale (übK)'), 'BASIS')
+  assert.equal(toDefaultMasterCat('Professional Skills'), 'BASIS')
+
+  // Master ToR sections.
+  assert.equal(toDefaultMasterCat('Studienbereich Praktische Informatik'), 'PRAK')
+  assert.equal(toDefaultMasterCat('Study Area Practical Computer Science'), 'PRAK')
+  assert.equal(toDefaultMasterCat('Studienbereich Info Basis'), 'BASIS')
+  assert.equal(toDefaultMasterCat('Study Area INFO BASIC'), 'BASIS')
+
+  // Fallbacks.
+  assert.equal(toDefaultMasterCat(null), 'INFO')
+  assert.equal(toDefaultMasterCat('Unzugeordnete Elemente'), 'INFO')
+  assert.equal(toDefaultMasterCat('Unassigned Elements'), 'INFO')
+})
+
+test('parseTranscriptRowColumns keeps long titles with special characters intact', () => {
+  const row = parseTranscriptRowColumns(
+    {
+      title:
+        'Proseminar (übK): Anwendungen der diskreten Mathematik in der Informatik: Beweise aus dem Buch — Teil 1 & 2',
+      semesterText: 'WiSe 2025/26',
+      examinerText: 'Schlipf',
+      formText: 'PS',
+      gradeText: '2,7',
+      statusText: 'BE',
+      ectsText: '3',
+      rawText: 'Proseminar (übK): … WiSe 2025/26 Schlipf PS 2,7 BE 3',
+    },
+    { page: 2, y: 410, section: 'Studium Professionale (übK)' },
+  )
+
+  assert.ok(row)
+  assert.ok(row.title.startsWith('Proseminar (übK):'))
+  assert.ok(row.title.endsWith('Teil 1 & 2'))
+  assert.equal(row.grade, 2.7)
+})
+
+test('parseTranscriptRowColumns rejects rows with missing or malformed core fields', () => {
+  const base = {
+    examinerText: '',
+    formText: '',
+    gradeText: '1,3',
+    statusText: 'BE',
+    ectsText: '6',
+    rawText: 'raw',
+  }
+  const context = { page: 1, y: 100, section: null }
+
+  assert.equal(parseTranscriptRowColumns({ ...base, title: '', semesterText: 'SoSe 2025' }, context), null)
+  assert.equal(parseTranscriptRowColumns({ ...base, title: 'Course', semesterText: 'kein Semester' }, context), null)
+  assert.equal(
+    parseTranscriptRowColumns(
+      { ...base, title: 'Course', semesterText: 'SoSe 2025', gradeText: 'n/a' },
+      context,
+    ),
+    null,
+  )
+  assert.equal(
+    parseTranscriptRowColumns(
+      { ...base, title: 'Course', semesterText: 'SoSe 2025', ectsText: 'x' },
+      context,
+    ),
+    null,
+  )
+})
+
+test('parseTranscriptRowColumns flags unknown completion statuses for manual review', () => {
+  const row = parseTranscriptRowColumns(
+    {
+      title: 'Course with odd status',
+      semesterText: 'SoSe 2025',
+      examinerText: '',
+      formText: '',
+      gradeText: '2,0',
+      statusText: 'committee review 2026',
+      ectsText: '6',
+      rawText: 'Course with odd status SoSe 2025 2,0 committee review 2026 6',
+    },
+    { page: 1, y: 90, section: null },
+  )
+
+  assert.ok(row)
+  assert.equal(row.parseIssues.length, 1)
+  assert.match(row.parseIssues[0], /could not be verified/)
 })
 
 test('parseTranscriptRowColumns keeps the English import path plausible', () => {

@@ -4,7 +4,7 @@ import type { TranscriptImportCandidate } from '../types'
 import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
-import { CloseIcon } from './icons'
+import { CloseIcon } from '../../../shared/components/icons'
 import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {

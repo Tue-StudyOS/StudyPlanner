@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Course } from '../../courses'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
-import { TrashIcon } from './icons'
+import { TrashIcon } from '../../../shared/components/icons'
 
 export function PlannerWeeklyListView({
   plannedCourses,
@@ -57,7 +57,7 @@ export function PlannerWeeklyListView({
                           aria-label={`Remove ${block.courseTitle} from this time slot`}
                           className="shrink-0 rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
                         >
-                          <TrashIcon />
+                          <TrashIcon size={14} />
                         </button>
                       ) : null}
                     </div>

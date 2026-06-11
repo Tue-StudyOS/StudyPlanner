@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { DAY_LABELS, type PlannerBlock } from '../utils/plannerFeedback'
-import { TrashIcon } from './icons'
+import { TrashIcon } from '../../../shared/components/icons'
 
 export interface PlannerOverflowState {
   title: string
@@ -121,7 +121,7 @@ export function PlannerOverflowDialog({
                   aria-label={`Remove ${block.courseTitle} from this time slot`}
                   className="rounded-md border border-border p-2 text-fg transition-colors hover:bg-surface-hover"
                 >
-                  <TrashIcon />
+                  <TrashIcon size={14} />
                 </button>
               ) : null}
             </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { getEffectiveRuleGroupCapacity, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
@@ -33,6 +33,15 @@ interface PlannerProgressArea {
   plannedEcts: number
   masterCat: MasterCat | null
   plannedCourses: PlannerProgressCourse[]
+  creditedCourses: PlannerCreditedCourse[]
+}
+
+interface PlannerCreditedCourse {
+  id: string
+  title: string
+  ects: number
+  grade: number | null
+  semester: string
 }
 
 interface PlannerProgressCourse {
@@ -76,6 +85,7 @@ function buildFallbackArea(option: RegulationAreaOption): PlannerProgressArea {
     plannedEcts: 0,
     masterCat: option.masterCat,
     plannedCourses: [],
+    creditedCourses: [],
   }
 }
 
@@ -137,6 +147,7 @@ function buildPlannerProgressAreas({
       plannedEcts: 0,
       masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
       plannedCourses: [],
+      creditedCourses: [],
     }))
   const areaByCode = new Map(areas.map((area) => [area.code, area]))
   const unassignedCourses: UnassignedPlannerCourse[] = []
@@ -169,6 +180,7 @@ function buildPlannerProgressAreas({
         plannedEcts: 0,
         masterCat: course.masterCat,
         plannedCourses: [],
+        creditedCourses: [],
       }
       areas.push(area)
       areaByCode.set(area.code, area)
@@ -177,6 +189,13 @@ function buildPlannerProgressAreas({
       return
     }
     area.creditedEcts += course.ects
+    area.creditedCourses.push({
+      id: course.id,
+      title: course.title,
+      ects: course.ects,
+      grade: course.grade,
+      semester: course.semester,
+    })
   })
 
   const completedCourseIds = new Set(
@@ -328,10 +347,23 @@ export function PlannerFeedback({
   onRemoveCourse,
   onAutoBalance,
 }: PlannerFeedbackProps) {
+  const [expandedAreaCodes, setExpandedAreaCodes] = useState<ReadonlySet<string>>(new Set())
   const totalEcts = useMemo(
     () => plannedCourses.reduce((sum, course) => sum + (course.ects ?? 0), 0),
     [plannedCourses],
   )
+
+  function toggleAreaExpansion(areaCode: string): void {
+    setExpandedAreaCodes((current) => {
+      const next = new Set(current)
+      if (next.has(areaCode)) {
+        next.delete(areaCode)
+      } else {
+        next.add(areaCode)
+      }
+      return next
+    })
+  }
 
   const progressOutlook = useMemo(
     () =>
@@ -388,7 +420,7 @@ export function PlannerFeedback({
                 type="button"
                 onClick={() => void onAutoBalance()}
                 disabled={!isEditing || isBalancing || plannedCourses.length === 0}
-                className="rounded-md bg-primary px-4 py-2.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBalancing ? 'Balancing...' : 'Balance planner'}
               </button>
@@ -440,6 +472,7 @@ export function PlannerFeedback({
                 ? Math.max(0, afterPlanningEcts - targetEcts)
                 : 0
               const targetLabel = targetEcts === null ? 'open' : roundEcts(targetEcts)
+              const isExpanded = expandedAreaCodes.has(area.code)
 
               return (
                 <div
@@ -452,7 +485,13 @@ export function PlannerFeedback({
                         : 'border-border-light bg-surface-hover/20'
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleAreaExpansion(area.code)}
+                    aria-expanded={isExpanded}
+                    title={isExpanded ? 'Hide credited courses' : 'Show credited courses'}
+                    className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+                  >
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
@@ -460,15 +499,55 @@ export function PlannerFeedback({
                         <div className="min-w-0 truncate text-[11.5px] text-fg-muted">{area.name}</div>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right text-[12px] font-semibold text-fg">
+                    <div className="flex shrink-0 items-center gap-1.5 text-right text-[12px] font-semibold text-fg">
                       {afterPlanningEcts}/{targetLabel} ECTS
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 12 12"
+                        className={`h-3 w-3 shrink-0 text-fg-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
-                  </div>
+                  </button>
 
                   <div className="mt-1 text-[11.5px] text-fg-muted">
                     Current {roundEcts(area.creditedEcts)} ECTS
                     {area.plannedEcts > 0 ? ` + ${roundEcts(area.plannedEcts)} planned` : ''}
                   </div>
+
+                  {isExpanded ? (
+                    <div className="mt-2 grid gap-1.5">
+                      <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                        Credited courses
+                      </div>
+                      {area.creditedCourses.length === 0 ? (
+                        <div className="rounded-md border border-dashed border-border px-3 py-2 text-[11px] text-fg-muted">
+                          No completed courses are credited toward this area yet.
+                        </div>
+                      ) : (
+                        area.creditedCourses.map((course) => (
+                          <div
+                            key={course.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-light bg-surface px-3 py-2 text-[11px] text-fg-muted"
+                          >
+                            <span className="min-w-0 flex-1 break-words font-medium text-fg">
+                              {course.title}
+                            </span>
+                            <span className="shrink-0">
+                              {[
+                                course.semester || null,
+                                `${roundEcts(course.ects)} ECTS`,
+                                course.grade !== null ? `Note ${course.grade.toFixed(1)}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
 
                   {overCapacityEcts > 0 ? (
                     <div className="mt-2 text-[11.5px] font-medium text-primary">

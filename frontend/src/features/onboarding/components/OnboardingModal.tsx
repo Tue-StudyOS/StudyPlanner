@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CloseIcon } from '../../../shared/components/icons'
 import { ONBOARDING_STEPS } from '../steps'
-import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './icons'
+import { ArrowLeftIcon, ArrowRightIcon } from './icons'
 
 interface OnboardingModalProps {
   onClose: () => void
@@ -57,7 +58,7 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
           aria-label="Close guide"
           className="absolute right-3.5 top-3.5 flex items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
         >
-          <CloseIcon />
+          <CloseIcon size={18} />
         </button>
 
         <div className="px-6 pt-7 sm:px-8">
@@ -124,7 +125,7 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
             <button
               type="button"
               onClick={goNext}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-80"
+              className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
             >
               {isLastStep ? 'Get started' : 'Next'}
               {isLastStep ? null : <ArrowRightIcon />}

@@ -1,14 +1,37 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AuthProvider, AccountPage } from './features/auth'
+import { AuthProvider } from './features/auth'
 import { ThemeProvider } from './features/theme'
 import { Layout } from './features/layout'
-import { Dashboard } from './features/dashboard'
-import { CourseDetail, CoursesOverview } from './features/courses'
 import { FavoritesProvider } from './features/favorites'
-import { Transcript, TranscriptProvider } from './features/transcript'
-import { SemesterPlanner } from './features/planner'
+import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
 import { ROUTES } from './features/routes'
+
+// Route components are lazy-loaded so the initial bundle only carries the
+// shell and providers; each page becomes its own chunk.
+const Dashboard = lazy(() =>
+  import('./features/dashboard/components/Dashboard').then((module) => ({ default: module.Dashboard })),
+)
+const CoursesOverview = lazy(() =>
+  import('./features/courses/components/Overview').then((module) => ({ default: module.CoursesOverview })),
+)
+const CourseDetail = lazy(() =>
+  import('./features/courses/components/CourseDetail').then((module) => ({ default: module.CourseDetail })),
+)
+const Transcript = lazy(() =>
+  import('./features/transcript/components/Transcript').then((module) => ({ default: module.Transcript })),
+)
+const SemesterPlanner = lazy(() =>
+  import('./features/planner/components/SemesterPlanner').then((module) => ({ default: module.SemesterPlanner })),
+)
+const AccountPage = lazy(() =>
+  import('./features/auth/components/AccountPage').then((module) => ({ default: module.AccountPage })),
+)
+
+function RouteFallback() {
+  return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
+}
 
 function App() {
   return (
@@ -18,16 +41,18 @@ function App() {
           <TranscriptProvider>
             <BrowserRouter>
               <OnboardingProvider>
-                <Routes>
-                  <Route element={<Layout />}>
-                    <Route path={ROUTES.dashboard} element={<Dashboard />} />
-                    <Route path={ROUTES.catalog} element={<CoursesOverview />} />
-                    <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
-                    <Route path={ROUTES.transcript} element={<Transcript />} />
-                    <Route path={ROUTES.planner} element={<SemesterPlanner />} />
-                    <Route path={ROUTES.account} element={<AccountPage />} />
-                  </Route>
-                </Routes>
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route element={<Layout />}>
+                      <Route path={ROUTES.dashboard} element={<Dashboard />} />
+                      <Route path={ROUTES.catalog} element={<CoursesOverview />} />
+                      <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
+                      <Route path={ROUTES.transcript} element={<Transcript />} />
+                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
+                      <Route path={ROUTES.account} element={<AccountPage />} />
+                    </Route>
+                  </Routes>
+                </Suspense>
               </OnboardingProvider>
             </BrowserRouter>
           </TranscriptProvider>

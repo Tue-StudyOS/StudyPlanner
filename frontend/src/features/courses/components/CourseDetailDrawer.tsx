@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { CatBadge } from '../../../shared/components/CatBadge'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { FavStar } from '../../../shared/components/FavStar'
+import { CloseIcon } from '../../../shared/components/icons'
 import type { CompletedCourse, Course } from '../types'
 
 interface CourseDetailDrawerProps {
@@ -30,14 +31,6 @@ function TypePill({ label }: { label: string }) {
     <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2.5 py-0.75 text-[11px] font-medium text-pill-text">
       {label}
     </span>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
   )
 }
 
@@ -85,7 +78,7 @@ export function CourseDetailDrawer({
           aria-label="Close course details"
           className="flex items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
         >
-          <CloseIcon />
+          <CloseIcon size={18} />
         </button>
       </div>
 
