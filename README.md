@@ -26,6 +26,12 @@ The DB name/UUID are public binding config. The only secret is the Worker
 secret `AUTH_TOKEN_SECRET` (stateless signed bearer tokens; never commit it).
 Run `npm run db:verify-config` before deploys or after touching Cloudflare config.
 
+Eight clearly-marked demo courses (`INFO000N-TEST`, with weekly planner slots)
+live in the catalog for testing category combinations and the schedule grid.
+`backend/scripts/seed_test_courses.sql` (re)creates them idempotently; its
+header documents the one-statement cleanup. Validate changes to it with
+`python backend/scripts/check_seed_test_courses.py`.
+
 ## Local development
 
 Most frontend work only needs the deployed API:
