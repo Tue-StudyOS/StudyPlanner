@@ -53,6 +53,26 @@ body {
   background-color: var(--color-bg);
 }
 
+/* Subtle, slim scrollbars everywhere — many scroll containers are small cards. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
 .dark {
   --color-bg: rgb(26 28 32);
   --color-surface: #27292F;

@@ -28,15 +28,10 @@ export function TranscriptUploadCard({
   const isBusy = phase === 'validating' || phase === 'parsing' || phase === 'saving'
 
   return (
-    <section className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[14px] font-semibold text-fg">Import Transcript PDF</div>
-          <p className="mt-1 text-[12.5px] text-fg-muted">
-            Drop a PDF here or choose one manually. The file is parsed in your browser, and each extracted row stays in review until you import, discard, or reset it.
-          </p>
-        </div>
-        <span className="rounded-full border border-border-light px-2.5 py-1 text-[11px] font-medium text-fg-muted">
+    <section className="flex h-full flex-col rounded-[10px] border border-border bg-surface px-6 py-5.5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-[14px] font-semibold text-fg">Import Transcript PDF</div>
+        <span className="shrink-0 rounded-full border border-border-light px-2.5 py-1 text-[11px] font-medium leading-none text-fg-muted">
           PDF only
         </span>
       </div>
@@ -48,7 +43,7 @@ export function TranscriptUploadCard({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         disabled={disabled || isBusy}
-        className={`flex w-full flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed px-8 py-14 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex w-full flex-1 flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed px-8 py-14 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           isDragActive
             ? 'border-primary bg-primary/5'
             : 'border-border bg-surface hover:border-primary/40 hover:bg-surface-hover'

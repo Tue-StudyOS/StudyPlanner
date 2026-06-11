@@ -32,7 +32,7 @@ function CompletedCourseRow({
       <button
         type="button"
         onClick={onDelete}
-        aria-label={`Remove ${course.title} from your personal course collection`}
+        aria-label={`Remove ${course.title} from your personal courses`}
         className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
       >
         <CloseIcon />
@@ -87,10 +87,7 @@ export function PersonalCourseCollection({
     <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[14px] font-semibold text-fg">Personal Course Collection</div>
-          <p className="mt-1 text-[11.5px] text-fg-muted">
-            {currentReviewCandidates.length} in review · {savedIssueCandidates.length} saved for later · {completedCourses.length} credited
-          </p>
+          <div className="text-[14px] font-semibold text-fg">Personal Courses</div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -119,7 +116,7 @@ export function PersonalCourseCollection({
 
       {!hasContent ? (
         <div className="rounded-[10px] border border-dashed border-border px-4 py-6 text-center text-[12.5px] text-fg-muted">
-          Import a transcript or add a completed course manually to build your personal course collection.
+          Import a transcript or add a completed course manually to build your personal courses.
         </div>
       ) : (
         <div className="grid min-w-0 gap-3.5">

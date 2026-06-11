@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { getEffectiveRuleGroupCapacity, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
+import {
+  formatRegulationAreaShortLabel,
+  getEffectiveRuleGroupCapacity,
+  studyAreaCodeToMasterCat,
+} from '../../../shared/utils/regulation'
 import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import {
   getPlannerCourseAreaOptions,
@@ -20,7 +24,7 @@ const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } 
 }
 const EDIT_REQUIRED_HINT = 'Click "Edit semester" first to add courses to your plan.'
 const ASSIGNMENT_CONTROL_GROUP_CLASS =
-  'flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-[18rem] sm:shrink-0 sm:flex-nowrap'
+  'flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-[9.5rem] sm:shrink-0 sm:flex-nowrap'
 const ASSIGNMENT_SELECT_CLASS =
   'min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-fg outline-none focus:border-primary'
 
@@ -477,17 +481,27 @@ export function PlannerFeedback({
               return (
                 <div
                   key={area.code}
-                  className={`rounded-[10px] border px-4 py-3 ${
+                  onClick={(event) => {
+                    // The whole card toggles, except clicks on inner controls.
+                    if ((event.target as HTMLElement).closest('button, select, input, a, option')) {
+                      return
+                    }
+                    toggleAreaExpansion(area.code)
+                  }}
+                  className={`cursor-pointer rounded-[10px] border px-4 py-3 transition-colors ${
                     overCapacityEcts > 0
                       ? 'border-primary/40 bg-primary/5'
                       : area.plannedEcts > 0
-                        ? 'border-border bg-surface-hover/35'
-                        : 'border-border-light bg-surface-hover/20'
+                        ? 'border-border bg-surface-hover/35 hover:bg-surface-hover/60'
+                        : 'border-border-light bg-surface-hover/20 hover:bg-surface-hover/45'
                   }`}
                 >
                   <button
                     type="button"
-                    onClick={() => toggleAreaExpansion(area.code)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      toggleAreaExpansion(area.code)
+                    }}
                     aria-expanded={isExpanded}
                     title={isExpanded ? 'Hide credited courses' : 'Show credited courses'}
                     className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
@@ -588,14 +602,14 @@ export function PlannerFeedback({
                                 className={ASSIGNMENT_SELECT_CLASS}
                               >
                                 {course.options.map((option) => (
-                                  <option key={option.code} value={option.code}>
-                                    {option.label}
+                                  <option key={option.code} value={option.code} title={option.label}>
+                                    {option.shortLabel}
                                   </option>
                                 ))}
                               </select>
                             ) : (
                               <span className="min-w-0 flex-1 truncate rounded-full border border-border bg-surface px-2 py-0.5 text-center text-[10px] font-semibold text-fg-muted">
-                                {course.assignedAreaCode}
+                                {formatRegulationAreaShortLabel(course.assignedAreaCode)}
                               </span>
                             )}
                             <RemovePlannerCourseButton
@@ -641,8 +655,8 @@ export function PlannerFeedback({
                               Choose area
                             </option>
                             {course.options.map((option) => (
-                              <option key={option.code} value={option.code}>
-                                {option.label}
+                              <option key={option.code} value={option.code} title={option.label}>
+                                {option.shortLabel}
                               </option>
                             ))}
                           </select>

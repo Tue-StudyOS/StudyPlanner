@@ -19,13 +19,13 @@ import {
 } from './PlannerDialogs'
 import { PlannerWeeklyListView } from './PlannerWeeklyListView'
 
-function EmptyGridState({ isEditing }: { isEditing: boolean }) {
+function EmptyDayHint({ isEditing }: { isEditing: boolean }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-      <div className="rounded-[10px] border border-dashed border-border bg-surface px-5 py-4 text-[13px] text-fg-muted">
+    <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
+      <div className="text-[10px] leading-relaxed text-fg-muted sm:text-[11px]">
         {isEditing
-          ? 'Drag a favorite course into this fixed weekly grid to plan the selected semester.'
-          : 'No courses are saved for this semester yet. Use Edit semester to start planning.'}
+          ? 'Drag a favorite course here.'
+          : 'No courses yet — use Edit semester.'}
       </div>
     </div>
   )
@@ -329,9 +329,7 @@ export function PlannerGrid({
                       </button>
                     ))}
 
-                    {isEditing && dayLayouts[day].visibleBlocks.length === 0 && dayLayouts[day].overflowIndicators.length === 0 ? (
-                      <EmptyGridState isEditing={true} />
-                    ) : null}
+                    {plannedCourses.length === 0 ? <EmptyDayHint isEditing={isEditing} /> : null}
                   </div>
                 ))}
               </div>
@@ -394,11 +392,6 @@ export function PlannerGrid({
           </div>
         ) : null}
 
-        {!isEditing && plannedCourses.length === 0 ? (
-          <div className="mt-4 rounded-[10px] border border-dashed border-border px-5 py-4 text-center text-[13px] text-fg-muted">
-            No courses are saved for this semester yet. Use Edit semester to start planning.
-          </div>
-        ) : null}
       </div>
 
       {activeOverflow ? (

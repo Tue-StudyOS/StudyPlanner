@@ -37,8 +37,8 @@ function AssignmentSelect({
           {suggestedAreaCode ? 'Automatic' : 'Choose area'}
         </option>
         {options.map((option) => (
-          <option key={option.code} value={option.code}>
-            {option.label}
+          <option key={option.code} value={option.code} title={option.label}>
+            {option.shortLabel}
             {!isPlanned && suggestedAreaCode === option.code ? ' · suggested' : ''}
           </option>
         ))}
@@ -221,19 +221,15 @@ export function PlannerFavoritesPanel({
   })
 
   return (
-    <aside className="rounded-[10px] border border-border bg-surface">
-      <div className="border-b border-border px-6 py-5.5">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <div className="text-[14px] font-semibold text-fg">Favorites</div>
-          <div className="text-[11.5px] text-fg-muted">{favoriteCourses.length} favorite(s)</div>
-          <div className="text-[11.5px] text-fg-muted">{plannedCourseIds.length} already planned</div>
-        </div>
+    <aside className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full">
+      <div className="shrink-0 border-b border-border px-6 py-5.5">
+        <div className="mb-2 text-[14px] font-semibold text-fg">Favorites</div>
         <p className="text-[12.5px] text-fg-muted">
           Add favorite courses to {activeSemesterLabel} and choose directly what each course should count as.
         </p>
       </div>
 
-      <div className="bg-surface-hover/30 px-6 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-hover/30 px-6 py-4">
         {isLoading ? (
           <div className="text-[13px] text-fg-muted">Loading your favorite course candidates...</div>
         ) : error ? (
