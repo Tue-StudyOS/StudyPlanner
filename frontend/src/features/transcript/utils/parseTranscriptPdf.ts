@@ -279,7 +279,15 @@ function areLikelyDuplicateRows(currentRow: ParsedTranscriptRow, nextRow: Parsed
 }
 
 async function loadPdfDocument(file: File) {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  let pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs')
+  try {
+    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  } catch (error) {
+    throw new Error(
+      'The PDF reader could not be loaded. This usually happens right after an app update — please reload the page and try again.',
+      { cause: error },
+    )
+  }
   if (typeof window !== 'undefined') {
     const workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString()
     if (pdfjs.GlobalWorkerOptions.workerSrc !== workerSrc) {
