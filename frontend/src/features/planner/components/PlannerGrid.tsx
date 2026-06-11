@@ -59,7 +59,6 @@ export function PlannerGrid({
   onCancelEditing,
   onDelete,
   onOpenCompletionDialog,
-  onOpenFavorites,
   onDropCourse,
   onRemoveSlot,
   onRemoveCourse,
@@ -83,7 +82,6 @@ export function PlannerGrid({
   onCancelEditing: () => void
   onDelete: () => Promise<void>
   onOpenCompletionDialog: () => void
-  onOpenFavorites: () => void
   onDropCourse: (courseId: string, areaCode: string | null) => void
   onRemoveSlot: (slotId: string) => void
   onRemoveCourse: (courseId: string) => void
@@ -162,23 +160,6 @@ export function PlannerGrid({
                 <>
                   <button
                     type="button"
-                    onClick={() => void onDelete()}
-                    disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
-                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
-                  </button>
-                  {isMobilePlanner ? (
-                    <button
-                      type="button"
-                      onClick={onOpenFavorites}
-                      className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
-                    >
-                      Import
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
                     onClick={() => void onSave()}
                     disabled={isSavingSemesterPlan || isDeletingSemesterPlan || isLoadingSemesterPlan}
                     className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
@@ -191,7 +172,15 @@ export function PlannerGrid({
                     disabled={isSavingSemesterPlan}
                     className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Cancel
+                    Discard changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onDelete()}
+                    disabled={isDeletingSemesterPlan || (savedCourseCount === 0 && plannedCourses.length === 0)}
+                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeletingSemesterPlan ? 'Removing...' : 'Delete saved plan'}
                   </button>
                 </>
               ) : (
@@ -203,14 +192,6 @@ export function PlannerGrid({
                     className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Edit semester
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onOpenCompletionDialog}
-                    disabled={!canCompleteSemester || isLoadingSemesterPlan || isDeletingSemesterPlan}
-                    className="rounded-md border border-border px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Mark as completed
                   </button>
                   <button
                     type="button"
@@ -388,6 +369,27 @@ export function PlannerGrid({
                   ) : null}
                 </div>
               ))}
+            </div>
+          </div>
+        ) : null}
+
+        {!isEditing && canCompleteSemester ? (
+          <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/20 px-4 py-3.5">
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-semibold text-fg">Finish this semester</div>
+                <p className="mt-1 max-w-[34rem] text-[11.5px] text-fg-muted">
+                  Move the planned courses from {activeSemesterLabel} into your completed-course history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenCompletionDialog}
+                disabled={isLoadingSemesterPlan || isDeletingSemesterPlan}
+                className="rounded-md border border-border px-4 py-2.5 text-[12.5px] font-semibold text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Complete semester
+              </button>
             </div>
           </div>
         ) : null}

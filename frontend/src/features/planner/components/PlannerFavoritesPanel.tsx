@@ -1,6 +1,5 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { FavStar } from '../../../shared/components/FavStar'
 import { usePlannerFavorites } from '../hooks/usePlannerFavorites'
 
@@ -84,7 +83,7 @@ function CandidateCard({
   // The assignability distinction (dimming + hint) only matters while editing.
   // Outside edit mode every favorite is treated equally and just shows the edit hint.
   const showNotAssignable = isEditing && !isAssignable
-  const dimClassName = showNotAssignable ? 'opacity-50' : ''
+  const dimClassName = showNotAssignable ? 'opacity-50' : completedCourse ? 'opacity-75' : ''
 
   return (
     <div
@@ -98,27 +97,25 @@ function CandidateCard({
         event.dataTransfer.setData('text/planner-area-code', explicitAreaCode ?? '')
         event.dataTransfer.effectAllowed = 'move'
       }}
-      className={`group/card relative rounded-[10px] border border-border-light bg-surface px-4 py-3 transition-colors ${
-        isDraggable ? 'cursor-grab hover:bg-surface-hover active:cursor-grabbing' : ''
-      }`}
+      className={`group/card relative rounded-[10px] border border-border-light px-4 py-3 transition-colors ${
+        completedCourse ? 'bg-surface-hover/20' : 'bg-surface'
+      } ${isDraggable ? 'cursor-grab hover:bg-surface-hover active:cursor-grabbing' : ''}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className={`min-w-0 ${dimClassName}`}>
-          <div className="break-words text-[13px] font-semibold text-fg">{course.title}</div>
+          <div className="break-words text-[13px] font-semibold text-fg">
+            {course.title}
+            {completedCourse ? <span className="font-medium text-fg-muted"> - done</span> : null}
+          </div>
           <div className="break-words text-[12px] text-fg-muted">
             {course.number} · {course.ects ?? '–'} ECTS
           </div>
-          {completedCourse ? (
-            <div className="mt-1">
-              <CompletedBadge grade={completedCourse.grade} semester={completedCourse.semester} />
-            </div>
-          ) : null}
           <div className="mt-1 break-words text-[11px] text-fg-muted">
             {course.schedule.at(0)?.day ?? 'Day tba'} · {course.schedule.at(0)?.time ?? 'Time tba'}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className={`flex shrink-0 items-center gap-1.5 ${completedCourse ? 'opacity-80' : ''}`}>
           <span className="group/btn relative inline-flex">
             <button
               type="button"

@@ -10,7 +10,6 @@ import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
 import { balanceSemesterPlan } from '../api'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
-import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
 import { PlannerGrid } from './PlannerGrid'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { buildPlannerBlocks } from '../utils/plannerFeedback'
@@ -27,7 +26,6 @@ export function SemesterPlanner() {
   const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const hasSidebarSpace = useMediaQuery(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY)
-  const [isMobileFavoritesOpen, setIsMobileFavoritesOpen] = useState<boolean>(false)
   const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
   const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
@@ -64,7 +62,7 @@ export function SemesterPlanner() {
 
   const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
   const isMobilePlanner = isSmallViewport
-  const favoritesLayout = getPlannerFavoritesLayout(isMobilePlanner, hasSidebarSpace)
+  const favoritesLayout = getPlannerFavoritesLayout(hasSidebarSpace)
   const courseById = new Map(courses.map((course) => [course.id, course]))
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
@@ -306,7 +304,6 @@ export function SemesterPlanner() {
                   setCompletionNotice(null)
                   setIsCompletionDialogOpen(true)
                 }}
-                onOpenFavorites={() => setIsMobileFavoritesOpen(true)}
                 onDropCourse={handleAddCourse}
                 onRemoveSlot={handleRemoveSlot}
                 onRemoveCourse={handleRemoveCourse}
@@ -314,7 +311,7 @@ export function SemesterPlanner() {
             )}
           </div>
 
-          {favoritesLayout !== 'drawer' ? plannerFavoritesPanel : null}
+          {plannerFavoritesPanel}
         </div>
 
         <PlannerFeedback
@@ -333,12 +330,6 @@ export function SemesterPlanner() {
         />
       </div>
 
-      <MobilePlannerFavoritesDrawer
-        isOpen={isEditing && favoritesLayout === 'drawer' && isMobileFavoritesOpen}
-        onClose={() => setIsMobileFavoritesOpen(false)}
-      >
-        {plannerFavoritesPanel}
-      </MobilePlannerFavoritesDrawer>
 
       {!isEditing && isCompletionDialogOpen ? (
         <SemesterCompletionDialog

@@ -5,13 +5,11 @@ import {
   getPlannerFavoritesLayout,
 } from '../../src/features/planner/utils/favoritesLayout.ts'
 
-test('getPlannerFavoritesLayout keeps mobile planners on the drawer flow', () => {
-  assert.equal(getPlannerFavoritesLayout(true, false), 'drawer')
-  assert.equal(getPlannerFavoritesLayout(true, true), 'drawer')
+test('getPlannerFavoritesLayout stacks favorites when no sidebar space is available', () => {
+  assert.equal(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY, '(min-width: 1100px)')
+  assert.equal(getPlannerFavoritesLayout(false), 'stacked')
 })
 
-test('getPlannerFavoritesLayout stacks or docks favorites on larger screens', () => {
-  assert.equal(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY, '(min-width: 1100px)')
-  assert.equal(getPlannerFavoritesLayout(false, false), 'stacked')
-  assert.equal(getPlannerFavoritesLayout(false, true), 'sidebar')
+test('getPlannerFavoritesLayout docks favorites beside the planner when space allows', () => {
+  assert.equal(getPlannerFavoritesLayout(true), 'sidebar')
 })
