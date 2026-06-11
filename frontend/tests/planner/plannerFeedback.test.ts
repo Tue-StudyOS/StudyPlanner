@@ -43,6 +43,24 @@ test('buildPlannerBlocks parses day aliases and time ranges', () => {
   assert.ok(blocks.every((block) => !block.hasOverlap))
 })
 
+test('buildPlannerBlocks parses German ALMA weekday labels', () => {
+  const course = createCourse('alma-weekdays', [
+    { day: 'Montag', time: '10:15 - 11:45', room: 'A104', type: 'lecture' },
+    { day: 'Di.', time: '12:15 - 13:45', room: 'B210', type: 'exercise' },
+  ])
+
+  const blocks = buildPlannerBlocks([course])
+
+  assert.equal(blocks.length, 2)
+  assert.deepEqual(
+    blocks.map((block) => [block.day, block.startMinutes, block.endMinutes]),
+    [
+      ['Monday', 615, 705],
+      ['Tuesday', 735, 825],
+    ],
+  )
+})
+
 test('buildPlannerBlocks skips slots with unknown days or unparsable times', () => {
   const course = createCourse('partial', [
     { day: 'Sa', time: '10:00 - 12:00', room: '', type: '' },

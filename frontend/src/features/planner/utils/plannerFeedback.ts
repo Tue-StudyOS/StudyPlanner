@@ -12,20 +12,30 @@ export const DAY_LABELS: Record<(typeof DAY_ORDER)[number], string> = {
 
 const DAY_ALIASES: Record<string, (typeof DAY_ORDER)[number]> = {
   mo: 'Monday',
+  'mo.': 'Monday',
   mon: 'Monday',
   monday: 'Monday',
+  montag: 'Monday',
   di: 'Tuesday',
+  'di.': 'Tuesday',
   tue: 'Tuesday',
   tuesday: 'Tuesday',
+  dienstag: 'Tuesday',
   mi: 'Wednesday',
+  'mi.': 'Wednesday',
   wed: 'Wednesday',
   wednesday: 'Wednesday',
+  mittwoch: 'Wednesday',
   do: 'Thursday',
+  'do.': 'Thursday',
   thu: 'Thursday',
   thursday: 'Thursday',
+  donnerstag: 'Thursday',
   fr: 'Friday',
+  'fr.': 'Friday',
   fri: 'Friday',
   friday: 'Friday',
+  freitag: 'Friday',
 }
 
 export interface PlannerBlock {
