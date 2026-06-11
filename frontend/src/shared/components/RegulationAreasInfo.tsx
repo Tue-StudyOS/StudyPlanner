@@ -29,14 +29,15 @@ function RegulationAreasModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/45 px-4 py-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/45"
       role="dialog"
       aria-modal="true"
       aria-labelledby="regulation-areas-info-title"
       onClick={onClose}
     >
+      <div className="flex min-h-full items-center justify-center px-4 py-6">
       <div
-        className="mx-auto flex w-full max-w-2xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl"
+        className="flex w-full max-w-2xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
@@ -73,6 +74,7 @@ function RegulationAreasModal({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

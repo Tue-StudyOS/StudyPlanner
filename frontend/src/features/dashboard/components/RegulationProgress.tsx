@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
+import { CloseIcon } from '../../../shared/components/icons'
 import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
 
@@ -32,8 +33,9 @@ function RegulationAreaDetailModal({
   const courses = area.courses ?? []
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/45 px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="regulation-area-modal-title" onClick={onClose}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/45" role="dialog" aria-modal="true" aria-labelledby="regulation-area-modal-title" onClick={onClose}>
+      <div className="flex min-h-full items-center justify-center px-4 py-6">
+        <div className="flex w-full max-w-3xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -55,9 +57,9 @@ function RegulationAreaDetailModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md border border-border px-3 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
           >
-            ×
+            <CloseIcon size={18} />
           </button>
         </div>
 
@@ -83,6 +85,7 @@ function RegulationAreaDetailModal({
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
