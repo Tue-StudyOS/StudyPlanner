@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
+import { CloseIcon } from '../../../shared/components/icons'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
+import { getEffectiveRuleGroupCapacity, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import { useTranscript } from '../../transcript'
 import { StudyAreaAssignmentField } from '../../transcript/components/StudyAreaAssignmentField'
 import { normalizeCompletedCourseKey } from '../../transcript/utils/completedCourseKeys'
-import { getPlannerCourseAreaOptions } from '../utils/plannerAssignments'
+import {
+  getPlannerCourseAreaOptions,
+  resolveAutomaticPlannerAssignments,
+  type PlannerAssignmentAreaState,
+} from '../utils/plannerAssignments'
 
 const FALLBACK_MASTER_CAT: MasterCat = 'INFO'
 
@@ -142,9 +147,11 @@ function CompletionCourseCard({
       className={`grid gap-3 rounded-[12px] border px-4 py-4 ${
         row.isDuplicate
           ? 'border-[#86c99a]/40 bg-[#e8f5ec]/45 dark:border-[#2d6b3f] dark:bg-[#0f2e1a]/40'
-          : selected
+          : selected && (row.needsAreaChoice || errorMessage)
             ? 'border-primary/30 bg-primary/5'
-            : 'border-border-light bg-surface-hover/25'
+            : selected
+              ? 'border-border bg-surface'
+              : 'border-border-light bg-surface-hover/25 opacity-70'
       }`}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -268,7 +275,6 @@ export function SemesterCompletionDialog({
     () => courseRows.filter((row) => selectedCourseIds.includes(row.course.id) && !row.isDuplicate),
     [courseRows, selectedCourseIds],
   )
-  const duplicateCount = courseRows.length - selectableCourseIds.length
   const blockingSelectionCount = selectedRows.filter((row) => row.needsAreaChoice).length
 
   useEffect(() => {
@@ -307,6 +313,73 @@ export function SemesterCompletionDialog({
       delete nextValue[courseId]
       return nextValue
     })
+  }
+
+  // Distributes regulation areas over the selected courses, respecting area
+  // capacities minus what already-credited courses and fixed choices occupy.
+  function handleAutoAssign(): void {
+    const openRows = selectedRows.filter((row) => !row.isAreaLocked && row.areaOptions.length > 1)
+    if (openRows.length === 0) {
+      return
+    }
+
+    const creditedEctsByArea = new Map<string, number>()
+    completedCourses.forEach((course) => {
+      if (!course.studyAreaCode) {
+        return
+      }
+      creditedEctsByArea.set(
+        course.studyAreaCode,
+        (creditedEctsByArea.get(course.studyAreaCode) ?? 0) + course.ects,
+      )
+    })
+
+    const openRowIds = new Set(openRows.map((row) => row.course.id))
+    const fixedEctsByArea = new Map<string, number>()
+    selectedRows.forEach((row) => {
+      if (openRowIds.has(row.course.id) || !row.selectedAreaCode) {
+        return
+      }
+      fixedEctsByArea.set(
+        row.selectedAreaCode,
+        (fixedEctsByArea.get(row.selectedAreaCode) ?? 0) + (row.course.ects ?? 0),
+      )
+    })
+
+    const areas: PlannerAssignmentAreaState[] = regulationRuleGroups
+      .filter((ruleGroup) => ruleGroup.code.trim().toUpperCase() !== 'THESIS')
+      .map((ruleGroup) => ({
+        code: ruleGroup.code,
+        capacityEcts: getEffectiveRuleGroupCapacity(ruleGroup),
+        creditedEcts: creditedEctsByArea.get(ruleGroup.code) ?? 0,
+        plannedEcts: fixedEctsByArea.get(ruleGroup.code) ?? 0,
+      }))
+
+    const assignments = resolveAutomaticPlannerAssignments({
+      candidates: openRows.map((row, index) => ({
+        course: row.course,
+        index,
+        options: row.areaOptions,
+      })),
+      areas,
+      regulationRuleGroups,
+      studyProgramCode,
+    })
+
+    if (assignments.size === 0) {
+      setLocalError('No automatic assignment was possible — the compatible areas are already at capacity.')
+      return
+    }
+
+    setAssignmentDrafts((previousValue) => ({
+      ...previousValue,
+      ...Object.fromEntries(
+        [...assignments.entries()].map(([courseId, assignment]) => [courseId, assignment.areaCode]),
+      ),
+    }))
+    setLocalError(null)
+    setResultNotice(null)
+    setCourseErrors({})
   }
 
   async function handleImport(): Promise<void> {
@@ -388,9 +461,9 @@ export function SemesterCompletionDialog({
             type="button"
             onClick={handleClose}
             aria-label="Close"
-            className="rounded-md border border-border px-3 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
           >
-            ×
+            <CloseIcon size={18} />
           </button>
         </div>
 
@@ -401,29 +474,32 @@ export function SemesterCompletionDialog({
             </div>
           ) : (
             <div className="grid gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-[12px] border border-border bg-surface-hover/20 px-4 py-3">
-                <div className="text-[12.5px] text-fg-muted">
-                  {selectedRows.length} selected · {duplicateCount} already completed
-                  {blockingSelectionCount > 0 ? ` · ${blockingSelectionCount} need a regulation choice` : ''}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCourseIds(selectableCourseIds)}
-                    disabled={selectableCourseIds.length === 0}
-                    className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Select all eligible
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCourseIds([])}
-                    disabled={selectedCourseIds.length === 0}
-                    className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Clear selection
-                  </button>
-                </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoAssign}
+                  disabled={blockingSelectionCount === 0}
+                  title="Distribute regulation areas automatically, based on remaining capacity and your already credited courses"
+                  className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Auto-assign areas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourseIds(selectableCourseIds)}
+                  disabled={selectableCourseIds.length === 0}
+                  className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Select all eligible
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourseIds([])}
+                  disabled={selectedCourseIds.length === 0}
+                  className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear selection
+                </button>
               </div>
 
               {localError ? (
