@@ -38,6 +38,17 @@ const DAY_ALIASES: Record<string, (typeof DAY_ORDER)[number]> = {
   freitag: 'Friday',
 }
 
+const GERMAN_DATE_PATTERN = /\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/
+const DATE_WEEKDAYS: Array<(typeof DAY_ORDER)[number] | null> = [
+  null,
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  null,
+]
+
 export interface PlannerBlock {
   blockId: string
   slotId: string
@@ -52,7 +63,31 @@ export interface PlannerBlock {
 }
 
 function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
-  return DAY_ALIASES[value.trim().toLowerCase()] ?? null
+  const normalizedValue = value.trim().toLowerCase()
+  const aliasedDay = DAY_ALIASES[normalizedValue]
+  if (aliasedDay) {
+    return aliasedDay
+  }
+
+  const dateMatch = normalizedValue.match(GERMAN_DATE_PATTERN)
+  if (!dateMatch) {
+    return null
+  }
+
+  const day = Number(dateMatch[1])
+  const month = Number(dateMatch[2])
+  const rawYear = Number(dateMatch[3])
+  const year = rawYear < 100 ? 2000 + rawYear : rawYear
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    return null
+  }
+
+  return DATE_WEEKDAYS[date.getUTCDay()] ?? null
 }
 
 function parseTimeRange(timeText: string): { startMinutes: number; endMinutes: number } | null {

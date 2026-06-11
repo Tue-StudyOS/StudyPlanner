@@ -61,9 +61,30 @@ test('buildPlannerBlocks parses German ALMA weekday labels', () => {
   )
 })
 
+test('buildPlannerBlocks derives weekdays from ALMA date-range labels', () => {
+  const course = createCourse('deployed-alma-dates', [
+    { day: '24.04.2026 - 24.07.2026', time: '08:00 - 10:00', room: 'A2', type: 'lecture' },
+    { day: '17.04.2026 - 24.07.2026', time: '10:00 - 12:00', room: 'A2', type: 'exercise' },
+    { day: '21.04.2026 - 21.07.2026', time: '15:00 - 17:00', room: 'C215', type: 'lecture' },
+  ])
+
+  const blocks = buildPlannerBlocks([course])
+
+  assert.equal(blocks.length, 3)
+  assert.deepEqual(
+    blocks.map((block) => [block.day, block.startMinutes, block.endMinutes]),
+    [
+      ['Tuesday', 900, 1020],
+      ['Friday', 480, 600],
+      ['Friday', 600, 720],
+    ],
+  )
+})
+
 test('buildPlannerBlocks skips slots with unknown days or unparsable times', () => {
   const course = createCourse('partial', [
     { day: 'Sa', time: '10:00 - 12:00', room: '', type: '' },
+    { day: '29.02.2026 - 01.03.2026', time: '10:00 - 12:00', room: '', type: '' },
     { day: 'Mo', time: 'by appointment', room: '', type: '' },
     { day: 'Mo', time: '14:00 - 15:30', room: 'C1', type: '' },
   ])
