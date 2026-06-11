@@ -1,9 +1,9 @@
 ---
 name: frontend
-description: Implement React components, pages, hooks, and UI features for the transcript analysis web application. Use this skill for ANY frontend task: building new components, editing existing ones, forms, file uploads, result displays, routing, or TypeScript types. Also use when the user asks about folder structure, styling conventions, or where to put a new file. This skill enforces the agreed project structure, TypeScript conventions, and React best practices — always consult it before writing any frontend code.
+description: Implement React components, pages, hooks, and UI features for the StudyPlanner web application. Use this skill for ANY frontend task: building new components, editing existing ones, forms, file uploads, result displays, routing, or TypeScript types. Also use when the user asks about folder structure, styling conventions, or where to put a new file. This skill enforces the agreed project structure, TypeScript conventions, and React best practices — always consult it before writing any frontend code.
 ---
 
-# Frontend Agent — Transcript Analysis App
+# Frontend Agent — StudyPlanner
 
 This skill governs all frontend development for the project. It encodes the agreed architecture, folder conventions, and React best practices. Read it fully before writing any `.tsx` or `.ts` file.
 
@@ -55,7 +55,7 @@ The profile page is now accessible at /profile for logged-in users.
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Vite | latest | Build tool & dev server |
-| React | 18+ | UI framework |
+| React | 19 | UI framework |
 | TypeScript | 5+ | All files use `.tsx` (JSX) or `.ts` (no JSX) — never `.js` or `.jsx` |
 | Tailwind CSS | v4 | Styling via utility classes — no separate `.css` files per component |
 | react-router-dom | v6+ | Client-side routing |
@@ -135,6 +135,10 @@ Before finishing any new component, verify:
 - [ ] Component is in the right folder (`features/<name>/components/` or `shared/components/`)
 - [ ] If it's a new public export, it's added to the feature's `index.ts`
 - [ ] Styling uses only Tailwind classes
+- [ ] No horizontal overflow at 320px and 375px
+- [ ] Long German labels, long course names, and user text wrap or truncate safely at narrow widths
+- [ ] No clipped cards, hidden buttons, or modals that exceed viewport dimensions
+- [ ] Sticky and modal elements account for mobile browser chrome and safe-area insets
 
 ---
 

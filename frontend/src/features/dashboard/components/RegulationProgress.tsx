@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
+import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
 
 const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
@@ -42,7 +43,7 @@ function RegulationAreaDetailModal({
                 {(area.rawAreaCodes ?? []).length > 1 ? `Includes ${area.rawAreaCodes?.join(', ')}` : area.name}
               </span>
             </div>
-            <h3 id="regulation-area-modal-title" className="text-[20px] font-semibold text-fg">
+            <h3 id="regulation-area-modal-title" className="break-words text-[20px] font-semibold text-fg">
               {area.name}
             </h3>
             <p className="mt-1 text-[12.5px] text-fg-muted">
@@ -107,13 +108,14 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
   return (
     <>
       <div className="overflow-hidden rounded-[10px] border border-border bg-surface px-6 py-5.5">
-        <div className="mb-4.5 flex items-center justify-between gap-3">
-          <div>
+        <div className="mb-4.5">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="text-[14px] font-semibold text-fg">Regulation Progress</div>
-            <p className="mt-1 text-[12px] text-fg-muted">
-              Click a regulation part to inspect the counted courses.
-            </p>
+            <RegulationAreasInfo />
           </div>
+          <p className="mt-1 text-[12px] text-fg-muted">
+            Click a regulation part to inspect the counted courses.
+          </p>
         </div>
         <div className="grid gap-3.5">
           {areas.map((area) => {

@@ -13,6 +13,14 @@ Project-wide instructions for AI coding agents.
 - Ask before adding new production dependencies.
 - Never commit secrets, tokens, passwords, private keys, or generated credentials.
 
+## Testing
+
+- Frontend unit tests live in `frontend/tests/` and run with the Node test runner.
+- Run them with `npm run test:frontend` from the repo root (or `npm test` inside `frontend/`).
+- Run `npm run lint` and `npm run build` (typecheck + build) inside `frontend/` before committing frontend changes.
+- New or changed frontend logic must come with tests; prefer extracting pure utilities so they are testable without a DOM.
+- Modules under test must use explicit `.ts` extensions on runtime imports (e.g. `from './x.ts'`), otherwise the Node test runner cannot resolve them.
+
 ## Coding conventions
 
 - Use English for all code, comments, variable names, function names, class names, commit messages, and documentation.
@@ -24,6 +32,24 @@ Project-wide instructions for AI coding agents.
 - Prefer pure functions where practical.
 - Validate external input at boundaries.
 - Handle errors explicitly; do not hide failures.
+
+## Frontend compatibility
+
+Every new frontend feature must work on both phone and desktop.
+
+- No horizontal overflow, clipped cards, cut-off modals, or unreachable buttons on any viewport.
+- Use `w-full`, `max-w-full`, `min-w-0` on containers; avoid fixed widths without a paired `max-w-*`.
+- Long German labels, long course names, and user-facing strings must wrap or truncate safely at narrow widths (320px–375px).
+- Prefer `flex-wrap` and responsive grid patterns over fixed-column layouts.
+- Sticky and modal elements must account for mobile browser chrome and safe-area insets.
+- Check at minimum: 320px, 375px, 768px, and desktop width; both light and dark mode.
+
+## Cloudflare runtime config guardrails
+
+- Current active D1 for deployments is `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) through the Worker binding `DB`. The cutover from `studyplaner-db-test` was approved and executed with the `integrate_new_db` branch (multi-period ALMA catalog).
+- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the previous test database; do not switch the active runtime DB again without explicit human approval.
+- The D1 database name and UUID are public Cloudflare binding config and may be committed; never commit `AUTH_TOKEN_SECRET` or any generated secret value.
+- Run `npm run db:verify-config` before deploys or after touching Cloudflare/Pages config. The GitHub workflow with the same check should be required on `main` branch protection.
 
 ## Workflow
 

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test \"tests/**/*.test.ts\"",
+    "test:transcript-parser": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/transcript/parseTranscriptPdf.test.ts"
   },
   "dependencies": {
     "pdfjs-dist": "^5.7.284",

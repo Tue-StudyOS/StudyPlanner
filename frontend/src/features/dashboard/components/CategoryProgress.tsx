@@ -28,10 +28,10 @@ function ProgressRow({ code, label, earned, required, colorClass }: ProgressRowP
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`inline-block h-2 w-2 rounded-xs ${colorClass}`} />
-          <span className="text-[13px] font-semibold text-fg">{code}</span>
-          <span className="text-[12px] text-fg-muted">{label}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-xs ${colorClass}`} />
+          <span className="shrink-0 text-[13px] font-semibold text-fg">{code}</span>
+          <span className="min-w-0 truncate text-[12px] text-fg-muted">{label}</span>
         </div>
         <span className="text-[12px] font-semibold text-fg">
           {earned}/{required}

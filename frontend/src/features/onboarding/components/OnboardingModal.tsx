@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ONBOARDING_STEPS } from '../steps'
 import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './icons'
 
@@ -7,6 +8,7 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ onClose }: OnboardingModalProps) {
+  const navigate = useNavigate()
   const [stepIndex, setStepIndex] = useState<number>(0)
   const step = ONBOARDING_STEPS[stepIndex]
   const isFirstStep = stepIndex === 0
@@ -20,6 +22,13 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  // Switch the background page to match the step being explained. Steps without a
+  // route (e.g. welcome) leave the user on their current page. `replace` keeps the
+  // browser history clean while clicking through the guide.
+  useEffect(() => {
+    if (step.route) navigate(step.route, { replace: true })
+  }, [step.route, navigate])
 
   const goBack = (): void => setStepIndex((index) => Math.max(0, index - 1))
   const goNext = (): void => {
@@ -39,7 +48,7 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="relative w-full max-w-lg overflow-hidden rounded-[16px] border border-border bg-surface shadow-2xl"
+        className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-[16px] border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <button

@@ -1,5 +1,7 @@
 # Cloudflare Setup
 
+See `docs/cloudflare-runtime-config.md` for the current active resource names. At the moment the app must stay bound to `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`); `studyplanner-db` is reserved for a later production cutover.
+
 ## 1. Prerequisites
 
 Install Wrangler globally or use `npx`.
@@ -14,31 +16,32 @@ Login:
 npx wrangler login
 ```
 
-## 2. Create the D1 database
+## 2. Confirm the active D1 database
 
-From `backend/`:
+The current active database already exists in Cloudflare:
 
-```bash
-cd backend
-npx wrangler d1 create studyplaner-db
+```text
+studyplaner-db-test = 297f7a28-9069-431d-b989-49acf2537513
 ```
 
-Copy the returned `database_id` into `backend/wrangler.toml`.
+Run the config guard before applying migrations or deploying:
+
+```bash
+npm run db:verify-config
+```
 
 ## 3. Apply the schema migration
 
 Local:
 
 ```bash
-cd backend
-npx wrangler d1 migrations apply studyplaner-db --local
+npm run db:migrate:local
 ```
 
-Remote:
+Remote, only after explicit approval:
 
 ```bash
-cd backend
-npx wrangler d1 migrations apply studyplaner-db --remote
+npm run db:migrate:remote
 ```
 
 ## 4. Export the tracked SQLite data for D1
@@ -55,14 +58,14 @@ Local:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --local --file .tmp/d1-seed.sql
+npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
 ```
 
-Remote:
+Remote, only after explicit approval and backup:
 
 ```bash
 cd backend
-npx wrangler d1 execute studyplaner-db --remote --file .tmp/d1-seed.sql
+npx wrangler d1 execute DB --remote --file .tmp/d1-seed.sql
 ```
 
 ## 6. Run the backend locally
@@ -75,8 +78,8 @@ npx wrangler dev
 ## 7. Deploy the backend
 
 ```bash
-cd backend
-npx wrangler deploy
+npm run db:verify-config
+npm run deploy:backend
 ```
 
 ## 8. Connect the frontend in Cloudflare Pages
@@ -100,7 +103,7 @@ Production branch: main
 Set this environment variable in Pages:
 
 ```text
-VITE_API_BASE_URL=https://api.example.com
+VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
 ```
 
 ## 9. Connect the backend in Cloudflare Workers
@@ -115,12 +118,12 @@ Use these values:
 
 ```text
 Repository: this repository
-Root directory: backend
+Root directory: repository root
 Build command: automatic / none
-Deploy command: npx wrangler deploy
+Deploy command: npm run deploy:backend
 ```
 
-Make sure the Worker has the `DB` D1 binding and the `ALLOWED_ORIGINS` variable.
+Make sure the Worker has the `DB` D1 binding, the `ALLOWED_ORIGINS` variable, and the `AUTH_TOKEN_SECRET` Worker secret.
 
 Recommended `ALLOWED_ORIGINS` value for Pages production plus preview deployments:
 

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
+  getCurrentPlannerAssignment,
   getPlannerCourseAreaOptions,
   getResolvedPlannerAssignment,
   getSuggestedPlannerAssignment,
@@ -11,8 +12,10 @@ import {
 export interface PlannerFavoriteCandidate {
   course: Course
   isPlanned: boolean
+  completedCourse: CompletedCourse | null
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
+  explicitAreaCode: string | null
   suggestedAreaCode: string | null
 }
 
@@ -49,6 +52,23 @@ export function usePlannerFavorites({
   onSetAssignment,
 }: UsePlannerFavoritesParams): UsePlannerFavoritesResult {
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({})
+  const completedCourseByCatalogKey = useMemo(() => {
+    const lookup = new Map<string, CompletedCourse>()
+
+    completedCourses.forEach((course) => {
+      if (course.courseId && !lookup.has(course.courseId)) {
+        lookup.set(course.courseId, course)
+      }
+      if (course.courseNumber && !lookup.has(course.courseNumber)) {
+        lookup.set(course.courseNumber, course)
+      }
+      if (course.externalCourseCode && !lookup.has(course.externalCourseCode)) {
+        lookup.set(course.externalCourseCode, course)
+      }
+    })
+
+    return lookup
+  }, [completedCourses])
 
   const candidates = useMemo<PlannerFavoriteCandidate[]>(() => {
     const isAssignable = (course: Course): boolean =>
@@ -82,6 +102,13 @@ export function usePlannerFavorites({
         completedCourses,
       })
       const draftValue = assignmentDrafts[course.id]
+      const currentAssignment = isPlanned
+        ? getCurrentPlannerAssignment(course, {
+            studyProgramCode,
+            regulationRuleGroups,
+            planAssignments,
+          })
+        : null
       const selectedAreaCode = draftValue
         ? draftValue
         : isPlanned
@@ -93,8 +120,17 @@ export function usePlannerFavorites({
               completedCourses,
             })
           : suggestedAreaCode
+      const explicitAreaCode = draftValue ?? currentAssignment
 
-      return { course, isPlanned, options, selectedAreaCode, suggestedAreaCode }
+      return {
+        course,
+        isPlanned,
+        completedCourse: completedCourseByCatalogKey.get(course.id) ?? completedCourseByCatalogKey.get(course.number) ?? null,
+        options,
+        selectedAreaCode,
+        explicitAreaCode,
+        suggestedAreaCode,
+      }
     })
   }, [
     favoriteCourses,
@@ -105,6 +141,7 @@ export function usePlannerFavorites({
     planAssignments,
     plannedCourses,
     completedCourses,
+    completedCourseByCatalogKey,
     assignmentDrafts,
   ])
 

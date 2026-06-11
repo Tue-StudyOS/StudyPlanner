@@ -159,12 +159,6 @@ export function CoursesOverview() {
         </div>
       ) : null}
 
-      {isSavingFavorites ? (
-        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          Saving your favorites...
-        </div>
-      ) : null}
-
       {periodsError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {periodsError}

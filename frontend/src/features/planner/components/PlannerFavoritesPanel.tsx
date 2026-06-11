@@ -1,5 +1,6 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { FavStar } from '../../../shared/components/FavStar'
 import { usePlannerFavorites } from '../hooks/usePlannerFavorites'
 
@@ -33,6 +34,9 @@ function AssignmentSelect({
         onChange={(event) => onSelectAssignment(event.target.value || null)}
         className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
       >
+        <option value="">
+          {suggestedAreaCode ? 'Automatic' : 'Choose area'}
+        </option>
         {options.map((option) => (
           <option key={option.code} value={option.code}>
             {option.label}
@@ -54,7 +58,9 @@ function CandidateCard({
   isEditing,
   options,
   selectedAreaCode,
+  explicitAreaCode,
   suggestedAreaCode,
+  completedCourse,
   onSelectAssignment,
   onAddCourse,
   onRemoveCourse,
@@ -65,7 +71,9 @@ function CandidateCard({
   isEditing: boolean
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
+  explicitAreaCode: string | null
   suggestedAreaCode: string | null
+  completedCourse: CompletedCourse | null
   onSelectAssignment: (areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onRemoveCourse: (courseId: string) => void
@@ -87,7 +95,7 @@ function CandidateCard({
           return
         }
         event.dataTransfer.setData('text/planner-course-id', course.id)
-        event.dataTransfer.setData('text/planner-area-code', selectedAreaCode ?? '')
+        event.dataTransfer.setData('text/planner-area-code', explicitAreaCode ?? '')
         event.dataTransfer.effectAllowed = 'move'
       }}
       className={`group/card relative rounded-[10px] border border-border-light bg-surface px-4 py-3 transition-colors ${
@@ -100,6 +108,11 @@ function CandidateCard({
           <div className="break-words text-[12px] text-fg-muted">
             {course.number} · {course.ects ?? '–'} ECTS
           </div>
+          {completedCourse ? (
+            <div className="mt-1">
+              <CompletedBadge grade={completedCourse.grade} semester={completedCourse.semester} />
+            </div>
+          ) : null}
           <div className="mt-1 break-words text-[11px] text-fg-muted">
             {course.schedule.at(0)?.day ?? 'Day tba'} · {course.schedule.at(0)?.time ?? 'Time tba'}
           </div>
@@ -110,7 +123,7 @@ function CandidateCard({
             <button
               type="button"
               disabled={!isEditing || !isAssignable}
-              onClick={() => (isPlanned ? onRemoveCourse(course.id) : onAddCourse(course.id, selectedAreaCode))}
+              onClick={() => (isPlanned ? onRemoveCourse(course.id) : onAddCourse(course.id, explicitAreaCode))}
               className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 isPlanned
                   ? 'border border-border bg-surface text-fg hover:bg-surface-hover'
@@ -242,7 +255,9 @@ export function PlannerFavoritesPanel({
                 isEditing={isEditing}
                 options={candidate.options}
                 selectedAreaCode={candidate.selectedAreaCode}
+                explicitAreaCode={candidate.explicitAreaCode}
                 suggestedAreaCode={candidate.suggestedAreaCode}
+                completedCourse={candidate.completedCourse}
                 onSelectAssignment={(areaCode) =>
                   selectAssignment(candidate.course.id, candidate.isPlanned, areaCode)
                 }

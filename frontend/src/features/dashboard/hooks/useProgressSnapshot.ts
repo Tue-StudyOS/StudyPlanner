@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../../shared/utils/api'
 import { useAuth } from '../../auth'
+import { useTranscript } from '../../transcript'
 import { fetchProgressSnapshot } from '../api'
 import type { ProgressSnapshot } from '../types'
 
@@ -20,6 +21,7 @@ export function useProgressSnapshot(): {
   progressError: string | null
 } {
   const { token } = useAuth()
+  const { completedCourses, isLoadingCompletedCourses } = useTranscript()
   const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(null)
   const [isLoadingProgress, setIsLoadingProgress] = useState<boolean>(false)
   const [progressError, setProgressError] = useState<string | null>(null)
@@ -33,6 +35,14 @@ export function useProgressSnapshot(): {
           setProgressSnapshot(null)
           setProgressError(null)
           setIsLoadingProgress(false)
+        }
+        return
+      }
+
+      if (isLoadingCompletedCourses) {
+        if (isActive) {
+          setIsLoadingProgress(true)
+          setProgressError(null)
         }
         return
       }
@@ -63,7 +73,7 @@ export function useProgressSnapshot(): {
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [completedCourses, isLoadingCompletedCourses, token])
 
   return { progressSnapshot, isLoadingProgress, progressError }
 }

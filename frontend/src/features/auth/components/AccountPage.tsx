@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../../shared/utils/api'
 import { MoonIcon, SunIcon } from '../../layout/components/icons'
+import {
+  buildSemesterOptions,
+  getCurrentSemesterLabel,
+  getRelativeSemesterLabel,
+} from '../../planner/utils/semesterLabels'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 import { fetchStudyPrograms } from '../api'
@@ -13,35 +18,14 @@ type AuthMode = 'login' | 'register'
 
 const EARLIEST_SEMESTER = 'WS 2021/22'
 
-function getCurrentSemester(): string {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  if (month >= 4 && month <= 9) return `SS ${year}`
-  const ws = month >= 10 ? year : year - 1
-  return `WS ${ws}/${String(ws + 1).slice(-2)}`
-}
-
 function generateStartSemesters(): string[] {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  let isSummer = month >= 4 && month <= 9
-  let y = isSummer ? year : (month >= 10 ? year : year - 1)
-  const list: string[] = []
-  while (true) {
-    const sem = isSummer ? `SS ${y}` : `WS ${y}/${String(y + 1).slice(-2)}`
-    list.push(sem)
-    if (sem === EARLIEST_SEMESTER) break
-    if (isSummer) {
-      isSummer = false
-    } else {
-      y -= 1
-      isSummer = true
-    }
-    if (y < 2015) break
-  }
-  return list
+  const currentSemesterLabel = getCurrentSemesterLabel()
+  return buildSemesterOptions(
+    [],
+    currentSemesterLabel,
+    EARLIEST_SEMESTER,
+    getRelativeSemesterLabel(currentSemesterLabel, 1),
+  ).reverse()
 }
 
 function normalizeErrorMessage(error: unknown): string {
@@ -332,7 +316,7 @@ export function AccountPage() {
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
-              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update credentials</h2>
+              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update Credentials</h2>
               <form onSubmit={(event) => void handleCredentialsSave(event)} className="flex min-w-0 flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
@@ -392,7 +376,7 @@ export function AccountPage() {
 
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-[13.5px] font-semibold text-fg">Study profile</h2>
+                <h2 className="text-[13.5px] font-semibold text-fg">Study Profile</h2>
                 <div className="text-[12px] text-fg-muted">
                   {isSavingProfile || profileSaveState === 'saving'
                     ? 'Saving changes...'
@@ -424,7 +408,7 @@ export function AccountPage() {
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                     Start semester
-                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemester()})</span>
+                    <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemesterLabel()})</span>
                   </span>
                   <select
                     value={currentSemesterLabel}
@@ -532,7 +516,7 @@ export function AccountPage() {
           </section>
 
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
-            <h2 className="mb-3 text-[14px] font-semibold text-fg">What you get with an account</h2>
+            <h2 className="mb-3 text-[14px] font-semibold text-fg">What You Get with an Account</h2>
             <ul className="grid gap-2 pl-5 text-[13.5px] leading-6 text-fg-mid">
               <li className="list-disc">Persist favorite courses across devices</li>
               <li className="list-disc">Store your study program incl. PO and your start semester</li>
@@ -542,7 +526,7 @@ export function AccountPage() {
 
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5 lg:col-span-2">
             <div className="mb-4">
-              <h2 className="text-[14px] font-semibold text-fg">Public study programs</h2>
+              <h2 className="text-[14px] font-semibold text-fg">Public Study Programs</h2>
               <p className="text-[12.5px] text-fg-muted">Browsing the public catalog does not require an account.</p>
             </div>
             {isLoadingOptions ? (

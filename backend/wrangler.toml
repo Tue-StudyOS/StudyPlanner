@@ -1,4 +1,4 @@
-name = "studyplaner-api"
+name = "studyplanner-api"
 main = "src/main.py"
 compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
@@ -7,7 +7,11 @@ workers_dev = true
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
+AUTH_TOKEN_TTL_SECONDS = "2592000"
 
+# Active runtime D1 for the current deployed app.
+# studyplanner-db is the approved production database (multi-period ALMA catalog, integrate_new_db cutover).
+# The database name and id are public Cloudflare binding config; AUTH_TOKEN_SECRET stays a Worker secret.
 [[d1_databases]]
 binding = "DB"
 database_name = "studyplanner-db"

@@ -5,6 +5,8 @@ export interface RegulationRuleGroup {
   name: string
   groupType: string
   requiredEcts?: number | null
+  minEcts?: number | null
+  maxEcts?: number | null
   sortOrder?: number | null
 }
 
@@ -147,6 +149,13 @@ export function buildRelevantCourseAreaOptions(
   )
 }
 
+export function buildMappedCourseAreaOptions(
+  studyAreaOptions: StudyAreaOption[] | undefined,
+  studyProgramCode: string | null | undefined,
+): RegulationAreaOption[] {
+  return buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
+}
+
 export function buildFlexibleRegulationAreaOptions(
   ruleGroups: RegulationRuleGroup[],
 ): RegulationAreaOption[] {
@@ -212,6 +221,16 @@ export function buildAssignableRegulationAreaOptions(
   )
 
   return dedupeAreaOptions([...mappedAreaOptions, ...compatibleAreaOptions])
+}
+
+export function getEffectiveRuleGroupCapacity(ruleGroup: RegulationRuleGroup): number | null {
+  if (typeof ruleGroup.maxEcts === 'number') {
+    return ruleGroup.maxEcts
+  }
+  if (typeof ruleGroup.requiredEcts === 'number') {
+    return ruleGroup.requiredEcts
+  }
+  return null
 }
 
 export function findRegulationAreaLabel(
