@@ -80,8 +80,8 @@ export function StudyAreaAssignmentField({
         >
           {value === null || value === '' ? <option value="" hidden /> : null}
           {options.map((option) => (
-            <option key={option.code} value={option.code}>
-              {option.label}
+            <option key={option.code} value={option.code} title={option.label}>
+              {option.shortLabel}
             </option>
           ))}
         </select>

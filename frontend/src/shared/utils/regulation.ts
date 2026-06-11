@@ -101,11 +101,29 @@ export function isFlexibleRegulationArea(
   )
 }
 
-function buildAreaLabel(code: string, label: string | null | undefined): { label: string; shortLabel: string } {
+// The compulsory CS part is coded "INF", which reads almost identically to the
+// "INFO" elective in tight dropdowns — show it as MAIN instead.
+export function formatRegulationAreaShortLabel(
+  code: string,
+  groupType?: string | null,
+): string {
+  const normalizedCode = code.trim().toUpperCase()
+  const normalizedGroupType = groupType?.trim().toLowerCase() ?? ''
+  if (normalizedGroupType === 'pflicht' || normalizedCode === 'INF') {
+    return 'MAIN'
+  }
+  return code
+}
+
+function buildAreaLabel(
+  code: string,
+  label: string | null | undefined,
+  groupType?: string | null,
+): { label: string; shortLabel: string } {
   const resolvedLabel = label?.trim() || code
   return {
     label: resolvedLabel === code ? code : `${code} · ${resolvedLabel}`,
-    shortLabel: code,
+    shortLabel: formatRegulationAreaShortLabel(code, groupType),
   }
 }
 
@@ -163,7 +181,7 @@ export function buildFlexibleRegulationAreaOptions(
     ruleGroups
       .filter((ruleGroup) => isFlexibleRegulationArea(ruleGroup))
       .map((ruleGroup) => {
-        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name)
+        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name, ruleGroup.groupType)
         return {
           code: ruleGroup.code,
           label: labels.label,
@@ -182,7 +200,7 @@ export function buildAllSelectableRegulationAreaOptions(
     ruleGroups
       .filter((ruleGroup) => ruleGroup.code.trim().toUpperCase() !== 'THESIS')
       .map((ruleGroup) => {
-        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name)
+        const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name, ruleGroup.groupType)
         return {
           code: ruleGroup.code,
           label: labels.label,
@@ -194,6 +212,10 @@ export function buildAllSelectableRegulationAreaOptions(
   )
 }
 
+function isAlwaysAssignableArea(option: RegulationAreaOption): boolean {
+  return option.code.trim().toUpperCase() === 'UEBK'
+}
+
 export function buildAssignableRegulationAreaOptions(
   studyAreaOptions: StudyAreaOption[] | undefined,
   studyProgramCode: string | null | undefined,
@@ -201,10 +223,13 @@ export function buildAssignableRegulationAreaOptions(
   fallbackMasterCats: MasterCat[] = [],
 ): RegulationAreaOption[] {
   const mappedAreaOptions = buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
-  const allSelectableAreaOptions = buildAllSelectableRegulationAreaOptions(ruleGroups)
+  // Courses without an explicit regulation mapping may only go into elective
+  // areas; compulsory parts are reserved for their explicitly mapped modules.
+  // übK is open to everything regardless of category tags.
+  const flexibleAreaOptions = buildFlexibleRegulationAreaOptions(ruleGroups)
 
   if (mappedAreaOptions.length === 0) {
-    return allSelectableAreaOptions
+    return flexibleAreaOptions
   }
 
   const preferredMasterCats = [...new Set(
@@ -212,12 +237,10 @@ export function buildAssignableRegulationAreaOptions(
       .filter((masterCat): masterCat is MasterCat => masterCat !== null),
   )]
 
-  if (preferredMasterCats.length === 0) {
-    return mappedAreaOptions
-  }
-
-  const compatibleAreaOptions = allSelectableAreaOptions.filter(
-    (option) => option.masterCat !== null && preferredMasterCats.includes(option.masterCat),
+  const compatibleAreaOptions = flexibleAreaOptions.filter(
+    (option) =>
+      isAlwaysAssignableArea(option)
+      || (option.masterCat !== null && preferredMasterCats.includes(option.masterCat)),
   )
 
   return dedupeAreaOptions([...mappedAreaOptions, ...compatibleAreaOptions])

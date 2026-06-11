@@ -280,7 +280,9 @@ export function SemesterPlanner() {
       <div className="mt-4.5 grid min-w-0 gap-4.5">
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
-            favoritesLayout === 'sidebar' ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_20rem]' : ''
+            favoritesLayout === 'sidebar'
+              ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_20rem] min-[1100px]:items-stretch'
+              : ''
           }`}
         >
           <div className="grid min-w-0 gap-4.5">

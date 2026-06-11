@@ -194,8 +194,8 @@ export function TranscriptImportRow({
                 >
                   {candidate.studyAreaCode === null ? <option value="" hidden /> : null}
                   {areaOptions.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.label}
+                    <option key={option.code} value={option.code} title={option.label}>
+                      {option.shortLabel}
                     </option>
                   ))}
                 </select>
