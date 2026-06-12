@@ -1,4 +1,5 @@
 import { createAuthHeaders, fetchJson } from '../../shared/utils/api'
+import type { SupportedLanguage } from '../i18n'
 import type { AuthPayload, AuthSessionResponse, AuthUser, StudyProgramOption } from './types'
 
 interface RegisterInput {
@@ -6,6 +7,7 @@ interface RegisterInput {
   password: string
   studyProgramId?: number | null
   currentSemesterLabel?: string | null
+  appLanguage?: SupportedLanguage | null
 }
 
 interface LoginInput {
@@ -25,6 +27,8 @@ interface SaveProfileInput {
   studyProgramId: number | null
   currentSemesterLabel: string | null
   plannerMobileLayout?: 'compact-grid' | 'weekly-list'
+  appLanguage?: SupportedLanguage | null
+  onboardingTourCompleted?: boolean
 }
 
 interface UpdateCredentialsInput {

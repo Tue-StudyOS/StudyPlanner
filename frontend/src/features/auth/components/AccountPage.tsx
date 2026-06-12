@@ -1,30 +1,17 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  buildSemesterOptions,
-  getCurrentSemesterLabel,
-  getRelativeSemesterLabel,
-} from '../../planner/utils/semesterLabels'
+import type { SupportedLanguage } from '../../i18n'
+import { useTranslation } from '../../i18n'
+import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
 import { ROUTES } from '../../routes'
 import { fetchStudyPrograms } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import type { StudyProgramOption } from '../types'
 import { normalizeAuthErrorMessage } from '../utils/authErrors.ts'
+import { generateStartSemesters } from '../utils/studySetup.ts'
 
 type AuthMode = 'login' | 'register'
-
-const EARLIEST_SEMESTER = 'WS 2021/22'
-
-function generateStartSemesters(): string[] {
-  const currentSemesterLabel = getCurrentSemesterLabel()
-  return buildSemesterOptions(
-    [],
-    currentSemesterLabel,
-    EARLIEST_SEMESTER,
-    getRelativeSemesterLabel(currentSemesterLabel, 1),
-  ).reverse()
-}
 
 function normalizeErrorMessage(error: unknown): string {
   return normalizeAuthErrorMessage(error, {
@@ -39,6 +26,7 @@ function toSelectValue(value: number | null | undefined): string {
 
 export function AccountPage() {
   const { user, isAuthenticated, isLoadingSession, login, logout, register, saveProfile, updateCredentials } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [mode, setMode] = useState<AuthMode>('login')
   const [identifier, setIdentifier] = useState<string>('')
@@ -50,6 +38,7 @@ export function AccountPage() {
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false)
   const [draftStudyProgramId, setDraftStudyProgramId] = useState<number | null | undefined>(undefined)
   const [draftCurrentSemesterLabel, setDraftCurrentSemesterLabel] = useState<string | undefined>(undefined)
+  const [draftAppLanguage, setDraftAppLanguage] = useState<SupportedLanguage | undefined>(undefined)
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false)
   const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -59,10 +48,6 @@ export function AccountPage() {
   const [credNewIdentifier, setCredNewIdentifier] = useState<string>('')
   const [credNewPassword, setCredNewPassword] = useState<string>('')
   const [credConfirmPassword, setCredConfirmPassword] = useState<string>('')
-  const [isProfileSetupOpen, setIsProfileSetupOpen] = useState<boolean>(false)
-  const [setupStudyProgramId, setSetupStudyProgramId] = useState<number | null>(null)
-  const [setupSemesterLabel, setSetupSemesterLabel] = useState<string>('')
-  const [isSavingSetup, setIsSavingSetup] = useState<boolean>(false)
 
   useEffect(() => {
     let isActive = true
@@ -88,22 +73,27 @@ export function AccountPage() {
   const selectedStudyProgramId =
     draftStudyProgramId !== undefined ? draftStudyProgramId : (user?.profile.studyProgramId ?? null)
   const currentSemesterLabel = draftCurrentSemesterLabel ?? (user?.profile.currentSemesterLabel ?? '')
+  const selectedAppLanguage = draftAppLanguage ?? user?.profile.appLanguage ?? 'en'
   const profileDraftKey = JSON.stringify({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
+    appLanguage: selectedAppLanguage,
   })
   const latestProfileDraftRef = useRef<{
     studyProgramId: number | null
     currentSemesterLabel: string
+    appLanguage: SupportedLanguage
   }>({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
+    appLanguage: selectedAppLanguage,
   })
 
   const isProfileDirty = Boolean(
     user && (
       selectedStudyProgramId !== (user.profile.studyProgramId ?? null)
       || currentSemesterLabel !== (user.profile.currentSemesterLabel ?? '')
+      || selectedAppLanguage !== (user.profile.appLanguage ?? 'en')
     ),
   )
 
@@ -117,16 +107,17 @@ export function AccountPage() {
         await register({ identifier, password })
         setDraftStudyProgramId(undefined)
         setDraftCurrentSemesterLabel(undefined)
+        setDraftAppLanguage(undefined)
         setProfileSaveState('idle')
         setProfileError(null)
         setLastFailedProfileKey(null)
-        // Study program and start semester follow in a focused setup step.
-        setIsProfileSetupOpen(true)
+        navigate(ROUTES.planner)
         return
       }
       await login({ identifier, password })
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
+      setDraftAppLanguage(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
@@ -146,6 +137,7 @@ export function AccountPage() {
       await logout()
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
+      setDraftAppLanguage(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
@@ -160,11 +152,11 @@ export function AccountPage() {
   async function handleCredentialsSave(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     if (credNewPassword && credNewPassword !== credConfirmPassword) {
-      setError('New passwords do not match.')
+      setError(t('account.passwordMismatch'))
       return
     }
     if (!credNewIdentifier.trim() && !credNewPassword) {
-      setError('Enter a new email/username or a new password to update.')
+      setError(t('account.credentialsEmpty'))
       return
     }
     setIsSubmitting(true)
@@ -180,7 +172,7 @@ export function AccountPage() {
       setCredNewIdentifier('')
       setCredNewPassword('')
       setCredConfirmPassword('')
-      setMessage('Credentials updated.')
+      setMessage(t('account.credentialsUpdated'))
     } catch (credError) {
       setError(normalizeErrorMessage(credError))
     } finally {
@@ -192,8 +184,9 @@ export function AccountPage() {
     latestProfileDraftRef.current = {
       studyProgramId: selectedStudyProgramId,
       currentSemesterLabel,
+      appLanguage: selectedAppLanguage,
     }
-  }, [currentSemesterLabel, selectedStudyProgramId])
+  }, [currentSemesterLabel, selectedAppLanguage, selectedStudyProgramId])
 
   useEffect(() => {
     if (profileSaveState !== 'saved') {
@@ -228,14 +221,17 @@ export function AccountPage() {
           await saveProfile({
             studyProgramId: snapshot.studyProgramId,
             currentSemesterLabel: snapshot.currentSemesterLabel.trim() || null,
+            appLanguage: snapshot.appLanguage,
           })
           const latestSnapshot = latestProfileDraftRef.current
           if (
             latestSnapshot.studyProgramId === snapshot.studyProgramId
             && latestSnapshot.currentSemesterLabel === snapshot.currentSemesterLabel
+            && latestSnapshot.appLanguage === snapshot.appLanguage
           ) {
             setDraftStudyProgramId(undefined)
             setDraftCurrentSemesterLabel(undefined)
+            setDraftAppLanguage(undefined)
           }
           setLastFailedProfileKey(null)
           setProfileError(null)
@@ -266,7 +262,7 @@ export function AccountPage() {
   const inputClass = 'w-full min-w-0 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary'
 
   return (
-    <div className="min-w-0 p-4 pb-6 sm:p-8">
+    <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 pb-6 sm:p-8 sm:pt-6">
       {error ? (
         <div className="pointer-events-none fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top,0px))] z-50 flex justify-center sm:justify-end">
           <div
@@ -281,30 +277,30 @@ export function AccountPage() {
                 onClick={() => setError(null)}
                 className="shrink-0 rounded-md border border-primary/20 px-2.5 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
               >
-                Close
+                {t('common.close')}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      <div className="mb-6 min-w-0">
+      <div className={`mb-6 min-w-0 ${!isAuthenticated && !isLoadingSession ? 'mx-auto max-w-[28rem] text-center' : ''}`}>
         <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-          Account
+          {t('account.title')}
         </h1>
         <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
-          Sign in to save interested courses and personal study progress.
+          {t('account.subtitle')}
         </p>
       </div>
 
       {isLoadingSession ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          Loading your account session...
+          {t('account.loadingSession')}
         </div>
       ) : isAuthenticated && user ? (
         <div className="grid min-w-0 gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-[10px] border border-border bg-surface px-5 py-3 text-[13px]">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Signed in as</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.signedInAs')}</span>
             <span className="break-words font-medium text-fg">{user.displayName}</span>
             <span className="hidden text-fg-muted sm:inline">·</span>
             <span className="break-all text-fg-muted">{user.email}</span>
@@ -312,10 +308,10 @@ export function AccountPage() {
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
-              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">Update Credentials</h2>
+              <h2 className="mb-3 text-[13.5px] font-semibold text-fg">{t('account.updateCredentials')}</h2>
               <form onSubmit={(event) => void handleCredentialsSave(event)} className="flex min-w-0 flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New email / username</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.newIdentifier')}</span>
                   <input
                     type="text"
                     value={credNewIdentifier}
@@ -326,7 +322,7 @@ export function AccountPage() {
                   />
                 </label>
                 <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">New password</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.newPassword')}</span>
                   <input
                     type="password"
                     value={credNewPassword}
@@ -337,7 +333,7 @@ export function AccountPage() {
                 </label>
                 {credNewPassword ? (
                   <label className="grid gap-1.5">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Confirm new password</span>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.confirmNewPassword')}</span>
                     <input
                       type="password"
                       value={credConfirmPassword}
@@ -348,7 +344,7 @@ export function AccountPage() {
                   </label>
                 ) : null}
                 <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Current password</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.currentPassword')}</span>
                   <input
                     type="password"
                     value={credCurrentPassword}
@@ -364,7 +360,7 @@ export function AccountPage() {
                     disabled={isSubmitting || !credCurrentPassword}
                     className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Update credentials
+                    {t('account.updateCredentialsButton')}
                   </button>
                 </div>
               </form>
@@ -372,18 +368,34 @@ export function AccountPage() {
 
             <section className="min-w-0 flex flex-col rounded-[10px] border border-border bg-surface px-5 py-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-[13.5px] font-semibold text-fg">Study Profile</h2>
+                <h2 className="text-[13.5px] font-semibold text-fg">{t('account.studyProfile')}</h2>
                 <div className="text-[12px] text-fg-muted">
                   {isSavingProfile || profileSaveState === 'saving'
-                    ? 'Saving changes...'
+                    ? t('account.changesSaving')
                     : profileSaveState === 'saved'
-                      ? 'Saved automatically.'
-                      : 'Changes save automatically.'}
+                      ? t('account.changesSaved')
+                      : t('account.changesAuto')}
                 </div>
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('setup.language')}</span>
+                  <select
+                    value={selectedAppLanguage}
+                    onChange={(event) => {
+                      setProfileError(null)
+                      setProfileSaveState('saving')
+                      setLastFailedProfileKey(null)
+                      setDraftAppLanguage(event.target.value as SupportedLanguage)
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="en">{t('language.en')}</option>
+                    <option value="de">{t('language.de')}</option>
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.studyProgram')}</span>
                   <select
                     value={toSelectValue(selectedStudyProgramId)}
                     onChange={(event) => {
@@ -395,7 +407,7 @@ export function AccountPage() {
                     disabled={isLoadingOptions}
                     className={inputClass}
                   >
-                    <option value="">No study program selected</option>
+                    <option value="">{t('account.noStudyProgram')}</option>
                     {studyPrograms.map((sp) => (
                       <option key={sp.id} value={sp.id}>{sp.name}</option>
                     ))}
@@ -403,7 +415,7 @@ export function AccountPage() {
                 </label>
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                    Start semester
+                    {t('account.startSemester')}
                     <span className="ml-2 font-normal normal-case text-fg-muted">(current: {getCurrentSemesterLabel()})</span>
                   </span>
                   <select
@@ -416,7 +428,7 @@ export function AccountPage() {
                     }}
                     className={inputClass}
                   >
-                    <option value="">Not specified</option>
+                    <option value="">{t('account.notSpecified')}</option>
                     {startSemesters.map((sem) => (
                       <option key={sem} value={sem}>{sem}</option>
                     ))}
@@ -438,12 +450,12 @@ export function AccountPage() {
               disabled={isSubmitting}
               className="rounded-md bg-primary px-5 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Sign out
+              {t('account.signOut')}
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-4.5 lg:grid-cols-[0.72fr_1.28fr]">
+        <div className="mx-auto w-full max-w-[28rem]">
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
             <div className="mb-4 flex gap-2">
               <button
@@ -455,7 +467,7 @@ export function AccountPage() {
                 }}
                 className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${mode === 'login' ? 'bg-primary text-white' : 'border border-border bg-transparent text-fg-mid'}`}
               >
-                Sign in
+                {t('account.signIn')}
               </button>
               <button
                 type="button"
@@ -466,59 +478,28 @@ export function AccountPage() {
                 }}
                 className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${mode === 'register' ? 'bg-primary text-white' : 'border border-border bg-transparent text-fg-mid'}`}
               >
-                Register
+                {t('account.register')}
               </button>
             </div>
 
             <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-3.5">
               <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Email or username</span>
+                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.identifier')}</span>
                 <input type="text" value={identifier} onChange={(event) => setIdentifier(event.target.value)} required autoComplete="username" className={inputClass} />
               </label>
               <label className="grid gap-1.5">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Password</span>
+                <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.password')}</span>
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} />
               </label>
               {mode === 'register' ? (
                 <p className="text-[12px] text-fg-muted">
-                  You pick your study program (PO) and start semester right after sign-up.
+                  {t('account.registerSetupHint')}
                 </p>
               ) : null}
               <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
-                {isSubmitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Sign in'}
+                {isSubmitting ? t('common.pleaseWait') : mode === 'register' ? t('account.createAccount') : t('account.signIn')}
               </button>
             </form>
-          </section>
-
-          <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
-            <h2 className="mb-3 text-[14px] font-semibold text-fg">What You Get with an Account</h2>
-            <ul className="grid gap-2 pl-5 text-[13.5px] leading-6 text-fg-mid">
-              <li className="list-disc">Persist interested courses across devices</li>
-              <li className="list-disc">Store your study program incl. PO and your start semester</li>
-              <li className="list-disc">Save completed courses and personal progress</li>
-            </ul>
-          </section>
-
-          <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5 lg:col-span-2">
-            <div className="mb-4">
-              <h2 className="text-[14px] font-semibold text-fg">Public Study Programs</h2>
-              <p className="text-[12.5px] text-fg-muted">Browsing the public catalog does not require an account.</p>
-            </div>
-            {isLoadingOptions ? (
-              <div className="text-[13px] text-fg-muted">Loading...</div>
-            ) : (
-              <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-                {studyPrograms.map((sp) => (
-                  <div key={sp.id} className="min-w-0 rounded-lg border border-border-light px-4 py-3">
-                    <div className="break-words text-[13px] font-semibold text-fg">{sp.name}</div>
-                    <div className="break-words text-[12.5px] text-fg-mid">
-                      {sp.degree || 'Degree n/a'}{sp.totalEcts ? ` · ${sp.totalEcts} ECTS` : ''}
-                    </div>
-                    {sp.subject ? <div className="break-words text-[12px] text-fg-muted">{sp.subject}</div> : null}
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
         </div>
       )}
@@ -529,81 +510,6 @@ export function AccountPage() {
         </div>
       ) : null}
 
-      {isProfileSetupOpen ? (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/45" role="dialog" aria-modal="true">
-          <div className="flex min-h-full items-center justify-center px-4 py-6">
-            <div className="w-full max-w-[26rem] rounded-[14px] border border-border bg-surface px-6 py-6 shadow-2xl">
-              <h2 className="text-[18px] font-semibold text-fg">Set up your studies</h2>
-              <p className="mt-1 text-[12.5px] text-fg-muted">
-                Two quick choices — they unlock progress tracking and the right course areas.
-              </p>
-
-              <div className="mt-4 grid gap-3.5">
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program incl. PO</span>
-                  <select
-                    value={toSelectValue(setupStudyProgramId)}
-                    onChange={(event) => setSetupStudyProgramId(event.target.value ? Number(event.target.value) : null)}
-                    disabled={isLoadingOptions}
-                    className={inputClass}
-                  >
-                    <option value="">Select a study program</option>
-                    {studyPrograms.map((sp) => (<option key={sp.id} value={sp.id}>{sp.name}</option>))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Start semester</span>
-                  <select
-                    value={setupSemesterLabel}
-                    onChange={(event) => setSetupSemesterLabel(event.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Select your start semester</option>
-                    {startSemesters.map((sem) => (<option key={sem} value={sem}>{sem}</option>))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-5 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsProfileSetupOpen(false)
-                    navigate(ROUTES.planner)
-                  }}
-                  className="rounded-md px-3 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:text-fg"
-                >
-                  Later
-                </button>
-                <button
-                  type="button"
-                  disabled={isSavingSetup}
-                  onClick={() => {
-                    void (async () => {
-                      setIsSavingSetup(true)
-                      try {
-                        await saveProfile({
-                          studyProgramId: setupStudyProgramId,
-                          currentSemesterLabel: setupSemesterLabel.trim() || null,
-                        })
-                        setIsProfileSetupOpen(false)
-                        navigate(ROUTES.planner)
-                      } catch (setupError) {
-                        setError(normalizeErrorMessage(setupError))
-                      } finally {
-                        setIsSavingSetup(false)
-                      }
-                    })()
-                  }}
-                  className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingSetup ? 'Saving…' : 'Save and start'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
     </div>
   )

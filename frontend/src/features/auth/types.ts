@@ -1,3 +1,5 @@
+import type { SupportedLanguage } from '../i18n'
+
 export interface AuthProfile {
   currentSemesterLabel: string | null
   studyProgramId: number | null
@@ -9,6 +11,8 @@ export interface AuthProfile {
   regulationCode: string | null
   regulationName: string | null
   plannerMobileLayout: 'compact-grid' | 'weekly-list'
+  appLanguage: SupportedLanguage | null
+  onboardingTourCompleted: boolean
   totalEcts?: number | null
 }
 

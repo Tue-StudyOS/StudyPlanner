@@ -5,6 +5,7 @@ import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
 import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
+import { useTranslation } from '../../i18n'
 import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
@@ -14,12 +15,13 @@ export function TopBar() {
   const isMobileNavigation = useMediaQuery('(max-width: 960px)')
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
   const { isDark, toggleTheme } = useTheme()
+  const { t } = useTranslation()
 
   const themeToggleButton = (
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDark ? t('theme.toLight') : t('theme.toDark')}
       className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/80 transition-colors hover:text-white"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
@@ -60,7 +62,7 @@ export function TopBar() {
         ) : (
           <>
             <nav className="mx-8 flex flex-1 gap-1">
-              {NAV.map(({ path, label, Icon }) => (
+              {NAV.map(({ path, labelKey, Icon }) => (
                 <NavLink
                   key={path}
                   to={path}
@@ -78,7 +80,7 @@ export function TopBar() {
                       <span className={`flex ${isActive ? 'text-white' : 'text-white/55 group-hover:text-white'}`}>
                         <Icon />
                       </span>
-                      {label}
+                      {t(labelKey)}
                     </>
                   )}
                 </NavLink>
@@ -113,8 +115,8 @@ export function TopBar() {
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <div className="text-[13px] font-semibold text-fg">Navigation</div>
-                <div className="text-[12px] text-fg-muted">Compact mobile menu</div>
+                <div className="text-[13px] font-semibold text-fg">{t('nav.mobileTitle')}</div>
+                <div className="text-[12px] text-fg-muted">{t('nav.mobileSubtitle')}</div>
               </div>
               <button
                 type="button"
@@ -126,7 +128,7 @@ export function TopBar() {
             </div>
 
             <nav className="grid gap-2">
-              {NAV.map(({ path, label, Icon }) => (
+              {NAV.map(({ path, labelKey, Icon }) => (
                 <NavLink
                   key={path}
                   to={path}
@@ -141,7 +143,7 @@ export function TopBar() {
                   }
                 >
                   <Icon />
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                 </NavLink>
               ))}
               <NavLink
@@ -156,7 +158,7 @@ export function TopBar() {
                 }
               >
                 <AccountIcon />
-                <span>Account</span>
+                <span>{t('nav.account')}</span>
               </NavLink>
             </nav>
           </div>

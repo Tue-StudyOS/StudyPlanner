@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -6,6 +7,7 @@ import { useAuth } from '../../auth'
 import type { CompletedCourse, Course } from '../../courses'
 import { findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
 import { useFavorites } from '../../favorites'
+import { useTranslation } from '../../i18n'
 import { useTranscript } from '../../transcript'
 import { balanceSemesterPlan } from '../api'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
@@ -38,6 +40,7 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
 
 export function SemesterPlanner() {
   const { isAuthenticated, token, user } = useAuth()
+  const { t } = useTranslation()
   const { favoriteIds, toggleFavorite } = useFavorites()
   const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
@@ -162,11 +165,11 @@ export function SemesterPlanner() {
 
   async function handleAutoBalanceAssignments(): Promise<void> {
     if (!token) {
-      setBalanceMessage('Sign in to auto-balance planner areas.')
+      setBalanceMessage(t('planner.signInToBalance'))
       return
     }
     if (plannedCourseIds.length === 0) {
-      setBalanceMessage('Add courses before auto-balancing planner areas.')
+      setBalanceMessage(t('planner.addBeforeBalance'))
       return
     }
 
@@ -183,9 +186,9 @@ export function SemesterPlanner() {
         return
       }
       const warningText = result.warnings.at(0)?.message
-      setBalanceMessage(warningText || 'No complete capacity-safe composition could be found.')
+      setBalanceMessage(warningText || t('planner.balanceFallback'))
     } catch (error) {
-      setBalanceMessage(error instanceof Error ? error.message : 'Auto-balancing failed.')
+      setBalanceMessage(error instanceof Error ? error.message : t('planner.balanceFailed'))
     } finally {
       setIsBalancingAssignments(false)
     }
@@ -220,20 +223,20 @@ export function SemesterPlanner() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-w-0 p-4 sm:p-8">
+      <PageShell width="planner">
         <div className="mb-6">
           <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-            Planner
+            {t('planner.title')}
           </h1>
           <p className="text-[13.5px] text-fg-muted">
-            Build and save your personal weekly semester plan.
+            {t('planner.guestSubtitle')}
           </p>
         </div>
         <PersonalFeatureNotice
-          title="Planning is account-based"
-          description="Your weekly semester plan belongs to your account. Sign in to drag interested courses into a personal plan and save the result per semester."
+          title={t('planner.guestTitle')}
+          description={t('planner.guestDescription')}
         />
-      </div>
+      </PageShell>
     )
   }
 
@@ -281,17 +284,17 @@ export function SemesterPlanner() {
   )
 
   return (
-    <div className="min-w-0 p-4 sm:p-8">
+    <PageShell width="planner">
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
-          Planner
+          {t('planner.title')}
         </h1>
 
         <select
           aria-label="Select semester"
           value={activeSemesterLabel}
           onChange={(event) => setActiveSemesterLabel(event.target.value)}
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-fg outline-none transition-colors focus:border-primary"
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
         >
           {semesterOptions.map((semesterLabel) => (
             <option key={semesterLabel} value={semesterLabel}>
@@ -311,7 +314,7 @@ export function SemesterPlanner() {
             onClick={() => setIsAddDrawerOpen(true)}
             className="rounded-md bg-primary px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
           >
-            + Add courses
+            {t('planner.addCourses')}
           </button>
         ) : null}
 
@@ -320,10 +323,10 @@ export function SemesterPlanner() {
           data-tour="planner-export"
           onClick={handleExportIcs}
           disabled={plannedCourses.length === 0}
-          title="Download the planned semester as a calendar file (.ics)"
+          title={t('planner.exportCalendarTitle')}
           className="rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Export calendar
+          {t('planner.exportCalendar')}
         </button>
       </div>
 
@@ -370,7 +373,7 @@ export function SemesterPlanner() {
           <div className="grid min-w-0 gap-4.5">
             {isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
               <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-                Loading your saved plan for {activeSemesterLabel}...
+                {t('planner.loadingPlan', { semester: activeSemesterLabel })}
               </div>
             ) : (
               <PlannerGrid
@@ -455,6 +458,6 @@ export function SemesterPlanner() {
           }}
         />
       ) : null}
-    </div>
+    </PageShell>
   )
 }

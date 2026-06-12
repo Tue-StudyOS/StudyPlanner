@@ -1,97 +1,117 @@
-import { ROUTES } from '../routes'
-import type { TourStep } from './types'
+import type { TranslationKey } from '../i18n/translations.ts'
+import { ROUTES } from '../routes.ts'
+import type { TourStep } from './types.ts'
+
+interface TourStepDefinition extends Omit<TourStep, 'title' | 'body'> {
+  titleKey: TranslationKey
+  bodyKey: TranslationKey
+}
 
 /**
  * The tour walks through the real screens and highlights live UI instead of
  * describing it. Steps without targets render as a centered card.
  */
-export const TOUR_STEPS: TourStep[] = [
+export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   {
     id: 'welcome',
-    title: 'Welcome to StudyPlanner',
-    body:
-      'A one-minute tour through the real screens — made for Informatik at Uni Tübingen. Leave anytime; the ? button brings it back.',
+    titleKey: 'tour.welcome.title',
+    bodyKey: 'tour.welcome.body',
   },
   {
     id: 'transcript',
     route: ROUTES.transcript,
     targets: ['transcript-upload', 'transcript-page'],
-    title: 'Start with your transcript',
-    body:
-      'Drop your Transcript of Records (PDF from ALMA) here once — completed courses and progress come in automatically.',
+    titleKey: 'tour.transcript.title',
+    bodyKey: 'tour.transcript.body',
   },
   {
     id: 'catalog-search',
     route: ROUTES.catalog,
     targets: ['catalog-search'],
-    title: 'Every course, one search',
-    body: 'All Informatics courses across semesters — just start typing.',
+    titleKey: 'tour.catalogSearch.title',
+    bodyKey: 'tour.catalogSearch.body',
   },
   {
     id: 'catalog-filters',
     route: ROUTES.catalog,
     targets: ['catalog-filters'],
-    title: 'Filter and sort',
-    body: 'Weekday, exact time window, ECTS, degree areas — plus sorting.',
+    titleKey: 'tour.catalogFilters.title',
+    bodyKey: 'tour.catalogFilters.body',
   },
   {
     id: 'catalog-card',
     route: ROUTES.catalog,
     targets: ['catalog-card'],
-    title: 'One card, the essentials',
-    body:
-      'Type, areas, professor, ECTS, term. Tap the bookmark to keep a course for planning.',
+    titleKey: 'tour.catalogCard.title',
+    bodyKey: 'tour.catalogCard.body',
   },
   {
     id: 'catalog-card-likely',
     route: ROUTES.catalog,
     targets: ['catalog-card-likely'],
     optional: true,
-    title: 'Dashed border',
-    body: 'This course ran last year — no data for the next term yet, but it will likely run again.',
+    titleKey: 'tour.catalogLikely.title',
+    bodyKey: 'tour.catalogLikely.body',
   },
   {
     id: 'catalog-card-unknown',
     route: ROUTES.catalog,
     targets: ['catalog-card-unknown'],
     optional: true,
-    title: 'Faded card',
-    body: 'No sign this course returns. You can hide these via "Apply filter" in the filters.',
+    titleKey: 'tour.catalogUnknown.title',
+    bodyKey: 'tour.catalogUnknown.body',
   },
   {
     id: 'planner-grid',
     route: ROUTES.planner,
     targets: ['planner-grid'],
-    title: 'Your week',
-    body: 'Courses sit at their real times, overlaps are highlighted, everything saves by itself. Tap a block for details.',
+    titleKey: 'tour.plannerGrid.title',
+    bodyKey: 'tour.plannerGrid.body',
   },
   {
     id: 'planner-add',
     route: ROUTES.planner,
     targets: ['planner-interested', 'planner-add'],
-    title: 'Add bookmarked courses',
-    body: 'Your bookmarks wait here — tap for details and add, or drag into the week.',
+    titleKey: 'tour.plannerAdd.title',
+    bodyKey: 'tour.plannerAdd.body',
   },
   {
     id: 'planner-progress',
     route: ROUTES.planner,
     targets: ['planner-progress'],
-    title: 'See what it gets you',
-    body: 'How this plan moves each area of your degree — live.',
+    titleKey: 'tour.plannerProgress.title',
+    bodyKey: 'tour.plannerProgress.body',
   },
   {
     id: 'planner-export',
     route: ROUTES.planner,
     targets: ['planner-export'],
-    title: 'Take it with you',
-    body: 'Export the plan as a calendar file for Google, Apple, or Outlook.',
+    titleKey: 'tour.plannerExport.title',
+    bodyKey: 'tour.plannerExport.body',
   },
   {
-    id: 'overview',
+    id: 'progress',
     route: ROUTES.overview,
     targets: ['overview-progress', 'overview-page'],
-    title: 'Track your degree',
-    body:
-      'ECTS per regulation area, your average grade, and what is still open. That is the whole flow — reopen this tour anytime via the ? button.',
+    titleKey: 'tour.progress.title',
+    bodyKey: 'tour.progress.body',
+  },
+  {
+    id: 'reopen-guide',
+    route: ROUTES.catalog,
+    targets: ['reopen-tour'],
+    titleKey: 'tour.reopen.title',
+    bodyKey: 'tour.reopen.body',
   },
 ]
+
+export function buildTourSteps(t: (key: TranslationKey) => string): TourStep[] {
+  return TOUR_STEP_DEFINITIONS.map((step) => ({
+    id: step.id,
+    route: step.route,
+    targets: step.targets,
+    optional: step.optional,
+    title: t(step.titleKey),
+    body: t(step.bodyKey),
+  }))
+}

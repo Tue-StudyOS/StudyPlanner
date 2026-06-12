@@ -1,4 +1,5 @@
 import { createContext } from 'react'
+import type { SupportedLanguage } from '../i18n'
 import type { AuthUser } from './types'
 
 export interface RegisterInput {
@@ -6,6 +7,7 @@ export interface RegisterInput {
   password: string
   studyProgramId?: number | null
   currentSemesterLabel?: string | null
+  appLanguage?: SupportedLanguage | null
 }
 
 export interface LoginInput {
@@ -17,6 +19,8 @@ export interface SaveProfileInput {
   studyProgramId: number | null
   currentSemesterLabel: string | null
   plannerMobileLayout?: 'compact-grid' | 'weekly-list'
+  appLanguage?: SupportedLanguage | null
+  onboardingTourCompleted?: boolean
 }
 
 export interface UpdateCredentialsInput {
