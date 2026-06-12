@@ -11,6 +11,7 @@ import {
   buildBlockWidth,
   buildDayLayout,
 } from '../utils/plannerDayLayout'
+import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
 
 function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
@@ -102,8 +103,8 @@ export function PlannerGrid({
             {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
               <div
                 key={index}
-                className="absolute right-0.5 text-right text-[9px] tabular-nums text-fg-muted sm:right-1 sm:text-[11px]"
-                style={{ top: `${index * PIXELS_PER_HOUR - 8}px` }}
+                className="absolute right-0 -translate-y-1/2 text-right text-[9px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[11px]"
+                style={{ top: `${index * PIXELS_PER_HOUR}px` }}
               >
                 {isMobilePlanner
                   ? String(START_HOUR + index)
@@ -132,9 +133,16 @@ export function PlannerGrid({
                   const top =
                     ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR)
                     * PIXELS_PER_HOUR
-                  const height =
+                  const height = Math.max(
                     ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
-                    * PIXELS_PER_HOUR
+                    * PIXELS_PER_HOUR,
+                    38,
+                  )
+                  const titleLineClamp = getBlockTitleLineClamp(
+                    height,
+                    isMobilePlanner,
+                    Boolean(block.slotType),
+                  )
                   return (
                     <button
                       key={block.blockId}
@@ -150,14 +158,22 @@ export function PlannerGrid({
                         top: `${top}px`,
                         left: buildBlockLeft(block.columnIndex, block.visibleColumnCount),
                         width: buildBlockWidth(block.visibleColumnCount),
-                        height: `${Math.max(height, 38)}px`,
+                        height: `${height}px`,
                       }}
                     >
-                      <div className="line-clamp-3 break-words text-[8px] font-semibold leading-[1.2] [hyphens:auto] sm:line-clamp-2 sm:text-[11px] sm:leading-tight">
+                      <div
+                        className="break-words text-[7.5px] font-semibold leading-[9px] [hyphens:auto] sm:text-[11px] sm:leading-[14px]"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: titleLineClamp,
+                          overflow: 'hidden',
+                        }}
+                      >
                         {block.courseTitle}
                       </div>
                       {block.slotType ? (
-                        <div className="hidden truncate text-[10px] opacity-75 sm:block">
+                        <div className="hidden truncate text-[10px] leading-[13px] opacity-75 sm:block">
                           {block.slotType}
                         </div>
                       ) : null}

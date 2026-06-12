@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
 import type { TranscriptImportCandidate } from '../types'
-import { applyCatalogCourseMatch, updateTranscriptImportCandidate } from '../utils/buildTranscriptImportCandidates'
+import {
+  acceptCandidateAsUebk,
+  applyCatalogCourseMatch,
+  UEBK_AREA_CODE,
+  updateTranscriptImportCandidate,
+} from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { CloseIcon } from '../../../shared/components/icons'
@@ -69,7 +74,8 @@ export function TranscriptImportRow({
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
   const isAreaLocked = mappedAreaOptions.length === 1
   const hasAssignmentIssue = hasActiveRegulation && areaOptions.length > 1 && !candidate.studyAreaCode
-  const isMissingCatalogCourse = !candidate.matchedCourse
+  const isAcceptedAsUebk = !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
+  const isMissingCatalogCourse = !candidate.matchedCourse && !isAcceptedAsUebk
   const isMissingSemester = !candidate.semester.trim()
   const hasIncomplete = isMissingCatalogCourse || isMissingSemester || hasAssignmentIssue
 
@@ -87,7 +93,11 @@ export function TranscriptImportRow({
       return
     }
 
-    if (candidate.studyAreaCode && !areaOptions.some((option) => option.code === candidate.studyAreaCode)) {
+    if (
+      candidate.studyAreaCode
+      && candidate.studyAreaCode !== UEBK_AREA_CODE
+      && !areaOptions.some((option) => option.code === candidate.studyAreaCode)
+    ) {
       onChange(updateTranscriptImportCandidate(candidate, { studyAreaCode: null }))
     }
   }, [areaOptions, candidate, candidate.masterCat, candidate.studyAreaCode, isAreaLocked, mappedAreaOptions, onChange])
@@ -139,6 +149,25 @@ export function TranscriptImportRow({
               onSelect={(course) => onChange(applyCatalogCourseMatch(candidate, course))}
             />
           </div>
+
+          {!candidate.matchedCourse ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2">
+              <span className="min-w-0 flex-1 text-[11.5px] text-fg-muted">
+                {isAcceptedAsUebk
+                  ? 'Accepted as written — counts toward the übK area.'
+                  : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
+              </span>
+              {!isAcceptedAsUebk ? (
+                <button
+                  type="button"
+                  onClick={() => onChange(acceptCandidateAsUebk(candidate))}
+                  className="shrink-0 rounded-md border border-border px-3 py-1.5 text-[11.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
+                >
+                  Accept as übK
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,7rem)_minmax(0,1.4fr)]">
             <label className="grid gap-1">

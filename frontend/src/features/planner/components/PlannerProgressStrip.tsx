@@ -71,23 +71,25 @@ export function PlannerProgressStrip({
           <span
             key={area.code}
             title={area.name}
-            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium text-fg-mid"
+            className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-fg-mid"
           >
             <span
-              className={`inline-block h-2 w-2 rounded-xs ${
+              className={`inline-block h-2 w-2 self-center rounded-xs ${
                 (area.masterCat ? CAT_COLOR_CLASS[area.masterCat] : undefined) ?? CAT_COLOR_CLASS.default
               }`}
             />
-            {formatRegulationAreaShortLabel(area.code)}{' '}
+            <span>{formatRegulationAreaShortLabel(area.code)}</span>
             {area.plannedEcts > 0 ? (
               <>
-                {credited}
-                <span aria-hidden="true">→</span>
+                <span>{credited}</span>
+                <span aria-hidden="true" className="relative -top-px text-[10px] leading-none">
+                  →
+                </span>
                 <span className="font-semibold text-fg">{afterPlanning}</span>
-                {targetLabel}
+                <span>{targetLabel}</span>
               </>
             ) : (
-              `${credited}${targetLabel}`
+              <span>{`${credited}${targetLabel}`}</span>
             )}
           </span>
         )

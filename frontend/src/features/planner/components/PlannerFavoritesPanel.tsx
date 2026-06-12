@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom'
 import type { CompletedCourse, Course } from '../../courses'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../courses'
+import { ROUTES } from '../../routes'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { CatBadge } from '../../../shared/components/CatBadge'
 import { FavStar } from '../../../shared/components/FavStar'
@@ -136,8 +138,14 @@ export function PlannerFavoritesPanel({
         ) : error ? (
           <div className="text-[13px] text-primary">Failed to load planner candidates. {error}</div>
         ) : candidates.length === 0 ? (
-          <div className="rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
-            Star some courses in the catalog first, then come back here to plan with them.
+          <div className="grid justify-items-center gap-3 rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
+            <span>Bookmark some courses in the catalog first, then plan with them here.</span>
+            <Link
+              to={ROUTES.catalog}
+              className="rounded-md bg-primary px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Open catalog
+            </Link>
           </div>
         ) : (
           <div className="grid gap-2">

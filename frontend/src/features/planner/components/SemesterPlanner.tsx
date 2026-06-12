@@ -28,20 +28,12 @@ import { PlannerGrid } from './PlannerGrid'
 import { PlannerProgressStrip } from './PlannerProgressStrip'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
-function SaveIndicator({
-  isSaving,
-  hasUnsavedChanges,
-}: {
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-}) {
-  if (isSaving) {
-    return <span className="text-[11.5px] font-medium text-fg-muted">Saving…</span>
-  }
-  if (hasUnsavedChanges) {
+// Auto-save is silent; only the brief in-flight state is surfaced.
+function SaveIndicator({ isSaving }: { isSaving: boolean }) {
+  if (!isSaving) {
     return null
   }
-  return <span className="text-[11.5px] font-medium text-fg-muted">Saved</span>
+  return <span className="text-[11.5px] font-medium text-fg-muted">Saving…</span>
 }
 
 export function SemesterPlanner() {
@@ -71,7 +63,6 @@ export function SemesterPlanner() {
     isLoadingSemesterPlan,
     isSavingSemesterPlan,
     plannerError,
-    hasUnsavedChanges,
     setActiveSemesterLabel,
     setPlannedCourseIds,
     setHiddenSlotIds,
@@ -309,10 +300,7 @@ export function SemesterPlanner() {
           ))}
         </select>
 
-        <SaveIndicator
-          isSaving={isSavingSemesterPlan}
-          hasUnsavedChanges={hasUnsavedChanges}
-        />
+        <SaveIndicator isSaving={isSavingSemesterPlan} />
 
         <span className="flex-1" />
 
