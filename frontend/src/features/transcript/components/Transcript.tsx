@@ -4,7 +4,7 @@ import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatur
 import { StatItem } from '../../../shared/components/StatItem'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
-import { useCatalogCourses } from '../../courses'
+import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import type { CompletedCourse } from '../../courses'
 import {
   fetchTranscriptIssues,
@@ -26,7 +26,6 @@ import {
   buildImportNotice,
   buildReviewCandidateKey,
   mergeIssues,
-  mergeReviewCandidates,
   toImportedCompletedCourse,
   toSavedIssue,
 } from '../utils/transcriptReview'
@@ -36,7 +35,7 @@ import { PersonalCourseCollection } from './PersonalCourseCollection'
 import { TranscriptUploadCard } from './TranscriptUploadCard'
 
 const MAX_TRANSCRIPT_FILE_SIZE_BYTES = 10 * 1024 * 1024
-const CATALOG_LIMIT = 200
+const CATALOG_LIMIT = 1000
 const IMPORT_CANDIDATES_SESSION_KEY = 'transcript-import-candidates'
 
 function restoreImportCandidates(): TranscriptImportCandidate[] {
@@ -80,6 +79,7 @@ function AuthenticatedTranscript() {
     addCompletedCourse,
     importCompletedCourses,
     removeCourse,
+    removeTranscriptImports,
     clearCompletedCoursesError,
   } = useTranscript()
   const { totalEcts, requiredEcts, progress, averageGrade } = useStudyStats()
@@ -87,7 +87,7 @@ function AuthenticatedTranscript() {
     courses: baseCatalogCourses,
     isLoading: isLoadingCatalog,
     error: catalogError,
-  } = useCatalogCourses('', CATALOG_LIMIT)
+  } = useCatalogCourses('', CATALOG_LIMIT, ALL_CATALOG_PERIODS)
 
   const regulationRuleGroups = regulationVersion?.ruleGroups ?? []
   const savedIssueCandidates = useMemo(
@@ -265,29 +265,19 @@ function AuthenticatedTranscript() {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
 
-      const { candidates: mergedCandidates, addedCount, duplicateCount } = mergeReviewCandidates(
-        importCandidates,
-        nextCandidates,
-        savedIssueCandidates,
-      )
-      setImportCandidates(mergedCandidates)
+      // The newest upload is the source of truth: it replaces the current
+      // review, saved-for-later rows, and previously imported transcript data.
+      setImportCandidates(nextCandidates)
       setImportPhase('parsed')
-
-      if (addedCount === 0) {
-        setImportNotice('All extracted rows are already waiting in your review or saved for later.')
-        return
+      setPersistedIssues([])
+      if (persistedIssues.length > 0) {
+        void persistTranscriptIssues([])
       }
+      await removeTranscriptImports()
 
-      const messageParts = [
-        importCandidates.length > 0
-          ? `Added ${addedCount} new course(s) to the current review`
-          : `Extracted ${addedCount} course(s)`,
-      ]
-      if (duplicateCount > 0) {
-        messageParts.push(`${duplicateCount} duplicate row(s) were already waiting in review or saved for later`)
-      }
-      messageParts.push('Review, fix, or discard anything before importing')
-      setImportNotice(`${messageParts.join(' · ')}.`)
+      setImportNotice(
+        `Extracted ${nextCandidates.length} course(s) — this upload replaces your previous transcript import. Review, fix, or discard anything before importing.`,
+      )
     } catch (error) {
       setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(error instanceof Error ? error.message : 'The selected PDF could not be parsed.')
@@ -479,6 +469,7 @@ function AuthenticatedTranscript() {
       />
 
       <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+        <div className="min-w-0" data-tour="transcript-upload">
         <TranscriptUploadCard
           isDragActive={isDragActive}
           disabled={isLoadingCatalog}
@@ -490,6 +481,7 @@ function AuthenticatedTranscript() {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         />
+        </div>
 
         <div className="grid min-w-0 grid-rows-[auto_1fr] gap-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
@@ -591,7 +583,7 @@ export function Transcript() {
   return (
     <div className="overflow-x-hidden p-4 sm:p-8">
       <div className="mb-6" data-tour="transcript-page">
-        <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
+        <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
           Upload Transcript
         </h1>
       </div>

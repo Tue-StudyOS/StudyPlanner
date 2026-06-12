@@ -250,6 +250,19 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return persistResult.saved
   }
 
+  // A new transcript upload is the source of truth: previously imported
+  // transcript courses are dropped before the new rows come in.
+  async function removeTranscriptImports(): Promise<boolean> {
+    const remainingCourses = completedCourses.filter(
+      (course) => course.source !== 'transcript_import',
+    )
+    if (remainingCourses.length === completedCourses.length) {
+      return true
+    }
+    const persistResult = await persistCompletedCourses(remainingCourses)
+    return persistResult.saved
+  }
+
   async function setCategory(courseId: string, masterCat: MasterCat): Promise<boolean> {
     const persistResult = await persistCompletedCourses(
       completedCourses.map((course) =>
@@ -283,6 +296,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
         addCompletedCourses,
         importCompletedCourses: importCompletedCourseItems,
         removeCourse,
+        removeTranscriptImports,
         setCategory,
         updateCourse,
         clearCompletedCoursesError,
