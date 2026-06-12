@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
+import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import type { CompletedCourse, MasterCat } from '../../courses'
 import { fetchCompletedCourses, importCompletedCourses, saveCompletedCourses } from '../api'
@@ -41,9 +42,12 @@ function shouldFallbackTranscriptImport(error: unknown): boolean {
 }
 
 export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.Element {
-  const { token } = useAuth()
-  const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>([])
-  const [isLoadingCompletedCourses, setIsLoadingCompletedCourses] = useState<boolean>(false)
+  const { token, user } = useAuth()
+  const userCacheKey = user?.username ?? 'anonymous'
+  const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>(() =>
+    readSessionCache<CompletedCourse[]>('private:completed-courses', userCacheKey) ?? [],
+  )
+  const [isLoadingCompletedCourses, setIsLoadingCompletedCourses] = useState<boolean>(completedCourses.length === 0)
   const [isSavingCompletedCourses, setIsSavingCompletedCourses] = useState<boolean>(false)
   const [completedCoursesError, setCompletedCoursesError] = useState<string | null>(null)
 
@@ -53,6 +57,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     async function loadCompletedCourses(): Promise<void> {
       if (!token) {
         if (isActive) {
+          invalidateSessionCache('private:', userCacheKey)
           setCompletedCourses([])
           setCompletedCoursesError(null)
           setIsLoadingCompletedCourses(false)
@@ -60,13 +65,18 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
         return
       }
 
-      setIsLoadingCompletedCourses(true)
+      const cachedCompletedCourses = readSessionCache<CompletedCourse[]>('private:completed-courses', userCacheKey)
+      if (cachedCompletedCourses) {
+        setCompletedCourses(cachedCompletedCourses)
+      }
+      setIsLoadingCompletedCourses(!cachedCompletedCourses)
       setCompletedCoursesError(null)
       try {
         const nextCompletedCourses = await fetchCompletedCourses(token)
         if (!isActive) {
           return
         }
+        writeSessionCache('private:completed-courses', nextCompletedCourses, userCacheKey)
         setCompletedCourses(nextCompletedCourses)
       } catch (error) {
         if (isActive) {
@@ -85,7 +95,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [token, userCacheKey])
 
   async function persistCompletedCourses(nextCompletedCourses: CompletedCourse[]): Promise<{
     saved: boolean
@@ -99,16 +109,20 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
 
     const previousCompletedCourses = completedCourses
     setCompletedCourses(nextCompletedCourses)
+    writeSessionCache('private:completed-courses', nextCompletedCourses, userCacheKey)
     setCompletedCoursesError(null)
     setIsSavingCompletedCourses(true)
 
     try {
       const savedCompletedCourses = await saveCompletedCourses(token, nextCompletedCourses)
       setCompletedCourses(savedCompletedCourses)
+      writeSessionCache('private:completed-courses', savedCompletedCourses, userCacheKey)
+      invalidateSessionCache('private:progress', userCacheKey)
       return { saved: true, errorMessage: null }
     } catch (error) {
       const errorMessage = normalizeErrorMessage(error)
       setCompletedCourses(previousCompletedCourses)
+      writeSessionCache('private:completed-courses', previousCompletedCourses, userCacheKey)
       setCompletedCoursesError(errorMessage)
       return { saved: false, errorMessage }
     } finally {
@@ -195,6 +209,8 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
 
     const savedCompletedCourses = await saveCompletedCourses(authToken, nextCompletedCourses)
     setCompletedCourses(savedCompletedCourses)
+    writeSessionCache('private:completed-courses', savedCompletedCourses, userCacheKey)
+    invalidateSessionCache('private:progress', userCacheKey)
     return {
       completedCourses: savedCompletedCourses,
       imported,
@@ -225,6 +241,8 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     try {
       const result = await importCompletedCourses(token, items)
       setCompletedCourses(result.completedCourses)
+      writeSessionCache('private:completed-courses', result.completedCourses, userCacheKey)
+      invalidateSessionCache('private:progress', userCacheKey)
       return result
     } catch (error) {
       if (shouldFallbackTranscriptImport(error)) {

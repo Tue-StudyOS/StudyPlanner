@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../../../shared/utils/api'
+import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { SemesterPlan, SemesterPlanSummary } from '../types'
@@ -68,6 +69,7 @@ interface UseSemesterPlannerResult {
  */
 export function useSemesterPlanner(): UseSemesterPlannerResult {
   const { token, user } = useAuth()
+  const userCacheKey = user?.username ?? 'anonymous'
   const profileSemesterLabel = user?.profile.currentSemesterLabel ?? null
   const [savedPlans, setSavedPlans] = useState<SemesterPlanSummary[]>([])
   const [savedPlan, setSavedPlan] = useState<SemesterPlan | null>(null)
@@ -127,12 +129,17 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         return
       }
 
-      setIsLoadingPlanIndex(true)
+      const cachedSavedPlans = readSessionCache<SemesterPlanSummary[]>('private:planner:index', userCacheKey)
+      if (cachedSavedPlans) {
+        setSavedPlans(cachedSavedPlans)
+      }
+      setIsLoadingPlanIndex(!cachedSavedPlans)
       try {
         const nextSavedPlans = await fetchSemesterPlans(token)
         if (!isActive) {
           return
         }
+        writeSessionCache('private:planner:index', nextSavedPlans, userCacheKey)
         setSavedPlans(nextSavedPlans)
       } catch (error) {
         if (isActive) {
@@ -150,7 +157,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [token, userCacheKey])
 
   useEffect(() => {
     let isActive = true
@@ -160,13 +167,22 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         return
       }
 
-      setIsLoadingSemesterPlan(true)
+      const planCacheKey = `private:planner:plan:${normalizedActiveSemesterLabel}`
+      const cachedSemesterPlan = readSessionCache<SemesterPlan | null>(planCacheKey, userCacheKey)
+      if (cachedSemesterPlan !== null) {
+        setSavedPlan(cachedSemesterPlan)
+        setPlannedCourseIds(cachedSemesterPlan.courseIds)
+        setHiddenSlotIds(cachedSemesterPlan.hiddenSlotIds)
+        setPlanAssignments(cachedSemesterPlan.courseAssignments)
+      }
+      setIsLoadingSemesterPlan(cachedSemesterPlan === null)
       setPlannerError(null)
       try {
         const nextSavedPlan = await fetchSemesterPlan(token, normalizedActiveSemesterLabel)
         if (!isActive) {
           return
         }
+        writeSessionCache(planCacheKey, nextSavedPlan, userCacheKey)
         setSavedPlan(nextSavedPlan)
         setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
         setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
@@ -191,7 +207,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     return () => {
       isActive = false
     }
-  }, [normalizedActiveSemesterLabel, token])
+  }, [normalizedActiveSemesterLabel, token, userCacheKey])
 
   const hasUnsavedChanges = useMemo(
     () =>
@@ -228,7 +244,10 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
         // when the response still belongs to the selected semester.
         semesterLabel === nextSavedPlan.semesterLabel ? nextSavedPlan : currentSavedPlan,
       )
+      writeSessionCache(`private:planner:plan:${semesterLabel}`, nextSavedPlan, userCacheKey)
       const nextSavedPlans = await fetchSemesterPlans(token)
+      writeSessionCache('private:planner:index', nextSavedPlans, userCacheKey)
+      invalidateSessionCache('private:progress', userCacheKey)
       setSavedPlans(nextSavedPlans)
     } catch (error) {
       setPlannerError(normalizeErrorMessage(error))

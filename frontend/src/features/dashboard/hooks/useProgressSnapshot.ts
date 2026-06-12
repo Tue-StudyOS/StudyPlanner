@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../../shared/utils/api'
+import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { useTranscript } from '../../transcript'
 import { fetchProgressSnapshot } from '../api'
@@ -20,7 +21,8 @@ export function useProgressSnapshot(): {
   isLoadingProgress: boolean
   progressError: string | null
 } {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const userCacheKey = user?.username ?? 'anonymous'
   const { completedCourses, isLoadingCompletedCourses } = useTranscript()
   const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(null)
   const [isLoadingProgress, setIsLoadingProgress] = useState<boolean>(false)
@@ -47,13 +49,18 @@ export function useProgressSnapshot(): {
         return
       }
 
-      setIsLoadingProgress(true)
+      const cachedSnapshot = readSessionCache<ProgressSnapshot>('private:progress:snapshot', userCacheKey)
+      if (cachedSnapshot) {
+        setProgressSnapshot(cachedSnapshot)
+      }
+      setIsLoadingProgress(!cachedSnapshot)
       setProgressError(null)
       try {
         const snapshot = await fetchProgressSnapshot(token)
         if (!isActive) {
           return
         }
+        writeSessionCache('private:progress:snapshot', snapshot, userCacheKey)
         setProgressSnapshot(snapshot)
       } catch (error) {
         if (!isActive) {
@@ -73,7 +80,7 @@ export function useProgressSnapshot(): {
     return () => {
       isActive = false
     }
-  }, [completedCourses, isLoadingCompletedCourses, token])
+  }, [completedCourses, isLoadingCompletedCourses, token, userCacheKey])
 
   return { progressSnapshot, isLoadingProgress, progressError }
 }

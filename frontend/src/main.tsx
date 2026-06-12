@@ -2,6 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { clearExpiredSessionCache } from './shared/utils/sessionCache.ts'
+
+clearExpiredSessionCache()
 
 // After a redeploy, a cached page can request old hashed chunks that no longer
 // exist; the SPA fallback then serves HTML instead of JS and dynamic imports
