@@ -45,8 +45,9 @@ test('cleanCourseTitle keeps titles that merely contain digits', () => {
   assert.equal(cleanCourseTitle('Programmieren II'), 'Programmieren II')
 })
 
-test('formatCourseTypeLabel deduplicates and joins types', () => {
-  assert.equal(formatCourseTypeLabel(['Vorlesung', 'Übung']), 'Vorlesung + Übung')
-  assert.equal(formatCourseTypeLabel(['Vorlesung', 'Vorlesung']), 'Vorlesung')
+test('formatCourseTypeLabel translates, deduplicates, and joins types', () => {
+  assert.equal(formatCourseTypeLabel(['Vorlesung', 'Übung']), 'Lecture + Exercise')
+  assert.equal(formatCourseTypeLabel(['Vorlesung', 'Lecture']), 'Lecture')
+  assert.equal(formatCourseTypeLabel(['Hauptseminar']), 'Seminar')
   assert.equal(formatCourseTypeLabel([]), 'Course')
 })
