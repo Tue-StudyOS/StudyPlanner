@@ -42,7 +42,7 @@ export const TOUR_STEPS: TourStep[] = [
     targets: ['catalog-card'],
     title: 'Read a card at a glance',
     body:
-      'Type, areas, professor, ECTS, and the term a course runs in. A dashed border means it will probably run again; grayed out means no current data. Tap the bookmark to keep a course for planning.',
+      'Type, areas, professor, ECTS, and the term a course runs in. A dashed border means the course ran last year and will likely run again — a faded card means there is no current sign it returns. Tap the bookmark to keep a course for planning.',
   },
   {
     id: 'planner-grid',
