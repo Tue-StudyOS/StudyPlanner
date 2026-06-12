@@ -66,7 +66,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
     : 'border-border hover:border-primary/30'
   const isDimmed = offeringStatus === 'unknown'
   const termLabel = formatTermTypeLabel(course.termType)
-  const title = cleanCourseTitle(course.title)
+  const title = cleanCourseTitle(course.title, course.number)
 
   return (
     <div

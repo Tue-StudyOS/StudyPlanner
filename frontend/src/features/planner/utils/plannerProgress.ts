@@ -4,6 +4,7 @@ import {
   studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
+import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import {
   getPlannerCourseAreaOptions,
   getPlannerCourseEctsForArea,
@@ -143,7 +144,7 @@ export function buildPlannerProgressAreas({
     area.creditedEcts += course.ects
     area.creditedCourses.push({
       id: course.id,
-      title: course.title,
+      title: cleanCourseTitle(course.title, course.courseNumber),
       ects: course.ects,
       grade: course.grade,
       semester: course.semester,
@@ -173,7 +174,7 @@ export function buildPlannerProgressAreas({
         const courseEcts = getPlannerCourseEctsForArea(course, manualOption.code, studyProgramCode)
         unassignedCourses.push({
           id: course.id,
-          title: course.title,
+          title: cleanCourseTitle(course.title, course.number),
           ects: courseEcts,
           options,
         })
@@ -183,7 +184,7 @@ export function buildPlannerProgressAreas({
       area.plannedEcts += courseEcts
       area.plannedCourses.push({
         id: course.id,
-        title: course.title,
+        title: cleanCourseTitle(course.title, course.number),
         ects: courseEcts,
         assignedAreaCode: manualOption.code,
         options,
@@ -194,7 +195,7 @@ export function buildPlannerProgressAreas({
     if (options.length === 0) {
       unassignedCourses.push({
         id: course.id,
-        title: course.title,
+        title: cleanCourseTitle(course.title, course.number),
         ects: course.ects ?? 0,
         options,
       })
@@ -220,7 +221,7 @@ export function buildPlannerProgressAreas({
     if (!automaticAssignment) {
       unassignedCourses.push({
         id: course.id,
-        title: course.title,
+        title: cleanCourseTitle(course.title, course.number),
         ects: course.ects ?? 0,
         options,
       })
@@ -231,7 +232,7 @@ export function buildPlannerProgressAreas({
     if (!area) {
       unassignedCourses.push({
         id: course.id,
-        title: course.title,
+        title: cleanCourseTitle(course.title, course.number),
         ects: automaticAssignment.ects,
         options,
       })
@@ -240,7 +241,7 @@ export function buildPlannerProgressAreas({
     area.plannedEcts += automaticAssignment.ects
     area.plannedCourses.push({
       id: course.id,
-      title: course.title,
+      title: cleanCourseTitle(course.title, course.number),
       ects: automaticAssignment.ects,
       assignedAreaCode: automaticAssignment.areaCode,
       options,

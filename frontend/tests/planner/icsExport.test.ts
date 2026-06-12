@@ -64,6 +64,23 @@ test('skips hidden slots and unparseable times', () => {
   assert.doesNotMatch(ics, /DTSTART;TZID/)
 })
 
+test('single-date schedule slots become one-off events instead of weekly ones', () => {
+  const ics = buildSemesterPlanIcs({
+    semesterLabel: 'SS 2026',
+    courses: [
+      buildCourse({
+        exams: [],
+        schedule: [{ day: '28.07.2026', time: '10:00 - 12:00', room: 'Hörsaal 1', type: 'Vorlesung' }],
+      }),
+    ],
+    hiddenSlotIds: [],
+  })
+
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20260728T100000/)
+  assert.doesNotMatch(ics, /RRULE/)
+})
+
 test('exam dates become single all-day events', () => {
   const ics = buildSemesterPlanIcs({
     semesterLabel: 'SS 2026',

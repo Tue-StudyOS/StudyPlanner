@@ -29,6 +29,22 @@ test('cleanCourseTitle never returns an empty title', () => {
   assert.equal(cleanCourseTitle('  Seminar  '), 'Seminar')
 })
 
+test('cleanCourseTitle strips the known course number anywhere in the title', () => {
+  assert.equal(cleanCourseTitle('BIOINF3510 Sequence Analysis', 'BIOINF3510'), 'Sequence Analysis')
+  assert.equal(cleanCourseTitle('Sequence Analysis BIOINF3510', 'BIOINF3510'), 'Sequence Analysis')
+  assert.equal(cleanCourseTitle('INFO2420: Datenbanken (Vorlesung)', 'INFO2420'), 'Datenbanken')
+})
+
+test('cleanCourseTitle strips leading course codes even without a known number', () => {
+  assert.equal(cleanCourseTitle('INFO2420 Datenbanken'), 'Datenbanken')
+  assert.equal(cleanCourseTitle('ML-4201 Statistical Machine Learning'), 'Statistical Machine Learning')
+})
+
+test('cleanCourseTitle keeps titles that merely contain digits', () => {
+  assert.equal(cleanCourseTitle('Mathematik 2'), 'Mathematik 2')
+  assert.equal(cleanCourseTitle('Programmieren II'), 'Programmieren II')
+})
+
 test('formatCourseTypeLabel deduplicates and joins types', () => {
   assert.equal(formatCourseTypeLabel(['Vorlesung', 'Übung']), 'Vorlesung + Übung')
   assert.equal(formatCourseTypeLabel(['Vorlesung', 'Vorlesung']), 'Vorlesung')

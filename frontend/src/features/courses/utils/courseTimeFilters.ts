@@ -1,5 +1,6 @@
 import {
   DAY_ORDER,
+  isSingleDateSlot,
   normalizeWeekday,
   parseTimeRange,
 } from '../../planner/utils/plannerFeedback.ts'
@@ -44,6 +45,10 @@ export function courseMatchesTimeFilter(
   }
 
   return course.schedule.some((slot) => {
+    // One-off dates (exam days) say nothing about weekly availability.
+    if (isSingleDateSlot(slot.day)) {
+      return false
+    }
     const slotDay = normalizeWeekday(slot.day)
     if (hasDayFilter && (slotDay === null || !selectedDays.includes(slotDay))) {
       return false

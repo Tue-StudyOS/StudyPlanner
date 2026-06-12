@@ -11,7 +11,7 @@ export const CATALOG_SORT_LABELS: Record<CatalogSortOption, string> = {
 }
 
 function compareTitles(left: Course, right: Course): number {
-  return cleanCourseTitle(left.title).localeCompare(cleanCourseTitle(right.title), 'de')
+  return cleanCourseTitle(left.title, left.number).localeCompare(cleanCourseTitle(right.title, right.number), 'de')
 }
 
 function compareEcts(left: Course, right: Course, direction: 1 | -1): number {

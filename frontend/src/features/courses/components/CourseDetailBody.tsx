@@ -51,7 +51,7 @@ interface CourseDetailBodyProps {
  * explicit empty state.
  */
 export function CourseDetailBody({ course, completedCourse, footer }: CourseDetailBodyProps) {
-  const title = cleanCourseTitle(course.title)
+  const title = cleanCourseTitle(course.title, course.number)
   const termLabel = formatTermTypeLabel(course.termType)
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
