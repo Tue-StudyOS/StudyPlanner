@@ -4,14 +4,27 @@ import logo from '../../../assets/logo.png'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
-import { AccountIcon, GearIcon, MenuIcon } from './icons'
+import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
 import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../routes'
+import { useTheme } from '../../theme'
 
 export function TopBar() {
   const isOnAccountPage = Boolean(useMatch(ROUTES.account))
   const isMobileNavigation = useMediaQuery('(max-width: 960px)')
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
+  const { isDark, toggleTheme } = useTheme()
+
+  const themeToggleButton = (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/80 transition-colors hover:text-white"
+    >
+      {isDark ? <SunIcon /> : <MoonIcon />}
+    </button>
+  )
 
   return (
     <>
@@ -33,6 +46,7 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
+            {themeToggleButton}
             <HelpButton />
             <button
               type="button"
@@ -72,6 +86,7 @@ export function TopBar() {
             </nav>
 
             <div className="flex items-center gap-2">
+              {themeToggleButton}
               <HelpButton />
               <Link
                 to={ROUTES.account}

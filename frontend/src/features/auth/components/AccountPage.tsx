@@ -1,14 +1,12 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MoonIcon, SunIcon } from '../../layout/components/icons'
 import {
   buildSemesterOptions,
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
 } from '../../planner/utils/semesterLabels'
 import { ROUTES } from '../../routes'
-import { useTheme } from '../../theme'
 import { fetchStudyPrograms } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import type { StudyProgramOption } from '../types'
@@ -41,7 +39,6 @@ function toSelectValue(value: number | null | undefined): string {
 
 export function AccountPage() {
   const { user, isAuthenticated, isLoadingSession, login, logout, register, saveProfile, updateCredentials } = useAuth()
-  const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [mode, setMode] = useState<AuthMode>('login')
   const [identifier, setIdentifier] = useState<string>('')
@@ -291,23 +288,13 @@ export function AccountPage() {
         </div>
       ) : null}
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
-            Account
-          </h1>
-          <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
-            Sign in to save favorites and personal study progress.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13px] text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
-        >
-          {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
+      <div className="mb-6 min-w-0">
+        <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
+          Account
+        </h1>
+        <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
+          Sign in to save interested courses and personal study progress.
+        </p>
       </div>
 
       {isLoadingSession ? (
