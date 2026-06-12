@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
 import { CloseIcon } from '../../../shared/components/icons'
-import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
 
 const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
@@ -112,10 +111,7 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
     <>
       <div className="overflow-hidden rounded-[10px] border border-border bg-surface px-6 py-5.5">
         <div className="mb-4.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="text-[14px] font-semibold text-fg">Regulation Progress</div>
-            <RegulationAreasInfo />
-          </div>
+          <div className="text-[14px] font-semibold text-fg">Regulation Progress</div>
           <p className="mt-1 text-[12px] text-fg-muted">
             Click a regulation part to inspect the counted courses.
           </p>
