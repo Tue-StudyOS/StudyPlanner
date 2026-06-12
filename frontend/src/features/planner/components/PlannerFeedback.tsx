@@ -152,16 +152,17 @@ export function PlannerFeedback({
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[14px] font-semibold text-fg">Regulation Outlook</div>
+              <div className="text-[14px] font-semibold text-fg">What this plan counts toward</div>
               <RegulationAreasInfo />
             </div>
             <p className="mt-1 text-[12px] text-fg-muted">
-              See what is already credited and what this semester plan would add.
+              Every course fills one area of your degree — solid is done, light is what this
+              semester adds.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-fg-muted">
               <span className="font-semibold text-fg">{roundEcts(totalEcts)} ECTS planned</span>
               <span>
-                {plannedCourses.length} planned course{plannedCourses.length !== 1 ? 's' : ''}
+                {plannedCourses.length} course{plannedCourses.length !== 1 ? 's' : ''} in this plan
               </span>
             </div>
           </div>
@@ -170,18 +171,19 @@ export function PlannerFeedback({
               type="button"
               onClick={() => void onAutoBalance()}
               disabled={isBalancing || plannedCourses.length === 0}
+              title="Distributes your planned courses across the areas so nothing overflows."
               className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isBalancing ? 'Balancing...' : 'Balance planner'}
+              {isBalancing ? 'Assigning...' : 'Auto-assign areas'}
             </button>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-fg-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-primary/80" />
-                Credited
+                Done
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-primary/35" />
-                Planned
+                This plan
               </span>
             </div>
           </div>
@@ -263,18 +265,18 @@ export function PlannerFeedback({
                   </button>
 
                   <div className="mt-1 text-[11.5px] text-fg-muted">
-                    Current {roundEcts(area.creditedEcts)} ECTS
-                    {area.plannedEcts > 0 ? ` + ${roundEcts(area.plannedEcts)} planned` : ''}
+                    {roundEcts(area.creditedEcts)} ECTS done
+                    {area.plannedEcts > 0 ? ` + ${roundEcts(area.plannedEcts)} from this plan` : ''}
                   </div>
 
                   {isExpanded ? (
                     <div className="mt-2 grid gap-1.5">
                       <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                        Credited courses
+                        Already done
                       </div>
                       {area.creditedCourses.length === 0 ? (
                         <div className="rounded-md border border-dashed border-border px-3 py-2 text-[11px] text-fg-muted">
-                          No completed courses are credited toward this area yet.
+                          Nothing finished in this area yet.
                         </div>
                       ) : (
                         area.creditedCourses.map((course) => (
@@ -302,7 +304,8 @@ export function PlannerFeedback({
 
                   {overCapacityEcts > 0 ? (
                     <div className="mt-2 text-[11.5px] font-medium text-primary">
-                      Over capacity by {roundEcts(overCapacityEcts)} ECTS.
+                      {roundEcts(overCapacityEcts)} ECTS more than this area needs — consider moving
+                      a course to another area.
                     </div>
                   ) : null}
 
@@ -364,10 +367,10 @@ export function PlannerFeedback({
 
             {unassignedCourses.length > 0 ? (
               <div className="rounded-[10px] border border-primary/35 bg-primary/5 px-4 py-3">
-                <div className="text-[12.5px] font-semibold text-primary">Needs assignment</div>
+                <div className="text-[12.5px] font-semibold text-primary">Pick an area for these courses</div>
                 <p className="mt-1 text-[11.5px] text-fg-muted">
-                  These planned courses either have no compatible regulation mapping or no area with
-                  enough remaining ECTS capacity.
+                  These courses could not be placed automatically — choose an area yourself, or
+                  remove them from the plan.
                 </p>
                 <div className="mt-2 grid gap-1.5">
                   {unassignedCourses.map((course) => (
