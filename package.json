@@ -5,6 +5,8 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build",
     "test:frontend": "npm --prefix frontend run test",
+    "test:mcp": "npm --prefix integrations/studyplanner-mcp run test",
+    "build:mcp": "npm --prefix integrations/studyplanner-mcp run build",
     "dev:backend": "cd backend && npx wrangler dev",
     "predeploy:backend": "python backend/scripts/verify_cloudflare_config.py",
     "deploy:backend": "cd backend && npx wrangler deploy",

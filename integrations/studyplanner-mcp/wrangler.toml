@@ -1,0 +1,8 @@
+name = "studyplanner-mcp"
+main = "src/index.ts"
+compatibility_date = "2026-06-12"
+
+[vars]
+# Override this with a custom StudyPlanner API domain/subdomain if one is already
+# managed in Cloudflare; otherwise the default Workers URL is sufficient.
+STUDYPLANNER_AI_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"

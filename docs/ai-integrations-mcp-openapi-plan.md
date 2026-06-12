@@ -5,13 +5,14 @@ This document describes how StudyPlanner can expose the course catalog and perso
 ## Decisions for the first implementation
 
 - **Primary target:** ChatGPT first, through OpenAPI-backed Actions.
-- **Second target:** Claude through MCP, ideally as a hosted Cloudflare-compatible remote MCP adapter.
+- **Second target:** Claude through MCP, as a hosted Cloudflare-compatible remote MCP adapter.
 - **Hosting:** Cloudflare-hostable from the start.
-- **User model:** AI tools act on behalf of an existing StudyPlanner user. Do not create a separate internal "AI user" for personal actions.
+- **Current implemented scope:** public, unauthenticated, read-only course catalog search and course detail only.
+- **User model for later private tools:** AI tools act on behalf of an existing StudyPlanner user. Do not create a separate internal "AI user" for personal actions.
 - **Catalog access:** Public read-only catalog tools may stay unauthenticated.
 - **Personal access:** Semester plans, progress, favorites, transcript-derived data, and all writes require an explicit user grant.
 - **Write access:** Tools may eventually change all user-owned planning data, but write endpoints should still support dry-run and explicit confirmation semantics to avoid accidental destructive calls.
-- **Shared implementation:** ChatGPT and Claude should use the same internal capability layer. Only the protocol adapter differs.
+- **Shared implementation:** ChatGPT and Claude use the same public AI facade now. Future private tools should keep that protocol-neutral split.
 
 ## Why ChatGPT Actions and MCP are similar but not identical
 
@@ -113,12 +114,12 @@ For GPT-first, the smallest path is to add AI Facade routes to the existing Pyth
 - `/api/ai/me/...`
 - `/api/ai/planner/...`
 
-For hosted MCP, a separate TypeScript Cloudflare Worker may be easier because the MCP ecosystem and SDK examples are mostly TypeScript. That Worker should call the AI Facade over HTTPS rather than connecting directly to D1.
+For hosted MCP, the repository now contains a separate TypeScript Cloudflare Worker under `integrations/studyplanner-mcp/`. It calls the AI Facade over HTTPS and does not connect directly to D1.
 
 Recommended split:
 
-1. **Phase 1:** implement GPT/OpenAPI routes in the existing backend Worker.
-2. **Phase 2:** implement a hosted MCP adapter under `integrations/studyplanner-mcp/` that calls the AI Facade.
+1. **Phase 1:** implement GPT/OpenAPI routes in the existing backend Worker. ✅ public catalog facade exists.
+2. **Phase 2:** implement a hosted MCP adapter under `integrations/studyplanner-mcp/` that calls the AI Facade. ✅ public catalog adapter exists.
 3. **Phase 3:** if the MCP adapter needs lower latency or richer behavior, extract shared protocol-neutral capability logic into a dedicated integration Worker.
 
 ## Authentication and authorization
@@ -767,13 +768,18 @@ Tasks:
 
 Goal: Claude/MCP clients can use the same tools.
 
-Tasks:
+Implemented public-catalog subset:
 
-1. Create `integrations/studyplanner-mcp/`.
-2. Implement MCP tools as thin wrappers around AI Facade endpoints.
-3. Support hosted Cloudflare deployment.
-4. Add local stdio fallback if remote MCP client support is insufficient.
-5. Document Claude Desktop/Claude Code configuration.
+1. `integrations/studyplanner-mcp/` exists.
+2. MCP tools are thin wrappers around AI Facade endpoints.
+3. Hosted Cloudflare deployment is configured through `wrangler.toml`.
+4. Setup docs describe the deployed `/mcp` endpoint and `/sse` compatibility advertisement.
+
+Still deferred for later phases:
+
+1. Local stdio fallback if remote MCP client support is insufficient.
+2. Private/user-bound tools after scoped integration tokens or OAuth exist.
+3. Write tools and dry-run planning tools.
 
 ### Phase 7: OAuth for shared integrations
 
@@ -812,10 +818,12 @@ Manual integration checks:
 1. OpenAPI schema validates.
 2. ChatGPT can import the schema.
 3. Public course search works without auth.
-4. Authenticated plan read works with integration token.
-5. Dry-run write previews changes.
-6. Confirmed write changes only the intended semester plan.
-7. Token revocation immediately blocks further calls.
+4. MCP `/mcp` initializes and lists `studyplanner_search_courses` / `studyplanner_get_course_detail`.
+5. MCP search and detail calls return public catalog JSON.
+6. Authenticated plan read works with integration token once private tools are implemented.
+7. Dry-run write previews changes once write tools are implemented.
+8. Confirmed write changes only the intended semester plan once write tools are implemented.
+9. Token revocation immediately blocks further calls once tokens are implemented.
 
 ## Open questions before implementation
 
