@@ -5,60 +5,79 @@ import {
   TranscriptIcon,
   WelcomeIcon,
 } from './components/icons'
-import { ROUTES } from '../routes'
 import type { OnboardingStep } from './types'
 
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
-    eyebrow: 'Getting started',
-    title: 'Welcome to StudyPlanner',
+    eyebrow: 'Welcome',
+    title: 'Plan your Informatik degree in Tübingen',
     description:
-      'Plan your degree from start to finish. This short guide walks you through the four core areas of the app. You can reopen it anytime via the ? icon in the top bar.',
+      'StudyPlanner is built for computer science students at the University of Tübingen. It combines three things in one place:',
+    bullets: [
+      'The full Informatics course catalog across semesters, with hints on what will likely run next.',
+      'Your real degree progress, mapped to the areas of your examination regulations (PO).',
+      'A weekly semester planner that saves automatically and exports to your calendar.',
+    ],
     Icon: WelcomeIcon,
   },
   {
     id: 'transcript',
-    eyebrow: 'Transcript',
-    title: 'Bring in your completed courses',
-    description: 'Head to the Transcript page to get your study history into the app. You have two options:',
+    eyebrow: 'Step 1 · Transcript',
+    title: 'Start with your completed courses',
+    description:
+      'Everything builds on what you have already passed, so bring in your history first on the Transcript page:',
     bullets: [
-      'Upload your Transcript of Records (PDF) — completed courses are imported and categorized automatically, and you can adjust the category of any imported course by hand afterwards.',
-      "Add courses manually — enter individual courses by hand if you don't have a PDF.",
+      'Upload your Transcript of Records (PDF from ALMA) — courses are imported and categorized automatically.',
+      'Or add courses by hand if you prefer.',
+      'You can adjust the credited area of any course afterwards.',
     ],
     Icon: TranscriptIcon,
-    route: ROUTES.transcript,
-  },
-  {
-    id: 'dashboard',
-    eyebrow: 'Dashboard',
-    title: 'See your progress at a glance',
-    description: 'The Dashboard gives you an overview of your studies so far:',
-    bullets: [
-      'ECTS earned versus the credits your program requires.',
-      'Progress per category and study area, so you see where requirements are still open.',
-      'Your specialization focus and overall regulation progress.',
-      'A grade overview across your completed courses.',
-    ],
-    Icon: DashboardIcon,
-    route: ROUTES.dashboard,
   },
   {
     id: 'catalog',
-    eyebrow: 'Catalog',
-    title: 'Discover and favorite courses',
+    eyebrow: 'Step 2 · Catalog',
+    title: 'Find courses worth taking',
     description:
-      'Browse the Catalog to explore the full course offering. Star the courses you are interested in to add them to your favorites — they become the building blocks for planning your semester.',
+      'The Catalog shows every Informatics course across semesters — not just the current one:',
+    bullets: [
+      '"Likely offered" marks courses that ran in the same season last year; grayed-out courses have no current data.',
+      'Filter by area, ECTS, weekday, or an exact time window — and sort the results.',
+      'Star anything interesting: starred courses become your building blocks in the planner.',
+    ],
     Icon: CatalogIcon,
-    route: ROUTES.catalog,
   },
   {
     id: 'planner',
-    eyebrow: 'Planner',
-    title: 'Build your semester',
+    eyebrow: 'Step 3 · Planner',
+    title: 'Build your week',
     description:
-      'In the Planner, assemble upcoming semesters from your favorited courses. You get recommendations based on the category requirements of your study program, so each semester moves you toward your degree.',
+      'The Planner opens on the current semester and saves every change automatically:',
+    bullets: [
+      'Add starred courses from the side panel (or the + button on the phone) — overlaps are highlighted.',
+      'Tap any course for details; remove it from the plan there.',
+      'The strip on top shows how the plan moves your degree forward — export the result to your calendar as .ics.',
+    ],
     Icon: PlannerIcon,
-    route: ROUTES.planner,
+  },
+  {
+    id: 'overview',
+    eyebrow: 'Step 4 · Overview',
+    title: 'Keep an eye on your progress',
+    description: 'The Overview page tracks your degree against the official regulations:',
+    bullets: [
+      'ECTS earned versus required, per regulation area.',
+      'Your specialization focus and average grade.',
+      'Open requirements also appear as a slim reminder while you browse the catalog.',
+    ],
+    Icon: DashboardIcon,
+  },
+  {
+    id: 'finish',
+    eyebrow: 'Ready',
+    title: 'That is the whole flow',
+    description:
+      'Transcript in, star interesting courses, plan the semester — the app keeps progress and saving in the background. Reopen this guide anytime via the ? icon in the top bar.',
+    Icon: WelcomeIcon,
   },
 ]

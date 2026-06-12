@@ -59,10 +59,11 @@ export interface PlannerBlock {
   endMinutes: number
   label: string
   room: string
+  slotType: string
   hasOverlap: boolean
 }
 
-function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
+export function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
   const normalizedValue = value.trim().toLowerCase()
   const aliasedDay = DAY_ALIASES[normalizedValue]
   if (aliasedDay) {
@@ -90,7 +91,7 @@ function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
   return DATE_WEEKDAYS[date.getUTCDay()] ?? null
 }
 
-function parseTimeRange(timeText: string): { startMinutes: number; endMinutes: number } | null {
+export function parseTimeRange(timeText: string): { startMinutes: number; endMinutes: number } | null {
   const match = timeText.match(/(\d{1,2}:\d{2})\s*(?:-|\u2013|\u2014)\s*(\d{1,2}:\d{2})/)
   if (!match) {
     return null
@@ -124,6 +125,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         endMinutes: timeRange.endMinutes,
         label: slot.time,
         room: slot.room,
+        slotType: slot.type !== 'Course' ? slot.type : '',
         hasOverlap: false,
       })
     })

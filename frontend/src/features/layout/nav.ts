@@ -9,8 +9,8 @@ export interface NavEntry {
 }
 
 export const NAV: NavEntry[] = [
-  { path: ROUTES.dashboard, label: 'Dashboard', Icon: DashboardIcon },
-  { path: ROUTES.catalog, label: 'Catalog', Icon: CatalogIcon },
   { path: ROUTES.planner, label: 'Planner', Icon: PlannerIcon },
+  { path: ROUTES.catalog, label: 'Catalog', Icon: CatalogIcon },
+  { path: ROUTES.overview, label: 'Overview', Icon: DashboardIcon },
   { path: ROUTES.transcript, label: 'Transcript', Icon: TranscriptIcon },
 ]

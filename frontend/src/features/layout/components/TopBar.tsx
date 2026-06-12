@@ -4,14 +4,27 @@ import logo from '../../../assets/logo.png'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
-import { AccountIcon, GearIcon, MenuIcon } from './icons'
+import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
 import { HelpButton } from '../../onboarding'
-import { ROUTES } from '../../../config/routes'
+import { ROUTES } from '../../routes'
+import { useTheme } from '../../theme'
 
 export function TopBar() {
   const isOnAccountPage = Boolean(useMatch(ROUTES.account))
   const isMobileNavigation = useMediaQuery('(max-width: 960px)')
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
+  const { isDark, toggleTheme } = useTheme()
+
+  const themeToggleButton = (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/80 transition-colors hover:text-white"
+    >
+      {isDark ? <SunIcon /> : <MoonIcon />}
+    </button>
+  )
 
   return (
     <>
@@ -20,7 +33,7 @@ export function TopBar() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <Link
-          to={ROUTES.dashboard}
+          to={ROUTES.planner}
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">
@@ -33,6 +46,7 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
+            {themeToggleButton}
             <HelpButton />
             <button
               type="button"
@@ -50,7 +64,7 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.dashboard}
+                  end={path === ROUTES.planner}
                   className={({ isActive }) =>
                     `group flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
                       isActive
@@ -72,6 +86,7 @@ export function TopBar() {
             </nav>
 
             <div className="flex items-center gap-2">
+              {themeToggleButton}
               <HelpButton />
               <Link
                 to={ROUTES.account}
@@ -115,7 +130,7 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.dashboard}
+                  end={path === ROUTES.planner}
                   onClick={() => setIsMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${

@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../../../shared/utils/api'
 import { useAuth } from '../../auth'
-import {
-  deleteSemesterPlan,
-  fetchSemesterPlan,
-  fetchSemesterPlans,
-  saveSemesterPlan,
-} from '../api'
+import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { SemesterPlan, SemesterPlanSummary } from '../types'
 import {
   buildSemesterOptions,
@@ -14,13 +9,7 @@ import {
   getRelativeSemesterLabel,
 } from '../utils/semesterLabels'
 
-const PLANNER_DRAFT_STORAGE_PREFIX = 'studyplaner.semesterPlannerDraft'
-
-interface SemesterPlannerDraft {
-  courseIds: string[]
-  hiddenSlotIds: string[]
-  courseAssignments: Record<string, string>
-}
+const AUTO_SAVE_DEBOUNCE_MS = 900
 
 function normalizeErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -52,59 +41,6 @@ function areAssignmentsEqual(
   return leftKeys.every((key) => left[key] === right[key])
 }
 
-function buildDraftStorageKey(userId: string | number | null | undefined, semesterLabel: string): string | null {
-  if (userId === null || userId === undefined || !semesterLabel) {
-    return null
-  }
-  return `${PLANNER_DRAFT_STORAGE_PREFIX}:${String(userId)}:${semesterLabel}`
-}
-
-function readDraft(key: string | null): SemesterPlannerDraft | null {
-  if (!key || typeof window === 'undefined') {
-    return null
-  }
-
-  try {
-    const rawValue = window.sessionStorage.getItem(key)
-    if (!rawValue) {
-      return null
-    }
-    const parsedValue = JSON.parse(rawValue) as Partial<SemesterPlannerDraft>
-    if (!Array.isArray(parsedValue.courseIds)) {
-      return null
-    }
-    return {
-      courseIds: parsedValue.courseIds.filter((value): value is string => typeof value === 'string'),
-      hiddenSlotIds: Array.isArray(parsedValue.hiddenSlotIds)
-        ? parsedValue.hiddenSlotIds.filter((value): value is string => typeof value === 'string')
-        : [],
-      courseAssignments: parsedValue.courseAssignments && typeof parsedValue.courseAssignments === 'object'
-        ? Object.fromEntries(
-            Object.entries(parsedValue.courseAssignments).filter(
-              (entry): entry is [string, string] => typeof entry[1] === 'string',
-            ),
-          )
-        : {},
-    }
-  } catch {
-    return null
-  }
-}
-
-function writeDraft(key: string | null, draft: SemesterPlannerDraft): void {
-  if (!key || typeof window === 'undefined') {
-    return
-  }
-  window.sessionStorage.setItem(key, JSON.stringify(draft))
-}
-
-function clearDraft(key: string | null): void {
-  if (!key || typeof window === 'undefined') {
-    return
-  }
-  window.sessionStorage.removeItem(key)
-}
-
 interface UseSemesterPlannerResult {
   activeSemesterLabel: string
   semesterOptions: string[]
@@ -113,11 +49,9 @@ interface UseSemesterPlannerResult {
   hiddenSlotIds: string[]
   planAssignments: Record<string, string>
   savedPlan: SemesterPlan | null
-  isEditing: boolean
   isLoadingPlanIndex: boolean
   isLoadingSemesterPlan: boolean
   isSavingSemesterPlan: boolean
-  isDeletingSemesterPlan: boolean
   plannerError: string | null
   hasUnsavedChanges: boolean
   setActiveSemesterLabel: (semesterLabel: string) => void
@@ -125,12 +59,13 @@ interface UseSemesterPlannerResult {
   setHiddenSlotIds: (slotIds: string[]) => void
   setAssignment: (courseId: string, areaCode: string | null) => void
   setAssignments: (assignments: Record<string, string>) => void
-  startEditing: () => void
-  cancelEditing: () => void
-  saveCurrentSemesterPlan: () => Promise<void>
-  deleteCurrentSemesterPlan: () => Promise<void>
 }
 
+/**
+ * Owns the semester plan state with automatic persistence: every change is
+ * debounce-saved to the account — there is no edit mode, no drafts, and no
+ * explicit save or delete action.
+ */
 export function useSemesterPlanner(): UseSemesterPlannerResult {
   const { token, user } = useAuth()
   const profileSemesterLabel = user?.profile.currentSemesterLabel ?? null
@@ -139,17 +74,15 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [plannedCourseIds, setPlannedCourseIds] = useState<string[]>([])
   const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
   const [planAssignments, setPlanAssignments] = useState<Record<string, string>>({})
-  const [isEditing, setIsEditing] = useState<boolean>(false)
   const [isLoadingPlanIndex, setIsLoadingPlanIndex] = useState<boolean>(false)
   const [isLoadingSemesterPlan, setIsLoadingSemesterPlan] = useState<boolean>(false)
   const [isSavingSemesterPlan, setIsSavingSemesterPlan] = useState<boolean>(false)
-  const [isDeletingSemesterPlan, setIsDeletingSemesterPlan] = useState<boolean>(false)
   const [plannerError, setPlannerError] = useState<string | null>(null)
   const currentSemesterLabel = getCurrentSemesterLabel()
   const latestSelectableSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
-  const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
-    profileSemesterLabel || currentSemesterLabel,
-  )
+  // The current semester is always the default; older plans stay reachable
+  // through the minimal switcher.
+  const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(currentSemesterLabel)
 
   const semesterOptions = useMemo(
     () =>
@@ -175,7 +108,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const normalizedActiveSemesterLabel = semesterOptions.includes(activeSemesterLabel)
     ? activeSemesterLabel
     : (semesterOptions.at(-1) ?? activeSemesterLabel)
-  const draftStorageKey = buildDraftStorageKey(user?.id, normalizedActiveSemesterLabel)
 
   useEffect(() => {
     let isActive = true
@@ -188,7 +120,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           setPlannedCourseIds([])
           setHiddenSlotIds([])
           setPlanAssignments({})
-          setIsEditing(false)
           setPlannerError(null)
           setIsLoadingPlanIndex(false)
           setIsLoadingSemesterPlan(false)
@@ -237,25 +168,15 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
           return
         }
         setSavedPlan(nextSavedPlan)
-        const draft = readDraft(buildDraftStorageKey(user?.id, normalizedActiveSemesterLabel))
-        if (draft) {
-          setPlannedCourseIds(draft.courseIds)
-          setHiddenSlotIds(draft.hiddenSlotIds)
-          setPlanAssignments(draft.courseAssignments)
-          setIsEditing(true)
-        } else {
-          setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
-          setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
-          setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
-          setIsEditing(false)
-        }
+        setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
+        setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
+        setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
       } catch (error) {
         if (isActive) {
           setSavedPlan(null)
           setPlannedCourseIds([])
           setHiddenSlotIds([])
           setPlanAssignments({})
-          setIsEditing(false)
           setPlannerError(normalizeErrorMessage(error))
         }
       } finally {
@@ -270,7 +191,7 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     return () => {
       isActive = false
     }
-  }, [normalizedActiveSemesterLabel, token, user?.id])
+  }, [normalizedActiveSemesterLabel, token])
 
   const hasUnsavedChanges = useMemo(
     () =>
@@ -287,60 +208,89 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     ],
   )
 
+  async function persistPlan(semesterLabel: string): Promise<void> {
+    if (!token) {
+      return
+    }
+
+    setIsSavingSemesterPlan(true)
+    setPlannerError(null)
+    try {
+      const nextSavedPlan = await saveSemesterPlan(token, semesterLabel, {
+        title: null,
+        notes: null,
+        courseIds: plannedCourseIds,
+        hiddenSlotIds,
+        courseAssignments: planAssignments,
+      })
+      setSavedPlan((currentSavedPlan) =>
+        // A semester switch can race the save response; only adopt the result
+        // when the response still belongs to the selected semester.
+        semesterLabel === nextSavedPlan.semesterLabel ? nextSavedPlan : currentSavedPlan,
+      )
+      const nextSavedPlans = await fetchSemesterPlans(token)
+      setSavedPlans(nextSavedPlans)
+    } catch (error) {
+      setPlannerError(normalizeErrorMessage(error))
+    } finally {
+      setIsSavingSemesterPlan(false)
+    }
+  }
+
+  const persistRef = useRef<{ hasUnsavedChanges: boolean; persist: () => void }>({
+    hasUnsavedChanges: false,
+    persist: () => {},
+  })
+  useEffect(() => {
+    persistRef.current = {
+      hasUnsavedChanges,
+      persist: () => void persistPlan(normalizedActiveSemesterLabel),
+    }
+  })
+
+  useEffect(() => {
+    if (!token || !hasUnsavedChanges || isLoadingSemesterPlan) {
+      return
+    }
+    const timeoutId = window.setTimeout(
+      () => void persistPlan(normalizedActiveSemesterLabel),
+      AUTO_SAVE_DEBOUNCE_MS,
+    )
+    return () => window.clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    hasUnsavedChanges,
+    hiddenSlotIds,
+    isLoadingSemesterPlan,
+    normalizedActiveSemesterLabel,
+    planAssignments,
+    plannedCourseIds,
+    token,
+  ])
+
+  // Flush a pending change when the planner unmounts so quick navigation
+  // never loses the last edit.
+  useEffect(
+    () => () => {
+      if (persistRef.current.hasUnsavedChanges) {
+        persistRef.current.persist()
+      }
+    },
+    [],
+  )
+
   const setActiveSemesterLabel = (semesterLabel: string): void => {
     if (semesterLabel === normalizedActiveSemesterLabel) {
       return
     }
 
+    // Save synchronously before switching so the debounce window cannot drop
+    // the last change of the previous semester.
+    if (persistRef.current.hasUnsavedChanges) {
+      persistRef.current.persist()
+    }
     setPlannerError(null)
     setActiveSemesterLabelState(semesterLabel)
-  }
-
-  useEffect(() => {
-    if (!isEditing) {
-      return
-    }
-    if (!hasUnsavedChanges) {
-      clearDraft(draftStorageKey)
-      return
-    }
-    writeDraft(draftStorageKey, {
-      courseIds: plannedCourseIds,
-      hiddenSlotIds,
-      courseAssignments: planAssignments,
-    })
-  }, [
-    draftStorageKey,
-    hasUnsavedChanges,
-    hiddenSlotIds,
-    isEditing,
-    planAssignments,
-    plannedCourseIds,
-  ])
-
-  async function refreshSavedPlans(): Promise<void> {
-    if (!token) {
-      return
-    }
-    const nextSavedPlans = await fetchSemesterPlans(token)
-    setSavedPlans(nextSavedPlans)
-  }
-
-  function startEditing(): void {
-    setPlannerError(null)
-    setPlannedCourseIds(savedPlan?.courseIds ?? [])
-    setHiddenSlotIds(savedPlan?.hiddenSlotIds ?? [])
-    setPlanAssignments(savedPlan?.courseAssignments ?? {})
-    setIsEditing(true)
-  }
-
-  function cancelEditing(): void {
-    setPlannerError(null)
-    setPlannedCourseIds(savedPlan?.courseIds ?? [])
-    setHiddenSlotIds(savedPlan?.hiddenSlotIds ?? [])
-    setPlanAssignments(savedPlan?.courseAssignments ?? {})
-    setIsEditing(false)
-    clearDraft(draftStorageKey)
   }
 
   function setAssignment(courseId: string, areaCode: string | null): void {
@@ -358,60 +308,6 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     setPlanAssignments(assignments)
   }
 
-  async function saveCurrentSemesterPlan(): Promise<void> {
-    if (!token) {
-      setPlannerError('Sign in to save a semester plan.')
-      return
-    }
-
-    setIsSavingSemesterPlan(true)
-    setPlannerError(null)
-    try {
-      const nextSavedPlan = await saveSemesterPlan(token, normalizedActiveSemesterLabel, {
-        title: null,
-        notes: null,
-        courseIds: plannedCourseIds,
-        hiddenSlotIds,
-        courseAssignments: planAssignments,
-      })
-      setSavedPlan(nextSavedPlan)
-      setPlannedCourseIds(nextSavedPlan.courseIds)
-      setHiddenSlotIds(nextSavedPlan.hiddenSlotIds)
-      setPlanAssignments(nextSavedPlan.courseAssignments)
-      setIsEditing(false)
-      clearDraft(draftStorageKey)
-      await refreshSavedPlans()
-    } catch (error) {
-      setPlannerError(normalizeErrorMessage(error))
-    } finally {
-      setIsSavingSemesterPlan(false)
-    }
-  }
-
-  async function deleteCurrentSemesterPlan(): Promise<void> {
-    if (!token) {
-      setPlannerError('Sign in to delete a semester plan.')
-      return
-    }
-
-    setIsDeletingSemesterPlan(true)
-    setPlannerError(null)
-    try {
-      await deleteSemesterPlan(token, normalizedActiveSemesterLabel)
-      setSavedPlan(null)
-      setPlannedCourseIds([])
-      setHiddenSlotIds([])
-      setPlanAssignments({})
-      setIsEditing(false)
-      clearDraft(draftStorageKey)
-      await refreshSavedPlans()
-    } catch (error) {
-      setPlannerError(normalizeErrorMessage(error))
-    } finally {
-      setIsDeletingSemesterPlan(false)
-    }
-  }
-
   return {
     activeSemesterLabel: normalizedActiveSemesterLabel,
     semesterOptions,
@@ -420,11 +316,9 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     hiddenSlotIds,
     planAssignments,
     savedPlan,
-    isEditing,
     isLoadingPlanIndex,
     isLoadingSemesterPlan,
     isSavingSemesterPlan,
-    isDeletingSemesterPlan,
     plannerError,
     hasUnsavedChanges,
     setActiveSemesterLabel,
@@ -432,9 +326,5 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
-    startEditing,
-    cancelEditing,
-    saveCurrentSemesterPlan,
-    deleteCurrentSemesterPlan,
   }
 }

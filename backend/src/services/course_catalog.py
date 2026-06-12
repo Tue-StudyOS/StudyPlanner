@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from db.d1 import fetch_all, fetch_one
+from db.d1 import D1ExecutionError, fetch_all, fetch_one
 
 CATALOG_FILTER_SQL = """
     (
@@ -33,6 +33,10 @@ ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects)\b', re.I
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.
 PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
+# Course numbers are unique and stable across ALMA periods, so they identify the
+# same course in different semesters; unit_id is the fallback for unnumbered rows.
+COURSE_KEY_SQL = "COALESCE(c.number, c.unit_id)"
+ALL_PERIODS_KEYWORD = "all"
 
 
 def _placeholders(count: int) -> str:
@@ -265,6 +269,86 @@ async def list_catalog_periods(env: Any) -> list[dict[str, Any]]:
     ]
     periods.sort(key=lambda period: _period_sort_key(period["label"]), reverse=True)
     return periods
+
+
+def _derive_term_type(period_labels: list[str]) -> str:
+    """Classify a course as a summer-term, winter-term, or both-terms offering."""
+    has_summer = False
+    has_winter = False
+    for label in period_labels:
+        match = PERIOD_LABEL_PATTERN.match(label)
+        if not match:
+            continue
+        if match.group(1).lower() == "sommer":
+            has_summer = True
+        else:
+            has_winter = True
+
+    if has_summer and has_winter:
+        return "both"
+    if has_summer:
+        return "summer"
+    if has_winter:
+        return "winter"
+    return "unknown"
+
+
+def _collect_offering_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group per-period course rows into one entry per distinct course.
+
+    Preserves the incoming row order for the result, picks the row from the
+    newest period as the representative, and collects the full offering history.
+    """
+    groups: dict[str, dict[str, Any]] = {}
+    ordered_keys: list[str] = []
+
+    for row in rows:
+        if row.get("id") is None:
+            continue
+        course_key = _safe_text(row.get("courseKey")) or str(row["id"])
+        period_label = _safe_text(row.get("periodLabel")) or ""
+        sort_key = _period_sort_key(period_label)
+
+        group = groups.get(course_key)
+        if group is None:
+            group = {
+                "courseKey": course_key,
+                "representativeId": int(row["id"]),
+                "representativeSortKey": sort_key,
+                "offeredPeriods": [],
+            }
+            groups[course_key] = group
+            ordered_keys.append(course_key)
+        elif sort_key > group["representativeSortKey"]:
+            group["representativeId"] = int(row["id"])
+            group["representativeSortKey"] = sort_key
+
+        if period_label and period_label not in group["offeredPeriods"]:
+            group["offeredPeriods"].append(period_label)
+
+    for group in groups.values():
+        group["offeredPeriods"].sort(key=_period_sort_key, reverse=True)
+        del group["representativeSortKey"]
+
+    return [groups[key] for key in ordered_keys]
+
+
+def _build_search_where(search_terms: list[str]) -> tuple[str, list[str]]:
+    clauses: list[str] = []
+    params: list[str] = []
+    for term in search_terms:
+        like_value = f"%{_escape_like_search_term(term)}%"
+        clauses.append(
+            """
+            (
+                COALESCE(c.number, '') LIKE ? ESCAPE '^'
+                OR c.title LIKE ? ESCAPE '^'
+                OR COALESCE(c.organisation, '') LIKE ? ESCAPE '^'
+            )
+            """
+        )
+        params.extend([like_value, like_value, like_value])
+    return "\n          AND ".join(clauses), params
 
 
 async def _resolve_period_id(env: Any, period_id: str | None) -> str | None:
@@ -510,12 +594,102 @@ def _build_catalog_summary(
     }
 
 
+async def _fetch_catalog_courses_by_ids(env: Any, course_ids: list[int]) -> list[dict[str, Any]]:
+    courses: list[dict[str, Any]] = []
+    for i in range(0, len(course_ids), _D1_CHUNK_SIZE):
+        chunk = course_ids[i : i + _D1_CHUNK_SIZE]
+        rows = await fetch_all(
+            env,
+            f"""
+            SELECT
+                c.id,
+                c.number,
+                {COURSE_KEY_SQL} AS courseKey,
+                c.title,
+                c.organisation,
+                c.course_type AS courseType,
+                c.offering_frequency AS offeringFrequency,
+                c.registration_period AS registrationPeriod,
+                c.short_comment AS shortComment,
+                c.semester_hours AS semesterHours,
+                c.detail_url AS detailUrl,
+                c.detail_page_url AS detailPageUrl,
+                c.period_id AS periodId,
+                {PERIOD_LABEL_SQL} AS periodLabel
+            FROM courses AS c
+            WHERE c.id IN ({_placeholders(len(chunk))})
+            """,
+            chunk,
+        )
+        courses.extend(rows)
+    return courses
+
+
+async def _list_all_catalog_courses(
+    env: Any,
+    limit: int,
+    search: str | None,
+) -> list[dict[str, Any]]:
+    """Return the deduplicated multi-period catalog with offering history."""
+    safe_limit = max(1, min(limit, 1000))
+    params: list[Any] = []
+    sql = f"""
+        SELECT
+            c.id,
+            {COURSE_KEY_SQL} AS courseKey,
+            {PERIOD_LABEL_SQL} AS periodLabel
+        FROM courses AS c
+        WHERE {CATALOG_FILTER_SQL}
+    """
+
+    normalized_search = _safe_text(search)
+    if normalized_search:
+        where_clause, where_params = _build_search_where(_build_search_terms(normalized_search))
+        sql += "\n          AND " + where_clause
+        params.extend(where_params)
+
+    sql += "\n        ORDER BY c.title ASC, c.id ASC"
+
+    rows = await fetch_all(env, sql, params)
+    groups = _collect_offering_groups(rows)[:safe_limit]
+    representative_ids = [group["representativeId"] for group in groups]
+
+    courses = await _fetch_catalog_courses_by_ids(env, representative_ids)
+    courses_by_id = {int(course["id"]): course for course in courses}
+    lecturers_by_course, groups_by_course, appointments_by_course, options_by_course = (
+        await _load_catalog_related(env, representative_ids)
+    )
+
+    summaries: list[dict[str, Any]] = []
+    for group in groups:
+        course = courses_by_id.get(group["representativeId"])
+        if course is None:
+            continue
+        course_id = int(course["id"])
+        summary = _build_catalog_summary(
+            course,
+            lecturers_by_course.get(course_id, []),
+            groups_by_course.get(course_id, []),
+            appointments_by_course.get(course_id, []),
+            options_by_course.get(course_id, []),
+        )
+        summary["offeredPeriods"] = group["offeredPeriods"]
+        summary["termType"] = _derive_term_type(group["offeredPeriods"])
+        summaries.append(summary)
+
+    return summaries
+
+
 async def list_catalog_courses(
     env: Any,
     limit: int = 100,
     search: str | None = None,
     period_id: str | None = None,
 ) -> list[dict[str, Any]]:
+    requested_period = _safe_text(period_id)
+    if requested_period and requested_period.lower() == ALL_PERIODS_KEYWORD:
+        return await _list_all_catalog_courses(env, limit=limit, search=search)
+
     safe_limit = max(1, min(limit, 500))
     # Without a period filter the multi-semester catalog would repeat every course
     # once per semester, so default to the most recent period.
@@ -617,6 +791,54 @@ async def list_catalog_courses(
     ]
 
 
+async def _load_offering_history(env: Any, course_key: str | None) -> list[str]:
+    if not course_key:
+        return []
+    rows = await fetch_all(
+        env,
+        f"""
+        SELECT {PERIOD_LABEL_SQL} AS periodLabel
+        FROM courses AS c
+        WHERE {COURSE_KEY_SQL} = ?
+        """,
+        [course_key],
+    )
+    labels = _unique_preserve_order(
+        [label for row in rows if (label := _safe_text(row.get("periodLabel")))]
+    )
+    labels.sort(key=_period_sort_key, reverse=True)
+    return labels
+
+
+async def _load_external_links(env: Any, course_number: str | None) -> list[dict[str, str]]:
+    if not course_number:
+        return []
+    try:
+        rows = await fetch_all(
+            env,
+            """
+            SELECT platform, url, label
+            FROM course_external_links
+            WHERE course_number = ?
+            ORDER BY platform ASC
+            """,
+            [course_number],
+        )
+    except D1ExecutionError:
+        # The links table ships ahead of its data; treat a missing table as empty.
+        return []
+
+    return [
+        {
+            "platform": platform,
+            "url": url,
+            "label": _safe_text(row.get("label")) or "",
+        }
+        for row in rows
+        if (platform := _safe_text(row.get("platform"))) and (url := _safe_text(row.get("url")))
+    ]
+
+
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     raw_detail = await get_course_detail(env, course_id)
     if raw_detail is None:
@@ -636,8 +858,12 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
         options_by_course.get(course_id_value, []),
     )
 
+    offered_periods = await _load_offering_history(env, summary.get("number") or None)
     summary.update(
         {
+            "offeredPeriods": offered_periods,
+            "termType": _derive_term_type(offered_periods),
+            "externalLinks": await _load_external_links(env, _safe_text(course.get("number"))),
             "description": _pick_description(summary.get("shortComment"), content_sections),
             "prerequisites": _extract_prerequisites(content_sections),
             "exams": [

@@ -341,7 +341,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogPeriods": "/api/catalog/periods",
-                        "catalogCourses": "/api/catalog/courses?limit=100&period=<periodId>",
+                        "catalogCourses": "/api/catalog/courses?limit=100&period=<periodId|all>",
                         "catalogCourseDetail": "/api/catalog/courses/<id>",
                         "regulationVersions": "/api/regulation-versions",
                         "regulationCatalog": "/api/regulation-versions/<code>/courses?limit=100",

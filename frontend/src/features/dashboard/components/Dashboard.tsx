@@ -147,7 +147,7 @@ export function Dashboard() {
         </div>
         <PersonalFeatureNotice
           title="Progress is personal"
-          description="The dashboard, category progress, and completed-course history belong to your account. Sign in to save and view your own study progress while the public catalog stays available without login."
+          description="The overview, category progress, and completed-course history belong to your account. Sign in to save and view your own study progress while the public catalog stays available without login."
         />
       </div>
     )

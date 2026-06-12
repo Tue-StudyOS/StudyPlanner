@@ -1,14 +1,12 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MoonIcon, SunIcon } from '../../layout/components/icons'
 import {
   buildSemesterOptions,
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
 } from '../../planner/utils/semesterLabels'
 import { ROUTES } from '../../routes'
-import { useTheme } from '../../theme'
 import { fetchStudyPrograms } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import type { StudyProgramOption } from '../types'
@@ -41,7 +39,6 @@ function toSelectValue(value: number | null | undefined): string {
 
 export function AccountPage() {
   const { user, isAuthenticated, isLoadingSession, login, logout, register, saveProfile, updateCredentials } = useAuth()
-  const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [mode, setMode] = useState<AuthMode>('login')
   const [identifier, setIdentifier] = useState<string>('')
@@ -53,7 +50,6 @@ export function AccountPage() {
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false)
   const [draftStudyProgramId, setDraftStudyProgramId] = useState<number | null | undefined>(undefined)
   const [draftCurrentSemesterLabel, setDraftCurrentSemesterLabel] = useState<string | undefined>(undefined)
-  const [draftPlannerLayout, setDraftPlannerLayout] = useState<'compact-grid' | 'weekly-list' | undefined>(undefined)
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false)
   const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -88,27 +84,22 @@ export function AccountPage() {
   const selectedStudyProgramId =
     draftStudyProgramId !== undefined ? draftStudyProgramId : (user?.profile.studyProgramId ?? null)
   const currentSemesterLabel = draftCurrentSemesterLabel ?? (user?.profile.currentSemesterLabel ?? '')
-  const plannerLayout = draftPlannerLayout ?? user?.profile.plannerMobileLayout ?? 'compact-grid'
   const profileDraftKey = JSON.stringify({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
-    plannerLayout,
   })
   const latestProfileDraftRef = useRef<{
     studyProgramId: number | null
     currentSemesterLabel: string
-    plannerLayout: 'compact-grid' | 'weekly-list'
   }>({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
-    plannerLayout,
   })
 
   const isProfileDirty = Boolean(
     user && (
       selectedStudyProgramId !== (user.profile.studyProgramId ?? null)
       || currentSemesterLabel !== (user.profile.currentSemesterLabel ?? '')
-      || plannerLayout !== (user.profile.plannerMobileLayout ?? 'compact-grid')
     ),
   )
 
@@ -127,21 +118,19 @@ export function AccountPage() {
         })
         setDraftStudyProgramId(undefined)
         setDraftCurrentSemesterLabel(undefined)
-        setDraftPlannerLayout(undefined)
         setProfileSaveState('idle')
         setProfileError(null)
         setLastFailedProfileKey(null)
-        navigate(ROUTES.dashboard)
+        navigate(ROUTES.planner)
         return
       }
       await login({ identifier, password })
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerLayout(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
-      navigate(ROUTES.dashboard)
+      navigate(ROUTES.planner)
     } catch (submitError) {
       setError(normalizeErrorMessage(submitError))
     } finally {
@@ -157,11 +146,10 @@ export function AccountPage() {
       await logout()
       setDraftStudyProgramId(undefined)
       setDraftCurrentSemesterLabel(undefined)
-      setDraftPlannerLayout(undefined)
       setProfileSaveState('idle')
       setProfileError(null)
       setLastFailedProfileKey(null)
-      navigate(ROUTES.dashboard)
+      navigate(ROUTES.planner)
     } catch (logoutError) {
       setError(normalizeErrorMessage(logoutError))
     } finally {
@@ -204,9 +192,8 @@ export function AccountPage() {
     latestProfileDraftRef.current = {
       studyProgramId: selectedStudyProgramId,
       currentSemesterLabel,
-      plannerLayout,
     }
-  }, [currentSemesterLabel, plannerLayout, selectedStudyProgramId])
+  }, [currentSemesterLabel, selectedStudyProgramId])
 
   useEffect(() => {
     if (profileSaveState !== 'saved') {
@@ -241,17 +228,14 @@ export function AccountPage() {
           await saveProfile({
             studyProgramId: snapshot.studyProgramId,
             currentSemesterLabel: snapshot.currentSemesterLabel.trim() || null,
-            plannerMobileLayout: snapshot.plannerLayout,
           })
           const latestSnapshot = latestProfileDraftRef.current
           if (
             latestSnapshot.studyProgramId === snapshot.studyProgramId
             && latestSnapshot.currentSemesterLabel === snapshot.currentSemesterLabel
-            && latestSnapshot.plannerLayout === snapshot.plannerLayout
           ) {
             setDraftStudyProgramId(undefined)
             setDraftCurrentSemesterLabel(undefined)
-            setDraftPlannerLayout(undefined)
           }
           setLastFailedProfileKey(null)
           setProfileError(null)
@@ -304,23 +288,13 @@ export function AccountPage() {
         </div>
       ) : null}
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
-            Account
-          </h1>
-          <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
-            Sign in to save favorites and personal study progress.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13px] text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
-        >
-          {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
+      <div className="mb-6 min-w-0">
+        <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
+          Account
+        </h1>
+        <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
+          Sign in to save interested courses and personal study progress.
+        </p>
       </div>
 
       {isLoadingSession ? (
@@ -448,22 +422,6 @@ export function AccountPage() {
                     ))}
                   </select>
                 </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Planner layout</span>
-                  <select
-                    value={plannerLayout}
-                    onChange={(event) => {
-                      setProfileError(null)
-                      setProfileSaveState('saving')
-                      setLastFailedProfileKey(null)
-                      setDraftPlannerLayout(event.target.value as 'compact-grid' | 'weekly-list')
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="compact-grid">Compact weekly grid</option>
-                    <option value="weekly-list">Weekly list view</option>
-                  </select>
-                </label>
                 {profileError ? (
                   <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[12px] text-primary">
                     {profileError}
@@ -548,7 +506,7 @@ export function AccountPage() {
           <section className="min-w-0 rounded-[10px] border border-border bg-surface px-6 py-5.5">
             <h2 className="mb-3 text-[14px] font-semibold text-fg">What You Get with an Account</h2>
             <ul className="grid gap-2 pl-5 text-[13.5px] leading-6 text-fg-mid">
-              <li className="list-disc">Persist favorite courses across devices</li>
+              <li className="list-disc">Persist interested courses across devices</li>
               <li className="list-disc">Store your study program incl. PO and your start semester</li>
               <li className="list-disc">Save completed courses and personal progress</li>
             </ul>

@@ -1,20 +1,42 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
-import {
-  buildFlexibleRegulationAreaOptions,
-  buildRelevantCourseAreaOptions,
-} from '../../../shared/utils/regulation'
+import { buildFlexibleRegulationAreaOptions } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
+import { DAY_LABELS, DAY_ORDER } from '../../planner/utils/plannerFeedback'
 import { useTranscript } from '../../transcript'
+import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
-import type { CompletedCourse, Course } from '../types'
+import type { CompletedCourse, Course, CourseTermType } from '../types'
+import { getOfferingStatus, type OfferingStatus } from '../utils/catalogOffering.ts'
+import {
+  CATALOG_SORT_LABELS,
+  sortCatalogCourses,
+  type CatalogSortOption,
+} from '../utils/catalogSorting.ts'
+import {
+  courseMatchesTimeFilter,
+  parseTimeInputToMinutes,
+  type FilterWeekday,
+} from '../utils/courseTimeFilters.ts'
+import { courseMatchesStudyAreaFilter } from '../utils/studyAreaFilter.ts'
+import { CatalogProgressHint } from './CatalogProgressHint'
 import { CourseDetailDrawer } from './CourseDetailDrawer'
 
 const PAGE_SIZE = 30
-const CATALOG_LIMIT = 500
+const CATALOG_LIMIT = 1000
+const CATALOG_LAYOUT_STORAGE_KEY = 'studyplaner.catalogLayout'
+
+type CatalogLayout = 'grid' | 'list'
+
+function readStoredLayout(): CatalogLayout {
+  if (typeof window === 'undefined') {
+    return 'grid'
+  }
+  return window.localStorage.getItem(CATALOG_LAYOUT_STORAGE_KEY) === 'list' ? 'list' : 'grid'
+}
 
 function FilterChip({
   label,
@@ -40,22 +62,39 @@ function FilterChip({
   )
 }
 
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function toggleInSelection<T>(items: T[], item: T): T[] {
   return items.includes(item) ? items.filter((i) => i !== item) : [...items, item]
 }
 
-function courseMatchesStudyAreaFilter(
-  course: Course,
-  selectedStudyAreaCodes: string[],
-  studyProgramCode: string | null | undefined,
+const TERM_FILTER_OPTIONS: Array<{ value: 'summer' | 'winter'; label: string }> = [
+  { value: 'summer', label: 'Summer term' },
+  { value: 'winter', label: 'Winter term' },
+]
+
+function courseMatchesTermFilter(
+  termType: CourseTermType | undefined,
+  selectedTerms: Array<'summer' | 'winter'>,
 ): boolean {
-  if (selectedStudyAreaCodes.length === 0) {
+  if (selectedTerms.length === 0) {
     return true
   }
-  const relevantAreaCodes = buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode).map(
-    (option) => option.code,
-  )
-  return selectedStudyAreaCodes.some((code) => relevantAreaCodes.includes(code))
+  if (termType === 'both') {
+    return true
+  }
+  return termType === 'summer' || termType === 'winter'
+    ? selectedTerms.includes(termType)
+    : false
 }
 
 export function CoursesOverview() {
@@ -63,24 +102,35 @@ export function CoursesOverview() {
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
+  const [selectedDays, setSelectedDays] = useState<FilterWeekday[]>([])
+  const [timeFrom, setTimeFrom] = useState<string>('')
+  const [timeTo, setTimeTo] = useState<string>('')
+  const [selectedTerms, setSelectedTerms] = useState<Array<'summer' | 'winter'>>([])
+  const [hideUnknownOfferings, setHideUnknownOfferings] = useState<boolean>(false)
+  const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
+  const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
+  const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
-  // Empty string means "newest semester" (the backend default), so the catalog
-  // does not refetch once the period list arrives.
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const selectedCardRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
-  const { courses, isLoading, error } = useCatalogCourses(
-    search,
-    CATALOG_LIMIT,
-    selectedPeriodId || undefined,
-  )
+  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
+
+  const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
+  const offeringStatusByCourseId = useMemo(() => {
+    const statusMap = new Map<string, OfferingStatus>()
+    for (const course of courses) {
+      statusMap.set(course.id, getOfferingStatus(course, knownPeriodLabels))
+    }
+    return statusMap
+  }, [courses, knownPeriodLabels])
 
   const completedByCourseKey = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -109,6 +159,18 @@ export function CoursesOverview() {
     return () => observer.disconnect()
   }, [courses])
 
+  // Keep the clicked card visible when the grid collapses to one column for
+  // the detail drawer, so the selected course never jumps out of view.
+  useLayoutEffect(() => {
+    if (selectedCourse) {
+      selectedCardRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [selectedCourse])
+
+  useEffect(() => {
+    window.localStorage.setItem(CATALOG_LAYOUT_STORAGE_KEY, layout)
+  }, [layout])
+
   const availableEctsValues = useMemo(
     () =>
       [...new Set(courses.map((c) => c.ects).filter((v): v is number => v !== null))].sort(
@@ -122,34 +184,89 @@ export function CoursesOverview() {
     [regulationVersion?.ruleGroups],
   )
 
+  const timeWindow = useMemo(
+    () => ({
+      startMinutes: parseTimeInputToMinutes(timeFrom),
+      endMinutes: parseTimeInputToMinutes(timeTo),
+    }),
+    [timeFrom, timeTo],
+  )
+
   const filteredCourses = useMemo(
     () =>
-      courses.filter((course) => {
-        if (selectedEctsValues.length > 0 && (!course.ects || !selectedEctsValues.includes(course.ects))) {
-          return false
-        }
-        return courseMatchesStudyAreaFilter(course, selectedStudyAreaCodes, studyProgramCode)
-      }),
-    [courses, selectedEctsValues, selectedStudyAreaCodes, studyProgramCode],
+      sortCatalogCourses(
+        courses.filter((course) => {
+          if (selectedEctsValues.length > 0 && (!course.ects || !selectedEctsValues.includes(course.ects))) {
+            return false
+          }
+          if (!courseMatchesStudyAreaFilter(course, selectedStudyAreaCodes, studyProgramCode)) {
+            return false
+          }
+          if (!courseMatchesTermFilter(course.termType, selectedTerms)) {
+            return false
+          }
+          if (!courseMatchesTimeFilter(course, selectedDays, timeWindow)) {
+            return false
+          }
+          if (hideUnknownOfferings && offeringStatusByCourseId.get(course.id) === 'unknown') {
+            return false
+          }
+          return true
+        }),
+        sortOption,
+      ),
+    [
+      courses,
+      hideUnknownOfferings,
+      offeringStatusByCourseId,
+      selectedDays,
+      selectedEctsValues,
+      selectedStudyAreaCodes,
+      selectedTerms,
+      sortOption,
+      studyProgramCode,
+      timeWindow,
+    ],
   )
 
   const visibleCourses = filteredCourses.slice(0, visibleCount)
   const hasMore = visibleCount < filteredCourses.length
-  const hasActiveFilters = selectedEctsValues.length > 0 || selectedStudyAreaCodes.length > 0
+  const activeFilterCount =
+    selectedEctsValues.length
+    + selectedStudyAreaCodes.length
+    + selectedDays.length
+    + (timeWindow.startMinutes !== null ? 1 : 0)
+    + (timeWindow.endMinutes !== null ? 1 : 0)
+    + selectedTerms.length
+    + (hideUnknownOfferings ? 1 : 0)
+  const hasActiveFilters = activeFilterCount > 0
+
+  function resetAllFilters(): void {
+    setSelectedEctsValues([])
+    setSelectedStudyAreaCodes([])
+    setSelectedDays([])
+    setTimeFrom('')
+    setTimeTo('')
+    setSelectedTerms([])
+    setHideUnknownOfferings(false)
+  }
 
   const isDrawerOpen = selectedCourse !== null
-  const gridColsClass = isDrawerOpen ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+  const gridColsClass =
+    layout === 'list' || isDrawerOpen ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
       <div className={`min-w-0 flex-1 p-4 sm:p-8 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
+      <CatalogProgressHint />
+
       <h1 className="mb-2 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">Course Catalog</h1>
-      <p className="mb-6 text-fg-mid">Browse the Informatics catalog from the database.</p>
+      <p className="mb-6 text-fg-mid">All Informatics courses across semesters.</p>
 
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
           Public browsing is enabled. You only need an account for personal features such as
-          favorites and progress.
+          interested courses and progress.
         </div>
       ) : null}
 
@@ -172,124 +289,176 @@ export function CoursesOverview() {
       ) : null}
 
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="block">
-            <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-              Search
-            </span>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by title, number, or organization"
-              className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
-            />
-          </label>
+        <label className="block">
+          <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+            Search
+          </span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by title, number, or organization"
+            className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
+          />
+        </label>
 
-          <label className="block sm:w-48">
-            <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-              Semester
-            </span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setAreFiltersOpen((open) => !open)}
+            aria-expanded={areFiltersOpen}
+            className={`rounded-md border px-3.5 py-2 text-[12.5px] font-medium transition-colors ${
+              hasActiveFilters
+                ? 'border-primary/40 bg-primary/5 text-primary'
+                : 'border-border bg-surface text-fg hover:bg-surface-hover'
+            }`}
+          >
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''} {areFiltersOpen ? '▴' : '▾'}
+          </button>
+
+          <label className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-fg-muted">Sort</span>
             <select
-              aria-label="Select catalog semester"
-              value={selectedPeriodId || periods[0]?.periodId || ''}
-              onChange={(event) => setSelectedPeriodId(event.target.value)}
-              disabled={periods.length === 0}
-              className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors focus:border-primary disabled:opacity-60"
+              aria-label="Sort courses"
+              value={sortOption}
+              onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
+              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
             >
-              {periods.length === 0 ? <option value="">Loading...</option> : null}
-              {periods.map((period) => (
-                <option key={period.periodId} value={period.periodId}>
-                  {period.label}
+              {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
           </label>
+
+          <span className="flex-1" />
+
+          <button
+            type="button"
+            onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
+            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
+            className="hidden rounded-md border border-border bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover md:block"
+          >
+            {layout === 'grid' ? 'Single column' : 'Two columns'}
+          </button>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                ECTS filter
-              </span>
-              {selectedEctsValues.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSelectedEctsValues([])}
-                  className="text-[11px] font-medium text-fg-muted hover:text-fg"
-                >
-                  Clear
-                </button>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableEctsValues.map((ectsValue) => (
-                <FilterChip
-                  key={ectsValue}
-                  label={`${ectsValue} ECTS`}
-                  active={selectedEctsValues.includes(ectsValue)}
-                  onClick={() =>
-                    setSelectedEctsValues((prev) =>
-                      toggleInSelection(prev, ectsValue).sort((a, b) => a - b),
-                    )
-                  }
-                />
-              ))}
-            </div>
-          </div>
+        {areFiltersOpen ? (
+          <div className="grid gap-4 border-t border-border-light pt-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <FilterGroup label="ECTS">
+                <div className="flex flex-wrap gap-2">
+                  {availableEctsValues.map((ectsValue) => (
+                    <FilterChip
+                      key={ectsValue}
+                      label={`${ectsValue} ECTS`}
+                      active={selectedEctsValues.includes(ectsValue)}
+                      onClick={() =>
+                        setSelectedEctsValues((prev) =>
+                          toggleInSelection(prev, ectsValue).sort((a, b) => a - b),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              </FilterGroup>
 
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Topic areas
-              </span>
-              {selectedStudyAreaCodes.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSelectedStudyAreaCodes([])}
-                  className="text-[11px] font-medium text-fg-muted hover:text-fg"
-                >
-                  Clear
-                </button>
-              ) : null}
+              <FilterGroup label="Topic areas">
+                {isLoadingRegulationVersion ? (
+                  <div className="text-[12.5px] text-fg-muted">Loading your active regulation filters...</div>
+                ) : topicAreaOptions.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {topicAreaOptions.map((option) => (
+                      <FilterChip
+                        key={option.code}
+                        label={option.code}
+                        active={selectedStudyAreaCodes.includes(option.code)}
+                        onClick={() =>
+                          setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, option.code))
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[10px] border border-dashed border-border px-4 py-3 text-[12.5px] text-fg-muted">
+                    Select a study program with an active examination regulation in Account to filter
+                    the catalog by regulation topic areas.
+                  </div>
+                )}
+              </FilterGroup>
             </div>
-            {isLoadingRegulationVersion ? (
-              <div className="text-[12.5px] text-fg-muted">Loading your active regulation filters...</div>
-            ) : topicAreaOptions.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {topicAreaOptions.map((option) => (
-                  <FilterChip
-                    key={option.code}
-                    label={option.code}
-                    active={selectedStudyAreaCodes.includes(option.code)}
-                    onClick={() =>
-                      setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, option.code))
-                    }
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <FilterGroup label="Weekdays">
+                <div className="flex flex-wrap gap-2">
+                  {DAY_ORDER.map((day) => (
+                    <FilterChip
+                      key={day}
+                      label={DAY_LABELS[day]}
+                      active={selectedDays.includes(day)}
+                      onClick={() => setSelectedDays((prev) => toggleInSelection(prev, day))}
+                    />
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup label="Time window">
+                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-fg-mid">
+                  <span>From</span>
+                  <input
+                    type="time"
+                    value={timeFrom}
+                    onChange={(event) => setTimeFrom(event.target.value)}
+                    aria-label="Earliest start time"
+                    className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
                   />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-[10px] border border-dashed border-border px-4 py-3 text-[12.5px] text-fg-muted">
-                Select a study program with an active examination regulation in Account to filter the
-                catalog by regulation topic areas.
-              </div>
-            )}
-          </div>
-        </div>
+                  <span>to</span>
+                  <input
+                    type="time"
+                    value={timeTo}
+                    onChange={(event) => setTimeTo(event.target.value)}
+                    aria-label="Latest end time"
+                    className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+              </FilterGroup>
+            </div>
 
-        {hasActiveFilters ? (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedEctsValues([])
-                setSelectedStudyAreaCodes([])
-              }}
-              className="rounded-md border border-border px-3 py-2 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover"
-            >
-              Reset all filters
-            </button>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <FilterGroup label="Term">
+                <div className="flex flex-wrap gap-2">
+                  {TERM_FILTER_OPTIONS.map((option) => (
+                    <FilterChip
+                      key={option.value}
+                      label={option.label}
+                      active={selectedTerms.includes(option.value)}
+                      onClick={() => setSelectedTerms((prev) => toggleInSelection(prev, option.value))}
+                    />
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup label="Availability">
+                <FilterChip
+                  label="Hide courses without current data"
+                  active={hideUnknownOfferings}
+                  onClick={() => setHideUnknownOfferings((value) => !value)}
+                />
+              </FilterGroup>
+            </div>
+
+            {hasActiveFilters ? (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="rounded-md border border-border px-3 py-2 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover"
+                >
+                  Reset all filters
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -318,11 +487,13 @@ export function CoursesOverview() {
             {visibleCourses.map((course) => (
               <CourseCard
                 key={course.id}
+                ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
                 course={course}
                 isFavorite={isFavorite(course.id)}
                 isActive={selectedCourse?.id === course.id}
                 isCompleted={Boolean(getCompletedFor(course))}
                 favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+                offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
                 onSelect={() => setSelectedCourse(course)}
                 onToggleFavorite={() => toggleFavorite(course.id)}
               />

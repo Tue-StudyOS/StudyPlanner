@@ -3,22 +3,70 @@ import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatur
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
-import type { Course } from '../../courses'
+import type { CompletedCourse, Course } from '../../courses'
 import { findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
 import { useFavorites } from '../../favorites'
-import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
-import { PlannerFeedback } from './PlannerFeedback'
+import { useTranscript } from '../../transcript'
 import { balanceSemesterPlan } from '../api'
-import { SemesterCompletionDialog } from './SemesterCompletionDialog'
-import { PlannerGrid } from './PlannerGrid'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
-import { buildPlannerBlocks } from '../utils/plannerFeedback'
-import { getPlannerCourseAreaOptions } from '../utils/plannerAssignments'
+import {
+  getCurrentPlannerAssignment,
+  getPlannerCourseAreaOptions,
+  getSuggestedPlannerAssignment,
+} from '../utils/plannerAssignments'
+import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
+import { formatSemesterLabelShort } from '../utils/semesterLabels'
 import {
   getPlannerFavoritesLayout,
   PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY,
 } from '../utils/favoritesLayout.ts'
-import { useTranscript } from '../../transcript'
+import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
+import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
+import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
+import { PlannerFeedback } from './PlannerFeedback'
+import { PlannerGrid } from './PlannerGrid'
+import { PlannerProgressStrip } from './PlannerProgressStrip'
+import { SemesterCompletionDialog } from './SemesterCompletionDialog'
+
+function ChevronButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: 'previous' | 'next'
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={direction === 'previous' ? 'Previous semester' : 'Next semester'}
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 ${direction === 'previous' ? '' : 'rotate-180'}`}>
+        <path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  )
+}
+
+function SaveIndicator({
+  isSaving,
+  hasUnsavedChanges,
+}: {
+  isSaving: boolean
+  hasUnsavedChanges: boolean
+}) {
+  if (isSaving) {
+    return <span className="text-[11.5px] font-medium text-fg-muted">Saving…</span>
+  }
+  if (hasUnsavedChanges) {
+    return null
+  }
+  return <span className="text-[11.5px] font-medium text-fg-muted">Saved</span>
+}
 
 export function SemesterPlanner() {
   const { isAuthenticated, token, user } = useAuth()
@@ -30,6 +78,8 @@ export function SemesterPlanner() {
   const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
   const [completionNotice, setCompletionNotice] = useState<string | null>(null)
+  const [openCourseId, setOpenCourseId] = useState<string | null>(null)
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState<boolean>(false)
   const {
     regulationVersion,
     isLoadingRegulationVersion,
@@ -42,10 +92,8 @@ export function SemesterPlanner() {
     hiddenSlotIds,
     planAssignments,
     savedPlan,
-    isEditing,
     isLoadingSemesterPlan,
     isSavingSemesterPlan,
-    isDeletingSemesterPlan,
     plannerError,
     hasUnsavedChanges,
     setActiveSemesterLabel,
@@ -53,10 +101,6 @@ export function SemesterPlanner() {
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
-    startEditing,
-    cancelEditing,
-    saveCurrentSemesterPlan,
-    deleteCurrentSemesterPlan,
   } = useSemesterPlanner()
 
   // Load the catalog of the semester being planned so the weekly grid uses that
@@ -69,26 +113,32 @@ export function SemesterPlanner() {
   )
   const { courses, isLoading, error } = useCatalogCourses('', 500, activePeriodId)
 
-  const plannerMobileLayout = user?.profile.plannerMobileLayout ?? 'weekly-list'
-  const isMobilePlanner = isSmallViewport
   const favoritesLayout = getPlannerFavoritesLayout(hasSidebarSpace)
-  const courseById = new Map(courses.map((course) => [course.id, course]))
+  const courseById = useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses])
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
-  const allPlannerBlocks = useMemo(() => buildPlannerBlocks(plannedCourses), [plannedCourses])
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
   const plannerRuleGroups = useMemo(
     () => regulationVersion?.ruleGroups ?? [],
     [regulationVersion?.ruleGroups],
   )
-  // Show every favorited course in the planner. Courses that cannot be mapped to a
-  // regulation area for the selected study program are rendered dimmed (see
-  // PlannerFavoritesPanel) instead of being hidden, so favorites never silently disappear.
+  // Show every interested course in the planner. Courses that cannot be mapped
+  // to a regulation area are rendered dimmed instead of hidden, so they never
+  // silently disappear.
   const favoriteCourses = useMemo(
     () => courses.filter((course) => favoriteIds.includes(course.id)),
     [courses, favoriteIds],
   )
+
+  const completedCourseByKey = useMemo(() => {
+    const lookup = new Map<string, CompletedCourse>()
+    completedCourses.forEach((course) => {
+      if (course.courseId && !lookup.has(course.courseId)) lookup.set(course.courseId, course)
+      if (course.courseNumber && !lookup.has(course.courseNumber)) lookup.set(course.courseNumber, course)
+    })
+    return lookup
+  }, [completedCourses])
 
   function resolveExplicitAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
@@ -125,23 +175,22 @@ export function SemesterPlanner() {
     setAssignment(courseId, null)
   }
 
-  function handleRemoveSlot(slotId: string): void {
-    const slotToRemove = allPlannerBlocks.find((block) => block.slotId === slotId)
-    if (!slotToRemove) {
+  function handleExportIcs(): void {
+    const icsContent = buildSemesterPlanIcs({
+      semesterLabel: activeSemesterLabel,
+      courses: plannedCourses,
+      hiddenSlotIds,
+    })
+    if (!icsContent) {
       return
     }
-
-    const courseSlotIds = allPlannerBlocks
-      .filter((block) => block.courseId === slotToRemove.courseId)
-      .map((block) => block.slotId)
-    const nextHiddenSlotIds = [...new Set([...hiddenSlotIds, slotId])]
-
-    if (courseSlotIds.length > 0 && courseSlotIds.every((courseSlotId) => nextHiddenSlotIds.includes(courseSlotId))) {
-      handleRemoveCourse(slotToRemove.courseId)
-      return
-    }
-
-    setHiddenSlotIds(nextHiddenSlotIds)
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `studyplanner-${activeSemesterLabel.replace(/[\s/]+/g, '-')}.ics`
+    anchor.click()
+    URL.revokeObjectURL(url)
   }
 
   async function handleAutoBalanceAssignments(): Promise<void> {
@@ -176,7 +225,7 @@ export function SemesterPlanner() {
   }
 
   useEffect(() => {
-    if (!isEditing || !user) {
+    if (!user) {
       return
     }
 
@@ -194,7 +243,6 @@ export function SemesterPlanner() {
       }
     })
   }, [
-    isEditing,
     planAssignments,
     plannedCourses,
     plannerRuleGroups,
@@ -208,7 +256,7 @@ export function SemesterPlanner() {
       <div className="min-w-0 p-4 sm:p-8">
         <div className="mb-6">
           <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
-            Semester Planner
+            Planner
           </h1>
           <p className="text-[13.5px] text-fg-muted">
             Build and save your personal weekly semester plan.
@@ -216,18 +264,43 @@ export function SemesterPlanner() {
         </div>
         <PersonalFeatureNotice
           title="Planning is account-based"
-          description="Your weekly semester plan belongs to your account. Sign in to drag favorite courses into a personal plan and save the result per semester."
+          description="Your weekly semester plan belongs to your account. Sign in to drag interested courses into a personal plan and save the result per semester."
         />
       </div>
     )
   }
 
+  const activeSemesterIndex = semesterOptions.indexOf(activeSemesterLabel)
+  const openCourse = openCourseId
+    ? courseById.get(openCourseId)
+      ?? favoriteCourses.find((course) => course.id === openCourseId)
+      ?? null
+    : null
+  const openCourseOptions = openCourse
+    ? getPlannerCourseAreaOptions(openCourse, plannerStudyProgramCode, plannerRuleGroups)
+    : []
+  const isOpenCoursePlanned = openCourse ? plannedCourseIds.includes(openCourse.id) : false
+  const openCourseAssignment = openCourse && isOpenCoursePlanned
+    ? getCurrentPlannerAssignment(openCourse, {
+        studyProgramCode: plannerStudyProgramCode,
+        regulationRuleGroups: plannerRuleGroups,
+        planAssignments,
+      })
+    : null
+  const openCourseSuggestion = openCourse
+    ? getSuggestedPlannerAssignment(openCourse, {
+        studyProgramCode: plannerStudyProgramCode,
+        regulationRuleGroups: plannerRuleGroups,
+        planAssignments,
+        plannedCourses,
+        completedCourses,
+      })
+    : null
+
   const plannerFavoritesPanel = (
     <PlannerFavoritesPanel
       favoriteCourses={favoriteCourses}
       plannedCourseIds={plannedCourseIds}
-      activeSemesterLabel={activeSemesterLabel}
-      isEditing={isEditing}
       isLoading={isLoading}
       error={error}
       studyProgramCode={plannerStudyProgramCode}
@@ -236,21 +309,69 @@ export function SemesterPlanner() {
       plannedCourses={plannedCourses}
       completedCourses={completedCourses}
       onSetAssignment={setAssignment}
-      onAddCourse={handleAddCourse}
-      onRemoveCourse={handleRemoveCourse}
+      onOpenCourse={(course) => setOpenCourseId(course.id)}
       onToggleFavorite={toggleFavorite}
     />
   )
 
   return (
     <div className="min-w-0 p-4 sm:p-8">
-      <div className="mb-6">
-        <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
-          Semester Planner
+      <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className="font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
+          Planner
         </h1>
-        <p className="text-[13.5px] text-fg-muted">
-          Plan the selected semester in a fixed weekly view.
-        </p>
+
+        <div className="flex items-center gap-1.5">
+          <ChevronButton
+            direction="previous"
+            disabled={activeSemesterIndex <= 0}
+            onClick={() => setActiveSemesterLabel(semesterOptions[activeSemesterIndex - 1])}
+          />
+          <select
+            aria-label="Select semester"
+            value={activeSemesterLabel}
+            onChange={(event) => setActiveSemesterLabel(event.target.value)}
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-fg outline-none transition-colors focus:border-primary"
+          >
+            {semesterOptions.map((semesterLabel) => (
+              <option key={semesterLabel} value={semesterLabel}>
+                {formatSemesterLabelShort(semesterLabel)}
+              </option>
+            ))}
+          </select>
+          <ChevronButton
+            direction="next"
+            disabled={activeSemesterIndex < 0 || activeSemesterIndex >= semesterOptions.length - 1}
+            onClick={() => setActiveSemesterLabel(semesterOptions[activeSemesterIndex + 1])}
+          />
+        </div>
+
+        <SaveIndicator
+          isSaving={isSavingSemesterPlan}
+          hasUnsavedChanges={hasUnsavedChanges}
+        />
+
+        <span className="flex-1" />
+
+        {isSmallViewport ? (
+          <button
+            type="button"
+            onClick={() => setIsAddDrawerOpen(true)}
+            className="rounded-md bg-primary px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
+          >
+            + Add courses
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={handleExportIcs}
+          disabled={plannedCourses.length === 0}
+          title="Download the planned semester as a calendar file (.ics)"
+          className="rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Export calendar
+        </button>
       </div>
 
       {plannerError ? (
@@ -277,11 +398,19 @@ export function SemesterPlanner() {
         </div>
       ) : null}
 
-      <div className="mt-4.5 grid min-w-0 gap-4.5">
+      <div className="grid min-w-0 gap-4.5">
+        <PlannerProgressStrip
+          plannedCourses={plannedCourses}
+          completedCourses={completedCourses}
+          studyProgramCode={plannerStudyProgramCode}
+          planAssignments={planAssignments}
+          regulationRuleGroups={plannerRuleGroups}
+        />
+
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
             favoritesLayout === 'sidebar'
-              ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_20rem] min-[1100px]:items-stretch'
+              ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_19rem] min-[1100px]:items-stretch'
               : ''
           }`}
         >
@@ -293,36 +422,24 @@ export function SemesterPlanner() {
             ) : (
               <PlannerGrid
                 plannedCourses={plannedCourses}
-                activeSemesterLabel={activeSemesterLabel}
-                semesterOptions={semesterOptions}
-                isEditing={isEditing}
-                isMobilePlanner={isMobilePlanner}
-                mobileLayout={plannerMobileLayout}
                 hiddenSlotIds={hiddenSlotIds}
-                isLoadingSemesterPlan={isLoadingSemesterPlan}
-                isSavingSemesterPlan={isSavingSemesterPlan}
-                isDeletingSemesterPlan={isDeletingSemesterPlan}
-                savedCourseCount={savedPlan?.courseCount ?? 0}
-                hasUnsavedChanges={hasUnsavedChanges}
+                isMobilePlanner={isSmallViewport}
                 canCompleteSemester={plannedCourses.length > 0}
-                onSelectSemester={setActiveSemesterLabel}
-                onStartEditing={startEditing}
-                onSave={saveCurrentSemesterPlan}
-                onCancelEditing={cancelEditing}
-                onDelete={deleteCurrentSemesterPlan}
+                activeSemesterLabel={activeSemesterLabel}
+                isLoadingSemesterPlan={isLoadingSemesterPlan}
+                onDropCourse={handleAddCourse}
+                onOpenCourse={(courseId) => setOpenCourseId(courseId)}
+                onRequestAdd={() => setIsAddDrawerOpen(true)}
                 onOpenCompletionDialog={() => {
                   clearCompletedCoursesError()
                   setCompletionNotice(null)
                   setIsCompletionDialogOpen(true)
                 }}
-                onDropCourse={handleAddCourse}
-                onRemoveSlot={handleRemoveSlot}
-                onRemoveCourse={handleRemoveCourse}
               />
             )}
           </div>
 
-          {plannerFavoritesPanel}
+          {!isSmallViewport ? plannerFavoritesPanel : null}
         </div>
 
         <PlannerFeedback
@@ -332,7 +449,6 @@ export function SemesterPlanner() {
           planAssignments={planAssignments}
           regulationRuleGroups={plannerRuleGroups}
           isLoadingRegulationVersion={isLoadingRegulationVersion}
-          isEditing={isEditing}
           isBalancing={isBalancingAssignments}
           balanceMessage={balanceMessage}
           onSetAssignments={setAssignments}
@@ -341,8 +457,38 @@ export function SemesterPlanner() {
         />
       </div>
 
+      {isSmallViewport ? (
+        <MobilePlannerFavoritesDrawer
+          isOpen={isAddDrawerOpen}
+          onClose={() => setIsAddDrawerOpen(false)}
+        >
+          {plannerFavoritesPanel}
+        </MobilePlannerFavoritesDrawer>
+      ) : null}
 
-      {!isEditing && isCompletionDialogOpen ? (
+      {openCourse ? (
+        <PlannerCourseDetailModal
+          course={openCourse}
+          isPlanned={isOpenCoursePlanned}
+          completedCourse={
+            completedCourseByKey.get(openCourse.id)
+            ?? completedCourseByKey.get(openCourse.number)
+            ?? null
+          }
+          areaOptions={openCourseOptions}
+          assignedAreaCode={openCourseAssignment}
+          suggestedAreaCode={openCourseSuggestion}
+          onAdd={(courseId, areaCode) => {
+            handleAddCourse(courseId, areaCode)
+            setIsAddDrawerOpen(false)
+          }}
+          onRemove={handleRemoveCourse}
+          onSetAssignment={setAssignment}
+          onClose={() => setOpenCourseId(null)}
+        />
+      ) : null}
+
+      {isCompletionDialogOpen ? (
         <SemesterCompletionDialog
           semesterLabel={activeSemesterLabel}
           plannedCourses={plannedCourses}
