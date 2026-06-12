@@ -147,10 +147,12 @@ export function ManualCompletedCourseForm({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-[10px] border border-border bg-surface px-6 py-5.5">
+    // The form only scrolls internally beside the upload card on large
+    // screens; on phones it grows naturally with the page.
+    <div className="flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 lg:h-full lg:min-h-0">
       <div className="text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
 
-      <div className="mt-4 grid min-h-0 flex-1 content-start gap-3.5 overflow-y-auto">
+      <div className="mt-4 grid content-start gap-3.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <CatalogCoursePicker
           selectedCourse={selectedCourse}
           studyProgramCode={studyProgramCode}
