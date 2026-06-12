@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ROUTES } from '../../routes'
-import { TOUR_STEPS } from '../steps'
+import { useTranslation } from '../../i18n'
+import { buildTourSteps } from '../steps'
+import {
+  buildSpotlightFrameStyle,
+  buildSpotlightHaloStyle,
+  type SpotlightRect,
+} from '../utils/spotlight.ts'
 
 const TARGET_SEARCH_TIMEOUT_MS = 2500
 const OPTIONAL_TARGET_SEARCH_TIMEOUT_MS = 1500
@@ -12,6 +17,7 @@ const TOOLTIP_MAX_WIDTH = 360
 // always sit in the same bottom zone.
 const TARGET_TOP_OFFSET_PX = 110
 const CARD_ZONE_HEIGHT_PX = 250
+const ESTIMATED_CARD_HEIGHT_PX = 220
 
 function findScrollParent(element: Element): Element {
   let parent = element.parentElement
@@ -34,29 +40,25 @@ function scrollTargetIntoPosition(element: Element): void {
   scrollParent.scrollTop += delta
 }
 
-interface SpotlightRect {
-  top: number
-  left: number
-  width: number
-  height: number
-}
-
 function TourCard({
   stepIndex,
+  steps,
   onBack,
   onNext,
   onClose,
   className,
 }: {
   stepIndex: number
+  steps: ReturnType<typeof buildTourSteps>
   onBack: () => void
   onNext: () => void
   onClose: () => void
   className?: string
 }) {
-  const step = TOUR_STEPS[stepIndex]
+  const { t } = useTranslation()
+  const step = steps[stepIndex]
   const isFirstStep = stepIndex === 0
-  const isLastStep = stepIndex === TOUR_STEPS.length - 1
+  const isLastStep = stepIndex === steps.length - 1
 
   return (
     <div
@@ -69,17 +71,17 @@ function TourCard({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close tour"
+          aria-label={t('common.close')}
           className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
         >
-          Skip
+          {t('common.skip')}
         </button>
       </div>
       <p className="mt-1.5 text-[13px] leading-6 text-fg-mid">{step.body}</p>
 
       <div className="mt-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1" aria-hidden="true">
-          {TOUR_STEPS.map((dotStep, index) => (
+          {steps.map((dotStep, index) => (
             <span
               key={dotStep.id}
               className={`h-1 rounded-full transition-all ${
@@ -95,7 +97,7 @@ function TourCard({
               onClick={onBack}
               className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
             >
-              Back
+              {t('common.back')}
             </button>
           ) : null}
           <button
@@ -103,7 +105,7 @@ function TourCard({
             onClick={onNext}
             className="rounded-md bg-primary px-3.5 py-1.5 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
           >
-            {isLastStep ? 'Start in the catalog' : 'Next'}
+            {isLastStep ? t('common.complete') : t('common.next')}
           </button>
         </div>
       </div>
@@ -119,11 +121,13 @@ function TourCard({
 export function TourOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
+  const steps = buildTourSteps(t)
   const [stepIndex, setStepIndex] = useState<number>(0)
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null)
   const targetElementRef = useRef<Element | null>(null)
-  const step = TOUR_STEPS[stepIndex]
-  const isLastStep = stepIndex === TOUR_STEPS.length - 1
+  const step = steps[stepIndex]
+  const isLastStep = stepIndex === steps.length - 1
 
   useEffect(() => {
     if (step.route && location.pathname !== step.route) {
@@ -190,10 +194,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         window.setTimeout(locateTarget, TARGET_POLL_INTERVAL_MS)
         return
       }
-      // Data-dependent example steps vanish silently when no example exists.
-      if (step.optional) {
-        setStepIndex((index) => Math.min(index + 1, TOUR_STEPS.length - 1))
-      }
+      targetElementRef.current = null
     }
     locateTarget()
 
@@ -213,18 +214,15 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
   function finishTour(): void {
     onClose()
-    navigate(ROUTES.catalog)
   }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') onClose()
-      if (event.key === 'ArrowRight' && !isLastStep) setStepIndex((index) => index + 1)
-      if (event.key === 'ArrowLeft' && stepIndex > 0) setStepIndex((index) => index - 1)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isLastStep, onClose, stepIndex])
+  }, [onClose])
 
   const goBack = (): void => setStepIndex((index) => Math.max(0, index - 1))
   const goNext = (): void => {
@@ -232,18 +230,23 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
       finishTour()
       return
     }
-    setStepIndex((index) => index + 1)
+    setStepIndex((index) => Math.min(index + 1, steps.length - 1))
   }
 
-  // The card lives in a fixed bottom zone so it stays in the same spot across
-  // steps; only when the spotlight reaches into that zone does it move to the
-  // top instead. Targets are scrolled near the top, so bottom usually wins.
+  // Keep the card centered by default. Move it only when the current spotlight
+  // would be hidden by the centered card.
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
   const spotlightBottom = spotlight ? spotlight.top + spotlight.height : 0
-  const cardAtBottom = !spotlight || spotlightBottom < viewportHeight - CARD_ZONE_HEIGHT_PX
-  const cardZoneClassName = cardAtBottom
-    ? 'absolute inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] flex justify-center px-4'
-    : 'absolute inset-x-0 top-5 flex justify-center px-4'
+  const centeredCardTop = (viewportHeight - ESTIMATED_CARD_HEIGHT_PX) / 2
+  const centeredCardBottom = centeredCardTop + ESTIMATED_CARD_HEIGHT_PX
+  const centeredCardOverlapsSpotlight = Boolean(
+    spotlight && spotlight.top < centeredCardBottom && spotlightBottom > centeredCardTop,
+  )
+  const cardZoneClassName = !centeredCardOverlapsSpotlight
+    ? 'absolute inset-0 flex items-center justify-center px-4'
+    : spotlightBottom < viewportHeight - CARD_ZONE_HEIGHT_PX
+      ? 'absolute inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] flex justify-center px-4'
+      : 'absolute inset-x-0 top-5 flex justify-center px-4'
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -251,27 +254,29 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
       <div className="absolute inset-0" />
 
       {spotlight ? (
-        <div
-          className="pointer-events-none absolute rounded-[12px] border-2 border-white/75"
-          style={{
-            top: `${spotlight.top}px`,
-            left: `${spotlight.left}px`,
-            width: `${spotlight.width}px`,
-            height: `${spotlight.height}px`,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.55)',
-          }}
-        />
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute rounded-[18px] border border-primary/70 opacity-90"
+            style={buildSpotlightHaloStyle(spotlight)}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute rounded-[14px] border-2 border-white/90 bg-white/5"
+            style={buildSpotlightFrameStyle(spotlight)}
+          />
+        </>
       ) : (
         <div className="absolute inset-0 bg-black/55" />
       )}
 
       {spotlight ? (
         <div className={`pointer-events-none ${cardZoneClassName}`}>
-          <TourCard stepIndex={stepIndex} onBack={goBack} onNext={goNext} onClose={onClose} />
+          <TourCard stepIndex={stepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={onClose} />
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
-          <TourCard stepIndex={stepIndex} onBack={goBack} onNext={goNext} onClose={onClose} />
+          <TourCard stepIndex={stepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={onClose} />
         </div>
       )}
     </div>

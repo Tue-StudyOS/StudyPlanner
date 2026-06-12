@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './features/auth'
+import { AuthProvider, StudySetupGate } from './features/auth'
 import { ThemeProvider } from './features/theme'
 import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
@@ -41,6 +41,7 @@ function App() {
           <TranscriptProvider>
             <BrowserRouter>
               <OnboardingProvider>
+                <StudySetupGate />
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>

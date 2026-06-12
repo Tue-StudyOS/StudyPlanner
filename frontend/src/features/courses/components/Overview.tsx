@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { CourseCard } from '../../../shared/components/CourseCard'
+import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { buildFlexibleRegulationAreaOptions } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
@@ -144,6 +145,7 @@ export function CoursesOverview() {
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
+  const { t } = useTranslation()
   const sentinelRef = useRef<HTMLDivElement>(null)
   const selectedCardRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
@@ -322,13 +324,12 @@ export function CoursesOverview() {
           the cap applies to both the one- and two-column layouts. */}
       <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
 
-      <h1 className="mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg">Course Catalog</h1>
-      <p className="mb-6 text-fg-mid">All Informatics courses across semesters.</p>
+      <h1 className="mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg">{t('catalog.title')}</h1>
+      <p className="mb-6 text-fg-mid">{t('catalog.subtitle')}</p>
 
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          Public browsing is enabled. You only need an account for personal features such as
-          interested courses and progress.
+          {t('catalog.publicNotice')}
         </div>
       ) : null}
 
@@ -353,13 +354,13 @@ export function CoursesOverview() {
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
         <label className="block" data-tour="catalog-search">
           <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            Search
+            {t('catalog.search')}
           </span>
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by title, number, or organization"
+            placeholder={t('catalog.searchPlaceholder')}
             className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[13.5px] text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-primary"
           />
         </label>
@@ -375,11 +376,11 @@ export function CoursesOverview() {
                 : 'border-border bg-surface text-fg hover:bg-surface-hover'
             }`}
           >
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''} {areFiltersOpen ? '▴' : '▾'}
+            {t('catalog.filters')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''} {areFiltersOpen ? '▴' : '▾'}
           </button>
 
           <label className="flex items-center gap-2">
-            <span className="text-[12px] font-semibold text-fg-muted">Sort</span>
+            <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
               aria-label="Sort courses"
               value={sortOption}
@@ -536,17 +537,17 @@ export function CoursesOverview() {
 
       {isLoading ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          Loading courses from the database...
+          {t('catalog.loading')}
         </div>
       ) : error ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          Failed to load the catalog. {error}
+          {t('catalog.failed')} {error}
         </div>
       ) : filteredCourses.length === 0 ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {hasActiveFilters
-            ? 'No courses match the current search and filter selection.'
-            : 'No courses match the current search.'}
+            ? t('catalog.noFilterResults')
+            : t('catalog.noResults')}
         </div>
       ) : (
         <>
@@ -554,11 +555,11 @@ export function CoursesOverview() {
             Showing {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''}
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
-          <div className={`grid gap-3.5 ${gridColsClass}`}>
+          <div className={`grid items-stretch gap-3.5 ${gridColsClass}`}>
             {visibleCourses.map((course, index) => (
               <div
                 key={course.id}
-                className="min-w-0"
+                className="min-w-0 h-full"
                 data-tour={
                   index === 0
                     ? 'catalog-card'
@@ -585,11 +586,11 @@ export function CoursesOverview() {
           </div>
           {hasMore ? (
             <div ref={sentinelRef} className="mt-6 text-center text-[13px] text-fg-muted">
-              Loading more courses...
+              {t('catalog.loadingMore')}
             </div>
           ) : filteredCourses.length > PAGE_SIZE ? (
             <div className="mt-6 text-center text-[13px] text-fg-muted">
-              All {filteredCourses.length} matching courses shown.
+              {t('catalog.allShown', { count: filteredCourses.length })}
             </div>
           ) : null}
         </>

@@ -10,7 +10,7 @@ from typing import Any
 from db.d1 import execute, fetch_one
 from env_config import get_env_value
 from http_utils import get_request_header
-from services.user_data import ensure_user_progress, ensure_user_state, now_unix
+from services.user_data import dumps_json, ensure_user_progress, ensure_user_state, now_unix, parse_json_object
 
 PASSWORD_PBKDF2_ITERATIONS = 310_000
 DEFAULT_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
@@ -19,6 +19,7 @@ LOGIN_IDENTIFIER_MAX_LENGTH = 255
 SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
 SUPPORTED_REGULATION_PO_VERSION = '2021'
 ALLOWED_PLANNER_MOBILE_LAYOUTS = {'compact-grid', 'weekly-list'}
+ALLOWED_APP_LANGUAGES = {'en', 'de'}
 
 
 class AuthenticationError(ValueError):
@@ -50,6 +51,20 @@ def _safe_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _validate_app_language(value: Any) -> str | None:
+    language = _safe_text(value)
+    if language is None:
+        return None
+    normalized_language = language.lower()
+    if normalized_language not in ALLOWED_APP_LANGUAGES:
+        raise ProfileUpdateError('appLanguage must be en or de.')
+    return normalized_language
+
+
+def _bool_setting(value: Any) -> bool:
+    return value is True or value == 1 or value == 'true'
 
 
 def _auth_token_ttl_seconds(env: Any) -> int:
@@ -355,6 +370,7 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
             er.name AS regulationName,
             us.planner_mobile_mode AS plannerMobileMode,
             us.planner_mobile_layout AS plannerMobileLayout,
+            us.settings_json AS settingsJson,
             sp.total_ects AS studyProgramTotalEcts
         FROM user_auth AS ua
         LEFT JOIN user_state AS us ON us.username = ua.username
@@ -369,6 +385,8 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
         return None
 
     row_username = str(row['username'])
+    settings = parse_json_object(row.get('settingsJson'))
+    app_language = settings.get('appLanguage') if settings.get('appLanguage') in ALLOWED_APP_LANGUAGES else None
     return {
         'id': row_username,
         'username': row_username,
@@ -386,6 +404,8 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
             'regulationCode': row.get('regulationCode'),
             'regulationName': row.get('regulationName'),
             'plannerMobileLayout': row.get('plannerMobileLayout') or 'compact-grid',
+            'appLanguage': app_language,
+            'onboardingTourCompleted': _bool_setting(settings.get('onboardingTourCompleted')),
         },
     }
 
@@ -435,6 +455,10 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
         reg_regulation_version_id = await _get_default_regulation_version_id(env, reg_study_program_id)
 
     reg_semester_label = _safe_text(payload.get('currentSemesterLabel')) if 'currentSemesterLabel' in payload else None
+    reg_app_language = _validate_app_language(payload.get('appLanguage')) if 'appLanguage' in payload else None
+    initial_settings: dict[str, Any] = {}
+    if reg_app_language:
+        initial_settings['appLanguage'] = reg_app_language
 
     await execute(
         env,
@@ -445,9 +469,10 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
             study_program_id,
             regulation_version_id,
             current_semester_label,
+            settings_json,
             created_at_unix,
             updated_at_unix
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             username,
@@ -455,6 +480,7 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
             reg_study_program_id,
             reg_regulation_version_id,
             reg_semester_label,
+            dumps_json(initial_settings),
             current_unix,
             current_unix,
         ],
@@ -656,7 +682,8 @@ async def update_current_user_profile(
             regulation_version_id AS regulationVersionId,
             current_semester_label AS currentSemesterLabel,
             planner_mobile_mode AS plannerMobileMode,
-            planner_mobile_layout AS plannerMobileLayout
+            planner_mobile_layout AS plannerMobileLayout,
+            settings_json AS settingsJson
         FROM user_state
         WHERE username = ?
         LIMIT 1
@@ -717,6 +744,16 @@ async def update_current_user_profile(
     if planner_mobile_layout not in ALLOWED_PLANNER_MOBILE_LAYOUTS:
         raise ProfileUpdateError('plannerMobileLayout must be compact-grid or weekly-list.')
 
+    settings = parse_json_object(current_profile_row.get('settingsJson') if current_profile_row else None)
+    if 'appLanguage' in payload:
+        next_app_language = _validate_app_language(payload.get('appLanguage'))
+        if next_app_language is None:
+            settings.pop('appLanguage', None)
+        else:
+            settings['appLanguage'] = next_app_language
+    if 'onboardingTourCompleted' in payload:
+        settings['onboardingTourCompleted'] = bool(payload.get('onboardingTourCompleted'))
+
     current_unix = now_unix()
     await execute(
         env,
@@ -728,6 +765,7 @@ async def update_current_user_profile(
             current_semester_label = ?,
             planner_mobile_mode = ?,
             planner_mobile_layout = ?,
+            settings_json = ?,
             updated_at_unix = ?
         WHERE username = ?
         """,
@@ -737,6 +775,7 @@ async def update_current_user_profile(
             current_semester_label,
             planner_mobile_mode,
             planner_mobile_layout,
+            dumps_json(settings),
             current_unix,
             username,
         ],

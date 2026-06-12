@@ -1,15 +1,17 @@
+import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
 import { useAuth } from '../../auth'
 import type { MasterCat } from '../../courses'
+import { useTranslation } from '../../i18n'
+import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
+import { useProgressSnapshot } from '../hooks/useProgressSnapshot'
 import { MASTER_CATEGORY_META } from '../masterCategoryMeta'
 import type { CategoryProgress as CategoryProgressItem, ProgressSnapshot, ThesisProgress } from '../types'
-import { useProgressSnapshot } from '../hooks/useProgressSnapshot'
 import { CategoryProgress } from './CategoryProgress'
 import { IntermediateExamNotice } from './IntermediateExamNotice'
 import { RegulationProgress } from './RegulationProgress'
 import { SpecializationCircle } from './SpecializationCircle'
-import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
 
 const CORE_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO']
 const ELECTIVE_CATEGORIES: MasterCat[] = ['BASIS']
@@ -46,21 +48,22 @@ function toCategoryProgress(snapshot: ProgressSnapshot): {
 
 function AuthenticatedDashboard() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const { progressSnapshot, isLoadingProgress, progressError } = useProgressSnapshot()
 
   if (isLoadingProgress || !progressSnapshot) {
     return (
-      <div className="p-4 sm:p-8">
+      <PageShell>
         <div className="mb-6">
           <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-            Study Overview
+            {t('progress.title')}
           </h1>
-          <p className="text-[13.5px] text-fg-muted">Loading your persisted study progress...</p>
+          <p className="text-[13.5px] text-fg-muted">{t('progress.loadingSubtitle')}</p>
         </div>
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          {progressError ? `Failed to load progress data. ${progressError}` : 'Loading progress data...'}
+          {progressError ? `${t('progress.failed')} ${progressError}` : t('progress.loading')}
         </div>
-      </div>
+      </PageShell>
     )
   }
 
@@ -74,17 +77,17 @@ function AuthenticatedDashboard() {
 
   const stats = [
     {
-      label: 'Total ECTS',
+      label: t('progress.totalEcts'),
       value: String(progressSnapshot.summary.totalEcts),
       sub: `/ ${progressSnapshot.summary.requiredEcts} ECTS`,
     },
     {
-      label: 'Progress',
+      label: t('progress.progress'),
       value: `${progressSnapshot.summary.progressPercentage} %`,
-      sub: 'of degree',
+      sub: t('progress.ofDegree'),
     },
     {
-      label: 'Average grade',
+      label: t('progress.averageGrade'),
       value:
         progressSnapshot.summary.averageGrade !== null
           ? progressSnapshot.summary.averageGrade.toFixed(2)
@@ -93,10 +96,10 @@ function AuthenticatedDashboard() {
   ]
 
   return (
-    <div className="p-4 sm:p-8">
+    <PageShell>
       <div className="mb-6" data-tour="overview-page">
         <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-          Study Overview
+          {t('progress.title')}
         </h1>
         <p className="text-[13.5px] text-fg-muted">{subtitle}</p>
       </div>
@@ -122,34 +125,30 @@ function AuthenticatedDashboard() {
         ) : (
           <CategoryProgress core={core} electives={electives} thesis={thesis} />
         )}
-        <SpecializationCircle
-          categories={progressSnapshot.visualizationCategories}
-        />
+        <SpecializationCircle categories={progressSnapshot.visualizationCategories} />
       </div>
-
-    </div>
+    </PageShell>
   )
 }
 
 export function Dashboard() {
   const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
 
   if (!isAuthenticated) {
     return (
-      <div className="p-4 sm:p-8">
+      <PageShell>
         <div className="mb-6">
           <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-            Study Overview
+            {t('progress.title')}
           </h1>
-          <p className="text-[13.5px] text-fg-muted">
-            Your personal progress becomes available after you sign in.
-          </p>
+          <p className="text-[13.5px] text-fg-muted">{t('progress.guestSubtitle')}</p>
         </div>
         <PersonalFeatureNotice
-          title="Progress is personal"
-          description="The overview, category progress, and completed-course history belong to your account. Sign in to save and view your own study progress while the public catalog stays available without login."
+          title={t('progress.guestTitle')}
+          description={t('progress.guestDescription')}
         />
-      </div>
+      </PageShell>
     )
   }
 

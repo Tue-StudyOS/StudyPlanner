@@ -1,8 +1,10 @@
 import type { PlannerBlock } from './plannerFeedback.ts'
 
 export const START_HOUR = 8
-export const END_HOUR = 20
+export const END_HOUR = 18
 export const MINUTES_PER_HOUR = 60
+export const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
+export const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
 export const PIXELS_PER_HOUR = 56
 export const MAX_VISIBLE_OVERLAP_COLUMNS = 3
 
@@ -22,6 +24,18 @@ export interface OverflowIndicator {
 export interface PlannerDayLayout {
   visibleBlocks: PositionedPlannerBlock[]
   overflowIndicators: OverflowIndicator[]
+}
+
+export function clampPlannerTimeRange(
+  startMinutes: number,
+  endMinutes: number,
+): { startMinutes: number; endMinutes: number } | null {
+  const clampedStartMinutes = Math.max(startMinutes, PLANNER_START_MINUTES)
+  const clampedEndMinutes = Math.min(endMinutes, PLANNER_END_MINUTES)
+  if (clampedEndMinutes <= clampedStartMinutes) {
+    return null
+  }
+  return { startMinutes: clampedStartMinutes, endMinutes: clampedEndMinutes }
 }
 
 // Greedy interval-graph coloring per overlap cluster: blocks that overlap in

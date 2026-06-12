@@ -1,5 +1,6 @@
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
+import { clampPlannerTimeRange } from './plannerDayLayout.ts'
 
 export const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
@@ -137,14 +138,18 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
       if (!normalizedDay || !timeRange) {
         return
       }
+      const visibleTimeRange = clampPlannerTimeRange(timeRange.startMinutes, timeRange.endMinutes)
+      if (!visibleTimeRange) {
+        return
+      }
       blocks.push({
         blockId: `${course.id}-${index}`,
         slotId: `${course.id}:${index}`,
         courseId: course.id,
         courseTitle: cleanCourseTitle(course.title, course.number),
         day: normalizedDay,
-        startMinutes: timeRange.startMinutes,
-        endMinutes: timeRange.endMinutes,
+        startMinutes: visibleTimeRange.startMinutes,
+        endMinutes: visibleTimeRange.endMinutes,
         label: slot.time,
         room: slot.room,
         slotType: slot.type !== 'Course' ? slot.type : '',

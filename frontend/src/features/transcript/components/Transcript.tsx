@@ -1,9 +1,11 @@
 import type { ChangeEvent, DragEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
+import { useTranslation } from '../../i18n'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import type { CompletedCourse } from '../../courses'
 import {
@@ -36,11 +38,15 @@ import { TranscriptUploadCard } from './TranscriptUploadCard'
 
 const MAX_TRANSCRIPT_FILE_SIZE_BYTES = 10 * 1024 * 1024
 const CATALOG_LIMIT = 1000
-const IMPORT_CANDIDATES_SESSION_KEY = 'transcript-import-candidates'
+const IMPORT_CANDIDATES_SESSION_CACHE_VERSION = 'v2'
 
-function restoreImportCandidates(): TranscriptImportCandidate[] {
+function buildImportCandidatesSessionKey(username: string | null | undefined): string {
+  return `transcript-import-candidates.${IMPORT_CANDIDATES_SESSION_CACHE_VERSION}.${username ?? 'anonymous'}`
+}
+
+function restoreImportCandidates(username: string | null | undefined): TranscriptImportCandidate[] {
   try {
-    const raw = sessionStorage.getItem(IMPORT_CANDIDATES_SESSION_KEY)
+    const raw = sessionStorage.getItem(buildImportCandidatesSessionKey(username))
     return raw ? (JSON.parse(raw) as TranscriptImportCandidate[]) : []
   } catch {
     return []
@@ -53,7 +59,9 @@ function isPdfFile(file: File): boolean {
 
 function AuthenticatedTranscript() {
   const { user, token } = useAuth()
-  const restoredImportCandidates = useMemo<TranscriptImportCandidate[]>(() => restoreImportCandidates(), [])
+  const { t } = useTranslation()
+  const importCandidatesSessionKey = useMemo(() => buildImportCandidatesSessionKey(user?.username), [user?.username])
+  const restoredImportCandidates = useMemo<TranscriptImportCandidate[]>(() => restoreImportCandidates(user?.username), [user?.username])
   const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoredImportCandidates)
   const [persistedIssues, setPersistedIssues] = useState<SavedTranscriptIssue[]>([])
   const [importPhase, setImportPhase] = useState<TranscriptImportPhase>(() =>
@@ -104,9 +112,9 @@ function AuthenticatedTranscript() {
   )
 
   const stats = [
-    { label: 'Progress', value: `${progress} %` },
-    { label: 'ECTS Earned', value: `${totalEcts} / ${requiredEcts}` },
-    { label: 'Average grade', value: averageGrade !== null ? averageGrade.toFixed(2) : '–' },
+    { label: t('transcript.progress'), value: `${progress} %` },
+    { label: t('transcript.ectsEarned'), value: `${totalEcts} / ${requiredEcts}` },
+    { label: t('transcript.averageGrade'), value: averageGrade !== null ? averageGrade.toFixed(2) : '–' },
   ]
 
   useEffect(() => {
@@ -160,11 +168,11 @@ function AuthenticatedTranscript() {
 
   useEffect(() => {
     if (importCandidates.length > 0) {
-      sessionStorage.setItem(IMPORT_CANDIDATES_SESSION_KEY, JSON.stringify(importCandidates))
+      sessionStorage.setItem(importCandidatesSessionKey, JSON.stringify(importCandidates))
     } else {
-      sessionStorage.removeItem(IMPORT_CANDIDATES_SESSION_KEY)
+      sessionStorage.removeItem(importCandidatesSessionKey)
     }
-  }, [importCandidates])
+  }, [importCandidates, importCandidatesSessionKey])
 
   const persistTranscriptIssues = useCallback(async (nextIssues: SavedTranscriptIssue[]): Promise<boolean> => {
     if (!token) {
@@ -500,6 +508,7 @@ function AuthenticatedTranscript() {
             studyProgramCode={user?.profile.studyProgramCode}
             regulationVersionCode={user?.profile.regulationVersionCode}
             regulationRuleGroups={regulationRuleGroups}
+            isLoadingRegulationVersion={isLoadingRegulationVersion}
             isSaving={isSavingCompletedCourses}
             onSave={handleManualCourseAdd}
           />
@@ -579,12 +588,13 @@ function AuthenticatedTranscript() {
 
 export function Transcript() {
   const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
 
   return (
-    <div className="overflow-x-hidden p-4 sm:p-8">
+    <PageShell>
       <div className="mb-6" data-tour="transcript-page">
         <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
-          Upload Transcript
+          {t('transcript.title')}
         </h1>
       </div>
 
@@ -592,10 +602,10 @@ export function Transcript() {
         <AuthenticatedTranscript />
       ) : (
         <PersonalFeatureNotice
-          title="Transcript and progress need your account"
-          description="Your transcript, completed courses, and grade data are private. Sign in to upload or manage them while the public catalog remains accessible without login."
+          title={t('transcript.guestTitle')}
+          description={t('transcript.guestDescription')}
         />
       )}
-    </div>
+    </PageShell>
   )
 }

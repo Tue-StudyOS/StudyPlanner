@@ -1,16 +1,17 @@
 import type { ComponentType } from 'react'
-import { CatalogIcon, DashboardIcon, PlannerIcon, TranscriptIcon } from './components/icons'
+import type { TranslationKey } from '../i18n'
 import { ROUTES, type RoutePath } from '../routes'
+import { CatalogIcon, DashboardIcon, PlannerIcon, TranscriptIcon } from './components/icons'
 
 export interface NavEntry {
   path: RoutePath
-  label: string
+  labelKey: TranslationKey
   Icon: ComponentType<{ filled?: boolean }>
 }
 
 export const NAV: NavEntry[] = [
-  { path: ROUTES.planner, label: 'Planner', Icon: PlannerIcon },
-  { path: ROUTES.catalog, label: 'Catalog', Icon: CatalogIcon },
-  { path: ROUTES.overview, label: 'Overview', Icon: DashboardIcon },
-  { path: ROUTES.transcript, label: 'Transcript', Icon: TranscriptIcon },
+  { path: ROUTES.planner, labelKey: 'nav.planner', Icon: PlannerIcon },
+  { path: ROUTES.catalog, labelKey: 'nav.catalog', Icon: CatalogIcon },
+  { path: ROUTES.overview, labelKey: 'nav.progress', Icon: DashboardIcon },
+  { path: ROUTES.transcript, labelKey: 'nav.transcript', Icon: TranscriptIcon },
 ]

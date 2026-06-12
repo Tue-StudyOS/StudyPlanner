@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { useAuth } from '../../auth'
+import { isStudySetupComplete } from '../../auth/utils/studySetup.ts'
 import { OnboardingContext } from '../OnboardingContext'
 import { TourOverlay } from './TourOverlay'
 
@@ -8,30 +9,42 @@ interface OnboardingProviderProps {
   children: ReactNode
 }
 
-function seenStorageKey(userId: string): string {
-  return `studyplanner.onboarding.seen.${userId}`
-}
-
 export function OnboardingProvider({ children }: OnboardingProviderProps): JSX.Element {
-  const { user } = useAuth()
+  const { user, saveProfile } = useAuth()
   const [isOpen, setIsOpen] = useState<boolean>(false)
+  const autoOpenedUserIdRef = useRef<string | null>(null)
 
-  // Auto-open the guide once per user on their first login, then remember it so
-  // it never reappears automatically. Reopening stays available via the ? icon.
-  // The user arrives asynchronously from the auth session, so syncing to it in an
-  // effect is the intended pattern here; the localStorage guard keeps it idempotent.
+  // Auto-open the guide once per StudyPlanner user, but only after the required
+  // language/PO setup is complete. Completion is stored in the user settings so
+  // it does not restart on another browser.
   useEffect(() => {
-    if (!user) return
-    const key = seenStorageKey(user.id)
-    if (localStorage.getItem(key) !== 'true') {
-      localStorage.setItem(key, 'true')
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync to async auth state
-      setIsOpen(true)
+    if (!user || !isStudySetupComplete(user.profile) || user.profile.onboardingTourCompleted) {
+      return
     }
+    if (autoOpenedUserIdRef.current === user.id) {
+      return
+    }
+    autoOpenedUserIdRef.current = user.id
+    setIsOpen(true)
   }, [user])
 
+  const markCompleted = useCallback((): void => {
+    if (!user || user.profile.onboardingTourCompleted) {
+      return
+    }
+    void saveProfile({
+      studyProgramId: user.profile.studyProgramId,
+      currentSemesterLabel: user.profile.currentSemesterLabel,
+      appLanguage: user.profile.appLanguage,
+      onboardingTourCompleted: true,
+    })
+  }, [saveProfile, user])
+
   const open = useCallback((): void => setIsOpen(true), [])
-  const close = useCallback((): void => setIsOpen(false), [])
+  const close = useCallback((): void => {
+    setIsOpen(false)
+    markCompleted()
+  }, [markCompleted])
 
   return (
     <OnboardingContext.Provider value={{ isOpen, open, close }}>

@@ -1,0 +1,10 @@
+{
+  "name": "studyplanner-mcp",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "node ../../frontend/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test \"tests/**/*.test.ts\""
+  }
+}
