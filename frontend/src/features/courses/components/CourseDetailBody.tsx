@@ -2,8 +2,10 @@ import type { ReactNode } from 'react'
 import { CatBadge } from '../../../shared/components/CatBadge'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { SeasonTags } from '../../../shared/components/SeasonTag'
+import { useTranslation } from '../../i18n'
 import type { CompletedCourse, Course } from '../types'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
+import { getExamDisplayLabel } from '../utils/examLabels.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
 const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration period published'])
@@ -51,20 +53,21 @@ interface CourseDetailBodyProps {
  * explicit empty state.
  */
 export function CourseDetailBody({ course, completedCourse, footer }: CourseDetailBodyProps) {
+  const { language, t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
   )
 
   const factRows: Array<[string, string]> = []
-  if (hasValue(course.number)) factRows.push(['Course number', course.number])
-  if (hasValue(course.lecturer)) factRows.push(['Lecturer', course.lecturer])
+  if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
+  if (hasValue(course.lecturer)) factRows.push([t('courseDetail.lecturer'), course.lecturer])
   const ectsText = formatEcts(course.ects)
   if (ectsText) factRows.push(['ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
-  if (hasValue(course.language)) factRows.push(['Language', course.language])
-  if (hasValue(course.frequency)) factRows.push(['Frequency', course.frequency])
-  if (hasValue(course.registrationPeriod)) factRows.push(['Registration', course.registrationPeriod!])
+  if (hasValue(course.language)) factRows.push([t('courseDetail.language'), course.language])
+  if (hasValue(course.frequency)) factRows.push([t('courseDetail.frequency'), course.frequency])
+  if (hasValue(course.registrationPeriod)) factRows.push([t('courseDetail.registration'), course.registrationPeriod!])
 
   const regulationOptions = (course.studyAreaOptions ?? []).filter(
     (option) => option.studyAreaCode,
@@ -110,19 +113,19 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
       </div>
 
       {hasValue(course.description) ? (
-        <Section title="Description">
+        <Section title={t('courseDetail.description')}>
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
             {course.description}
           </p>
         </Section>
       ) : null}
 
-      <Section title="Weekly schedule">
+      <Section title={t('courseDetail.weeklySchedule')}>
         <WeeklyScheduleMiniGrid schedule={course.schedule} />
       </Section>
 
       {course.exams.length > 0 ? (
-        <Section title="Exam dates">
+        <Section title={t('courseDetail.examDates')}>
           <div className="flex flex-col gap-2">
             {course.exams.map((exam, index) => (
               <div
@@ -130,7 +133,7 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
                 className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border border-l-[3px] border-l-primary bg-surface px-4 py-3"
               >
                 <span className="min-w-0 flex-1 break-words text-[13.5px] font-medium text-fg">
-                  {exam.type}
+                  {getExamDisplayLabel(course.exams, index, language)}
                 </span>
                 <div className="flex shrink-0 items-center gap-3 text-[12.5px] text-fg-muted">
                   {hasValue(exam.date) ? <span>{exam.date}</span> : null}
@@ -143,7 +146,7 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
       ) : null}
 
       {course.prerequisites.length > 0 ? (
-        <Section title="Prerequisites">
+        <Section title={t('courseDetail.prerequisites')}>
           <ul className="flex flex-col gap-1.5">
             {course.prerequisites.map((prerequisite) => (
               <li
@@ -159,7 +162,7 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
       ) : null}
 
       {regulationOptions.length > 0 ? (
-        <Section title="Counts toward">
+        <Section title={t('courseDetail.countsToward')}>
           <div className="flex flex-col gap-1.5">
             {regulationOptions.map((option) => (
               <div
@@ -177,7 +180,7 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
         </Section>
       ) : null}
 
-      <Section title="Links">
+      <Section title={t('courseDetail.links')}>
         <div className="grid gap-2 text-[13px]">
           {learningPlatformLinks.length > 0 ? (
             learningPlatformLinks.map((link) => (
@@ -192,11 +195,11 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
               </a>
             ))
           ) : (
-            <div className="text-fg-muted">No Moodle or Ilias link available yet.</div>
+            <div className="text-fg-muted">{t('courseDetail.noLearningLink')}</div>
           )}
           {hasValue(course.detailUrl) ? (
             <a href={course.detailUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-              Open Alma course page
+              {t('courseDetail.openAlma')}
             </a>
           ) : null}
         </div>
@@ -205,7 +208,7 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
       {factRows.length > 0 ? (
         <div className="min-w-0 overflow-hidden rounded-[12px] border border-border bg-surface">
           <div className="border-b border-border px-4.5 py-3 text-[13px] font-semibold text-fg">
-            Facts
+            {t('courseDetail.facts')}
           </div>
           {factRows.map(([key, value], index) => (
             <div

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { PlannerBlock } from '../../src/features/planner/utils/plannerFeedback.ts'
 import {
+  END_HOUR,
   MAX_VISIBLE_OVERLAP_COLUMNS,
   PIXELS_PER_HOUR,
   buildDayLayout,
+  clampPlannerTimeRange,
 } from '../../src/features/planner/utils/plannerDayLayout.ts'
 
 function createBlock(id: string, startMinutes: number, endMinutes: number): PlannerBlock {
@@ -89,4 +91,19 @@ test('buildDayLayout collapses blocks beyond the visible column limit into an ov
 
 test('buildDayLayout returns empty results for an empty day', () => {
   assert.deepEqual(buildDayLayout([]), { visibleBlocks: [], overflowIndicators: [] })
+})
+
+test('planner visible boundary ends at 18:00', () => {
+  assert.equal(END_HOUR, 18)
+})
+
+test('clampPlannerTimeRange truncates blocks at 18:00', () => {
+  assert.deepEqual(clampPlannerTimeRange(17 * 60, 20 * 60), {
+    startMinutes: 17 * 60,
+    endMinutes: 18 * 60,
+  })
+})
+
+test('clampPlannerTimeRange drops blocks that start at or after 18:00', () => {
+  assert.equal(clampPlannerTimeRange(18 * 60, 19 * 60), null)
 })

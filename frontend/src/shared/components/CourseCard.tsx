@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
 import type { Course } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
+import { buildCourseCardTagOrder, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../features/courses/utils/courseTitle.ts'
+import { useTranslation } from '../../features/i18n'
 import { CatBadge } from './CatBadge'
-import { CompletedBadge } from './CompletedBadge'
 import { FavStar } from './FavStar'
 import { SeasonTags } from './SeasonTag'
 
@@ -56,15 +57,19 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
   },
   ref,
 ) {
+  const { t } = useTranslation()
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
     : `${offeringStatus === 'likely' ? 'border-dashed' : ''} border-border hover:border-primary/30`
-  const isDimmed = offeringStatus === 'unknown'
+  const isDimmed = offeringStatus === 'unknown' && !isCompleted
   const title = cleanCourseTitle(course.title, course.number)
   const ectsLabel = course.ects === null
     ? null
     : Number.isInteger(course.ects) ? String(course.ects) : course.ects.toFixed(1)
+  const visibility = getCompletedCourseCardVisibility(isCompleted)
+  const tagOrder = buildCourseCardTagOrder(course)
+  const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
 
   return (
     <div
@@ -78,41 +83,43 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
           onSelect()
         }
       }}
-      aria-label={`Kursdetails öffnen: ${title}`}
+      aria-label={`Open course details: ${title}`}
       aria-pressed={isActive}
-      className={`group relative flex cursor-pointer flex-col gap-3 rounded-[10px] border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
+      className={`group relative flex h-full cursor-pointer flex-col gap-3 rounded-[10px] border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
         isDimmed ? 'opacity-60' : ''
       }`}
     >
-      <div className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <TypePill label={formatCourseTypeLabel(course.types)} />
-          <div className="flex flex-1 flex-wrap gap-0.75">
-            {course.masterCats.map((cat) => (
-              <CatBadge key={cat} cat={cat} />
-            ))}
-          </div>
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
+            {title}
+          </h3>
+          {visibility.showCompletedLabel ? (
+            <div className="mt-1 text-[13px] font-medium text-accent">
+              {t('catalog.completed')}
+            </div>
+          ) : (
+            <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
+              {plainLecturerName(course.lecturer || 'TBA')}
+            </span>
+          )}
         </div>
-        <div onClick={(event) => event.stopPropagation()}>
+        <div className={secondaryVisibilityClass} onClick={(event) => event.stopPropagation()}>
           <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
         </div>
       </div>
 
-      {/* Professor sits beside the title on wide cards and wraps below it on
-          narrow screens. */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        <h3 className="min-w-0 text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
-          {title}
-        </h3>
-        <span className="min-w-0 truncate text-[12px] text-fg-muted">
-          {plainLecturerName(course.lecturer || 'TBA')}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mt-auto flex flex-wrap items-center gap-1.5">
         <SeasonTags termType={course.termType} />
-        <OfferingStatusTag status={offeringStatus} />
-        {isCompleted ? <CompletedBadge /> : null}
+        <span className={secondaryVisibilityClass}>
+          <TypePill label={formatCourseTypeLabel(tagOrder.typeLabels)} />
+        </span>
+        <span className={`flex flex-wrap gap-0.75 ${secondaryVisibilityClass}`}>
+          {tagOrder.categoryLabels.map((cat) => (
+            <CatBadge key={cat} cat={cat} />
+          ))}
+          <OfferingStatusTag status={offeringStatus} />
+        </span>
         <span className="flex-1" />
         {ectsLabel ? (
           <span className="shrink-0 text-[13px] font-bold text-fg">

@@ -50,6 +50,7 @@ interface ManualCompletedCourseFormProps {
   studyProgramCode?: string | null
   regulationVersionCode?: string | null
   regulationRuleGroups: RegulationRuleGroup[]
+  isLoadingRegulationVersion?: boolean
   isSaving: boolean
   onSave: (course: CompletedCourse) => Promise<boolean>
 }
@@ -59,6 +60,7 @@ export function ManualCompletedCourseForm({
   studyProgramCode,
   regulationVersionCode,
   regulationRuleGroups,
+  isLoadingRegulationVersion = false,
   isSaving,
   onSave,
 }: ManualCompletedCourseFormProps) {
@@ -186,7 +188,11 @@ export function ManualCompletedCourseForm({
           </label>
         </div>
 
-        {hasActiveRegulation ? (
+        {isLoadingRegulationVersion ? (
+          <div className="rounded-[10px] border border-border-light bg-surface-hover/25 px-3 py-3 text-[12px] text-fg-muted">
+            Loading your active regulation settings...
+          </div>
+        ) : hasActiveRegulation ? (
           <StudyAreaAssignmentField
             value={resolvedStudyAreaCode}
             options={areaOptions}

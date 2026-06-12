@@ -121,7 +121,7 @@ export function PlannerGrid({
                 className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
                 style={{ height: `${totalHeight}px` }}
               >
-                {Array.from({ length: END_HOUR - START_HOUR }, (_, index) => (
+                {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
                   <div
                     key={`${day}-${index}`}
                     className="pointer-events-none absolute inset-x-0 border-t border-border-light/70"
