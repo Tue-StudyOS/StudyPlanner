@@ -10,7 +10,7 @@ import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
-import { getOfferingStatus, type OfferingStatus } from '../utils/catalogOffering.ts'
+import { getOfferingStatus, isCompulsoryCourse, type OfferingStatus } from '../utils/catalogOffering.ts'
 import {
   CATALOG_SORT_LABELS,
   sortCatalogCourses,
@@ -18,12 +18,18 @@ import {
 } from '../utils/catalogSorting.ts'
 import {
   courseMatchesTimeFilter,
-  parseTimeInputToMinutes,
   type FilterWeekday,
 } from '../utils/courseTimeFilters.ts'
+import {
+  COURSE_TYPE_FILTERS,
+  courseMatchesTypeFilter,
+  type CourseTypeFilterValue,
+} from '../utils/courseTypeFilter.ts'
 import { courseMatchesStudyAreaFilter } from '../utils/studyAreaFilter.ts'
+import { timeDigitsToMinutes } from '../utils/timeInput.ts'
 import { CatalogProgressHint } from './CatalogProgressHint'
 import { CourseDetailDrawer } from './CourseDetailDrawer'
+import { TimeRangeInputs } from './TimeRangeInputs'
 
 const PAGE_SIZE = 30
 const CATALOG_LIMIT = 1000
@@ -41,16 +47,19 @@ function readStoredLayout(): CatalogLayout {
 function FilterChip({
   label,
   active,
+  title,
   onClick,
 }: {
   label: string
   active: boolean
+  title?: string
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
         active
           ? 'border-primary bg-primary text-white'
@@ -124,9 +133,12 @@ export function CoursesOverview() {
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
   const [selectedDays, setSelectedDays] = useState<FilterWeekday[]>([])
-  const [timeFrom, setTimeFrom] = useState<string>('')
-  const [timeTo, setTimeTo] = useState<string>('')
+  // Time fields store plain digits; the inputs render them masked as HH:MM.
+  const [timeFromDigits, setTimeFromDigits] = useState<string>('')
+  const [timeToDigits, setTimeToDigits] = useState<string>('')
   const [selectedTerms, setSelectedTerms] = useState<Array<'summer' | 'winter'>>([])
+  const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
+  const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
   const [hideUnknownOfferings, setHideUnknownOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
@@ -207,10 +219,10 @@ export function CoursesOverview() {
 
   const timeWindow = useMemo(
     () => ({
-      startMinutes: parseTimeInputToMinutes(timeFrom),
-      endMinutes: parseTimeInputToMinutes(timeTo),
+      startMinutes: timeDigitsToMinutes(timeFromDigits),
+      endMinutes: timeDigitsToMinutes(timeToDigits),
     }),
-    [timeFrom, timeTo],
+    [timeFromDigits, timeToDigits],
   )
 
   const filteredCourses = useMemo(
@@ -226,7 +238,20 @@ export function CoursesOverview() {
           if (!courseMatchesTermFilter(course.termType, selectedTerms)) {
             return false
           }
+          if (!courseMatchesTypeFilter(course, selectedCourseTypes)) {
+            return false
+          }
           if (!courseMatchesTimeFilter(course, selectedDays, timeWindow)) {
+            return false
+          }
+          if (
+            showOnlyOpenMandatory
+            && !(
+              isCompulsoryCourse(course)
+              && !completedByCourseKey.get(course.id)
+              && !completedByCourseKey.get(course.number)
+            )
+          ) {
             return false
           }
           if (hideUnknownOfferings && offeringStatusByCourseId.get(course.id) === 'unknown') {
@@ -237,13 +262,16 @@ export function CoursesOverview() {
         sortOption,
       ),
     [
+      completedByCourseKey,
       courses,
       hideUnknownOfferings,
       offeringStatusByCourseId,
+      selectedCourseTypes,
       selectedDays,
       selectedEctsValues,
       selectedStudyAreaCodes,
       selectedTerms,
+      showOnlyOpenMandatory,
       sortOption,
       studyProgramCode,
       timeWindow,
@@ -259,6 +287,8 @@ export function CoursesOverview() {
     + (timeWindow.startMinutes !== null ? 1 : 0)
     + (timeWindow.endMinutes !== null ? 1 : 0)
     + selectedTerms.length
+    + selectedCourseTypes.length
+    + (showOnlyOpenMandatory ? 1 : 0)
     + (hideUnknownOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
@@ -266,9 +296,11 @@ export function CoursesOverview() {
     setSelectedEctsValues([])
     setSelectedStudyAreaCodes([])
     setSelectedDays([])
-    setTimeFrom('')
-    setTimeTo('')
+    setTimeFromDigits('')
+    setTimeToDigits('')
     setSelectedTerms([])
+    setSelectedCourseTypes([])
+    setShowOnlyOpenMandatory(false)
     setHideUnknownOfferings(false)
   }
 
@@ -278,8 +310,9 @@ export function CoursesOverview() {
 
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div className={`min-w-0 flex-1 p-4 sm:p-8 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
+      <div className={`min-w-0 flex-1 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
       <CatalogProgressHint />
+      <div className="min-w-0 p-4 sm:p-8 sm:pt-6">
 
       <h1 className="mb-2 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">Course Catalog</h1>
       <p className="mb-6 text-fg-mid">All Informatics courses across semesters.</p>
@@ -426,28 +459,31 @@ export function CoursesOverview() {
               </FilterGroup>
 
               <FilterGroup label="Time window">
-                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-fg-mid">
-                  <span>From</span>
-                  <input
-                    type="time"
-                    value={timeFrom}
-                    onChange={(event) => setTimeFrom(event.target.value)}
-                    aria-label="Earliest start time"
-                    className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
-                  />
-                  <span>to</span>
-                  <input
-                    type="time"
-                    value={timeTo}
-                    onChange={(event) => setTimeTo(event.target.value)}
-                    aria-label="Latest end time"
-                    className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
-                  />
-                </div>
+                <TimeRangeInputs
+                  fromDigits={timeFromDigits}
+                  toDigits={timeToDigits}
+                  onChangeFrom={setTimeFromDigits}
+                  onChangeTo={setTimeToDigits}
+                />
               </FilterGroup>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
+              <FilterGroup label="Course type">
+                <div className="flex flex-wrap gap-2">
+                  {COURSE_TYPE_FILTERS.map((option) => (
+                    <FilterChip
+                      key={option.value}
+                      label={option.label}
+                      active={selectedCourseTypes.includes(option.value)}
+                      onClick={() =>
+                        setSelectedCourseTypes((prev) => toggleInSelection(prev, option.value))
+                      }
+                    />
+                  ))}
+                </div>
+              </FilterGroup>
+
               <FilterGroup label="Term">
                 <div className="flex flex-wrap gap-2">
                   {TERM_FILTER_OPTIONS.map((option) => (
@@ -460,27 +496,32 @@ export function CoursesOverview() {
                   ))}
                 </div>
               </FilterGroup>
-
-              <FilterGroup label="Availability">
-                <FilterChip
-                  label="Hide courses without current data"
-                  active={hideUnknownOfferings}
-                  onClick={() => setHideUnknownOfferings((value) => !value)}
-                />
-              </FilterGroup>
             </div>
 
-            {hasActiveFilters ? (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={resetAllFilters}
-                  className="rounded-md border border-border px-3 py-2 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover"
-                >
-                  Reset all filters
-                </button>
-              </div>
-            ) : null}
+            <FilterGroup label="Degree requirements">
+              <FilterChip
+                label="Mandatory courses I still need"
+                active={showOnlyOpenMandatory}
+                onClick={() => setShowOnlyOpenMandatory((value) => !value)}
+              />
+            </FilterGroup>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-3">
+              <FilterChip
+                label="Apply filter"
+                title="Hide courses without current offering data"
+                active={hideUnknownOfferings}
+                onClick={() => setHideUnknownOfferings((value) => !value)}
+              />
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                disabled={!hasActiveFilters}
+                className="rounded-md border border-border px-3 py-2 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Reset filters
+              </button>
+            </div>
           </div>
         ) : null}
       </div>
@@ -533,6 +574,7 @@ export function CoursesOverview() {
           ) : null}
         </>
       )}
+      </div>
       </div>
       {selectedCourse ? (
         <CourseDetailDrawer

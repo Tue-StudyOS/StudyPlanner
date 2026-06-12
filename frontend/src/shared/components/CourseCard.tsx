@@ -31,14 +31,9 @@ function plainLecturerName(lecturer: string): string {
   return lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g, '')
 }
 
+// The dashed card border already marks likely-offered courses; only the
+// faded "no current data" state keeps an explicit tag.
 function OfferingStatusTag({ status }: { status: OfferingStatus }) {
-  if (status === 'likely') {
-    return (
-      <span className="inline-block whitespace-nowrap rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10.5px] font-medium text-primary">
-        Likely offered
-      </span>
-    )
-  }
   if (status === 'unknown') {
     return (
       <span className="inline-block whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium text-fg-muted">
