@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { CatBadge } from '../../../shared/components/CatBadge'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
+import { SeasonTags } from '../../../shared/components/SeasonTag'
 import type { CompletedCourse, Course } from '../types'
-import { formatTermTypeLabel } from '../utils/catalogOffering.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
@@ -52,7 +52,6 @@ interface CourseDetailBodyProps {
  */
 export function CourseDetailBody({ course, completedCourse, footer }: CourseDetailBodyProps) {
   const title = cleanCourseTitle(course.title, course.number)
-  const termLabel = formatTermTypeLabel(course.termType)
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
   )
@@ -85,11 +84,9 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
           {title}
         </h1>
 
-        {termLabel || (course.offeredPeriods?.length ?? 0) > 0 ? (
+        {course.termType || (course.offeredPeriods?.length ?? 0) > 0 ? (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            {termLabel ? (
-              <span className="text-[11.5px] font-medium text-fg-muted">{termLabel} term</span>
-            ) : null}
+            <SeasonTags termType={course.termType} />
             {(course.offeredPeriods ?? []).map((periodLabel) => (
               <span
                 key={periodLabel}

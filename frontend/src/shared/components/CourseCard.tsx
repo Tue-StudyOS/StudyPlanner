@@ -1,10 +1,11 @@
 import { forwardRef } from 'react'
 import type { Course } from '../../features/courses'
-import { formatTermTypeLabel, type OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
+import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../features/courses/utils/courseTitle.ts'
 import { CatBadge } from './CatBadge'
 import { CompletedBadge } from './CompletedBadge'
 import { FavStar } from './FavStar'
+import { SeasonTags } from './SeasonTag'
 import { UserIcon } from './icons'
 
 interface CourseCardProps {
@@ -61,12 +62,15 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
   },
   ref,
 ) {
+  // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
-    : 'border-border hover:border-primary/30'
+    : `${offeringStatus === 'likely' ? 'border-dashed' : ''} border-border hover:border-primary/30`
   const isDimmed = offeringStatus === 'unknown'
-  const termLabel = formatTermTypeLabel(course.termType)
   const title = cleanCourseTitle(course.title, course.number)
+  const ectsLabel = course.ects === null
+    ? null
+    : Number.isInteger(course.ects) ? String(course.ects) : course.ects.toFixed(1)
 
   return (
     <div
@@ -109,12 +113,15 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
           <UserIcon />
         </span>
         <span className="min-w-0 flex-1 truncate">{plainLecturerName(course.lecturer || 'TBA')}</span>
+        {ectsLabel ? (
+          <span className="shrink-0 text-[13px] font-bold text-fg">
+            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {termLabel ? (
-          <span className="text-[11px] font-medium text-fg-muted">{termLabel} term</span>
-        ) : null}
+        <SeasonTags termType={course.termType} />
         <OfferingStatusTag status={offeringStatus} />
         <span className="flex-1" />
         {isCompleted ? <CompletedBadge /> : null}

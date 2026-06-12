@@ -77,6 +77,27 @@ function toggleInSelection<T>(items: T[], item: T): T[] {
   return items.includes(item) ? items.filter((i) => i !== item) : [...items, item]
 }
 
+// Shows the layout the button switches TO: 2x2 squares for the two-column
+// grid, stacked bars for the single column.
+function LayoutPreviewIcon({ next }: { next: CatalogLayout }) {
+  if (next === 'grid') {
+    return (
+      <svg width={16} height={16} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="5.6" height="5.6" rx="1.2" />
+        <rect x="8.9" y="1.5" width="5.6" height="5.6" rx="1.2" />
+        <rect x="1.5" y="8.9" width="5.6" height="5.6" rx="1.2" />
+        <rect x="8.9" y="8.9" width="5.6" height="5.6" rx="1.2" />
+      </svg>
+    )
+  }
+  return (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <rect x="1.5" y="2" width="13" height="5" rx="1.2" />
+      <rect x="1.5" y="9" width="13" height="5" rx="1.2" />
+    </svg>
+  )
+}
+
 const TERM_FILTER_OPTIONS: Array<{ value: 'summer' | 'winter'; label: string }> = [
   { value: 'summer', label: 'Summer term' },
   { value: 'winter', label: 'Winter term' },
@@ -338,9 +359,10 @@ export function CoursesOverview() {
             type="button"
             onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
             aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
-            className="hidden rounded-md border border-border bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover md:block"
+            title={layout === 'grid' ? 'Single column' : 'Two columns'}
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
           >
-            {layout === 'grid' ? 'Single column' : 'Two columns'}
+            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
           </button>
         </div>
 

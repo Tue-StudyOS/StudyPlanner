@@ -30,8 +30,10 @@ export function CatalogProgressHint() {
   }
 
   return (
-    <div className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-20 mb-4 md:top-0">
-      <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border bg-surface/95 px-3.5 py-2 shadow-[0_1px_4px_rgba(0,0,0,0.05)] backdrop-blur">
+    // The opaque full-width wrapper sits flush below the top bar so no page
+    // content scrolls through a gap above the hint.
+    <div className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-20 -mx-4 -mt-4 mb-2 bg-bg px-4 pb-2 pt-3 sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-4 md:top-0">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
         <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
           Still open
         </span>

@@ -1,4 +1,4 @@
-import { StarIcon } from './icons'
+import { BookmarkIcon } from './icons'
 
 interface FavStarProps {
   active: boolean
@@ -16,7 +16,7 @@ export function FavStar({ active, disabled = false, onToggle }: FavStarProps) {
       aria-pressed={active}
       className="flex shrink-0 items-center justify-center rounded-md p-1 text-primary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <StarIcon filled={active} />
+      <BookmarkIcon filled={active} />
     </button>
   )
 }

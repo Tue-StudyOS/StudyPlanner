@@ -28,30 +28,6 @@ import { PlannerGrid } from './PlannerGrid'
 import { PlannerProgressStrip } from './PlannerProgressStrip'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
-function ChevronButton({
-  direction,
-  disabled,
-  onClick,
-}: {
-  direction: 'previous' | 'next'
-  disabled: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={direction === 'previous' ? 'Previous semester' : 'Next semester'}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 ${direction === 'previous' ? '' : 'rotate-180'}`}>
-        <path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
-  )
-}
-
 function SaveIndicator({
   isSaving,
   hasUnsavedChanges,
@@ -270,7 +246,6 @@ export function SemesterPlanner() {
     )
   }
 
-  const activeSemesterIndex = semesterOptions.indexOf(activeSemesterLabel)
   const openCourse = openCourseId
     ? courseById.get(openCourseId)
       ?? favoriteCourses.find((course) => course.id === openCourseId)
@@ -321,30 +296,18 @@ export function SemesterPlanner() {
           Planner
         </h1>
 
-        <div className="flex items-center gap-1.5">
-          <ChevronButton
-            direction="previous"
-            disabled={activeSemesterIndex <= 0}
-            onClick={() => setActiveSemesterLabel(semesterOptions[activeSemesterIndex - 1])}
-          />
-          <select
-            aria-label="Select semester"
-            value={activeSemesterLabel}
-            onChange={(event) => setActiveSemesterLabel(event.target.value)}
-            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-fg outline-none transition-colors focus:border-primary"
-          >
-            {semesterOptions.map((semesterLabel) => (
-              <option key={semesterLabel} value={semesterLabel}>
-                {formatSemesterLabelShort(semesterLabel)}
-              </option>
-            ))}
-          </select>
-          <ChevronButton
-            direction="next"
-            disabled={activeSemesterIndex < 0 || activeSemesterIndex >= semesterOptions.length - 1}
-            onClick={() => setActiveSemesterLabel(semesterOptions[activeSemesterIndex + 1])}
-          />
-        </div>
+        <select
+          aria-label="Select semester"
+          value={activeSemesterLabel}
+          onChange={(event) => setActiveSemesterLabel(event.target.value)}
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-fg outline-none transition-colors focus:border-primary"
+        >
+          {semesterOptions.map((semesterLabel) => (
+            <option key={semesterLabel} value={semesterLabel}>
+              {formatSemesterLabelShort(semesterLabel)}
+            </option>
+          ))}
+        </select>
 
         <SaveIndicator
           isSaving={isSavingSemesterPlan}
