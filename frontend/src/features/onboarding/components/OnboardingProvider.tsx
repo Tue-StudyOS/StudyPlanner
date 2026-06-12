@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { useAuth } from '../../auth'
 import { OnboardingContext } from '../OnboardingContext'
-import { OnboardingModal } from './OnboardingModal'
+import { TourOverlay } from './TourOverlay'
 
 interface OnboardingProviderProps {
   children: ReactNode
@@ -36,7 +36,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps): JSX.E
   return (
     <OnboardingContext.Provider value={{ isOpen, open, close }}>
       {children}
-      {isOpen ? <OnboardingModal onClose={close} /> : null}
+      {isOpen ? <TourOverlay onClose={close} /> : null}
     </OnboardingContext.Provider>
   )
 }

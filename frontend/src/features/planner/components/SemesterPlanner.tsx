@@ -319,6 +319,7 @@ export function SemesterPlanner() {
         {isSmallViewport ? (
           <button
             type="button"
+            data-tour="planner-add"
             onClick={() => setIsAddDrawerOpen(true)}
             className="rounded-md bg-primary px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
           >
@@ -328,6 +329,7 @@ export function SemesterPlanner() {
 
         <button
           type="button"
+          data-tour="planner-export"
           onClick={handleExportIcs}
           disabled={plannedCourses.length === 0}
           title="Download the planned semester as a calendar file (.ics)"

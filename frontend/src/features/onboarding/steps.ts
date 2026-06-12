@@ -1,83 +1,92 @@
-import {
-  CatalogIcon,
-  DashboardIcon,
-  PlannerIcon,
-  TranscriptIcon,
-  WelcomeIcon,
-} from './components/icons'
-import type { OnboardingStep } from './types'
+import { ROUTES } from '../routes'
+import type { TourStep } from './types'
 
-export const ONBOARDING_STEPS: OnboardingStep[] = [
+/**
+ * The tour walks through the real screens and highlights live UI instead of
+ * describing it. Steps without targets render as a centered card.
+ */
+export const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    eyebrow: 'Welcome',
-    title: 'Plan your Informatik degree in Tübingen',
-    description:
-      'StudyPlanner is built for computer science students at the University of Tübingen. It combines three things in one place:',
-    bullets: [
-      'The full Informatics course catalog across semesters, with hints on what will likely run next.',
-      'Your real degree progress, mapped to the areas of your examination regulations (PO).',
-      'A weekly semester planner that saves automatically and exports to your calendar.',
-    ],
-    Icon: WelcomeIcon,
+    title: 'Welcome to StudyPlanner',
+    body:
+      'A one-minute tour through the real app — made for Informatik at Uni Tübingen. We will hop across the screens and point at the things that matter. You can leave anytime and reopen the tour via the ? button.',
   },
   {
     id: 'transcript',
-    eyebrow: 'Step 1 · Transcript',
-    title: 'Start with your completed courses',
-    description:
-      'Everything builds on what you have already passed, so bring in your history first on the Transcript page:',
-    bullets: [
-      'Upload your Transcript of Records (PDF from ALMA) — courses are imported and categorized automatically.',
-      'Or add courses by hand if you prefer.',
-      'You can adjust the credited area of any course afterwards.',
-    ],
-    Icon: TranscriptIcon,
+    route: ROUTES.transcript,
+    targets: ['transcript-page'],
+    title: 'Start with your transcript',
+    body:
+      'Upload your Transcript of Records (the PDF from ALMA) here once — your completed courses and degree progress come in automatically. You can also add courses by hand.',
   },
   {
-    id: 'catalog',
-    eyebrow: 'Step 2 · Catalog',
-    title: 'Find courses worth taking',
-    description:
-      'The Catalog shows every Informatics course across semesters — not just the current one:',
-    bullets: [
-      '"Likely offered" marks courses that ran in the same season last year; grayed-out courses have no current data.',
-      'Filter by area, ECTS, weekday, or an exact time window — and sort the results.',
-      'Star anything interesting: starred courses become your building blocks in the planner.',
-    ],
-    Icon: CatalogIcon,
+    id: 'catalog-search',
+    route: ROUTES.catalog,
+    targets: ['catalog-search'],
+    title: 'Every course, one search',
+    body:
+      'The catalog covers all Informatics courses across semesters — not just the current one. Just start typing.',
   },
   {
-    id: 'planner',
-    eyebrow: 'Step 3 · Planner',
-    title: 'Build your week',
-    description:
-      'The Planner opens on the current semester and saves every change automatically:',
-    bullets: [
-      'Add starred courses from the side panel (or the + button on the phone) — overlaps are highlighted.',
-      'Tap any course for details; remove it from the plan there.',
-      'The strip on top shows how the plan moves your degree forward — export the result to your calendar as .ics.',
-    ],
-    Icon: PlannerIcon,
+    id: 'catalog-filters',
+    route: ROUTES.catalog,
+    targets: ['catalog-filters'],
+    title: 'Filter and sort',
+    body:
+      'Need a free Friday? Open the filters for weekday, exact time window, ECTS, and degree areas — and sort the results.',
+  },
+  {
+    id: 'catalog-card',
+    route: ROUTES.catalog,
+    targets: ['catalog-card'],
+    title: 'Read a card at a glance',
+    body:
+      'Type, areas, professor, ECTS, and the term a course runs in. A dashed border means it will probably run again; grayed out means no current data. Tap the bookmark to keep a course for planning.',
+  },
+  {
+    id: 'planner-grid',
+    route: ROUTES.planner,
+    targets: ['planner-grid'],
+    title: 'Your week',
+    body:
+      'Added courses appear at their real times, overlaps are highlighted, and every change saves by itself — there is no save button. Tap any block for details.',
+  },
+  {
+    id: 'planner-add',
+    route: ROUTES.planner,
+    targets: ['planner-interested', 'planner-add'],
+    title: 'Add bookmarked courses',
+    body:
+      'Your bookmarked courses wait here. Tap one for details and add it to the plan — or drag it straight into the week.',
+  },
+  {
+    id: 'planner-progress',
+    route: ROUTES.planner,
+    targets: ['planner-progress'],
+    title: 'See what it gets you',
+    body:
+      'This line shows how the current plan moves each area of your degree forward — before you commit to anything.',
+  },
+  {
+    id: 'planner-export',
+    route: ROUTES.planner,
+    targets: ['planner-export'],
+    title: 'Take it with you',
+    body: 'Export the finished plan as a calendar file (.ics) for Google, Apple, or Outlook.',
   },
   {
     id: 'overview',
-    eyebrow: 'Step 4 · Overview',
-    title: 'Keep an eye on your progress',
-    description: 'The Overview page tracks your degree against the official regulations:',
-    bullets: [
-      'ECTS earned versus required, per regulation area.',
-      'Your specialization focus and average grade.',
-      'Open requirements also appear as a slim reminder while you browse the catalog.',
-    ],
-    Icon: DashboardIcon,
+    route: ROUTES.overview,
+    targets: ['overview-progress', 'overview-page'],
+    title: 'Track your degree',
+    body:
+      'The Overview shows your ECTS per regulation area, your average grade, and what is still open — the same open areas follow you into the catalog as a slim reminder.',
   },
   {
     id: 'finish',
-    eyebrow: 'Ready',
     title: 'That is the whole flow',
-    description:
-      'Transcript in, star interesting courses, plan the semester — the app keeps progress and saving in the background. Reopen this guide anytime via the ? icon in the top bar.',
-    Icon: WelcomeIcon,
+    body:
+      'Transcript in, bookmark courses, plan the week — saving and progress happen in the background. Reopen this tour anytime via the ? button in the top bar.',
   },
 ]

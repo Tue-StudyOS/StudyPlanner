@@ -75,6 +75,7 @@ export function PlannerGrid({
   return (
     <>
       <div
+        data-tour="planner-grid"
         className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-6 sm:py-5.5"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {

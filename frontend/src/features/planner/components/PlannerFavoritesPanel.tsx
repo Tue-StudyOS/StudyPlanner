@@ -119,7 +119,10 @@ export function PlannerFavoritesPanel({
   })
 
   return (
-    <aside className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full">
+    <aside
+      data-tour="planner-interested"
+      className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full"
+    >
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="text-[14px] font-semibold text-fg">Interested</div>
         <p className="mt-0.5 text-[12px] text-fg-muted">

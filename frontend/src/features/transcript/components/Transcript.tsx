@@ -590,7 +590,7 @@ export function Transcript() {
 
   return (
     <div className="overflow-x-hidden p-4 sm:p-8">
-      <div className="mb-6">
+      <div className="mb-6" data-tour="transcript-page">
         <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
           Upload Transcript
         </h1>

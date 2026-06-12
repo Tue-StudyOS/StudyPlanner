@@ -109,7 +109,10 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-[10px] border border-border bg-surface px-6 py-5.5">
+      <div
+        data-tour="overview-progress"
+        className="overflow-hidden rounded-[10px] border border-border bg-surface px-6 py-5.5"
+      >
         <div className="mb-4.5">
           <div className="text-[14px] font-semibold text-fg">Regulation Progress</div>
           <p className="mt-1 text-[12px] text-fg-muted">

@@ -310,7 +310,7 @@ export function CoursesOverview() {
       ) : null}
 
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
-        <label className="block">
+        <label className="block" data-tour="catalog-search">
           <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
             Search
           </span>
@@ -323,7 +323,7 @@ export function CoursesOverview() {
           />
         </label>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5" data-tour="catalog-filters">
           <button
             type="button"
             onClick={() => setAreFiltersOpen((open) => !open)}
@@ -506,19 +506,20 @@ export function CoursesOverview() {
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
           <div className={`grid gap-3.5 ${gridColsClass}`}>
-            {visibleCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
-                course={course}
-                isFavorite={isFavorite(course.id)}
-                isActive={selectedCourse?.id === course.id}
-                isCompleted={Boolean(getCompletedFor(course))}
-                favoriteDisabled={isLoadingFavorites || isSavingFavorites}
-                offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
-                onSelect={() => setSelectedCourse(course)}
-                onToggleFavorite={() => toggleFavorite(course.id)}
-              />
+            {visibleCourses.map((course, index) => (
+              <div key={course.id} className="min-w-0" data-tour={index === 0 ? 'catalog-card' : undefined}>
+                <CourseCard
+                  ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
+                  course={course}
+                  isFavorite={isFavorite(course.id)}
+                  isActive={selectedCourse?.id === course.id}
+                  isCompleted={Boolean(getCompletedFor(course))}
+                  favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+                  offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
+                  onSelect={() => setSelectedCourse(course)}
+                  onToggleFavorite={() => toggleFavorite(course.id)}
+                />
+              </div>
             ))}
           </div>
           {hasMore ? (

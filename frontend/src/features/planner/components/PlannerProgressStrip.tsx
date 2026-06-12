@@ -55,7 +55,10 @@ export function PlannerProgressStrip({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2">
+    <div
+      data-tour="planner-progress"
+      className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2"
+    >
       <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
         Progress
       </span>
