@@ -4,12 +4,11 @@ import type { RegulationAreaOption } from '../../../shared/utils/regulation'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { CourseDetailBody } from '../../courses/components/CourseDetailBody'
 import { useCatalogCourseDetail } from '../../courses/hooks/useCatalogCourseDetail'
-import type { CompletedCourse, Course } from '../../courses'
+import type { Course } from '../../courses'
 
 interface PlannerCourseDetailModalProps {
   course: Course
   isPlanned: boolean
-  completedCourse: CompletedCourse | null
   areaOptions: RegulationAreaOption[]
   assignedAreaCode: string | null
   suggestedAreaCode: string | null
@@ -27,7 +26,6 @@ interface PlannerCourseDetailModalProps {
 export function PlannerCourseDetailModal({
   course,
   isPlanned,
-  completedCourse,
   areaOptions,
   assignedAreaCode,
   suggestedAreaCode,
@@ -150,11 +148,7 @@ export function PlannerCourseDetailModal({
           </button>
         </div>
 
-        <CourseDetailBody
-          course={detailCourse ?? course}
-          completedCourse={completedCourse ?? undefined}
-          footer={footer}
-        />
+        <CourseDetailBody course={detailCourse ?? course} footer={footer} />
       </div>
     </div>
   )

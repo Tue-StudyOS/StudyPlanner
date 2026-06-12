@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import { CatBadge } from '../../../shared/components/CatBadge'
-import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { SeasonTags } from '../../../shared/components/SeasonTag'
 import { useTranslation } from '../../i18n'
-import type { CompletedCourse, Course } from '../types'
+import type { Course } from '../types'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
@@ -41,7 +40,6 @@ function TypePill({ label }: { label: string }) {
 
 interface CourseDetailBodyProps {
   course: Course
-  completedCourse?: CompletedCourse
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
   footer?: ReactNode
 }
@@ -52,7 +50,7 @@ interface CourseDetailBodyProps {
  * with the deliberate exception of the Moodle/Ilias slot, which shows an
  * explicit empty state.
  */
-export function CourseDetailBody({ course, completedCourse, footer }: CourseDetailBodyProps) {
+export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const { language, t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
@@ -101,15 +99,6 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
           </div>
         ) : null}
 
-        {completedCourse ? (
-          <div className="mt-4">
-            <CompletedBadge
-              size="md"
-              grade={completedCourse.grade}
-              semester={completedCourse.semester}
-            />
-          </div>
-        ) : null}
       </div>
 
       {hasValue(course.description) ? (

@@ -71,25 +71,44 @@ const TYPE_TRANSLATIONS: Array<[RegExp, string]> = [
   [/^(ü|ue)bung(en)?$/i, 'Exercise'],
   [/^(haupt|ober|block)?seminar$/i, 'Seminar'],
   [/^proseminar$/i, 'Proseminar'],
+  [/^praxisseminar$/i, 'Practical seminar'],
   [/^(block)?praktikum$/i, 'Practical'],
   [/^projekt$/i, 'Project'],
   [/^kolloquium$/i, 'Colloquium'],
   [/^vortrag$/i, 'Talk'],
   [/^tutorium$/i, 'Tutorial'],
   [/^ringvorlesung$/i, 'Lecture series'],
+  [/^informationsveranstaltung$/i, 'Info session'],
+  [/^einf(ü|ue)hrungskurs$/i, 'Introductory course'],
+  [/^blockveranstaltung$/i, 'Block course'],
+  [/^repetitorium$/i, 'Revision course'],
 ]
 
+// Some catalog types are combined ("Vorlesung/Übung", "Vorlesung mit Übung");
+// translate each part so no German label leaks through.
+function splitCourseTypeParts(type: string): string[] {
+  return type
+    .split(/\s*(?:[/+&,]|\bmit\b|\bund\b|\band\b|\bwith\b)\s*/i)
+    .map((part) => part.trim())
+    .filter((part) => /[\p{L}\p{N}]/u.test(part))
+}
+
 export function translateCourseType(type: string): string {
-  const trimmedType = type.trim()
-  const translation = TYPE_TRANSLATIONS.find(([pattern]) => pattern.test(trimmedType))
-  return translation ? translation[1] : trimmedType
+  const parts = splitCourseTypeParts(type)
+  return parts
+    .map((part) => {
+      const translation = TYPE_TRANSLATIONS.find(([pattern]) => pattern.test(part))
+      return translation ? translation[1] : part
+    })
+    .join(' + ')
 }
 
 export function formatCourseTypeLabel(types: string[]): string {
   const uniqueTypes = [
     ...new Set(
       types
-        .map((type) => translateCourseType(type))
+        .flatMap((type) => splitCourseTypeParts(type))
+        .map((part) => translateCourseType(part))
         .filter((type) => type.length > 0),
     ),
   ]

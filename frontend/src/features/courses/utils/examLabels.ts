@@ -8,7 +8,7 @@ function normalizeExamDate(date: string): string {
   return date.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-function parseDateSortValue(date: string): number | null {
+export function parseDateSortValue(date: string): number | null {
   const germanDateMatch = date.match(GERMAN_DATE_PATTERN)
   if (germanDateMatch) {
     const day = Number(germanDateMatch[1])
@@ -29,16 +29,21 @@ function parseDateSortValue(date: string): number | null {
   return null
 }
 
-export function getExamDateOrdinal(exams: CourseExam[], examIndex: number): number {
+/**
+ * Ordinal of a date within a list of date strings: 0 for the earliest unique
+ * date (the regular exam), 1+ for later dates (resits). Same-date entries
+ * share an ordinal.
+ */
+export function getDateOrdinal(dates: string[], dateIndex: number): number {
   const uniqueDates = new Map<string, { key: string; firstIndex: number; sortValue: number | null }>()
-  exams.forEach((exam, index) => {
-    const normalizedDate = normalizeExamDate(exam.date)
+  dates.forEach((date, index) => {
+    const normalizedDate = normalizeExamDate(date)
     const key = normalizedDate || `undated-${index}`
     if (!uniqueDates.has(key)) {
       uniqueDates.set(key, {
         key,
         firstIndex: index,
-        sortValue: parseDateSortValue(exam.date),
+        sortValue: parseDateSortValue(date),
       })
     }
   })
@@ -55,13 +60,17 @@ export function getExamDateOrdinal(exams: CourseExam[], examIndex: number): numb
     })
     .forEach((entry, ordinal) => ordinalByDate.set(entry.key, ordinal))
 
-  const exam = exams[examIndex]
-  if (!exam) {
+  const date = dates[dateIndex]
+  if (date === undefined) {
     return 0
   }
-  const normalizedDate = normalizeExamDate(exam.date)
-  const key = normalizedDate || `undated-${examIndex}`
+  const normalizedDate = normalizeExamDate(date)
+  const key = normalizedDate || `undated-${dateIndex}`
   return ordinalByDate.get(key) ?? 0
+}
+
+export function getExamDateOrdinal(exams: CourseExam[], examIndex: number): number {
+  return getDateOrdinal(exams.map((exam) => exam.date), examIndex)
 }
 
 export function getExamDisplayLabel(

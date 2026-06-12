@@ -600,7 +600,6 @@ export function CoursesOverview() {
       {selectedCourse ? (
         <CourseDetailDrawer
           course={selectedCourse}
-          completedCourse={getCompletedFor(selectedCourse)}
           isFavorite={isFavorite(selectedCourse.id)}
           favoriteDisabled={isLoadingFavorites || isSavingFavorites}
           onToggleFavorite={() => toggleFavorite(selectedCourse.id)}

@@ -4,7 +4,7 @@ import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatur
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
-import type { CompletedCourse, Course } from '../../courses'
+import type { Course } from '../../courses'
 import { findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { useTranslation } from '../../i18n'
@@ -100,15 +100,6 @@ export function SemesterPlanner() {
     () => courses.filter((course) => favoriteIds.includes(course.id)),
     [courses, favoriteIds],
   )
-
-  const completedCourseByKey = useMemo(() => {
-    const lookup = new Map<string, CompletedCourse>()
-    completedCourses.forEach((course) => {
-      if (course.courseId && !lookup.has(course.courseId)) lookup.set(course.courseId, course)
-      if (course.courseNumber && !lookup.has(course.courseNumber)) lookup.set(course.courseNumber, course)
-    })
-    return lookup
-  }, [completedCourses])
 
   function resolveExplicitAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
@@ -426,11 +417,6 @@ export function SemesterPlanner() {
         <PlannerCourseDetailModal
           course={openCourse}
           isPlanned={isOpenCoursePlanned}
-          completedCourse={
-            completedCourseByKey.get(openCourse.id)
-            ?? completedCourseByKey.get(openCourse.number)
-            ?? null
-          }
           areaOptions={openCourseOptions}
           assignedAreaCode={openCourseAssignment}
           suggestedAreaCode={openCourseSuggestion}
