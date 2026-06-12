@@ -6,4 +6,6 @@ export interface TourStep {
   route?: string
   /** data-tour anchor candidates, first one found in the DOM wins. */
   targets?: string[]
+  /** Skip this step silently when no target shows up (data-dependent examples). */
+  optional?: boolean
 }

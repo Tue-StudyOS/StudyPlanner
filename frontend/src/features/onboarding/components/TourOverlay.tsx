@@ -4,9 +4,35 @@ import { ROUTES } from '../../routes'
 import { TOUR_STEPS } from '../steps'
 
 const TARGET_SEARCH_TIMEOUT_MS = 2500
-const TARGET_POLL_INTERVAL_MS = 120
+const OPTIONAL_TARGET_SEARCH_TIMEOUT_MS = 1500
+const TARGET_POLL_INTERVAL_MS = 80
 const SPOTLIGHT_PADDING = 8
 const TOOLTIP_MAX_WIDTH = 360
+// Targets are scrolled to a fixed offset below the top bar so the card can
+// always sit in the same bottom zone.
+const TARGET_TOP_OFFSET_PX = 110
+const CARD_ZONE_HEIGHT_PX = 250
+
+function findScrollParent(element: Element): Element {
+  let parent = element.parentElement
+  while (parent) {
+    const style = window.getComputedStyle(parent)
+    if (
+      parent.scrollHeight > parent.clientHeight
+      && (style.overflowY === 'auto' || style.overflowY === 'scroll')
+    ) {
+      return parent
+    }
+    parent = parent.parentElement
+  }
+  return document.scrollingElement ?? document.documentElement
+}
+
+function scrollTargetIntoPosition(element: Element): void {
+  const scrollParent = findScrollParent(element)
+  const delta = element.getBoundingClientRect().top - TARGET_TOP_OFFSET_PX
+  scrollParent.scrollTop += delta
+}
 
 interface SpotlightRect {
   top: number
@@ -38,21 +64,17 @@ function TourCard({
       className={`pointer-events-auto w-full rounded-[14px] border border-border bg-surface px-5 py-4.5 shadow-2xl ${className ?? ''}`}
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="mb-1.5 flex items-center justify-between gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-          {stepIndex + 1} / {TOUR_STEPS.length}
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[15px] font-semibold leading-snug text-fg">{step.title}</div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close tour"
-          className="rounded-md px-2 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
+          className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
         >
           Skip
         </button>
       </div>
-
-      <div className="text-[15px] font-semibold leading-snug text-fg">{step.title}</div>
       <p className="mt-1.5 text-[13px] leading-6 text-fg-mid">{step.body}</p>
 
       <div className="mt-3.5 flex items-center justify-between gap-3">
@@ -132,6 +154,9 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
     let isCancelled = false
     const searchStartedAt = Date.now()
+    const searchTimeoutMs = step.optional
+      ? OPTIONAL_TARGET_SEARCH_TIMEOUT_MS
+      : TARGET_SEARCH_TIMEOUT_MS
 
     function measure(element: Element): void {
       const rect = element.getBoundingClientRect()
@@ -152,26 +177,29 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         .find((candidate): candidate is Element => candidate !== null)
       if (element) {
         targetElementRef.current = element
-        element.scrollIntoView({ block: 'center' })
+        scrollTargetIntoPosition(element)
         // Measure once after the scroll settles, then freeze the box.
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!isCancelled) {
-              measure(element)
-            }
-          })
+          if (!isCancelled) {
+            measure(element)
+          }
         })
         return
       }
-      if (Date.now() - searchStartedAt < TARGET_SEARCH_TIMEOUT_MS) {
+      if (Date.now() - searchStartedAt < searchTimeoutMs) {
         window.setTimeout(locateTarget, TARGET_POLL_INTERVAL_MS)
+        return
+      }
+      // Data-dependent example steps vanish silently when no example exists.
+      if (step.optional) {
+        setStepIndex((index) => Math.min(index + 1, TOUR_STEPS.length - 1))
       }
     }
     locateTarget()
 
     function handleResize(): void {
       if (targetElementRef.current) {
-        targetElementRef.current.scrollIntoView({ block: 'center' })
+        scrollTargetIntoPosition(targetElementRef.current)
         requestAnimationFrame(() => measure(targetElementRef.current as Element))
       }
     }
@@ -207,18 +235,15 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
     setStepIndex((index) => index + 1)
   }
 
-  // The card sits centered inside the larger free region (above or below the
-  // spotlight) instead of clinging to the target. When the spotlight fills
-  // the screen, fall back to centering over everything.
+  // The card lives in a fixed bottom zone so it stays in the same spot across
+  // steps; only when the spotlight reaches into that zone does it move to the
+  // top instead. Targets are scrolled near the top, so bottom usually wins.
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const spaceAbove = spotlight ? Math.max(spotlight.top, 0) : 0
-  const spaceBelow = spotlight ? Math.max(viewportHeight - (spotlight.top + spotlight.height), 0) : 0
-  const useFreeArea = spotlight !== null && Math.max(spaceAbove, spaceBelow) >= 240
-  const freeAreaStyle: React.CSSProperties | undefined = spotlight && useFreeArea
-    ? spaceBelow >= spaceAbove
-      ? { top: `${spotlight.top + spotlight.height}px`, bottom: 0 }
-      : { top: 0, bottom: `${viewportHeight - spotlight.top}px` }
-    : undefined
+  const spotlightBottom = spotlight ? spotlight.top + spotlight.height : 0
+  const cardAtBottom = !spotlight || spotlightBottom < viewportHeight - CARD_ZONE_HEIGHT_PX
+  const cardZoneClassName = cardAtBottom
+    ? 'absolute inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] flex justify-center px-4'
+    : 'absolute inset-x-0 top-5 flex justify-center px-4'
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -240,11 +265,8 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         <div className="absolute inset-0 bg-black/55" />
       )}
 
-      {useFreeArea ? (
-        <div
-          className="pointer-events-none absolute inset-x-0 flex items-center justify-center px-4 py-3"
-          style={freeAreaStyle}
-        >
+      {spotlight ? (
+        <div className={`pointer-events-none ${cardZoneClassName}`}>
           <TourCard stepIndex={stepIndex} onBack={goBack} onNext={goNext} onClose={onClose} />
         </div>
       ) : (

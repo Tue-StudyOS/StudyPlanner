@@ -22,6 +22,12 @@ from services.authentication import (
     update_current_user_profile,
     update_user_credentials,
 )
+from services.ai_catalog import (
+    build_ai_meta,
+    build_openapi_schema,
+    get_course_detail_for_ai,
+    search_courses_for_ai,
+)
 from services.course_catalog import (
     get_catalog_course_detail,
     get_course_detail,
@@ -158,7 +164,59 @@ async def route_request(request: Any, env: Any) -> Any:
     if method == "OPTIONS":
         return empty_response(request, env)
 
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else ""
+
     try:
+        if path == "/api/ai/meta":
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+            return json_response(build_ai_meta(base_url), request=request, env=env)
+
+        if path == "/api/ai/openapi.json":
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+            return json_response(build_openapi_schema(base_url), request=request, env=env)
+
+        if path == "/api/ai/catalog/search":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+            try:
+                search_result = await search_courses_for_ai(env, await read_json_object(request))
+            except ValueError as exc:
+                return error_response(
+                    code="invalid_search_payload",
+                    message=str(exc),
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+            return json_response(search_result, request=request, env=env)
+
+        if path.startswith("/api/ai/catalog/courses/"):
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+            course_id_text = path.removeprefix("/api/ai/catalog/courses/")
+            try:
+                ai_course_id = int(course_id_text)
+            except ValueError:
+                return error_response(
+                    code="invalid_course_id",
+                    message="Course ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+            ai_course_detail = await get_course_detail_for_ai(env, ai_course_id)
+            if ai_course_detail is None:
+                return error_response(
+                    code="course_not_found",
+                    message="No course exists for the requested id.",
+                    request=request,
+                    env=env,
+                    status=404,
+                )
+            return json_response(ai_course_detail, request=request, env=env)
+
         if path == "/api/auth/register":
             if method != "POST":
                 return _method_not_allowed_response(request, env)

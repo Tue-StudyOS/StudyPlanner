@@ -260,7 +260,13 @@ export function CoursesOverview() {
           return true
         }),
         sortOption,
-      ),
+      // Courses without current offering data sort behind everything else so
+      // they never mix into the regular results.
+      ).sort((left, right) => {
+        const leftUnknown = offeringStatusByCourseId.get(left.id) === 'unknown' ? 1 : 0
+        const rightUnknown = offeringStatusByCourseId.get(right.id) === 'unknown' ? 1 : 0
+        return leftUnknown - rightUnknown
+      }),
     [
       completedByCourseKey,
       courses,
@@ -312,9 +318,11 @@ export function CoursesOverview() {
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
       <div className={`min-w-0 flex-1 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
       <CatalogProgressHint />
-      <div className="min-w-0 p-4 sm:p-8 sm:pt-6">
+      {/* Capped, centered content width keeps cards readable on wide screens;
+          the cap applies to both the one- and two-column layouts. */}
+      <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
 
-      <h1 className="mb-2 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">Course Catalog</h1>
+      <h1 className="mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg">Course Catalog</h1>
       <p className="mb-6 text-fg-mid">All Informatics courses across semesters.</p>
 
       {!isAuthenticated ? (
@@ -548,7 +556,19 @@ export function CoursesOverview() {
           </div>
           <div className={`grid gap-3.5 ${gridColsClass}`}>
             {visibleCourses.map((course, index) => (
-              <div key={course.id} className="min-w-0" data-tour={index === 0 ? 'catalog-card' : undefined}>
+              <div
+                key={course.id}
+                className="min-w-0"
+                data-tour={
+                  index === 0
+                    ? 'catalog-card'
+                    : index === visibleCourses.findIndex((c) => offeringStatusByCourseId.get(c.id) === 'likely')
+                      ? 'catalog-card-likely'
+                      : index === visibleCourses.findIndex((c) => offeringStatusByCourseId.get(c.id) === 'unknown')
+                        ? 'catalog-card-unknown'
+                        : undefined
+                }
+              >
                 <CourseCard
                   ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
                   course={course}

@@ -28,7 +28,8 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "comment",
     "empfehlung",
 )
-ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects)\b', re.IGNORECASE)
+# German course texts use "LP" (Leistungspunkte) as a synonym for ECTS.
+ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', re.IGNORECASE)
 # ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.

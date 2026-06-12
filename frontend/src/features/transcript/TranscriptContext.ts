@@ -11,6 +11,7 @@ export interface TranscriptContextValue {
   addCompletedCourses: (courses: CompletedCourse[]) => Promise<TranscriptSaveResult>
   importCompletedCourses: (items: BulkCompletedCourseImportItem[]) => Promise<BulkCompletedCourseImportResult | null>
   removeCourse: (courseId: string) => Promise<boolean>
+  removeTranscriptImports: () => Promise<boolean>
   setCategory: (courseId: string, masterCat: MasterCat) => Promise<boolean>
   updateCourse: (courseId: string, updates: Partial<CompletedCourse>) => Promise<boolean>
   clearCompletedCoursesError: () => void

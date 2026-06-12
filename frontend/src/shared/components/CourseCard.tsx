@@ -6,7 +6,6 @@ import { CatBadge } from './CatBadge'
 import { CompletedBadge } from './CompletedBadge'
 import { FavStar } from './FavStar'
 import { SeasonTags } from './SeasonTag'
-import { UserIcon } from './icons'
 
 interface CourseCardProps {
   course: Course
@@ -99,27 +98,27 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
         </div>
       </div>
 
-      <h3 className="text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
-        {title}
-      </h3>
-
-      <div className="flex min-w-0 items-center gap-2 border-t border-border-light pt-2 text-[12.5px] text-fg-mid">
-        <span className="text-fg-muted">
-          <UserIcon />
+      {/* Professor sits beside the title on wide cards and wraps below it on
+          narrow screens. */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <h3 className="min-w-0 text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
+          {title}
+        </h3>
+        <span className="min-w-0 truncate text-[12px] text-fg-muted">
+          {plainLecturerName(course.lecturer || 'TBA')}
         </span>
-        <span className="min-w-0 flex-1 truncate">{plainLecturerName(course.lecturer || 'TBA')}</span>
-        {ectsLabel ? (
-          <span className="shrink-0 text-[13px] font-bold text-fg">
-            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
-          </span>
-        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <SeasonTags termType={course.termType} />
         <OfferingStatusTag status={offeringStatus} />
-        <span className="flex-1" />
         {isCompleted ? <CompletedBadge /> : null}
+        <span className="flex-1" />
+        {ectsLabel ? (
+          <span className="shrink-0 text-[13px] font-bold text-fg">
+            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+          </span>
+        ) : null}
       </div>
     </div>
   )

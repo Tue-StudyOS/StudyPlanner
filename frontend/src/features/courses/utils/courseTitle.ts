@@ -64,7 +64,34 @@ export function cleanCourseTitle(title: string, courseNumber?: string | null): s
   return cleanedTitle.length > 0 ? cleanedTitle : title.trim()
 }
 
+// Catalog data mixes German and English type names; tags render uniformly in
+// English.
+const TYPE_TRANSLATIONS: Array<[RegExp, string]> = [
+  [/^vorlesung(en)?$/i, 'Lecture'],
+  [/^(ü|ue)bung(en)?$/i, 'Exercise'],
+  [/^(haupt|ober|block)?seminar$/i, 'Seminar'],
+  [/^proseminar$/i, 'Proseminar'],
+  [/^(block)?praktikum$/i, 'Practical'],
+  [/^projekt$/i, 'Project'],
+  [/^kolloquium$/i, 'Colloquium'],
+  [/^vortrag$/i, 'Talk'],
+  [/^tutorium$/i, 'Tutorial'],
+  [/^ringvorlesung$/i, 'Lecture series'],
+]
+
+export function translateCourseType(type: string): string {
+  const trimmedType = type.trim()
+  const translation = TYPE_TRANSLATIONS.find(([pattern]) => pattern.test(trimmedType))
+  return translation ? translation[1] : trimmedType
+}
+
 export function formatCourseTypeLabel(types: string[]): string {
-  const uniqueTypes = [...new Set(types.map((type) => type.trim()).filter((type) => type.length > 0))]
+  const uniqueTypes = [
+    ...new Set(
+      types
+        .map((type) => translateCourseType(type))
+        .filter((type) => type.length > 0),
+    ),
+  ]
   return uniqueTypes.join(' + ') || 'Course'
 }

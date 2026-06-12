@@ -59,6 +59,10 @@ export function AccountPage() {
   const [credNewIdentifier, setCredNewIdentifier] = useState<string>('')
   const [credNewPassword, setCredNewPassword] = useState<string>('')
   const [credConfirmPassword, setCredConfirmPassword] = useState<string>('')
+  const [isProfileSetupOpen, setIsProfileSetupOpen] = useState<boolean>(false)
+  const [setupStudyProgramId, setSetupStudyProgramId] = useState<number | null>(null)
+  const [setupSemesterLabel, setSetupSemesterLabel] = useState<string>('')
+  const [isSavingSetup, setIsSavingSetup] = useState<boolean>(false)
 
   useEffect(() => {
     let isActive = true
@@ -110,18 +114,14 @@ export function AccountPage() {
     setMessage(null)
     try {
       if (mode === 'register') {
-        await register({
-          identifier,
-          password,
-          studyProgramId: selectedStudyProgramId,
-          currentSemesterLabel: currentSemesterLabel.trim() || null,
-        })
+        await register({ identifier, password })
         setDraftStudyProgramId(undefined)
         setDraftCurrentSemesterLabel(undefined)
         setProfileSaveState('idle')
         setProfileError(null)
         setLastFailedProfileKey(null)
-        navigate(ROUTES.planner)
+        // Study program and start semester follow in a focused setup step.
+        setIsProfileSetupOpen(true)
         return
       }
       await login({ identifier, password })
@@ -289,7 +289,7 @@ export function AccountPage() {
       ) : null}
 
       <div className="mb-6 min-w-0">
-        <h1 className="mb-0.75 font-serif text-[26px] font-semibold tracking-[-0.02em] text-fg">
+        <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
           Account
         </h1>
         <p className="max-w-[32rem] text-[13.5px] text-fg-muted">
@@ -480,22 +480,9 @@ export function AccountPage() {
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} />
               </label>
               {mode === 'register' ? (
-                <>
-                  <label className="grid gap-1.5">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program</span>
-                    <select value={toSelectValue(selectedStudyProgramId)} onChange={(event) => setDraftStudyProgramId(event.target.value ? Number(event.target.value) : null)} disabled={isLoadingOptions} className={inputClass}>
-                      <option value="">Select a study program incl. PO</option>
-                      {studyPrograms.map((sp) => (<option key={sp.id} value={sp.id}>{sp.name}</option>))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Start semester</span>
-                    <select value={currentSemesterLabel} onChange={(event) => setDraftCurrentSemesterLabel(event.target.value)} className={inputClass}>
-                      <option value="">Select your start semester</option>
-                      {startSemesters.map((sem) => (<option key={sem} value={sem}>{sem}</option>))}
-                    </select>
-                  </label>
-                </>
+                <p className="text-[12px] text-fg-muted">
+                  You pick your study program (PO) and start semester right after sign-up.
+                </p>
               ) : null}
               <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
                 {isSubmitting ? 'Please wait...' : mode === 'register' ? 'Create account' : 'Sign in'}
@@ -539,6 +526,82 @@ export function AccountPage() {
       {message ? (
         <div className="mt-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-mid">
           {message}
+        </div>
+      ) : null}
+
+      {isProfileSetupOpen ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/45" role="dialog" aria-modal="true">
+          <div className="flex min-h-full items-center justify-center px-4 py-6">
+            <div className="w-full max-w-[26rem] rounded-[14px] border border-border bg-surface px-6 py-6 shadow-2xl">
+              <h2 className="text-[18px] font-semibold text-fg">Set up your studies</h2>
+              <p className="mt-1 text-[12.5px] text-fg-muted">
+                Two quick choices — they unlock progress tracking and the right course areas.
+              </p>
+
+              <div className="mt-4 grid gap-3.5">
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Study program incl. PO</span>
+                  <select
+                    value={toSelectValue(setupStudyProgramId)}
+                    onChange={(event) => setSetupStudyProgramId(event.target.value ? Number(event.target.value) : null)}
+                    disabled={isLoadingOptions}
+                    className={inputClass}
+                  >
+                    <option value="">Select a study program</option>
+                    {studyPrograms.map((sp) => (<option key={sp.id} value={sp.id}>{sp.name}</option>))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Start semester</span>
+                  <select
+                    value={setupSemesterLabel}
+                    onChange={(event) => setSetupSemesterLabel(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Select your start semester</option>
+                    {startSemesters.map((sem) => (<option key={sem} value={sem}>{sem}</option>))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileSetupOpen(false)
+                    navigate(ROUTES.planner)
+                  }}
+                  className="rounded-md px-3 py-2 text-[12.5px] font-medium text-fg-muted transition-colors hover:text-fg"
+                >
+                  Later
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingSetup}
+                  onClick={() => {
+                    void (async () => {
+                      setIsSavingSetup(true)
+                      try {
+                        await saveProfile({
+                          studyProgramId: setupStudyProgramId,
+                          currentSemesterLabel: setupSemesterLabel.trim() || null,
+                        })
+                        setIsProfileSetupOpen(false)
+                        navigate(ROUTES.planner)
+                      } catch (setupError) {
+                        setError(normalizeErrorMessage(setupError))
+                      } finally {
+                        setIsSavingSetup(false)
+                      }
+                    })()
+                  }}
+                  className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingSetup ? 'Saving…' : 'Save and start'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 

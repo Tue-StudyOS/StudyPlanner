@@ -54,11 +54,31 @@ export function PlannerProgressStrip({
     return null
   }
 
+  // Overall degree progress across all areas with a target, including the
+  // delta this plan adds.
+  const totals = areas.reduce(
+    (sums, area) => {
+      const targetEcts = area.capacityEcts ?? area.requiredEcts
+      if (targetEcts === null || targetEcts <= 0) {
+        return sums
+      }
+      return {
+        target: sums.target + targetEcts,
+        credited: sums.credited + Math.min(area.creditedEcts, targetEcts),
+        planned: sums.planned + Math.min(area.plannedEcts, Math.max(0, targetEcts - area.creditedEcts)),
+      }
+    },
+    { target: 0, credited: 0, planned: 0 },
+  )
+  const creditedWidth = totals.target > 0 ? (totals.credited / totals.target) * 100 : 0
+  const plannedWidth = totals.target > 0 ? (totals.planned / totals.target) * 100 : 0
+
   return (
     <div
       data-tour="planner-progress"
-      className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2"
+      className="grid gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2"
     >
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
         Progress
       </span>
@@ -94,6 +114,21 @@ export function PlannerProgressStrip({
           </span>
         )
       })}
+    </div>
+
+    {totals.target > 0 ? (
+      <div
+        className="h-1 overflow-hidden rounded-full bg-border-light"
+        title={`${roundEcts(totals.credited)} of ${roundEcts(totals.target)} ECTS done${
+          totals.planned > 0 ? ` + ${roundEcts(totals.planned)} planned` : ''
+        }`}
+      >
+        <div className="flex h-full">
+          <div className="bg-primary/80" style={{ width: `${creditedWidth}%` }} />
+          <div className="bg-primary/35" style={{ width: `${plannedWidth}%` }} />
+        </div>
+      </div>
+    ) : null}
     </div>
   )
 }
