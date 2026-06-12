@@ -1,7 +1,7 @@
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import type { Course } from '../../courses'
 import { getLecturePeriod } from './lecturePeriod.ts'
-import { DAY_ORDER, normalizeWeekday, parseTimeRange } from './plannerFeedback.ts'
+import { DAY_ORDER, isSingleDateSlot, normalizeWeekday, parseTimeRange } from './plannerFeedback.ts'
 
 type Weekday = (typeof DAY_ORDER)[number]
 
@@ -63,6 +63,17 @@ function parseExamDate(value: string): Date | null {
   return null
 }
 
+// Single-date slot labels may carry surrounding text ("am 28.07.2026").
+function parseGermanDateAnywhere(value: string): Date | null {
+  const match = value.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/)
+  if (!match) {
+    return null
+  }
+  const rawYear = Number(match[3])
+  const year = rawYear < 100 ? 2000 + rawYear : rawYear
+  return new Date(year, Number(match[2]) - 1, Number(match[1]))
+}
+
 export interface SemesterIcsInput {
   semesterLabel: string
   courses: Course[]
@@ -88,14 +99,37 @@ export function buildSemesterPlanIcs({
   const events: string[] = []
 
   courses.forEach((course) => {
-    const title = cleanCourseTitle(course.title)
+    const title = cleanCourseTitle(course.title, course.number)
 
     course.schedule.forEach((slot, index) => {
       if (hiddenSlotIds.includes(`${course.id}:${index}`)) {
         return
       }
-      const weekday = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
+
+      // One-off appointments (exam dates) become a single event instead of a
+      // weekly recurrence.
+      if (isSingleDateSlot(slot.day)) {
+        const slotDate = parseExamDate(slot.day) ?? parseGermanDateAnywhere(slot.day)
+        if (!slotDate || !timeRange) {
+          return
+        }
+        const lines = [
+          'BEGIN:VEVENT',
+          `UID:${course.id}-${index}@studyplanner`,
+          `DTSTART;TZID=Europe/Berlin:${formatIcsDateTime(slotDate, timeRange.startMinutes)}`,
+          `DTEND;TZID=Europe/Berlin:${formatIcsDateTime(slotDate, timeRange.endMinutes)}`,
+          `SUMMARY:${escapeIcsText(title)}`,
+        ]
+        if (slot.room && slot.room !== 'TBA') {
+          lines.push(`LOCATION:${escapeIcsText(slot.room)}`)
+        }
+        lines.push('END:VEVENT')
+        events.push(lines.join('\r\n'))
+        return
+      }
+
+      const weekday = normalizeWeekday(slot.day)
       if (!weekday || !timeRange) {
         return
       }

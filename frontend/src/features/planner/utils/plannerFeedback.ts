@@ -1,4 +1,5 @@
 import type { Course } from '../../courses'
+import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 
 export const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
@@ -39,6 +40,7 @@ const DAY_ALIASES: Record<string, (typeof DAY_ORDER)[number]> = {
 }
 
 const GERMAN_DATE_PATTERN = /\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/
+const GERMAN_DATE_PATTERN_GLOBAL = /\b\d{1,2}\.\d{1,2}\.(?:\d{2}|\d{4})\b/g
 const DATE_WEEKDAYS: Array<(typeof DAY_ORDER)[number] | null> = [
   null,
   'Monday',
@@ -61,6 +63,23 @@ export interface PlannerBlock {
   room: string
   slotType: string
   hasOverlap: boolean
+}
+
+/**
+ * Single-date appointments (exam dates, one-off sessions) are not weekly
+ * slots: ALMA encodes recurring slots either as weekday aliases or as date
+ * RANGES ("24.04.2026 - 24.07.2026"), while a lone date means one occurrence.
+ */
+export function isSingleDateSlot(value: string): boolean {
+  const normalizedValue = value.trim()
+  if (DAY_ALIASES[normalizedValue.toLowerCase()]) {
+    return false
+  }
+  const dates = normalizedValue.match(GERMAN_DATE_PATTERN_GLOBAL) ?? []
+  if (dates.length === 0) {
+    return false
+  }
+  return dates.length === 1 || dates[0] === dates[1]
 }
 
 export function normalizeWeekday(value: string): (typeof DAY_ORDER)[number] | null {
@@ -110,6 +129,9 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
 
   courses.forEach((course) => {
     course.schedule.forEach((slot, index) => {
+      if (isSingleDateSlot(slot.day)) {
+        return
+      }
       const normalizedDay = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
       if (!normalizedDay || !timeRange) {
@@ -119,7 +141,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         blockId: `${course.id}-${index}`,
         slotId: `${course.id}:${index}`,
         courseId: course.id,
-        courseTitle: course.title,
+        courseTitle: cleanCourseTitle(course.title, course.number),
         day: normalizedDay,
         startMinutes: timeRange.startMinutes,
         endMinutes: timeRange.endMinutes,

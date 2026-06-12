@@ -1,10 +1,9 @@
-import type { ComponentType } from 'react'
-
-export interface OnboardingStep {
+export interface TourStep {
   id: string
-  eyebrow: string
   title: string
-  description: string
-  bullets?: string[]
-  Icon: ComponentType
+  body: string
+  /** Route to navigate to before showing this step. */
+  route?: string
+  /** data-tour anchor candidates, first one found in the DOM wins. */
+  targets?: string[]
 }

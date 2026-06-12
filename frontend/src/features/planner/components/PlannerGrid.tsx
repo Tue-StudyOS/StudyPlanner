@@ -75,7 +75,8 @@ export function PlannerGrid({
   return (
     <>
       <div
-        className="rounded-[10px] border border-border bg-surface px-3 py-4 sm:px-6 sm:py-5.5"
+        data-tour="planner-grid"
+        className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-6 sm:py-5.5"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault()
@@ -86,7 +87,7 @@ export function PlannerGrid({
           }
         }}
       >
-        <div className={`grid ${isMobilePlanner ? 'grid-cols-[2rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
+        <div className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
           <div />
           {DAY_ORDER.map((day) => (
             <div
@@ -101,10 +102,12 @@ export function PlannerGrid({
             {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
               <div
                 key={index}
-                className="absolute left-0 text-[9px] text-fg-muted sm:text-[11px]"
+                className="absolute right-0.5 text-right text-[9px] tabular-nums text-fg-muted sm:right-1 sm:text-[11px]"
                 style={{ top: `${index * PIXELS_PER_HOUR - 8}px` }}
               >
-                {String(START_HOUR + index).padStart(2, '0')}:00
+                {isMobilePlanner
+                  ? String(START_HOUR + index)
+                  : `${String(START_HOUR + index).padStart(2, '0')}:00`}
               </div>
             ))}
           </div>
@@ -150,11 +153,11 @@ export function PlannerGrid({
                         height: `${Math.max(height, 38)}px`,
                       }}
                     >
-                      <div className="line-clamp-2 break-words text-[8.5px] font-semibold leading-tight sm:text-[11px]">
-                        {cleanCourseTitle(block.courseTitle)}
+                      <div className="line-clamp-3 break-words text-[8px] font-semibold leading-[1.2] [hyphens:auto] sm:line-clamp-2 sm:text-[11px] sm:leading-tight">
+                        {block.courseTitle}
                       </div>
                       {block.slotType ? (
-                        <div className="truncate text-[7.5px] opacity-75 sm:text-[10px]">
+                        <div className="hidden truncate text-[10px] opacity-75 sm:block">
                           {block.slotType}
                         </div>
                       ) : null}
@@ -202,7 +205,7 @@ export function PlannerGrid({
                   className="min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-primary/30"
                 >
                   <div className="break-words text-[12px] font-semibold text-fg">
-                    {cleanCourseTitle(course.title)}
+                    {cleanCourseTitle(course.title, course.number)}
                   </div>
                 </button>
               ))}

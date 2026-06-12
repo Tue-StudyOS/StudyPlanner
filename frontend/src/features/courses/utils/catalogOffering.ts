@@ -125,15 +125,3 @@ export function getOfferingStatus(
   return bestStatus
 }
 
-export function formatTermTypeLabel(termType: Course['termType']): string | null {
-  switch (termType) {
-    case 'summer':
-      return 'Summer'
-    case 'winter':
-      return 'Winter'
-    case 'both':
-      return 'Summer + Winter'
-    default:
-      return null
-  }
-}

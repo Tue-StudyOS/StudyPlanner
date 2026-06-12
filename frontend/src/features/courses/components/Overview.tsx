@@ -77,6 +77,27 @@ function toggleInSelection<T>(items: T[], item: T): T[] {
   return items.includes(item) ? items.filter((i) => i !== item) : [...items, item]
 }
 
+// Shows the layout the button switches TO: 2x2 squares for the two-column
+// grid, stacked bars for the single column.
+function LayoutPreviewIcon({ next }: { next: CatalogLayout }) {
+  if (next === 'grid') {
+    return (
+      <svg width={16} height={16} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="5.6" height="5.6" rx="1.2" />
+        <rect x="8.9" y="1.5" width="5.6" height="5.6" rx="1.2" />
+        <rect x="1.5" y="8.9" width="5.6" height="5.6" rx="1.2" />
+        <rect x="8.9" y="8.9" width="5.6" height="5.6" rx="1.2" />
+      </svg>
+    )
+  }
+  return (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <rect x="1.5" y="2" width="13" height="5" rx="1.2" />
+      <rect x="1.5" y="9" width="13" height="5" rx="1.2" />
+    </svg>
+  )
+}
+
 const TERM_FILTER_OPTIONS: Array<{ value: 'summer' | 'winter'; label: string }> = [
   { value: 'summer', label: 'Summer term' },
   { value: 'winter', label: 'Winter term' },
@@ -289,7 +310,7 @@ export function CoursesOverview() {
       ) : null}
 
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
-        <label className="block">
+        <label className="block" data-tour="catalog-search">
           <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
             Search
           </span>
@@ -302,7 +323,7 @@ export function CoursesOverview() {
           />
         </label>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5" data-tour="catalog-filters">
           <button
             type="button"
             onClick={() => setAreFiltersOpen((open) => !open)}
@@ -338,9 +359,10 @@ export function CoursesOverview() {
             type="button"
             onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
             aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
-            className="hidden rounded-md border border-border bg-surface px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover md:block"
+            title={layout === 'grid' ? 'Single column' : 'Two columns'}
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
           >
-            {layout === 'grid' ? 'Single column' : 'Two columns'}
+            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
           </button>
         </div>
 
@@ -484,19 +506,20 @@ export function CoursesOverview() {
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
           <div className={`grid gap-3.5 ${gridColsClass}`}>
-            {visibleCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
-                course={course}
-                isFavorite={isFavorite(course.id)}
-                isActive={selectedCourse?.id === course.id}
-                isCompleted={Boolean(getCompletedFor(course))}
-                favoriteDisabled={isLoadingFavorites || isSavingFavorites}
-                offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
-                onSelect={() => setSelectedCourse(course)}
-                onToggleFavorite={() => toggleFavorite(course.id)}
-              />
+            {visibleCourses.map((course, index) => (
+              <div key={course.id} className="min-w-0" data-tour={index === 0 ? 'catalog-card' : undefined}>
+                <CourseCard
+                  ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
+                  course={course}
+                  isFavorite={isFavorite(course.id)}
+                  isActive={selectedCourse?.id === course.id}
+                  isCompleted={Boolean(getCompletedFor(course))}
+                  favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+                  offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
+                  onSelect={() => setSelectedCourse(course)}
+                  onToggleFavorite={() => toggleFavorite(course.id)}
+                />
+              </div>
             ))}
           </div>
           {hasMore ? (

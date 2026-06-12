@@ -9,7 +9,6 @@ export { ALL_CATALOG_PERIODS } from './api'
 export { findCatalogPeriodForSemesterLabel } from './utils/periods'
 export { cleanCourseTitle, formatCourseTypeLabel } from './utils/courseTitle.ts'
 export {
-  formatTermTypeLabel,
   getOfferingStatus,
   isCompulsoryCourse,
   type OfferingStatus,

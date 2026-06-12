@@ -50,7 +50,7 @@ function CandidateCard({
       <div className="flex items-start justify-between gap-2">
         <div className={`min-w-0 flex-1 ${dimClassName}`}>
           <div className="break-words text-[13px] font-semibold leading-snug text-fg">
-            {cleanCourseTitle(course.title)}
+            {cleanCourseTitle(course.title, course.number)}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2 py-0.5 text-[10px] font-medium text-pill-text">
@@ -119,7 +119,10 @@ export function PlannerFavoritesPanel({
   })
 
   return (
-    <aside className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full">
+    <aside
+      data-tour="planner-interested"
+      className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full"
+    >
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="text-[14px] font-semibold text-fg">Interested</div>
         <p className="mt-0.5 text-[12px] text-fg-muted">

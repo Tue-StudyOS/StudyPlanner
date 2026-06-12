@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   DAY_LABELS,
   DAY_ORDER,
+  isSingleDateSlot,
   normalizeWeekday,
   parseTimeRange,
 } from '../../planner/utils/plannerFeedback'
@@ -34,6 +35,11 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
   const blocks = useMemo(() => {
     const parsedBlocks: MiniGridBlock[] = []
     schedule.forEach((slot, index) => {
+      // Exam dates and other one-off appointments are not weekly slots; they
+      // belong in the exam dates section, not in this grid.
+      if (isSingleDateSlot(slot.day)) {
+        return
+      }
       const day = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
       if (!day || !timeRange) {
@@ -110,6 +116,9 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
       ) : (
         <ul className="mt-2.5 flex flex-col gap-1">
           {schedule.map((slot, index) => {
+            if (isSingleDateSlot(slot.day)) {
+              return null
+            }
             const day = normalizeWeekday(slot.day)
             const timeRange = parseTimeRange(slot.time)
             if (!day || !timeRange) {
