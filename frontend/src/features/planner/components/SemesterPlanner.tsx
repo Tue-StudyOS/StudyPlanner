@@ -214,7 +214,7 @@ export function SemesterPlanner() {
 
   if (!isAuthenticated || !user) {
     return (
-      <PageShell width="planner">
+      <PageShell>
         <div className="mb-6">
           <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
             {t('planner.title')}
@@ -275,7 +275,7 @@ export function SemesterPlanner() {
   )
 
   return (
-    <PageShell width="planner">
+    <PageShell>
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
           {t('planner.title')}
