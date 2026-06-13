@@ -119,8 +119,15 @@ domain later, use that domain in step 4.
 
 ### 5. Deploy the hosted MCP worker
 
-The first MCP worker is stateless and calls the existing StudyPlanner AI facade
-over HTTPS. It does not need D1, OpenAI, or Anthropic secrets.
+The first MCP worker is stateless and calls the existing StudyPlanner AI facade.
+It does not need D1, OpenAI, or Anthropic secrets.
+
+It reaches the API worker through the `STUDYPLANNER_API` **service binding**
+declared in `integrations/studyplanner-mcp/wrangler.toml` (`service =
+"studyplanner-api"`). This is required: a Worker calling another Worker on the
+same Cloudflare account over its public `workers.dev` URL returns 404, which
+made every `tools/call` fail. Deploy the API worker (step 1) first so the bound
+service exists, then deploy the MCP worker.
 
 ```bash
 npm run test:mcp

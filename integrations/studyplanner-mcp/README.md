@@ -8,7 +8,7 @@ The adapter exposes read-only public catalog tools only:
 - `studyplanner_resolve_course`
 - `studyplanner_get_course_detail`
 
-External agents call the deployed Worker endpoint, normally `https://studyplanner-mcp.ben-tischberger.workers.dev/mcp` (or `/sse` for older clients). The Worker calls the existing StudyPlanner AI HTTPS endpoints.
+External agents call the deployed Worker endpoint, normally `https://studyplanner-mcp.ben-tischberger.workers.dev/mcp` (or `/sse` for older clients). The Worker reaches the existing StudyPlanner AI facade through the `STUDYPLANNER_API` **service binding** (see `wrangler.toml`). A direct `workers.dev` subrequest to the API worker on the same Cloudflare account returns 404, so the binding is required for `tools/call` to work; the public `STUDYPLANNER_AI_BASE_URL` is only a fallback for local dev and for building request paths.
 
 ## ChatGPT App preparation
 

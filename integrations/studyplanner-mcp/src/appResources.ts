@@ -81,19 +81,33 @@ const APP_COMPONENT_HTML = String.raw`<!doctype html>
         .replaceAll("'", '&#39;')
     }
 
+    // Course data is untrusted: only emit links that are site-relative or
+    // explicit http(s), so a javascript:/data: detailUrl cannot become XSS.
+    function safeUrl(value) {
+      const raw = text(value).trim()
+      if (!raw) return ''
+      if (raw.startsWith('/') && !raw.startsWith('//')) return raw
+      try {
+        const parsed = new URL(raw)
+        return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : ''
+      } catch (error) {
+        return ''
+      }
+    }
+
     function renderCourse(course) {
       const number = escapeHtml(course.number || course.courseNumber)
       const title = escapeHtml(course.title || course.name || 'Untitled course')
       const ects = course.ects ?? course.ectsCredits
       const term = escapeHtml(course.termType || course.term || '')
       const id = course.id ?? course.courseId
-      const detailUrl = escapeHtml(course.detailUrl || course.url)
+      const detailUrl = escapeHtml(safeUrl(course.detailUrl || course.url))
       const titlePrefix = number ? number + ' · ' : ''
       const metaParts = []
       if (ects !== undefined && ects !== null) metaParts.push('<span class="pill">' + escapeHtml(ects) + ' ECTS</span>')
       if (term) metaParts.push('<span class="pill">' + term + '</span>')
       if (id) metaParts.push('<span class="pill">ID ' + escapeHtml(id) + '</span>')
-      if (detailUrl) metaParts.push('<a href="' + detailUrl + '" target="_blank" rel="noreferrer">Open</a>')
+      if (detailUrl) metaParts.push('<a href="' + detailUrl + '" target="_blank" rel="noreferrer noopener">Open</a>')
       return [
         '<article class="card">',
         '<div class="course-title">' + titlePrefix + title + '</div>',
