@@ -1,10 +1,11 @@
 import { forwardRef } from 'react'
+import { useAuth } from '../../features/auth'
 import type { Course } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
-import { buildCourseCardTagOrder, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
+import { buildCourseAreaTags, buildCourseCardTagOrder, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../features/courses/utils/courseTitle.ts'
 import { useTranslation } from '../../features/i18n'
-import { CatBadge } from './CatBadge'
+import { AreaBadge } from './AreaBadge'
 import { FavStar } from './FavStar'
 import { SeasonTags } from './SeasonTag'
 
@@ -58,6 +59,8 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
   ref,
 ) {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
@@ -115,8 +118,8 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
           <TypePill label={formatCourseTypeLabel(tagOrder.typeLabels)} />
         </span>
         <span className={`flex flex-wrap gap-0.75 ${secondaryVisibilityClass}`}>
-          {tagOrder.categoryLabels.map((cat) => (
-            <CatBadge key={cat} cat={cat} />
+          {areaTags.map((tag) => (
+            <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
           ))}
           <OfferingStatusTag status={offeringStatus} />
         </span>
