@@ -12,6 +12,10 @@ import {
   buildFlexibleRegulationAreaOptions,
   studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation'
+import {
+  buildManualSemesterOptions,
+  getManualSemesterDefault,
+} from '../utils/manualSemesterOptions.ts'
 
 const ALL_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
 
@@ -64,8 +68,11 @@ export function ManualCompletedCourseForm({
   isSaving,
   onSave,
 }: ManualCompletedCourseFormProps) {
+  const semesterOptions = useMemo(() => buildManualSemesterOptions(defaultSemester), [defaultSemester])
   const [selectedCourse, setSelectedCourse] = useState<TranscriptCoursePreview | null>(null)
-  const [semester, setSemester] = useState<string>(defaultSemester ?? '')
+  const [semester, setSemester] = useState<string>(() =>
+    getManualSemesterDefault(defaultSemester, semesterOptions),
+  )
   const [grade, setGrade] = useState<number | null>(null)
   const [masterCat, setMasterCat] = useState<MasterCat>('INFO')
   const [studyAreaCode, setStudyAreaCode] = useState<string | null>(null)
@@ -96,10 +103,17 @@ export function ManualCompletedCourseForm({
   const resolvedMasterCat = resolvedStudyAreaCode
     ? studyAreaCodeToMasterCat(resolvedStudyAreaCode) ?? masterCat
     : masterCat
+  const shouldWarnMissingArea = Boolean(
+    selectedCourse
+    && semester.trim()
+    && hasActiveRegulation
+    && areaOptions.length > 1
+    && !resolvedStudyAreaCode,
+  )
 
   function resetForm(): void {
     setSelectedCourse(null)
-    setSemester(defaultSemester ?? '')
+    setSemester(getManualSemesterDefault(defaultSemester, semesterOptions))
     setGrade(null)
     setMasterCat('INFO')
     setStudyAreaCode(null)
@@ -108,6 +122,7 @@ export function ManualCompletedCourseForm({
 
   function handleCatalogCourseSelect(course: TranscriptCoursePreview): void {
     setSelectedCourse(course)
+    setStudyAreaCode(null)
     setError(null)
   }
 
@@ -123,7 +138,7 @@ export function ManualCompletedCourseForm({
     }
 
     if (!semester.trim()) {
-      setError('Enter the semester for this completed course.')
+      setError('Select the semester for this completed course.')
       return
     }
 
@@ -149,12 +164,10 @@ export function ManualCompletedCourseForm({
   }
 
   return (
-    // The form only scrolls internally beside the upload card on large
-    // screens; on phones it grows naturally with the page.
-    <div className="flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 lg:h-full lg:min-h-0">
-      <div className="text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
+    <div className="flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 lg:h-[24rem] lg:min-h-0 lg:overflow-hidden">
+      <div className="shrink-0 text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
 
-      <div className="mt-4 grid content-start gap-3.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <div className="mt-4 grid content-start gap-3.5 lg:min-h-0 lg:flex-1">
         <CatalogCoursePicker
           selectedCourse={selectedCourse}
           studyProgramCode={studyProgramCode}
@@ -162,18 +175,22 @@ export function ManualCompletedCourseForm({
           onSelect={handleCatalogCourseSelect}
         />
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="grid gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
               Semester
             </span>
-            <input
-              type="text"
+            <select
               value={semester}
               onChange={(event) => setSemester(event.target.value)}
-              placeholder="e.g. WS 24/25"
-              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none focus:border-primary"
-            />
+              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+            >
+              {semesterOptions.map((semesterOption) => (
+                <option key={semesterOption} value={semesterOption}>
+                  {semesterOption}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="grid gap-1">
@@ -183,32 +200,27 @@ export function ManualCompletedCourseForm({
             <TranscriptGradeSelect
               value={grade}
               onChange={setGrade}
-              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none focus:border-primary"
+              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
             />
           </label>
+
+          {isLoadingRegulationVersion ? (
+            <div className="rounded-md border border-border-light bg-surface-hover/25 px-2.5 py-1.5 text-[12px] text-fg-muted lg:self-end">
+              Loading regulation...
+            </div>
+          ) : hasActiveRegulation ? (
+            <StudyAreaAssignmentField
+              value={resolvedStudyAreaCode}
+              options={areaOptions}
+              locked={isAreaLocked}
+              size="compact"
+              tone={shouldWarnMissingArea ? 'error' : 'default'}
+              onChange={setStudyAreaCode}
+            />
+          ) : null}
         </div>
 
-        {isLoadingRegulationVersion ? (
-          <div className="rounded-[10px] border border-border-light bg-surface-hover/25 px-3 py-3 text-[12px] text-fg-muted">
-            Loading your active regulation settings...
-          </div>
-        ) : hasActiveRegulation ? (
-          <StudyAreaAssignmentField
-            value={resolvedStudyAreaCode}
-            options={areaOptions}
-            locked={isAreaLocked}
-            size="compact"
-            tone={hasActiveRegulation && areaOptions.length > 1 && !resolvedStudyAreaCode ? 'error' : 'default'}
-            helpText={
-              mappedAreaOptions.length > 1
-                ? 'Choose the regulation area that should receive this course.'
-                : mappedAreaOptions.length === 1
-                  ? 'This area is fixed by your active examination regulation.'
-                  : 'Choose one compatible elective area from your active regulation.'
-            }
-            onChange={setStudyAreaCode}
-          />
-        ) : (
+        {!isLoadingRegulationVersion && !hasActiveRegulation ? (
           <div>
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
               Category
@@ -224,7 +236,7 @@ export function ManualCompletedCourseForm({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         {error ? (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-[12.5px] text-primary">
@@ -233,7 +245,7 @@ export function ManualCompletedCourseForm({
         ) : null}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap justify-end gap-2">
+      <div className="mt-3.5 flex shrink-0 flex-wrap justify-end gap-2">
         <button
           type="button"
           onClick={resetForm}

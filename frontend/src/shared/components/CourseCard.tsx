@@ -64,7 +64,9 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
-    : `${offeringStatus === 'likely' ? 'border-dashed' : ''} border-border hover:border-primary/30`
+    : offeringStatus === 'likely'
+      ? 'border-2 border-dashed border-fg-muted hover:border-fg-muted'
+      : 'border-border hover:border-primary/30'
   const isDimmed = offeringStatus === 'unknown' && !isCompleted
   const title = cleanCourseTitle(course.title, course.number)
   const ectsLabel = course.ects === null

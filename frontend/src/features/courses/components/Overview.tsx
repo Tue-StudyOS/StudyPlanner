@@ -1,10 +1,16 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { buildFlexibleRegulationAreaOptions } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
+import { useOnboarding } from '../../onboarding'
+import {
+  TOUR_SAMPLE_COURSES,
+  getCatalogTourSampleVariant,
+  getTourCatalogSampleTarget,
+} from '../../onboarding/utils/tourPreviewData.ts'
 import { DAY_LABELS, DAY_ORDER } from '../../planner/utils/plannerFeedback'
 import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS } from '../api'
@@ -146,8 +152,8 @@ export function CoursesOverview() {
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const { t } = useTranslation()
+  const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const selectedCardRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
@@ -193,14 +199,6 @@ export function CoursesOverview() {
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [courses])
-
-  // Keep the clicked card visible when the grid collapses to one column for
-  // the detail drawer, so the selected course never jumps out of view.
-  useLayoutEffect(() => {
-    if (selectedCourse) {
-      selectedCardRef.current?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [selectedCourse])
 
   useEffect(() => {
     window.localStorage.setItem(CATALOG_LAYOUT_STORAGE_KEY, layout)
@@ -312,20 +310,33 @@ export function CoursesOverview() {
     setHideUnknownOfferings(false)
   }
 
-  const isDrawerOpen = selectedCourse !== null
-  const gridColsClass =
-    layout === 'list' || isDrawerOpen ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+  const catalogSubtitle = t('catalog.subtitle')
+  const activeCatalogSampleVariant = isOnboardingOpen
+    ? getCatalogTourSampleVariant(activeStepId)
+      ?? (
+        activeStepId === 'catalog-search'
+        || activeStepId === 'catalog-filters'
+        || activeStepId === 'catalog-progress-hint'
+          ? 'confirmed'
+          : null
+      )
+    : null
+  const hasCatalogRows = filteredCourses.length > 0 || activeCatalogSampleVariant !== null
+  const visibleCatalogRows = activeCatalogSampleVariant
+    ? [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
+    : visibleCourses
+  const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div className={`min-w-0 flex-1 md:overflow-y-auto ${isDrawerOpen ? 'hidden md:block' : ''}`}>
+      <div data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
       <CatalogProgressHint />
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
       <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
 
-      <h1 className="mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg">{t('catalog.title')}</h1>
-      <p className="mb-6 text-fg-mid">{t('catalog.subtitle')}</p>
+      <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
+      {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}
 
       {!isAuthenticated ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
@@ -333,19 +344,19 @@ export function CoursesOverview() {
         </div>
       ) : null}
 
-      {favoritesError ? (
+      {!isOnboardingOpen && favoritesError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {favoritesError}
         </div>
       ) : null}
 
-      {periodsError ? (
+      {!isOnboardingOpen && periodsError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {periodsError}
         </div>
       ) : null}
 
-      {regulationVersionError ? (
+      {!isOnboardingOpen && regulationVersionError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {regulationVersionError}
         </div>
@@ -379,6 +390,18 @@ export function CoursesOverview() {
             {t('catalog.filters')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''} {areFiltersOpen ? '▴' : '▾'}
           </button>
 
+          <span className="flex-1" />
+
+          <button
+            type="button"
+            onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
+            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
+            title={layout === 'grid' ? 'Single column' : 'Two columns'}
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
+          >
+            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
+          </button>
+
           <label className="flex items-center gap-2">
             <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
@@ -394,18 +417,6 @@ export function CoursesOverview() {
               ))}
             </select>
           </label>
-
-          <span className="flex-1" />
-
-          <button
-            type="button"
-            onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
-            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
-            title={layout === 'grid' ? 'Single column' : 'Two columns'}
-            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
-          >
-            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
-          </button>
         </div>
 
         {areFiltersOpen ? (
@@ -535,15 +546,15 @@ export function CoursesOverview() {
         ) : null}
       </div>
 
-      {isLoading ? (
+      {isLoading && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.loading')}
         </div>
-      ) : error ? (
+      ) : error && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.failed')} {error}
         </div>
-      ) : filteredCourses.length === 0 ? (
+      ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {hasActiveFilters
             ? t('catalog.noFilterResults')
@@ -555,26 +566,36 @@ export function CoursesOverview() {
             Showing {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''}
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
-          <div className={`grid items-stretch gap-3.5 ${gridColsClass}`}>
-            {visibleCourses.map((course, index) => (
-              <div
-                key={course.id}
-                className="min-w-0 h-full"
-                data-tour={index === 0 ? 'catalog-card' : undefined}
-              >
-                <CourseCard
-                  ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
-                  course={course}
-                  isFavorite={isFavorite(course.id)}
-                  isActive={selectedCourse?.id === course.id}
-                  isCompleted={Boolean(getCompletedFor(course))}
-                  favoriteDisabled={isLoadingFavorites || isSavingFavorites}
-                  offeringStatus={offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
-                  onSelect={() => setSelectedCourse(course)}
-                  onToggleFavorite={() => toggleFavorite(course.id)}
-                />
-              </div>
-            ))}
+          <div className={`grid items-stretch gap-3.5 ${gridColsClass}`} data-tour="catalog-card-list">
+            {visibleCatalogRows.map((course, index) => {
+              const isTourSampleRow = Boolean(activeCatalogSampleVariant && index === 0)
+              const sampleOfferingStatus = activeCatalogSampleVariant === 'likely'
+                ? 'likely'
+                : activeCatalogSampleVariant === 'unknown' ? 'unknown' : 'confirmed'
+
+              return (
+                <div
+                  key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}
+                  className="min-w-0 h-full"
+                  data-tour={
+                    isTourSampleRow && activeCatalogSampleVariant
+                      ? getTourCatalogSampleTarget(activeCatalogSampleVariant)
+                      : index === 0 ? 'catalog-card' : undefined
+                  }
+                >
+                  <CourseCard
+                    course={course}
+                    isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
+                    isActive={!isTourSampleRow && selectedCourse?.id === course.id}
+                    isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
+                    favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
+                    offeringStatus={isTourSampleRow ? sampleOfferingStatus : offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
+                    onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
+                    onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
+                  />
+                </div>
+              )
+            })}
           </div>
           {hasMore ? (
             <div ref={sentinelRef} className="mt-6 text-center text-[13px] text-fg-muted">

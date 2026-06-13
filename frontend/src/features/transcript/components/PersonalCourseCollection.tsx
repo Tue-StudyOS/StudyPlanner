@@ -11,7 +11,6 @@ function formatCompletedSubtitle(course: CompletedCourse): string {
     course.ects ? `${course.ects} ECTS` : null,
     course.semester || null,
     course.grade !== null ? `Note ${course.grade.toFixed(1)}` : null,
-    course.studyAreaCode ?? null,
   ].filter((part): part is string => Boolean(part && part.trim().length > 0))
   return parts.join(' · ')
 }

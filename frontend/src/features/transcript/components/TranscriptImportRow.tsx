@@ -10,6 +10,7 @@ import {
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { CloseIcon } from '../../../shared/components/icons'
+import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
@@ -73,10 +74,16 @@ export function TranscriptImportRow({
   )
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
   const isAreaLocked = mappedAreaOptions.length === 1
-  const hasAssignmentIssue = hasActiveRegulation && areaOptions.length > 1 && !candidate.studyAreaCode
   const isAcceptedAsUebk = !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
   const isMissingCatalogCourse = !candidate.matchedCourse && !isAcceptedAsUebk
   const isMissingSemester = !candidate.semester.trim()
+  const hasAssignmentIssue = Boolean(
+    hasActiveRegulation
+    && candidate.matchedCourse
+    && !isMissingSemester
+    && areaOptions.length > 1
+    && !candidate.studyAreaCode,
+  )
   const hasIncomplete = isMissingCatalogCourse || isMissingSemester || hasAssignmentIssue
 
   useEffect(() => {
@@ -117,7 +124,6 @@ export function TranscriptImportRow({
             </div>
             <div className="mt-1 text-[11.5px] text-fg-muted">
               {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
-              {candidate.studyAreaCode ? ` · ${candidate.studyAreaCode}` : ''}
             </div>
           </div>
         </button>
@@ -203,32 +209,22 @@ export function TranscriptImportRow({
             </label>
 
             {hasActiveRegulation ? (
-              <label className="grid gap-1">
-                <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                  Regulation area
-                </span>
-                <select
-                  value={candidate.studyAreaCode ?? ''}
-                  disabled={isAreaLocked || areaOptions.length === 0}
-                  onChange={(event) => {
-                    const nextStudyAreaCode = event.target.value
-                    onChange(
-                      updateTranscriptImportCandidate(candidate, {
-                        studyAreaCode: nextStudyAreaCode || null,
-                        masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
-                      }),
-                    )
-                  }}
-                  className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary disabled:opacity-60 ${hasAssignmentIssue ? 'border-primary/60' : 'border-border'}`}
-                >
-                  {candidate.studyAreaCode === null ? <option value="" hidden /> : null}
-                  {areaOptions.map((option) => (
-                    <option key={option.code} value={option.code} title={option.label}>
-                      {option.shortLabel}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <StudyAreaAssignmentField
+                value={candidate.studyAreaCode}
+                options={areaOptions}
+                locked={isAreaLocked}
+                disabled={areaOptions.length === 0}
+                size="compact"
+                tone={hasAssignmentIssue ? 'error' : 'default'}
+                onChange={(nextStudyAreaCode) => {
+                  onChange(
+                    updateTranscriptImportCandidate(candidate, {
+                      studyAreaCode: nextStudyAreaCode || null,
+                      masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
+                    }),
+                  )
+                }}
+              />
             ) : null}
           </div>
 

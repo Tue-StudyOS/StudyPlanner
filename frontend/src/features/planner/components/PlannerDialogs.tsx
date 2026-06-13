@@ -78,13 +78,13 @@ export function MobilePlannerFavoritesDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose}>
       <div
-        className="absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-[18px] border-t border-border bg-surface px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="absolute inset-x-0 bottom-0 flex h-[min(32rem,80dvh)] flex-col overflow-hidden rounded-t-[18px] border-t border-border bg-surface px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
           <div>
             <div className="text-[14px] font-semibold text-fg">Add courses</div>
-            <div className="text-[12px] text-fg-muted">Tap an interested course to see details and add it</div>
+            <div className="text-[12px] text-fg-muted">Tap an interested course to add it to your plan</div>
           </div>
           <button
             type="button"
@@ -95,7 +95,9 @@ export function MobilePlannerFavoritesDrawer({
             ×
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1">
+          {children}
+        </div>
       </div>
     </div>
   )

@@ -1,7 +1,18 @@
-import { Outlet } from 'react-router-dom'
+import { useLayoutEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { TopBar } from './TopBar'
 
 export function Layout() {
+  const location = useLocation()
+
+  useLayoutEffect(() => {
+    const scrollingElement = document.scrollingElement ?? document.documentElement
+    scrollingElement.scrollTop = 0
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-sm text-fg font-sans">
       <div

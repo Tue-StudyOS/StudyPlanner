@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { CloseIcon } from '../../../shared/components/icons'
 import type { RegulationAreaOption } from '../../../shared/utils/regulation'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
@@ -35,6 +35,7 @@ export function PlannerCourseDetailModal({
   onClose,
 }: PlannerCourseDetailModalProps) {
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
+  const scrollRef = useRef<HTMLDivElement>(null)
   // The planner works on catalog summaries; load the full record for the body.
   const { course: detailCourse } = useCatalogCourseDetail(course.id)
   // Reset the local selection during render when the modal switches courses.
@@ -46,6 +47,10 @@ export function PlannerCourseDetailModal({
     setSelection({ courseId: course.id, areaCode: assignedAreaCode })
   }
   const selectedAreaCode = selection.areaCode
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [course.id, detailCourse?.id])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -121,7 +126,7 @@ export function PlannerCourseDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/30"
+      className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 px-4 py-10"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -129,12 +134,12 @@ export function PlannerCourseDetailModal({
       <div
         className={
           isMobileViewport
-            ? 'absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-[18px] border-t border-border bg-bg px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]'
-            : 'mx-auto my-10 max-h-[85dvh] w-[34rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-border bg-bg px-5 py-5 shadow-2xl'
+            ? 'absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[18px] border-t border-border bg-bg shadow-2xl'
+            : 'mx-auto mt-22 mb-10 flex max-h-[78dvh] w-[34rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[14px] border border-border bg-bg shadow-2xl'
         }
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-4 py-3.5 sm:px-5">
           <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
             Course Details
           </span>
@@ -148,7 +153,12 @@ export function PlannerCourseDetailModal({
           </button>
         </div>
 
-        <CourseDetailBody course={detailCourse ?? course} footer={footer} />
+        <div
+          ref={scrollRef}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
+        >
+          <CourseDetailBody course={detailCourse ?? course} footer={footer} />
+        </div>
       </div>
     </div>
   )

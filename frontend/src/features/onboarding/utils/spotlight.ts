@@ -7,7 +7,6 @@ export interface SpotlightRect {
 
 export const SPOTLIGHT_DIM_BOX_SHADOW = [
   '0 0 0 9999px rgba(0, 0, 0, 0.58)',
-  '0 0 0 2px rgba(255, 255, 255, 0.92)',
   '0 18px 44px rgba(0, 0, 0, 0.34)',
 ].join(', ')
 

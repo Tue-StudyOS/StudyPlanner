@@ -28,7 +28,7 @@ export function TranscriptUploadCard({
   const isBusy = phase === 'validating' || phase === 'parsing' || phase === 'saving'
 
   return (
-    <section className="flex h-full flex-col rounded-[10px] border border-border bg-surface px-6 py-5.5">
+    <section className="flex h-full min-h-0 flex-col rounded-[10px] border border-border bg-surface px-5 py-5 sm:px-6 sm:py-5.5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="text-[14px] font-semibold text-fg">Import Transcript PDF</div>
         <span className="shrink-0 rounded-full border border-border-light px-2.5 py-1 text-[11px] font-medium leading-none text-fg-muted">
@@ -43,7 +43,7 @@ export function TranscriptUploadCard({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         disabled={disabled || isBusy}
-        className={`flex w-full flex-1 flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed px-8 py-14 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex w-full min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-[10px] border-2 border-dashed px-5 py-6 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:px-8 sm:py-10 ${
           isDragActive
             ? 'border-primary bg-primary/5'
             : 'border-border bg-surface hover:border-primary/40 hover:bg-surface-hover'

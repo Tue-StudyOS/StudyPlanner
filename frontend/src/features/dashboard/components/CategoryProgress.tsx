@@ -1,4 +1,5 @@
 import type { MasterCat } from '../../courses'
+import { useTranslation } from '../../i18n'
 import type { CategoryProgress as CategoryProgressItem, ThesisProgress } from '../types'
 
 const CAT_COLOR_CLASS: Record<MasterCat, string> = {
@@ -53,9 +54,11 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 export function CategoryProgress({ core, electives, thesis }: CategoryProgressProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-      <div className="mb-4.5 text-[14px] font-semibold text-fg">Progress by Category</div>
+      <div className="mb-4.5 text-[14px] font-semibold text-fg">{t('progress.categoryTitle')}</div>
 
       <div className="grid gap-3.5">
         {core.map((category) => (
@@ -71,7 +74,7 @@ export function CategoryProgress({ core, electives, thesis }: CategoryProgressPr
       </div>
 
       <div className="mt-4.5 border-t border-border-light pt-3.5">
-        <SectionLabel>Elective Area</SectionLabel>
+        <SectionLabel>{t('progress.electiveArea')}</SectionLabel>
         <div className="grid grid-cols-2 gap-4.5">
           {electives.map((category) => (
             <ProgressRow
@@ -87,9 +90,9 @@ export function CategoryProgress({ core, electives, thesis }: CategoryProgressPr
       </div>
 
       <div className="mt-4.5 border-t border-border-light pt-3.5">
-        <SectionLabel>Thesis</SectionLabel>
+        <SectionLabel>{t('progress.thesis')}</SectionLabel>
         <ProgressRow
-          code="Thesis"
+          code={t('progress.thesis')}
           label={thesis.label}
           earned={thesis.earnedEcts}
           required={thesis.requiredEcts}

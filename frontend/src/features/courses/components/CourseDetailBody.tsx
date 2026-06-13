@@ -156,16 +156,18 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
 
       {regulationOptions.length > 0 ? (
         <Section title={t('courseDetail.countsToward')}>
-          <div className="flex flex-col gap-1.5">
+          <div className="grid gap-1.5">
             {regulationOptions.map((option) => (
               <div
                 key={`${option.programCode}-${option.studyAreaCode}-${option.moduleCode}`}
-                className="flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-fg-mid"
+                className="grid min-w-0 grid-cols-[minmax(4.5rem,7rem)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-0.5 text-[12.5px] text-fg-mid sm:grid-cols-[minmax(6rem,8.5rem)_minmax(0,1fr)_auto]"
               >
-                <span className="font-medium text-fg">{option.studyAreaCode}</span>
-                {option.studyAreaName ? <span>{option.studyAreaName}</span> : null}
+                <span className="min-w-0 truncate font-medium text-fg">{option.studyAreaCode}</span>
+                {option.studyAreaName ? <span className="min-w-0 break-words">{option.studyAreaName}</span> : <span />}
                 {option.ectsCounted !== null ? (
-                  <span className="text-fg-muted">{option.ectsCounted} ECTS</span>
+                  <span className="col-start-2 whitespace-nowrap text-fg-muted sm:col-start-auto">
+                    {option.ectsCounted} ECTS
+                  </span>
                 ) : null}
               </div>
             ))}

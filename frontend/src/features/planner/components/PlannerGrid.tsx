@@ -108,9 +108,7 @@ export function PlannerGrid({
                 className="absolute right-0 -translate-y-1/2 text-right text-[9px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[11px]"
                 style={{ top: `${index * PIXELS_PER_HOUR}px` }}
               >
-                {isMobilePlanner
-                  ? String(START_HOUR + index)
-                  : `${String(START_HOUR + index).padStart(2, '0')}:00`}
+                {`${String(START_HOUR + index).padStart(2, '0')}:00`}
               </div>
             ))}
           </div>
@@ -164,7 +162,7 @@ export function PlannerGrid({
                       }}
                     >
                       <div
-                        className="break-words text-[8px] font-semibold leading-[10px] [hyphens:auto] sm:text-[11.5px] sm:leading-[15px]"
+                        className="text-[6px] font-semibold leading-[7.25px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[9px] sm:leading-[10.5px]"
                         style={{
                           display: '-webkit-box',
                           WebkitBoxOrient: 'vertical',
@@ -175,7 +173,7 @@ export function PlannerGrid({
                         {block.courseTitle}
                       </div>
                       {block.slotType ? (
-                        <div className="hidden truncate text-[10.5px] leading-[13.5px] opacity-75 sm:block">
+                        <div className="hidden truncate text-[9px] leading-[11px] opacity-75 sm:block">
                           {block.slotType}
                         </div>
                       ) : null}
