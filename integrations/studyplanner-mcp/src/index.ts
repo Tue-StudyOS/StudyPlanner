@@ -81,7 +81,11 @@ export default {
         service: 'studyplanner-mcp',
         transport: 'streamable-http',
         mcpEndpoint: '/mcp',
-        tools: ['studyplanner_search_courses', 'studyplanner_get_course_detail'],
+        tools: [
+          'studyplanner_search_courses',
+          'studyplanner_resolve_course',
+          'studyplanner_get_course_detail',
+        ],
       })
     }
 

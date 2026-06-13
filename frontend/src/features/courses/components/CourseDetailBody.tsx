@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
-import { CatBadge } from '../../../shared/components/CatBadge'
-import { CompletedBadge } from '../../../shared/components/CompletedBadge'
+import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { SeasonTags } from '../../../shared/components/SeasonTag'
+import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
-import type { CompletedCourse, Course } from '../types'
+import type { Course } from '../types'
+import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
@@ -41,7 +42,6 @@ function TypePill({ label }: { label: string }) {
 
 interface CourseDetailBodyProps {
   course: Course
-  completedCourse?: CompletedCourse
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
   footer?: ReactNode
 }
@@ -52,8 +52,10 @@ interface CourseDetailBodyProps {
  * with the deliberate exception of the Moodle/Ilias slot, which shows an
  * explicit empty state.
  */
-export function CourseDetailBody({ course, completedCourse, footer }: CourseDetailBodyProps) {
+export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const { language, t } = useTranslation()
+  const { user } = useAuth()
+  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
@@ -78,8 +80,8 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
       <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <TypePill label={formatCourseTypeLabel(course.types)} />
-          {course.masterCats.map((cat) => (
-            <CatBadge key={cat} cat={cat} />
+          {areaTags.map((tag) => (
+            <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
           ))}
         </div>
 
@@ -101,15 +103,6 @@ export function CourseDetailBody({ course, completedCourse, footer }: CourseDeta
           </div>
         ) : null}
 
-        {completedCourse ? (
-          <div className="mt-4">
-            <CompletedBadge
-              size="md"
-              grade={completedCourse.grade}
-              semester={completedCourse.semester}
-            />
-          </div>
-        ) : null}
       </div>
 
       {hasValue(course.description) ? (

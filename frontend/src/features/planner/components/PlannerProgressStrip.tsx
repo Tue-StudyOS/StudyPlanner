@@ -4,14 +4,16 @@ import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import { buildPlannerProgressAreas, roundEcts } from '../utils/plannerProgress'
 
-const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
-  TECH: 'bg-cat-tech',
-  THEO: 'bg-cat-theo',
-  PRAK: 'bg-cat-prak',
-  INFO: 'bg-cat-info',
-  BASIS: 'bg-cat-basis',
-  default: 'bg-border',
+// Each area bar is tinted in its study-area tag color; areas without a mapped
+// category fall back to a neutral fill.
+const CAT_BAR_CLASS: Record<MasterCat, { credited: string; planned: string }> = {
+  TECH: { credited: 'bg-cat-tech', planned: 'bg-cat-tech/40' },
+  THEO: { credited: 'bg-cat-theo', planned: 'bg-cat-theo/40' },
+  PRAK: { credited: 'bg-cat-prak', planned: 'bg-cat-prak/40' },
+  INFO: { credited: 'bg-cat-info', planned: 'bg-cat-info/40' },
+  BASIS: { credited: 'bg-cat-basis', planned: 'bg-cat-basis/40' },
 }
+const DEFAULT_BAR_CLASS = { credited: 'bg-fg-muted', planned: 'bg-fg-muted/40' }
 
 interface PlannerProgressStripProps {
   plannedCourses: Course[]
@@ -22,8 +24,10 @@ interface PlannerProgressStripProps {
 }
 
 /**
- * One slim line of degree progress with the live delta this semester plan
- * adds — visible while planning without opening the full outlook below.
+ * One slim progress bar per study area of the active regulation, each tinted in
+ * its tag color and showing the live delta this semester plan adds. Every area
+ * is listed (including Überfachliche Kompetenzen), so the planner mirrors the
+ * full degree structure at a glance.
  */
 export function PlannerProgressStrip({
   plannedCourses,
@@ -40,13 +44,7 @@ export function PlannerProgressStrip({
         studyProgramCode,
         planAssignments,
         regulationRuleGroups,
-      }).areas.filter((area) => {
-        const targetEcts = area.capacityEcts ?? area.requiredEcts
-        if (targetEcts === null || targetEcts <= 0) {
-          return area.plannedEcts > 0
-        }
-        return area.creditedEcts < targetEcts || area.plannedEcts > 0
-      }),
+      }).areas,
     [completedCourses, planAssignments, plannedCourses, regulationRuleGroups, studyProgramCode],
   )
 
@@ -54,81 +52,50 @@ export function PlannerProgressStrip({
     return null
   }
 
-  // Overall degree progress across all areas with a target, including the
-  // delta this plan adds.
-  const totals = areas.reduce(
-    (sums, area) => {
-      const targetEcts = area.capacityEcts ?? area.requiredEcts
-      if (targetEcts === null || targetEcts <= 0) {
-        return sums
-      }
-      return {
-        target: sums.target + targetEcts,
-        credited: sums.credited + Math.min(area.creditedEcts, targetEcts),
-        planned: sums.planned + Math.min(area.plannedEcts, Math.max(0, targetEcts - area.creditedEcts)),
-      }
-    },
-    { target: 0, credited: 0, planned: 0 },
-  )
-  const creditedWidth = totals.target > 0 ? (totals.credited / totals.target) * 100 : 0
-  const plannedWidth = totals.target > 0 ? (totals.planned / totals.target) * 100 : 0
-
   return (
     <div
       data-tour="planner-progress"
-      className="grid gap-1.5 rounded-[10px] border border-border bg-surface px-3.5 py-2"
+      className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 sm:grid-cols-3 lg:grid-cols-4"
     >
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-        Progress
-      </span>
       {areas.map((area) => {
         const targetEcts = area.capacityEcts ?? area.requiredEcts
+        const hasTarget = targetEcts !== null && targetEcts > 0
         const credited = roundEcts(area.creditedEcts)
         const afterPlanning = roundEcts(area.creditedEcts + area.plannedEcts)
-        const targetLabel = targetEcts !== null ? `/${roundEcts(targetEcts)}` : ''
+        const creditedWidth = hasTarget ? Math.min((area.creditedEcts / targetEcts) * 100, 100) : 0
+        const plannedWidth = hasTarget
+          ? Math.min((area.plannedEcts / targetEcts) * 100, Math.max(0, 100 - creditedWidth))
+          : 0
+        const barClass = (area.masterCat ? CAT_BAR_CLASS[area.masterCat] : undefined) ?? DEFAULT_BAR_CLASS
+
         return (
-          <span
-            key={area.code}
-            title={area.name}
-            className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-fg-mid"
-          >
-            <span
-              className={`inline-block h-2 w-2 self-center rounded-xs ${
-                (area.masterCat ? CAT_COLOR_CLASS[area.masterCat] : undefined) ?? CAT_COLOR_CLASS.default
-              }`}
-            />
-            <span>{formatRegulationAreaShortLabel(area.code)}</span>
-            {area.plannedEcts > 0 ? (
-              <>
-                <span>{credited}</span>
-                <span aria-hidden="true" className="relative -top-px text-[10px] leading-none">
-                  →
-                </span>
-                <span className="font-semibold text-fg">{afterPlanning}</span>
-                <span>{targetLabel}</span>
-              </>
-            ) : (
-              <span>{`${credited}${targetLabel}`}</span>
-            )}
-          </span>
+          <div key={area.code} className="min-w-0" title={area.name}>
+            <div className="flex items-baseline justify-between gap-2 text-[10.5px]">
+              <span className="truncate font-semibold uppercase tracking-[0.06em] text-fg-mid">
+                {formatRegulationAreaShortLabel(area.code)}
+              </span>
+              <span className="shrink-0 tabular-nums text-fg-muted">
+                {area.plannedEcts > 0 ? (
+                  <>
+                    {credited}
+                    <span aria-hidden="true" className="px-0.5">→</span>
+                    <span className="font-semibold text-fg">{afterPlanning}</span>
+                  </>
+                ) : (
+                  credited
+                )}
+                {hasTarget ? `/${roundEcts(targetEcts)}` : ''}
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border-light">
+              <div className="flex h-full">
+                <div className={barClass.credited} style={{ width: `${creditedWidth}%` }} />
+                <div className={barClass.planned} style={{ width: `${plannedWidth}%` }} />
+              </div>
+            </div>
+          </div>
         )
       })}
-    </div>
-
-    {totals.target > 0 ? (
-      <div
-        className="h-1 overflow-hidden rounded-full bg-border-light"
-        title={`${roundEcts(totals.credited)} of ${roundEcts(totals.target)} ECTS done${
-          totals.planned > 0 ? ` + ${roundEcts(totals.planned)} planned` : ''
-        }`}
-      >
-        <div className="flex h-full">
-          <div className="bg-primary/80" style={{ width: `${creditedWidth}%` }} />
-          <div className="bg-primary/35" style={{ width: `${plannedWidth}%` }} />
-        </div>
-      </div>
-    ) : null}
     </div>
   )
 }

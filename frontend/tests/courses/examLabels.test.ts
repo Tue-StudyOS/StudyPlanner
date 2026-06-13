@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { CourseExam } from '../../src/features/courses/types.ts'
-import { getExamDateOrdinal, getExamDisplayLabel } from '../../src/features/courses/utils/examLabels.ts'
+import { getDateOrdinal, getExamDateOrdinal, getExamDisplayLabel } from '../../src/features/courses/utils/examLabels.ts'
 
 function exam(date: string): CourseExam {
   return { type: 'Exam', date, duration: '90 min' }
@@ -36,4 +36,10 @@ test('getExamDisplayLabel uses chronological date order even when entries are un
   assert.equal(getExamDisplayLabel(exams, 0, 'en'), 'Resit exam')
   assert.equal(getExamDisplayLabel(exams, 1, 'en'), 'Exam')
   assert.equal(getExamDateOrdinal(exams, 2), 2)
+})
+
+test('getDateOrdinal works on raw schedule date strings', () => {
+  const dates = ['24.03.2026', '10.02.2026']
+  assert.equal(getDateOrdinal(dates, 0), 1)
+  assert.equal(getDateOrdinal(dates, 1), 0)
 })

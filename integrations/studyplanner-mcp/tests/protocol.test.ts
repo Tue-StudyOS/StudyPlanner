@@ -33,6 +33,7 @@ test('MCP tools/list returns the public catalog tools', async () => {
 
   assert.deepEqual(result?.tools.map((tool) => tool.name), [
     'studyplanner_search_courses',
+    'studyplanner_resolve_course',
     'studyplanner_get_course_detail',
   ])
 })

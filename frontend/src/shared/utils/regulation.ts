@@ -112,7 +112,11 @@ export function formatRegulationAreaShortLabel(
   if (normalizedGroupType === 'pflicht' || normalizedCode === 'INF') {
     return 'MAIN'
   }
-  return code
+  // Drop the program-specific prefix so tags stay compact once the user is
+  // inside that regulation (e.g. "ML-DIVERSE" -> "DIVERSE", "INFO-FOKUS" ->
+  // "FOKUS"). Codes without such a prefix are returned unchanged.
+  const compactCode = normalizedCode.replace(/^(ML|INFO)-/, '')
+  return compactCode || normalizedCode
 }
 
 function buildAreaLabel(

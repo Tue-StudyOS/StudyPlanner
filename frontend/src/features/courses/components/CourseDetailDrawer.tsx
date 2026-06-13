@@ -2,12 +2,11 @@ import { useEffect, useRef } from 'react'
 import { FavStar } from '../../../shared/components/FavStar'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useCatalogCourseDetail } from '../hooks/useCatalogCourseDetail'
-import type { CompletedCourse, Course } from '../types'
+import type { Course } from '../types'
 import { CourseDetailBody } from './CourseDetailBody'
 
 interface CourseDetailDrawerProps {
   course: Course
-  completedCourse?: CompletedCourse
   isFavorite: boolean
   favoriteDisabled?: boolean
   onToggleFavorite: () => void
@@ -16,7 +15,6 @@ interface CourseDetailDrawerProps {
 
 export function CourseDetailDrawer({
   course,
-  completedCourse,
   isFavorite,
   favoriteDisabled = false,
   onToggleFavorite,
@@ -52,7 +50,7 @@ export function CourseDetailDrawer({
       </div>
 
       <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-        <CourseDetailBody course={displayCourse} completedCourse={completedCourse} />
+        <CourseDetailBody course={displayCourse} />
       </div>
     </aside>
   )

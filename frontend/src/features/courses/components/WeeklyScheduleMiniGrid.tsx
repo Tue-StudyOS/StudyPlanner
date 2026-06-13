@@ -8,6 +8,8 @@ import {
   type PlannerBlock,
 } from '../../planner/utils/plannerFeedback'
 import { buildDayLayout } from '../../planner/utils/plannerDayLayout'
+import { useTranslation } from '../../i18n'
+import { getDateOrdinal, parseDateSortValue } from '../utils/examLabels.ts'
 import type { ScheduleSlot } from '../types'
 
 const GRID_START_MINUTES = 8 * 60
@@ -16,6 +18,8 @@ const GRID_HEIGHT_PX = 108
 
 interface MiniGridBlock extends PlannerBlock {
   isExam: boolean
+  /** Concrete date string for one-off exam slots, null for weekly slots. */
+  examDate: string | null
 }
 
 function toPercent(minutes: number): number {
@@ -29,6 +33,7 @@ function toPercent(minutes: number): number {
  * column side by side. Always renders, even without time data.
  */
 export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] }) {
+  const { t } = useTranslation()
   const blocks = useMemo(() => {
     const parsedBlocks: MiniGridBlock[] = []
     schedule.forEach((slot, index) => {
@@ -53,10 +58,35 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
         slotType: slot.type,
         hasOverlap: false,
         isExam,
+        examDate: isExam ? slot.day.trim() : null,
       })
     })
     return parsedBlocks
   }, [schedule])
+
+  // The list below the grid shows weekly course times first, then the exam
+  // dates in chronological order labelled Exam / Resit exam.
+  const listEntries = useMemo(() => {
+    const weeklyBlocks = blocks.filter((block) => !block.isExam)
+    const examBlocks = blocks
+      .filter((block) => block.isExam)
+      .sort((left, right) => {
+        const leftValue = parseDateSortValue(left.examDate ?? '')
+        const rightValue = parseDateSortValue(right.examDate ?? '')
+        if (leftValue !== null && rightValue !== null) return leftValue - rightValue
+        if (leftValue !== null) return -1
+        if (rightValue !== null) return 1
+        return 0
+      })
+    const examDates = examBlocks.map((block) => block.examDate ?? '')
+    return [
+      ...weeklyBlocks.map((block) => ({ block, examOrdinal: null as number | null })),
+      ...examBlocks.map((block, index) => ({
+        block,
+        examOrdinal: getDateOrdinal(examDates, index),
+      })),
+    ]
+  }, [blocks])
 
   const dayLayouts = useMemo(
     () =>
@@ -135,7 +165,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
         <div className="mt-2 text-[12px] text-fg-muted">No weekly times published yet.</div>
       ) : (
         <ul className="mt-2.5 flex flex-col gap-1">
-          {blocks.map((block) => (
+          {listEntries.map(({ block, examOrdinal }) => (
             <li
               key={block.blockId}
               className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-fg-mid"
@@ -149,7 +179,11 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
               {block.room && block.room !== 'TBA' ? (
                 <span className="text-fg-muted">{block.room}</span>
               ) : null}
-              {block.isExam ? <span className="text-fg-muted">· Exam</span> : null}
+              {examOrdinal !== null ? (
+                <span className="text-fg-muted">
+                  · {examOrdinal === 0 ? t('courseDetail.exam') : t('courseDetail.resitExam')}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

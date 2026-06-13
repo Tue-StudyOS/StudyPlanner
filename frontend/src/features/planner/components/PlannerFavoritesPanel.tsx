@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import type { CompletedCourse, Course } from '../../courses'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../courses'
+import { buildCourseAreaTags } from '../../courses/utils/courseCardDisplay.ts'
 import { ROUTES } from '../../routes'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { CatBadge } from '../../../shared/components/CatBadge'
+import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { FavStar } from '../../../shared/components/FavStar'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 
@@ -12,16 +13,19 @@ const NOT_ASSIGNABLE_HINT =
 
 function CandidateCard({
   candidate,
+  studyProgramCode,
   onOpenCourse,
   onToggleFavorite,
 }: {
   candidate: PlannerFavoriteCandidate
+  studyProgramCode: string | null
   onOpenCourse: (course: Course) => void
   onToggleFavorite: (courseId: string) => void
 }) {
   const { course, isPlanned, completedCourse, options, explicitAreaCode } = candidate
   const isAssignable = options.length > 0
   const dimClassName = !isAssignable ? 'opacity-50' : completedCourse ? 'opacity-75' : ''
+  const areaTags = buildCourseAreaTags(course, studyProgramCode)
 
   return (
     <div
@@ -58,8 +62,8 @@ function CandidateCard({
             <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2 py-0.5 text-[10px] font-medium text-pill-text">
               {formatCourseTypeLabel(course.types)}
             </span>
-            {course.masterCats.map((cat) => (
-              <CatBadge key={cat} cat={cat} />
+            {areaTags.map((tag) => (
+              <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
             ))}
             {isPlanned ? (
               <span className="inline-block whitespace-nowrap rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -153,6 +157,7 @@ export function PlannerFavoritesPanel({
               <CandidateCard
                 key={candidate.course.id}
                 candidate={candidate}
+                studyProgramCode={studyProgramCode}
                 onOpenCourse={onOpenCourse}
                 onToggleFavorite={onToggleFavorite}
               />

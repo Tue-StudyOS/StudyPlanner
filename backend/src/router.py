@@ -26,6 +26,7 @@ from services.ai_catalog import (
     build_ai_meta,
     build_openapi_schema,
     get_course_detail_for_ai,
+    resolve_course_reference,
     search_courses_for_ai,
 )
 from services.course_catalog import (
@@ -191,6 +192,21 @@ async def route_request(request: Any, env: Any) -> Any:
                     status=400,
                 )
             return json_response(search_result, request=request, env=env)
+
+        if path == "/api/ai/catalog/resolve-course":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+            try:
+                resolve_result = await resolve_course_reference(env, await read_json_object(request))
+            except ValueError as exc:
+                return error_response(
+                    code="invalid_resolve_payload",
+                    message=str(exc),
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+            return json_response(resolve_result, request=request, env=env)
 
         if path.startswith("/api/ai/catalog/courses/"):
             if method != "GET":

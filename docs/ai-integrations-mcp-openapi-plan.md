@@ -118,8 +118,8 @@ For hosted MCP, the repository now contains a separate TypeScript Cloudflare Wor
 
 Recommended split:
 
-1. **Phase 1:** implement GPT/OpenAPI routes in the existing backend Worker. ✅ public catalog facade exists.
-2. **Phase 2:** implement a hosted MCP adapter under `integrations/studyplanner-mcp/` that calls the AI Facade. ✅ public catalog adapter exists.
+1. **Phase 1:** implement GPT/OpenAPI routes in the existing backend Worker. ✅ public catalog facade exists, now incl. server-side search filters and a `resolve-course` endpoint.
+2. **Phase 2:** implement a hosted MCP adapter under `integrations/studyplanner-mcp/` that calls the AI Facade. ✅ public catalog adapter exists (search incl. filters, resolve-course, detail).
 3. **Phase 3:** if the MCP adapter needs lower latency or richer behavior, extract shared protocol-neutral capability logic into a dedicated integration Worker.
 
 ## Authentication and authorization
@@ -459,9 +459,9 @@ These capabilities should exist independently of ChatGPT or MCP naming.
 | Tool/capability | Auth | Scope | Backing service/status |
 | --- | --- | --- | --- |
 | `list_catalog_periods` | optional | `catalog:read` | existing `list_catalog_periods` |
-| `search_courses` | optional | `catalog:read` | existing plus server-side filters needed |
+| `search_courses` | optional | `catalog:read` | ✅ implemented with server-side filters (ects, weekday, time window, course type, study-area, term) |
 | `get_course_detail` | optional | `catalog:read` | existing `get_catalog_course_detail` |
-| `resolve_course_reference` | optional | `catalog:read` | new helper needed |
+| `resolve_course_reference` | optional | `catalog:read` | ✅ implemented (`POST /api/ai/catalog/resolve-course`) |
 | `list_study_programs` | optional | `catalog:read` | existing `_list_study_programs` |
 | `get_regulation_version` | optional | `catalog:read` | existing `get_regulation_version` |
 | `get_my_profile` | required | `profile:read` | existing profile service |

@@ -560,15 +560,7 @@ export function CoursesOverview() {
               <div
                 key={course.id}
                 className="min-w-0 h-full"
-                data-tour={
-                  index === 0
-                    ? 'catalog-card'
-                    : index === visibleCourses.findIndex((c) => offeringStatusByCourseId.get(c.id) === 'likely')
-                      ? 'catalog-card-likely'
-                      : index === visibleCourses.findIndex((c) => offeringStatusByCourseId.get(c.id) === 'unknown')
-                        ? 'catalog-card-unknown'
-                        : undefined
-                }
+                data-tour={index === 0 ? 'catalog-card' : undefined}
               >
                 <CourseCard
                   ref={selectedCourse?.id === course.id ? selectedCardRef : undefined}
@@ -600,7 +592,6 @@ export function CoursesOverview() {
       {selectedCourse ? (
         <CourseDetailDrawer
           course={selectedCourse}
-          completedCourse={getCompletedFor(selectedCourse)}
           isFavorite={isFavorite(selectedCourse.id)}
           favoriteDisabled={isLoadingFavorites || isSavingFavorites}
           onToggleFavorite={() => toggleFavorite(selectedCourse.id)}

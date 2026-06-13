@@ -51,3 +51,14 @@ test('formatCourseTypeLabel translates, deduplicates, and joins types', () => {
   assert.equal(formatCourseTypeLabel(['Hauptseminar']), 'Seminar')
   assert.equal(formatCourseTypeLabel([]), 'Course')
 })
+
+test('formatCourseTypeLabel translates combined German types', () => {
+  assert.equal(formatCourseTypeLabel(['Vorlesung/Übung']), 'Lecture + Exercise')
+  assert.equal(formatCourseTypeLabel(['Vorlesung mit Übung']), 'Lecture + Exercise')
+  assert.equal(formatCourseTypeLabel(['Vorlesung/Übung', 'Übung']), 'Lecture + Exercise')
+  assert.equal(formatCourseTypeLabel(['Praxisseminar']), 'Practical seminar')
+})
+
+test('formatCourseTypeLabel drops separator-only garbage types', () => {
+  assert.equal(formatCourseTypeLabel(['/////////////////////////////////////////']), 'Course')
+})

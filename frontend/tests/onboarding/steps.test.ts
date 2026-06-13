@@ -20,6 +20,16 @@ test('tour includes a final catalog step that highlights the reopen button', () 
   assert.deepEqual(finalStep?.targets, ['reopen-tour'])
 })
 
+test('example card steps render self-contained samples instead of targeting live data', () => {
+  const likely = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'catalog-card-likely')
+  const unknown = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'catalog-card-unknown')
+
+  assert.equal(likely?.sample, 'likely')
+  assert.equal(likely?.targets, undefined)
+  assert.equal(unknown?.sample, 'unknown')
+  assert.equal(unknown?.targets, undefined)
+})
+
 test('buildTourSteps resolves labels without adding auto-advance metadata', () => {
   const steps = buildTourSteps(keyTranslator)
   const welcomeStep = steps[0]
