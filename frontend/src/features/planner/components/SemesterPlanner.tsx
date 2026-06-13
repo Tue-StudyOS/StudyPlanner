@@ -11,6 +11,7 @@ import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import {
   buildTourPlannerPreview,
+  isPlannerInsertedTourStep,
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
@@ -110,8 +111,10 @@ export function SemesterPlanner() {
   const shouldShowTourAddDrawer = isSmallViewport && isOnboardingOpen && activeStepId === 'planner-add-mobile'
   const isPlannerMobileInterestedTour = shouldShowTourAddDrawer && isPlannerTourPreview
   const plannerTourPreview = useMemo(
-    () => buildTourPlannerPreview(plannerRuleGroups, plannerStudyProgramCode),
-    [plannerRuleGroups, plannerStudyProgramCode],
+    () => buildTourPlannerPreview(plannerRuleGroups, plannerStudyProgramCode, {
+      insertInterestedCourse: isPlannerInsertedTourStep(activeStepId),
+    }),
+    [plannerRuleGroups, plannerStudyProgramCode, activeStepId],
   )
   const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : plannedCourses
   const displayPlannedCourseIds = isPlannerTourPreview
@@ -335,8 +338,6 @@ export function SemesterPlanner() {
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
-        <span className="flex-1" />
-
         {isSmallViewport ? (
           <button
             type="button"
@@ -348,13 +349,14 @@ export function SemesterPlanner() {
           </button>
         ) : null}
 
+        {/* Export stays flush right, separated from Add courses. */}
         <button
           type="button"
           data-tour="planner-export"
           onClick={handleExportIcs}
           disabled={displayPlannedCourses.length === 0}
           title={t('planner.exportCalendarTitle')}
-          className="rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t('planner.exportCalendar')}
         </button>

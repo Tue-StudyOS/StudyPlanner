@@ -57,6 +57,22 @@ body {
   pointer-events: none;
 }
 
+/* During the tour the document is scroll-locked and scrolled programmatically.
+   On phones the sticky top bar otherwise rides up with the body and disappears
+   in later (planner) steps, so pin it and reserve its height on the content. */
+@media (max-width: 640px) {
+  .studyplanner-tour-active [data-app-topbar] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .studyplanner-tour-active main {
+    padding-top: calc(3.75rem + env(safe-area-inset-top, 0px));
+  }
+}
+
 /* Subtle, slim scrollbars everywhere — many scroll containers are small cards. */
 * {
   scrollbar-width: thin;

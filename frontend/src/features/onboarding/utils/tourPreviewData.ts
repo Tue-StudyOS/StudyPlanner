@@ -52,6 +52,14 @@ export function isPlannerTourStep(stepId: string | null): boolean {
   return Boolean(stepId && stepId.startsWith('planner-'))
 }
 
+const PLANNER_INSERTED_STEP_IDS = new Set(['planner-progress', 'planner-export'])
+
+// Steps shown after the "interested" step, where the highlighted saved course
+// should already appear inserted into the planned week.
+export function isPlannerInsertedTourStep(stepId: string | null): boolean {
+  return stepId !== null && PLANNER_INSERTED_STEP_IDS.has(stepId)
+}
+
 export function isTranscriptTourStep(stepId: string | null): boolean {
   return stepId === 'transcript'
 }
@@ -184,6 +192,23 @@ export const TOUR_SAMPLE_COURSES: Record<TourSampleCardVariant, Course> = {
   }),
 }
 
+export interface TourCatalogOpenArea {
+  code: string
+  name: string
+  earnedEcts: number
+  requiredEcts: number
+}
+
+// Fallback chips for the catalog "still open areas" header during the tour,
+// so the opening catalog step always has something to highlight even when the
+// signed-in user has no real progress data yet.
+export const TOUR_CATALOG_OPEN_AREAS: TourCatalogOpenArea[] = [
+  { code: 'TECH', name: 'Technical Computer Science', earnedEcts: 6, requiredEcts: 18 },
+  { code: 'INFO', name: 'Computer Science', earnedEcts: 0, requiredEcts: 18 },
+  { code: 'PRAK', name: 'Practical Computer Science', earnedEcts: 3, requiredEcts: 18 },
+  { code: 'THEO', name: 'Theoretical Computer Science', earnedEcts: 0, requiredEcts: 18 },
+]
+
 export const TOUR_PLANNER_RULE_GROUPS: RegulationRuleGroup[] = [
   { code: 'TECH', name: 'Technical Computer Science', groupType: 'elective_area', requiredEcts: 18, sortOrder: 1 },
   { code: 'INFO', name: 'Computer Science', groupType: 'elective_area', requiredEcts: 18, sortOrder: 2 },
@@ -204,7 +229,7 @@ const TOUR_PLANNER_BASE_PLANNED_COURSES: Course[] = [
     masterCats: ['PRAK'],
     termType: 'summer',
     schedule: [
-      { day: 'Monday', time: '11:00 - 13:00', room: 'Thread Pool B', type: 'Exercise' },
+      { day: 'Tuesday', time: '14:00 - 16:00', room: 'Thread Pool B', type: 'Exercise' },
     ],
     description: 'A tour-only exercise where every participant edits the same plan at the same time.',
   }),
@@ -221,8 +246,30 @@ const TOUR_PLANNER_BASE_PLANNED_COURSES: Course[] = [
   }),
 ]
 
+// Highlighted on the planner "interested" step and then shown inserted into the
+// planned week from the progress step onward, to demonstrate adding a saved
+// course. The "A…" title keeps it first in the alphabetically sorted list.
+const TOUR_PLANNER_INTERESTED_INSERT_COURSE: Course = createTourCourse({
+  id: 'tour-planner-wednesday',
+  number: 'TOUR306',
+  title: 'Algorithms Before Coffee',
+  lecturer: 'Theo Tagwerk',
+  types: ['Lecture'],
+  ects: 6,
+  masterCats: ['INFO', 'TECH'],
+  termType: 'summer',
+  schedule: [
+    { day: 'Wednesday', time: '08:00 - 10:00', room: 'Lecture Hall Dawn', type: 'Lecture' },
+  ],
+  description: 'A tour-only early lecture used to show how a saved course slots into your week.',
+})
+
+// The interested list shows saved courses still to add, so it intentionally
+// omits the already-planned "confirmed" sample. This also keeps the highlighted
+// first card (the Wednesday insert course) consistent on desktop, where planned
+// courses would otherwise sort to the top of the list.
 const TOUR_PLANNER_BASE_FAVORITE_COURSES: Course[] = [
-  TOUR_SAMPLE_COURSES.confirmed,
+  TOUR_PLANNER_INTERESTED_INSERT_COURSE,
   TOUR_SAMPLE_COURSES.likely,
   createTourCourse({
     id: 'tour-planner-favorite',
@@ -272,9 +319,13 @@ export const TOUR_PLANNER_COMPLETED_COURSES: CompletedCourse[] = [
 export function buildTourPlannerPreview(
   regulationRuleGroups: RegulationRuleGroup[],
   studyProgramCode: string | null,
+  options: { insertInterestedCourse?: boolean } = {},
 ): TourPlannerPreview {
   const ruleGroups = getVisibleTourRuleGroups(regulationRuleGroups)
-  const plannedCourses = TOUR_PLANNER_BASE_PLANNED_COURSES.map((course, index) =>
+  const basePlannedCourses = options.insertInterestedCourse
+    ? [...TOUR_PLANNER_BASE_PLANNED_COURSES, TOUR_PLANNER_INTERESTED_INSERT_COURSE]
+    : TOUR_PLANNER_BASE_PLANNED_COURSES
+  const plannedCourses = basePlannedCourses.map((course, index) =>
     withTourStudyArea(course, ruleGroups[index % ruleGroups.length], studyProgramCode, course.masterCats[0] ?? 'INFO'),
   )
   const plannedAreaByCourseId = new Map(

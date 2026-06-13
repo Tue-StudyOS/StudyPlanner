@@ -28,6 +28,16 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     bodyKey: 'tour.transcript.body',
   },
   {
+    id: 'catalog-progress-hint',
+    route: ROUTES.catalog,
+    targets: ['catalog-progress-hint'],
+    preserveScroll: true,
+    resetScroll: true,
+    spotlightPaddingPx: 0,
+    titleKey: 'tour.catalogProgressHint.title',
+    bodyKey: 'tour.catalogProgressHint.body',
+  },
+  {
     id: 'catalog-search',
     route: ROUTES.catalog,
     targets: ['catalog-search'],
@@ -45,15 +55,6 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     preserveScroll: true,
     titleKey: 'tour.catalogFilters.title',
     bodyKey: 'tour.catalogFilters.body',
-  },
-  {
-    id: 'catalog-progress-hint',
-    route: ROUTES.catalog,
-    targets: ['catalog-progress-hint'],
-    preserveScroll: true,
-    spotlightPaddingPx: 0,
-    titleKey: 'tour.catalogProgressHint.title',
-    bodyKey: 'tour.catalogProgressHint.body',
   },
   {
     id: 'catalog-card',

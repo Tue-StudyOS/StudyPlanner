@@ -1,6 +1,8 @@
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
+import { useOnboarding } from '../../onboarding'
+import { TOUR_CATALOG_OPEN_AREAS, type TourCatalogOpenArea } from '../../onboarding/utils/tourPreviewData.ts'
 
 function formatEctsValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
@@ -12,20 +14,30 @@ function formatEctsValue(value: number): string {
  */
 export function CatalogProgressHint() {
   const { isAuthenticated } = useAuth()
+  const { isOpen: isOnboardingOpen } = useOnboarding()
   const { progressSnapshot } = useProgressSnapshot()
 
-  if (!isAuthenticated || !progressSnapshot) {
-    return null
-  }
+  const realOpenAreas: TourCatalogOpenArea[] = (progressSnapshot?.regulationProgress ?? [])
+    .filter(
+      (area) =>
+        area.code.trim().toUpperCase() !== 'THESIS'
+        && area.requiredEcts > 0
+        && area.earnedEcts < area.requiredEcts,
+    )
+    .map((area) => ({
+      code: area.code,
+      name: area.name,
+      earnedEcts: area.earnedEcts,
+      requiredEcts: area.requiredEcts,
+    }))
 
-  const openAreas = progressSnapshot.regulationProgress.filter(
-    (area) =>
-      area.code.trim().toUpperCase() !== 'THESIS'
-      && area.requiredEcts > 0
-      && area.earnedEcts < area.requiredEcts,
-  )
+  // During the tour the opening catalog step highlights this bar, so fall back
+  // to preview chips when the signed-in user has no real open areas yet.
+  const openAreas = realOpenAreas.length > 0
+    ? realOpenAreas
+    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS : []
 
-  if (openAreas.length === 0) {
+  if (!isAuthenticated || openAreas.length === 0) {
     return null
   }
 
