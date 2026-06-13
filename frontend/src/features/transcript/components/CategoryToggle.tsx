@@ -16,7 +16,7 @@ export function CategoryToggle({ cat, active, onClick }: CategoryToggleProps) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-[1.4] tracking-[0.04em] transition-colors ${stateClasses}`}
+      className={`inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase leading-[1.4] tracking-[0.04em] transition-colors ${stateClasses}`}
     >
       {cat}
     </button>

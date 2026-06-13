@@ -1,3 +1,4 @@
+import { useTranslation } from '../../i18n'
 import type { IntermediateExamStatus } from '../types'
 
 interface IntermediateExamNoticeProps {
@@ -5,6 +6,8 @@ interface IntermediateExamNoticeProps {
 }
 
 export function IntermediateExamNotice({ status }: IntermediateExamNoticeProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="rounded-[10px] border border-[#d4a800]/40 bg-[#fffbeb] dark:border-[#7a6000]/50 dark:bg-[#1c1600]/40 px-5 py-4">
       <div className="flex min-w-0 items-start gap-3">
@@ -24,9 +27,9 @@ export function IntermediateExamNotice({ status }: IntermediateExamNoticeProps) 
         </svg>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-fg">Zwischenprüfungsanforderung ausstehend</p>
+          <p className="text-[13px] font-semibold text-fg">{t('progress.intermediateTitle')}</p>
           <p className="mt-0.5 text-[12px] text-fg-muted">
-            Bis Ende des 4. Semesters muss je eine bestandene Prüfungsleistung aus beiden Bereichen vorliegen.
+            {t('progress.intermediateBody')}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">

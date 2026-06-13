@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
 import { CloseIcon } from '../../../shared/components/icons'
+import { useTranslation } from '../../i18n'
 import { useTheme } from '../../theme'
 import type { VisualizationCategoryCourse, VisualizationCategoryProgress } from '../types'
 import { getVisualizationCategoryColor } from '../visualizationCategories'
@@ -56,6 +57,7 @@ function SpecializationDetailModal({
   onClose: () => void
 }) {
   const courses = category.courses ?? []
+  const { t } = useTranslation()
   return (
     <div
       className="fixed inset-0 z-40 overflow-y-auto bg-black/45"
@@ -88,7 +90,7 @@ function SpecializationDetailModal({
         <div className="px-6 py-5">
           {courses.length === 0 ? (
             <div className="rounded-[10px] border border-dashed border-border px-5 py-8 text-center text-[12.5px] text-fg-muted">
-              No completed courses are credited toward this specialization area yet.
+              {t('progress.specializationNoCourses')}
             </div>
           ) : (
             <div className="grid gap-2 sm:gap-2.5">
@@ -116,6 +118,7 @@ function SpecializationDetailModal({
 
 export function SpecializationCircle({ categories }: SpecializationCircleProps) {
   const { isDark } = useTheme()
+  const { t } = useTranslation()
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
   const [hoveredCode, setHoveredCode] = useState<string | null>(null)
 
@@ -127,9 +130,9 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
   if (categories.length === 0) {
     return (
       <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-        <div className="mb-1 text-[14px] font-semibold text-fg">Specialization Profile</div>
+        <div className="mb-1 text-[14px] font-semibold text-fg">{t('progress.specializationTitle')}</div>
         <div className="text-[12px] text-fg-muted">
-          Your specialization profile will appear here once progress data is available.
+          {t('progress.specializationEmpty')}
         </div>
       </div>
     )
@@ -158,9 +161,9 @@ export function SpecializationCircle({ categories }: SpecializationCircleProps) 
 
   return (
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
-      <div className="mb-1 text-[14px] font-semibold text-fg">Specialization Profile</div>
+      <div className="mb-1 text-[14px] font-semibold text-fg">{t('progress.specializationTitle')}</div>
       <div className="mb-4 text-[12px] text-fg-muted">
-        Click a slice to inspect the courses credited to that specialization.
+        {t('progress.specializationDescription')}
       </div>
 
       <div className="flex justify-center">

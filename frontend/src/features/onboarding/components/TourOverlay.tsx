@@ -1,19 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../i18n'
 import { buildTourSteps } from '../steps'
-import { TourSampleCard } from './TourSampleCard'
-import {
-  buildSpotlightFrameStyle,
-  buildSpotlightHaloStyle,
-  type SpotlightRect,
-} from '../utils/spotlight.ts'
+import type { SpotlightRect } from '../utils/spotlight.ts'
 
 const TARGET_SEARCH_TIMEOUT_MS = 2500
 const OPTIONAL_TARGET_SEARCH_TIMEOUT_MS = 1500
 const TARGET_POLL_INTERVAL_MS = 80
 const SPOTLIGHT_PADDING = 8
 const TOOLTIP_MAX_WIDTH = 360
+const MOBILE_VIEWPORT_QUERY = '(max-width: 640px)'
 // Targets are scrolled so their top sits just below the top bar; the
 // explanation card then keeps its fixed spot at the bottom of the screen.
 const TARGET_TOP_OFFSET_PX = 96
@@ -21,6 +17,43 @@ const ESTIMATED_CARD_HEIGHT_PX = 200
 const CARD_BOTTOM_MARGIN_PX = 28
 const TOUR_ACTIVE_CLASS_NAME = 'studyplanner-tour-active'
 const SCROLL_LOCK_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'])
+
+interface ScrollSnapshot {
+  pathname: string
+  windowX: number
+  windowY: number
+  documentTop: number
+  bodyTop: number
+  roots: Array<{ element: HTMLElement; top: number; left: number }>
+}
+
+function captureScrollSnapshot(): ScrollSnapshot {
+  return {
+    pathname: window.location.pathname,
+    windowX: window.scrollX,
+    windowY: window.scrollY,
+    documentTop: document.documentElement.scrollTop,
+    bodyTop: document.body.scrollTop,
+    roots: Array.from(document.querySelectorAll<HTMLElement>('[data-tour-scroll-root]')).map((element) => ({
+      element,
+      top: element.scrollTop,
+      left: element.scrollLeft,
+    })),
+  }
+}
+
+function restoreScrollSnapshot(snapshot: ScrollSnapshot): void {
+  if (snapshot.pathname !== window.location.pathname) {
+    return
+  }
+  window.scrollTo(snapshot.windowX, snapshot.windowY)
+  document.documentElement.scrollTop = snapshot.documentTop
+  document.body.scrollTop = snapshot.bodyTop
+  snapshot.roots.forEach(({ element, top, left }) => {
+    element.scrollTop = top
+    element.scrollLeft = left
+  })
+}
 
 function findScrollParent(element: Element): Element {
   let parent = element.parentElement
@@ -37,19 +70,46 @@ function findScrollParent(element: Element): Element {
   return document.scrollingElement ?? document.documentElement
 }
 
-function scrollTargetIntoPosition(element: Element): void {
+function scrollTargetIntoPosition(element: Element, targetTopOffsetPx: number = TARGET_TOP_OFFSET_PX): void {
   const scrollParent = findScrollParent(element)
-  const delta = element.getBoundingClientRect().top - TARGET_TOP_OFFSET_PX
+  const delta = element.getBoundingClientRect().top - targetTopOffsetPx
   scrollParent.scrollTop += delta
 }
 
-function measureSpotlight(element: Element): SpotlightRect {
+function measureSpotlight(element: Element, padding: number = SPOTLIGHT_PADDING): SpotlightRect {
   const rect = element.getBoundingClientRect()
   return {
-    top: rect.top - SPOTLIGHT_PADDING,
-    left: rect.left - SPOTLIGHT_PADDING,
-    width: rect.width + SPOTLIGHT_PADDING * 2,
-    height: rect.height + SPOTLIGHT_PADDING * 2,
+    top: rect.top - padding,
+    left: rect.left - padding,
+    width: rect.width + padding * 2,
+    height: rect.height + padding * 2,
+  }
+}
+
+function getAppContentTopPx(): number {
+  const topBar = document.querySelector<HTMLElement>('[data-app-topbar]')
+  return topBar?.getBoundingClientRect().bottom ?? 0
+}
+
+function clampSpotlightToContent(rect: SpotlightRect, contentTop: number): SpotlightRect {
+  if (rect.top >= contentTop) {
+    return rect
+  }
+  const clippedBy = contentTop - rect.top
+  return {
+    ...rect,
+    top: contentTop,
+    height: Math.max(0, rect.height - clippedBy),
+  }
+}
+
+function spotlightFrameStyle(rect: SpotlightRect, contentTop: number): Record<string, string> {
+  return {
+    top: `${rect.top - contentTop}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.58), 0 18px 44px rgba(0, 0, 0, 0.34)',
   }
 }
 
@@ -88,27 +148,28 @@ function TourCard({
   const step = steps[stepIndex]
   const isFirstStep = stepIndex === 0
   const isLastStep = stepIndex === steps.length - 1
+  const stableHeightClassName = 'min-h-[9.75rem] sm:min-h-[13.5rem]'
 
   return (
     <div
       style={{ maxWidth: `${TOOLTIP_MAX_WIDTH}px` }}
-      className="pointer-events-auto w-full rounded-[14px] border border-border bg-surface px-5 py-4.5 shadow-2xl"
+      className={`pointer-events-auto flex w-full flex-col rounded-[14px] border border-border bg-surface px-4 py-3.5 shadow-2xl sm:px-5 sm:py-4.5 ${stableHeightClassName}`}
       onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[15px] font-semibold leading-snug text-fg">{step.title}</div>
+        <div className="text-[14px] font-semibold leading-snug text-fg sm:text-[15px]">{step.title}</div>
         <button
           type="button"
           onClick={onClose}
           aria-label={t('common.close')}
-          className="shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
+          className="shrink-0 rounded-md px-2 py-1 text-[11.5px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg sm:text-[12px]"
         >
           {t('common.skip')}
         </button>
       </div>
-      <p className="mt-1.5 text-[13px] leading-6 text-fg-mid">{step.body}</p>
+      <p className="mt-1 flex-1 text-[12.5px] leading-5 text-fg-mid sm:mt-1.5 sm:text-[13px] sm:leading-6">{step.body}</p>
 
-      <div className="mt-3.5 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex items-center justify-between gap-3 sm:mt-3.5">
         <div className="flex items-center gap-1" aria-hidden="true">
           {steps.map((dotStep, index) => (
             <span
@@ -124,7 +185,7 @@ function TourCard({
             <button
               type="button"
               onClick={onBack}
-              className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
+              className="rounded-md border border-border px-2.5 py-1.25 text-[12px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg sm:px-3 sm:py-1.5 sm:text-[12.5px]"
             >
               {t('common.back')}
             </button>
@@ -132,7 +193,7 @@ function TourCard({
           <button
             type="button"
             onClick={onNext}
-            className="rounded-md bg-primary px-3.5 py-1.5 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-md bg-primary px-3 py-1.25 text-[12px] font-medium text-white transition-opacity hover:opacity-90 sm:px-3.5 sm:py-1.5 sm:text-[12.5px]"
           >
             {isLastStep ? t('common.complete') : t('common.next')}
           </button>
@@ -147,34 +208,74 @@ function TourCard({
  * frame so it stays glued to its target, and the explanation card keeps one
  * fixed position (bottom-center) instead of jumping around the screen.
  */
-export function TourOverlay({ onClose }: { onClose: () => void }) {
+export function TourOverlay({
+  onClose,
+  onStepChange,
+}: {
+  onClose: () => void
+  onStepChange: (stepId: string) => void
+}) {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
+  const isMobileViewport = typeof window !== 'undefined'
+    && window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
   // Memoize so step objects stay referentially stable across renders; otherwise
   // the locate/track effects would reset the spotlight on every render.
-  const steps = useMemo(() => buildTourSteps(t), [t])
+  const allSteps = useMemo(() => buildTourSteps(t), [t])
+  const steps = useMemo(
+    () => allSteps.filter((candidate) => !candidate.viewport || candidate.viewport === (isMobileViewport ? 'mobile' : 'desktop')),
+    [allSteps, isMobileViewport],
+  )
   const [stepIndex, setStepIndex] = useState<number>(0)
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null)
+  const [isSpotlightTargetInTopBar, setIsSpotlightTargetInTopBar] = useState<boolean>(false)
   const targetElementRef = useRef<Element | null>(null)
-  const sampleElementRef = useRef<HTMLDivElement | null>(null)
-  const step = steps[stepIndex]
-  const isLastStep = stepIndex === steps.length - 1
-  const isSampleStep = Boolean(step.sample)
+  const pendingScrollSnapshotRef = useRef<ScrollSnapshot | null>(null)
+  const stepScrollSnapshotsRef = useRef<Map<string, ScrollSnapshot>>(new Map())
+  const safeStepIndex = Math.min(stepIndex, steps.length - 1)
+  const step = steps[safeStepIndex]
+  const isLastStep = safeStepIndex >= steps.length - 1
+  const shouldPreserveScroll = Boolean(
+    step.preserveScroll && !(step.allowMobileScroll && isMobileViewport),
+  )
 
   const closeTour = useCallback((): void => {
-    if (step.id === 'reopen-guide') {
-      scrollPageToTop()
-      window.setTimeout(scrollPageToTop, 0)
-    }
     onClose()
-  }, [onClose, step.id])
+  }, [onClose])
+
+  useLayoutEffect(() => {
+    onStepChange(step.id)
+  }, [onStepChange, step.id])
+
+  useLayoutEffect(() => {
+    if (!shouldPreserveScroll || step.resetScroll) {
+      return
+    }
+    const snapshot = stepScrollSnapshotsRef.current.get(step.id) ?? pendingScrollSnapshotRef.current
+    if (!snapshot) {
+      return
+    }
+    restoreScrollSnapshot(snapshot)
+    window.setTimeout(() => restoreScrollSnapshot(snapshot), 0)
+  }, [shouldPreserveScroll, step.id, step.resetScroll])
 
   useEffect(() => {
     if (step.route && location.pathname !== step.route) {
       navigate(step.route)
     }
   }, [location.pathname, navigate, step.route])
+
+  useLayoutEffect(() => {
+    if (!step.resetScroll) {
+      return
+    }
+    if (step.route && location.pathname !== step.route) {
+      return
+    }
+    scrollPageToTop()
+    window.setTimeout(scrollPageToTop, 0)
+  }, [location.pathname, step.resetScroll, step.route])
 
   useEffect(() => {
     const { body, documentElement } = document
@@ -218,12 +319,13 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
     }
   }, [])
 
-  // Locate the live DOM target for the current step and scroll it into place.
+  // Locate the live DOM target. Some adjacent catalog steps intentionally keep
+  // the page still and only move the spotlight frame.
   useEffect(() => {
     targetElementRef.current = null
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset while the new target is located
     setSpotlight(null)
-    if (step.sample || !step.targets || step.targets.length === 0) {
+    if (!step.targets || step.targets.length === 0) {
       return
     }
     if (step.route && location.pathname !== step.route) {
@@ -244,31 +346,49 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         .map((target) => document.querySelector(`[data-tour="${target}"]`))
         .find((candidate): candidate is Element => candidate !== null)
       if (element) {
+        if (shouldPreserveScroll && !step.resetScroll) {
+          const snapshot = stepScrollSnapshotsRef.current.get(step.id) ?? pendingScrollSnapshotRef.current
+          if (snapshot) {
+            restoreScrollSnapshot(snapshot)
+          }
+        }
         targetElementRef.current = element
-        scrollTargetIntoPosition(element)
+        setIsSpotlightTargetInTopBar(Boolean(element.closest('[data-app-topbar]')))
+        if (!shouldPreserveScroll) {
+          scrollTargetIntoPosition(
+            element,
+            isMobileViewport ? step.mobileTargetTopOffsetPx ?? step.targetTopOffsetPx : step.targetTopOffsetPx,
+          )
+        }
+        window.setTimeout(() => {
+          if (!isCancelled) {
+            stepScrollSnapshotsRef.current.set(step.id, captureScrollSnapshot())
+          }
+        }, 0)
         return
       }
       if (Date.now() - searchStartedAt < searchTimeoutMs) {
         window.setTimeout(locateTarget, TARGET_POLL_INTERVAL_MS)
       }
     }
-    locateTarget()
+    const initialLocateTimeoutId = window.setTimeout(locateTarget, step.resetScroll ? 80 : 0)
 
     return () => {
       isCancelled = true
+      window.clearTimeout(initialLocateTimeoutId)
     }
-  }, [location.pathname, step])
+  }, [isMobileViewport, location.pathname, shouldPreserveScroll, step])
 
-  // Live-track whichever element this step highlights (sample replica or live
-  // target), so the spotlight never drifts even if the page shifts or scrolls.
+  // Live-track the highlighted target so the spotlight never drifts even if
+  // the page shifts or scrolls.
   useEffect(() => {
     let frameId = 0
     let latest: SpotlightRect | null = null
 
     function track(): void {
-      const element = step.sample ? sampleElementRef.current : targetElementRef.current
+      const element = targetElementRef.current
       if (element) {
-        const next = measureSpotlight(element)
+        const next = measureSpotlight(element, step.spotlightPaddingPx ?? SPOTLIGHT_PADDING)
         if (!rectsRoughlyEqual(latest, next)) {
           latest = next
           setSpotlight(next)
@@ -289,12 +409,20 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [closeTour])
 
-  const goBack = (): void => setStepIndex((index) => Math.max(0, index - 1))
+  const goBack = (): void => {
+    const snapshot = captureScrollSnapshot()
+    stepScrollSnapshotsRef.current.set(step.id, snapshot)
+    pendingScrollSnapshotRef.current = snapshot
+    setStepIndex((index) => Math.max(0, index - 1))
+  }
   const goNext = (): void => {
     if (isLastStep) {
       closeTour()
       return
     }
+    const snapshot = captureScrollSnapshot()
+    stepScrollSnapshotsRef.current.set(step.id, snapshot)
+    pendingScrollSnapshotRef.current = snapshot
     setStepIndex((index) => Math.min(index + 1, steps.length - 1))
   }
 
@@ -302,9 +430,14 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
   // highlighted element itself sits low on screen and cannot be scrolled up —
   // i.e. when leaving the card at the bottom would cover it.
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const bottomCardTop = viewportHeight - ESTIMATED_CARD_HEIGHT_PX - CARD_BOTTOM_MARGIN_PX
-  const spotlightStartsLow = Boolean(spotlight && spotlight.top > bottomCardTop)
-  const hasHighlight = Boolean(step.sample || (step.targets && step.targets.length > 0))
+  const estimatedCardHeight = isMobileViewport ? 156 : ESTIMATED_CARD_HEIGHT_PX
+  const bottomCardTop = viewportHeight - estimatedCardHeight - CARD_BOTTOM_MARGIN_PX
+  const appContentTopPx = !spotlight || isSpotlightTargetInTopBar ? 0 : getAppContentTopPx()
+  const visibleSpotlight = spotlight && appContentTopPx > 0
+    ? clampSpotlightToContent(spotlight, appContentTopPx)
+    : spotlight
+  const spotlightStartsLow = Boolean(visibleSpotlight && visibleSpotlight.top > bottomCardTop)
+  const hasHighlight = Boolean(step.targets && step.targets.length > 0)
   const cardZoneClassName = !hasHighlight
     ? 'absolute inset-0 flex items-center justify-center px-4'
     : spotlightStartsLow
@@ -313,41 +446,32 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className={`fixed inset-0 ${isSampleStep ? 'z-[90]' : 'z-[70]'} overscroll-contain`}
+      className="fixed inset-0 z-[90] overscroll-contain"
       style={{ touchAction: 'none' }}
     >
-      {isSampleStep ? <div aria-hidden="true" className="absolute inset-0 bg-bg" /> : null}
-
       {/* Shield keeps the page inert while the tour is open. */}
       <div className="absolute inset-0" />
 
-      {spotlight ? (
-        <>
+      {visibleSpotlight ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden"
+          style={{ top: `${appContentTopPx}px` }}
+        >
           <div
-            aria-hidden="true"
-            className="pointer-events-none absolute rounded-[18px] border border-white/45 opacity-90"
-            style={buildSpotlightHaloStyle(spotlight)}
+            className="absolute rounded-[14px] border-2 border-white/90 bg-white/5"
+            style={spotlightFrameStyle(visibleSpotlight, appContentTopPx)}
           />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute rounded-[14px] border-2 border-white/90 bg-white/5"
-            style={buildSpotlightFrameStyle(spotlight)}
-          />
-        </>
+        </div>
       ) : (
-        <div className="absolute inset-0 bg-black/55" />
+        <div
+          className={hasHighlight ? 'absolute inset-x-0 bottom-0 bg-black/55' : 'absolute inset-0 bg-black/55'}
+          style={hasHighlight ? { top: `${getAppContentTopPx()}px` } : undefined}
+        />
       )}
 
-      {/* Example replica cards render above the dim so the spotlight frame can
-          wrap them and the user always sees a correct example. */}
-      {step.sample ? (
-        <div className="pointer-events-none absolute inset-x-0 top-[16vh] flex justify-center px-4">
-          <TourSampleCard variant={step.sample} innerRef={sampleElementRef} />
-        </div>
-      ) : null}
-
       <div className={`pointer-events-none ${cardZoneClassName}`}>
-        <TourCard stepIndex={stepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={closeTour} />
+        <TourCard stepIndex={safeStepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={closeTour} />
       </div>
     </div>
   )

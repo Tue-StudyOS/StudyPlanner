@@ -135,7 +135,7 @@ export function CatalogCoursePicker({
             <div className="text-[12px] text-fg-muted">No matching catalog courses found.</div>
           ) : visibleCourses.length > 0 ? (
             <div
-              className={`grid gap-1.5 ${hasSearchQuery ? 'max-h-[18rem] overflow-y-auto pr-1' : ''}`}
+              className={`grid gap-1.5 ${hasSearchQuery ? `${compact ? 'max-h-[8.5rem]' : 'max-h-[18rem]'} overflow-y-auto pr-1` : ''}`}
             >
               {visibleCourses.map((course) => {
                 const isActive = course.id === selectedCourse?.id

@@ -1,19 +1,40 @@
+import { STUDYPLANNER_APP_RESOURCE_URI } from './appResources.ts'
 import { getCourseDetail, resolveCourse, searchCourses, type StudyPlannerClientOptions } from './client.ts'
 
 export interface McpToolDefinition {
   name: string
   description: string
   inputSchema: Record<string, unknown>
+  annotations?: Record<string, unknown>
+  securitySchemes?: Array<Record<string, unknown>>
+  _meta?: Record<string, unknown>
 }
 
 export interface McpToolResult {
   content: Array<{ type: 'text'; text: string }>
+  structuredContent?: unknown
+  _meta?: Record<string, unknown>
   isError?: boolean
+}
+
+const NO_AUTH_SECURITY_SCHEME = { type: 'noauth' }
+
+function appToolMeta(invoking: string, invoked: string): Record<string, unknown> {
+  return {
+    securitySchemes: [NO_AUTH_SECURITY_SCHEME],
+    'openai/outputTemplate': STUDYPLANNER_APP_RESOURCE_URI,
+    'openai/toolInvocation/invoking': invoking,
+    'openai/toolInvocation/invoked': invoked,
+    'openai/widgetAccessible': false,
+  }
 }
 
 const SEARCH_COURSES_TOOL: McpToolDefinition = {
   name: 'studyplanner_search_courses',
   description: 'Search the public StudyPlanner course catalog. Read-only and unauthenticated.',
+  annotations: { readOnlyHint: true },
+  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
+  _meta: appToolMeta('Searching StudyPlanner courses…', 'StudyPlanner course results ready.'),
   inputSchema: {
     type: 'object',
     properties: {
@@ -79,6 +100,9 @@ const RESOLVE_COURSE_TOOL: McpToolDefinition = {
   name: 'studyplanner_resolve_course',
   description:
     'Resolve a stable course number (and optional title hint) to the current numeric course id before quoting or linking a course.',
+  annotations: { readOnlyHint: true },
+  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
+  _meta: appToolMeta('Resolving StudyPlanner course…', 'StudyPlanner course resolved.'),
   inputSchema: {
     type: 'object',
     required: ['courseNumber'],
@@ -94,6 +118,9 @@ const RESOLVE_COURSE_TOOL: McpToolDefinition = {
 const GET_COURSE_DETAIL_TOOL: McpToolDefinition = {
   name: 'studyplanner_get_course_detail',
   description: 'Get compact public details for one StudyPlanner course by numeric course id.',
+  annotations: { readOnlyHint: true },
+  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
+  _meta: appToolMeta('Loading StudyPlanner course details…', 'StudyPlanner course details ready.'),
   inputSchema: {
     type: 'object',
     required: ['courseId'],
@@ -172,14 +199,19 @@ function requiredPositiveInteger(value: unknown, fieldName: string): number {
   return numberValue
 }
 
-function jsonContent(payload: unknown): McpToolResult {
+function jsonContent(payload: unknown, toolName: string): McpToolResult {
   return {
+    structuredContent: payload,
     content: [
       {
         type: 'text',
         text: JSON.stringify(payload, null, 2),
       },
     ],
+    _meta: {
+      toolName,
+      appResourceUri: STUDYPLANNER_APP_RESOURCE_URI,
+    },
   }
 }
 
@@ -209,7 +241,7 @@ export async function callStudyPlannerTool(
       },
       options,
     )
-    return jsonContent(result)
+    return jsonContent(result, SEARCH_COURSES_TOOL.name)
   }
 
   if (name === RESOLVE_COURSE_TOOL.name) {
@@ -221,7 +253,7 @@ export async function callStudyPlannerTool(
       },
       options,
     )
-    return jsonContent(result)
+    return jsonContent(result, RESOLVE_COURSE_TOOL.name)
   }
 
   if (name === GET_COURSE_DETAIL_TOOL.name) {
@@ -231,7 +263,7 @@ export async function callStudyPlannerTool(
       },
       options,
     )
-    return jsonContent(result)
+    return jsonContent(result, GET_COURSE_DETAIL_TOOL.name)
   }
 
   throw new Error(`Unknown StudyPlanner MCP tool: ${name}`)

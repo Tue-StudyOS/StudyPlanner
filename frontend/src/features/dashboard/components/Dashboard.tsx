@@ -4,6 +4,7 @@ import { StatItem } from '../../../shared/components/StatItem'
 import { useAuth } from '../../auth'
 import type { MasterCat } from '../../courses'
 import { useTranslation } from '../../i18n'
+import { useOnboarding } from '../../onboarding'
 import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
 import { useProgressSnapshot } from '../hooks/useProgressSnapshot'
 import { MASTER_CATEGORY_META } from '../masterCategoryMeta'
@@ -49,7 +50,9 @@ function toCategoryProgress(snapshot: ProgressSnapshot): {
 function AuthenticatedDashboard() {
   const { user } = useAuth()
   const { t } = useTranslation()
+  const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const { progressSnapshot, isLoadingProgress, progressError } = useProgressSnapshot()
+  const displayProgressError = isOnboardingOpen && activeStepId === 'progress' ? null : progressError
 
   if (isLoadingProgress || !progressSnapshot) {
     return (
@@ -61,7 +64,7 @@ function AuthenticatedDashboard() {
           <p className="text-[13.5px] text-fg-muted">{t('progress.loadingSubtitle')}</p>
         </div>
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          {progressError ? `${t('progress.failed')} ${progressError}` : t('progress.loading')}
+          {displayProgressError ? `${t('progress.failed')} ${displayProgressError}` : t('progress.loading')}
         </div>
       </PageShell>
     )

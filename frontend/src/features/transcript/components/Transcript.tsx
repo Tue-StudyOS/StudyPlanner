@@ -6,6 +6,14 @@ import { StatItem } from '../../../shared/components/StatItem'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
+import { useOnboarding } from '../../onboarding'
+import {
+  TOUR_PLANNER_RULE_GROUPS,
+  TOUR_TRANSCRIPT_COMPLETED_COURSES,
+  TOUR_TRANSCRIPT_IMPORT_CANDIDATES,
+  TOUR_TRANSCRIPT_STATS,
+  isTranscriptTourStep,
+} from '../../onboarding/utils/tourPreviewData.ts'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import type { CompletedCourse } from '../../courses'
 import {
@@ -60,6 +68,7 @@ function isPdfFile(file: File): boolean {
 function AuthenticatedTranscript() {
   const { user, token } = useAuth()
   const { t } = useTranslation()
+  const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const importCandidatesSessionKey = useMemo(() => buildImportCandidatesSessionKey(user?.username), [user?.username])
   const restoredImportCandidates = useMemo<TranscriptImportCandidate[]>(() => restoreImportCandidates(user?.username), [user?.username])
   const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoredImportCandidates)
@@ -111,10 +120,34 @@ function AuthenticatedTranscript() {
     [savedIssueCandidates],
   )
 
+  const isTranscriptTourPreview = isOnboardingOpen && isTranscriptTourStep(activeStepId)
+  const displayStats = isTranscriptTourPreview ? TOUR_TRANSCRIPT_STATS : { totalEcts, requiredEcts, progress, averageGrade }
+  const displayImportCandidates = isTranscriptTourPreview ? TOUR_TRANSCRIPT_IMPORT_CANDIDATES : importCandidates
+  const displaySavedIssueCandidates = isTranscriptTourPreview ? [] : savedIssueCandidates
+  const displayCompletedCourses = isTranscriptTourPreview ? TOUR_TRANSCRIPT_COMPLETED_COURSES : completedCourses
+  const displayRegulationRuleGroups = isTranscriptTourPreview ? TOUR_PLANNER_RULE_GROUPS : regulationRuleGroups
+  const displayStudyProgramCode = isTranscriptTourPreview ? 'TOUR' : user?.profile.studyProgramCode
+  const displayRegulationVersionCode = isTranscriptTourPreview ? 'tour-preview' : user?.profile.regulationVersionCode
+  const displayImportPhase = isTranscriptTourPreview ? 'parsed' : importPhase
+  const displayImportError = isTranscriptTourPreview ? null : importError
+  const displayImportNotice = isTranscriptTourPreview ? null : importNotice
+  const displayIsBusy = isTranscriptTourPreview ? false : isSavingIssues || importPhase === 'saving'
+  const displayIsSavingCompletedCourses = isTranscriptTourPreview ? false : isSavingCompletedCourses
+  const displayCompletedCoursesError = isTranscriptTourPreview ? null : completedCoursesError
+  const displayRegulationVersionError = isTranscriptTourPreview ? null : regulationVersionError
+  const displayIssuesError = isTranscriptTourPreview ? null : issuesError
+  const displayIsLoadingRegulationVersion = isTranscriptTourPreview ? false : isLoadingRegulationVersion
+  const displayIsLoadingIssues = isTranscriptTourPreview ? false : isLoadingIssues
+  const displayIsSavingIssues = isTranscriptTourPreview ? false : isSavingIssues
+  const displayImportableReviewCandidateCount = isTranscriptTourPreview
+    ? TOUR_TRANSCRIPT_IMPORT_CANDIDATES.filter((candidate) => canImportTranscriptCandidate(candidate)).length
+    : importableReviewCandidateCount
+  const displayImportableSavedIssueCount = isTranscriptTourPreview ? 0 : importableSavedIssueCount
+
   const stats = [
-    { label: t('transcript.progress'), value: `${progress} %` },
-    { label: t('transcript.ectsEarned'), value: `${totalEcts} / ${requiredEcts}` },
-    { label: t('transcript.averageGrade'), value: averageGrade !== null ? averageGrade.toFixed(2) : '–' },
+    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
+    { label: t('transcript.ectsEarned'), value: `${displayStats.totalEcts} / ${displayStats.requiredEcts}` },
+    { label: t('transcript.averageGrade'), value: displayStats.averageGrade !== null ? displayStats.averageGrade.toFixed(2) : '–' },
   ]
 
   useEffect(() => {
@@ -489,13 +522,13 @@ function AuthenticatedTranscript() {
 
       {/* Upload card and manual form share one row and stretch to the same
           height, so the two entry points read as equal-weight options. */}
-      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
-        <div className="min-w-0 lg:h-full" data-tour="transcript-upload">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <div className="min-w-0 aspect-square" data-tour="transcript-upload">
           <TranscriptUploadCard
             isDragActive={isDragActive}
             disabled={isLoadingCatalog}
-            phase={importPhase}
-            error={importError}
+            phase={displayImportPhase}
+            error={displayImportError}
             maxFileSizeLabel={`${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB`}
             onBrowse={openFilePicker}
             onDragOver={handleDragOver}
@@ -505,71 +538,71 @@ function AuthenticatedTranscript() {
         </div>
 
         <ManualCompletedCourseForm
-          defaultSemester={user?.profile.currentSemesterLabel}
-          studyProgramCode={user?.profile.studyProgramCode}
-          regulationVersionCode={user?.profile.regulationVersionCode}
-          regulationRuleGroups={regulationRuleGroups}
-          isLoadingRegulationVersion={isLoadingRegulationVersion}
-          isSaving={isSavingCompletedCourses}
+          defaultSemester={isTranscriptTourPreview ? 'SS 2026' : user?.profile.currentSemesterLabel}
+          studyProgramCode={displayStudyProgramCode}
+          regulationVersionCode={displayRegulationVersionCode}
+          regulationRuleGroups={displayRegulationRuleGroups}
+          isLoadingRegulationVersion={isTranscriptTourPreview ? false : isLoadingRegulationVersion}
+          isSaving={displayIsSavingCompletedCourses}
           onSave={handleManualCourseAdd}
         />
       </div>
 
-      {(regulationVersionError || completedCoursesError || importNotice || issuesError || isSavingCompletedCourses || isSavingIssues || isLoadingIssues || isLoadingRegulationVersion) ? (
+      {(displayRegulationVersionError || displayCompletedCoursesError || displayImportNotice || displayIssuesError || displayIsSavingCompletedCourses || displayIsSavingIssues || displayIsLoadingIssues || displayIsLoadingRegulationVersion) ? (
         <div className="grid gap-2">
-          {regulationVersionError ? (
+          {displayRegulationVersionError ? (
             <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
-              {regulationVersionError}
+              {displayRegulationVersionError}
             </div>
           ) : null}
 
-          {isLoadingRegulationVersion ? (
+          {displayIsLoadingRegulationVersion ? (
             <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
               Loading your active regulation settings...
             </div>
           ) : null}
 
-          {completedCoursesError ? (
+          {displayCompletedCoursesError ? (
             <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
-              {completedCoursesError}
+              {displayCompletedCoursesError}
             </div>
           ) : null}
 
-          {issuesError ? (
+          {displayIssuesError ? (
             <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
-              {issuesError}
+              {displayIssuesError}
             </div>
           ) : null}
 
-          {importNotice ? (
+          {displayImportNotice ? (
             <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-mid">
-              {importNotice}
+              {displayImportNotice}
             </div>
           ) : null}
 
-          {isSavingCompletedCourses ? (
+          {displayIsSavingCompletedCourses ? (
             <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
               Saving your completed-course history...
             </div>
           ) : null}
 
-          {isLoadingIssues || isSavingIssues ? (
+          {displayIsLoadingIssues || displayIsSavingIssues ? (
             <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-              {isLoadingIssues ? 'Loading saved transcript issues...' : 'Saving transcript issues...'}
+              {displayIsLoadingIssues ? 'Loading saved transcript issues...' : 'Saving transcript issues...'}
             </div>
           ) : null}
         </div>
       ) : null}
 
       <PersonalCourseCollection
-        currentReviewCandidates={importCandidates}
-        savedIssueCandidates={savedIssueCandidates}
-        completedCourses={completedCourses}
-        studyProgramCode={user?.profile.studyProgramCode}
-        regulationRuleGroups={regulationRuleGroups}
-        isBusy={isSavingIssues || importPhase === 'saving'}
-        currentReviewImportableCount={importableReviewCandidateCount}
-        savedIssueImportableCount={importableSavedIssueCount}
+        currentReviewCandidates={displayImportCandidates}
+        savedIssueCandidates={displaySavedIssueCandidates}
+        completedCourses={displayCompletedCourses}
+        studyProgramCode={displayStudyProgramCode}
+        regulationRuleGroups={displayRegulationRuleGroups}
+        isBusy={displayIsBusy}
+        currentReviewImportableCount={displayImportableReviewCandidateCount}
+        savedIssueImportableCount={displayImportableSavedIssueCount}
         onCurrentReviewCandidateChange={updateImportCandidateById}
         onSavedIssueCandidateChange={updatePersistedIssueCandidate}
         onDiscardCurrentReviewCandidate={discardImportCandidate}

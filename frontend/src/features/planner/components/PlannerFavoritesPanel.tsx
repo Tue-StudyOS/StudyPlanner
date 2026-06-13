@@ -11,15 +11,19 @@ import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/use
 const NOT_ASSIGNABLE_HINT =
   "Can't be added: this course isn't part of your selected study program or examination regulations."
 
+function formatPlannerTypeLabel(types: string[]): string {
+  return formatCourseTypeLabel(types).replace(/\s*\/\s*/g, ' + ')
+}
+
 function CandidateCard({
   candidate,
   studyProgramCode,
-  onOpenCourse,
+  onAddCourse,
   onToggleFavorite,
 }: {
   candidate: PlannerFavoriteCandidate
   studyProgramCode: string | null
-  onOpenCourse: (course: Course) => void
+  onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
 }) {
   const { course, isPlanned, completedCourse, options, explicitAreaCode } = candidate
@@ -41,11 +45,17 @@ function CandidateCard({
         event.dataTransfer.setData('text/planner-area-code', explicitAreaCode ?? '')
         event.dataTransfer.effectAllowed = 'move'
       }}
-      onClick={() => onOpenCourse(course)}
+      onClick={() => {
+        if (isAssignable) {
+          onAddCourse(course.id, explicitAreaCode)
+        }
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          onOpenCourse(course)
+          if (isAssignable) {
+            onAddCourse(course.id, explicitAreaCode)
+          }
         }
       }}
       title={!isAssignable ? NOT_ASSIGNABLE_HINT : undefined}
@@ -60,11 +70,8 @@ function CandidateCard({
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2 py-0.5 text-[10px] font-medium text-pill-text">
-              {formatCourseTypeLabel(course.types)}
+              {formatPlannerTypeLabel(course.types)}
             </span>
-            {areaTags.map((tag) => (
-              <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
-            ))}
             {isPlanned ? (
               <span className="inline-block whitespace-nowrap rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
                 In plan
@@ -74,6 +81,13 @@ function CandidateCard({
               <span className="text-[10.5px] font-medium text-fg-muted">done</span>
             ) : null}
           </div>
+          {areaTags.length > 0 ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {areaTags.map((tag) => (
+                <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div onClick={(event) => event.stopPropagation()}>
@@ -94,8 +108,9 @@ interface PlannerFavoritesPanelProps {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+  maxVisibleCandidates?: number
   onSetAssignment: (courseId: string, areaCode: string | null) => void
-  onOpenCourse: (course: Course) => void
+  onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
 }
 
@@ -109,8 +124,9 @@ export function PlannerFavoritesPanel({
   planAssignments,
   plannedCourses,
   completedCourses,
+  maxVisibleCandidates,
   onSetAssignment,
-  onOpenCourse,
+  onAddCourse,
   onToggleFavorite,
 }: PlannerFavoritesPanelProps) {
   const { candidates } = usePlannerFavorites({
@@ -124,15 +140,19 @@ export function PlannerFavoritesPanel({
     onSetAssignment,
   })
 
+  const visibleCandidates = typeof maxVisibleCandidates === 'number'
+    ? candidates.filter((candidate) => !candidate.isPlanned).slice(0, maxVisibleCandidates)
+    : candidates
+
   return (
     <aside
       data-tour="planner-interested"
-      className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full"
     >
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="text-[14px] font-semibold text-fg">Interested</div>
         <p className="mt-0.5 text-[12px] text-fg-muted">
-          Tap a course for details, drag it into the week to plan it.
+          Tap a course to add it to the plan. On desktop, you can also drag it into the week.
         </p>
       </div>
 
@@ -141,7 +161,7 @@ export function PlannerFavoritesPanel({
           <div className="text-[13px] text-fg-muted">Loading your interested courses...</div>
         ) : error ? (
           <div className="text-[13px] text-primary">Failed to load planner candidates. {error}</div>
-        ) : candidates.length === 0 ? (
+        ) : visibleCandidates.length === 0 ? (
           <div className="grid justify-items-center gap-3 rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
             <span>Bookmark some courses in the catalog first, then plan with them here.</span>
             <Link
@@ -153,14 +173,15 @@ export function PlannerFavoritesPanel({
           </div>
         ) : (
           <div className="grid gap-2">
-            {candidates.map((candidate) => (
-              <CandidateCard
-                key={candidate.course.id}
-                candidate={candidate}
-                studyProgramCode={studyProgramCode}
-                onOpenCourse={onOpenCourse}
-                onToggleFavorite={onToggleFavorite}
-              />
+            {visibleCandidates.map((candidate, index) => (
+              <div key={candidate.course.id} data-tour={index === 0 ? 'planner-interested-card' : undefined}>
+                <CandidateCard
+                  candidate={candidate}
+                  studyProgramCode={studyProgramCode}
+                  onAddCourse={onAddCourse}
+                  onToggleFavorite={onToggleFavorite}
+                />
+              </div>
             ))}
           </div>
         )}

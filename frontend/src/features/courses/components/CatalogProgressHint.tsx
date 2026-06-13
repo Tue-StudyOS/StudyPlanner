@@ -1,6 +1,8 @@
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import { useAuth } from '../../auth'
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
+import { useOnboarding } from '../../onboarding'
+import { TOUR_CATALOG_OPEN_AREAS, type TourCatalogOpenArea } from '../../onboarding/utils/tourPreviewData.ts'
 
 function formatEctsValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
@@ -12,42 +14,51 @@ function formatEctsValue(value: number): string {
  */
 export function CatalogProgressHint() {
   const { isAuthenticated } = useAuth()
+  const { isOpen: isOnboardingOpen } = useOnboarding()
   const { progressSnapshot } = useProgressSnapshot()
 
-  if (!isAuthenticated || !progressSnapshot) {
-    return null
-  }
+  const realOpenAreas: TourCatalogOpenArea[] = (progressSnapshot?.regulationProgress ?? [])
+    .filter(
+      (area) =>
+        area.code.trim().toUpperCase() !== 'THESIS'
+        && area.requiredEcts > 0
+        && area.earnedEcts < area.requiredEcts,
+    )
+    .map((area) => ({
+      code: area.code,
+      name: area.name,
+      earnedEcts: area.earnedEcts,
+      requiredEcts: area.requiredEcts,
+    }))
 
-  const openAreas = progressSnapshot.regulationProgress.filter(
-    (area) =>
-      area.code.trim().toUpperCase() !== 'THESIS'
-      && area.requiredEcts > 0
-      && area.earnedEcts < area.requiredEcts,
-  )
+  // During the tour the opening catalog step highlights this bar, so fall back
+  // to preview chips when the signed-in user has no real open areas yet.
+  const openAreas = realOpenAreas.length > 0
+    ? realOpenAreas
+    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS : []
 
-  if (openAreas.length === 0) {
+  if (!isAuthenticated || openAreas.length === 0) {
     return null
   }
 
   return (
-    // First element of the scroll column on every breakpoint: both the mobile
-    // scroll container (<main>, made scrollable by overflow-x-hidden) and the
-    // desktop scroll pane start right below the sticky top bar, so top-0 keeps
-    // the bar flush under it with no gap and nothing scrolling through.
-    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1.5 border-b border-border bg-bg px-4 py-2 sm:px-8">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-        Still open
-      </span>
-      {openAreas.map((area) => (
-        <span
-          key={area.code}
-          title={area.name}
-          className="whitespace-nowrap rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-fg-mid"
-        >
-          {formatRegulationAreaShortLabel(area.code)} {formatEctsValue(area.earnedEcts)}/
-          {formatEctsValue(area.requiredEcts)}
-        </span>
-      ))}
-    </div>
+    <>
+      <div className="h-[4.25rem] md:hidden" aria-hidden="true" />
+      <div
+        data-tour="catalog-progress-hint"
+        className="fixed inset-x-0 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] flex min-h-[4.25rem] flex-wrap items-center gap-1.5 border-b border-border bg-bg px-4 py-2 md:sticky md:top-0 md:z-30 md:min-h-0 md:px-8"
+      >
+        {openAreas.map((area) => (
+          <span
+            key={area.code}
+            title={area.name}
+            className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-fg-mid"
+          >
+            {formatRegulationAreaShortLabel(area.code)} {formatEctsValue(area.earnedEcts)}/
+            {formatEctsValue(area.requiredEcts)}
+          </span>
+        ))}
+      </div>
+    </>
   )
 }

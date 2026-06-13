@@ -16,7 +16,7 @@ test('buildSpotlightFrameStyle keeps a visible cutout with a bright frame and di
   assert.equal(style.height, '60px')
   assert.equal(style.boxShadow, SPOTLIGHT_DIM_BOX_SHADOW)
   assert.match(style.boxShadow, /9999px rgba\(0, 0, 0/)
-  assert.match(style.boxShadow, /rgba\(255, 255, 255/)
+  assert.doesNotMatch(style.boxShadow, /rgba\(255, 255, 255/)
   assert.doesNotMatch(style.boxShadow, /rgba\(147, 13, 42/)
 })
 

@@ -12,6 +12,7 @@ interface OnboardingProviderProps {
 export function OnboardingProvider({ children }: OnboardingProviderProps): JSX.Element {
   const { user, saveProfile } = useAuth()
   const [isOpen, setIsOpen] = useState<boolean>(false)
+  const [activeStepId, setActiveStepId] = useState<string | null>(null)
   const autoOpenedUserIdRef = useRef<string | null>(null)
 
   // Auto-open the guide once per StudyPlanner user, but only after the required
@@ -40,16 +41,20 @@ export function OnboardingProvider({ children }: OnboardingProviderProps): JSX.E
     })
   }, [saveProfile, user])
 
-  const open = useCallback((): void => setIsOpen(true), [])
+  const open = useCallback((): void => {
+    setActiveStepId(null)
+    setIsOpen(true)
+  }, [])
   const close = useCallback((): void => {
     setIsOpen(false)
+    setActiveStepId(null)
     markCompleted()
   }, [markCompleted])
 
   return (
-    <OnboardingContext.Provider value={{ isOpen, open, close }}>
+    <OnboardingContext.Provider value={{ isOpen, activeStepId, open, close }}>
       {children}
-      {isOpen ? <TourOverlay onClose={close} /> : null}
+      {isOpen ? <TourOverlay onClose={close} onStepChange={setActiveStepId} /> : null}
     </OnboardingContext.Provider>
   )
 }

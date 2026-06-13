@@ -64,7 +64,9 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
-    : `${offeringStatus === 'likely' ? 'border-dashed' : ''} border-border hover:border-primary/30`
+    : offeringStatus === 'likely'
+      ? 'border-2 border-dashed border-fg-muted hover:border-fg-muted'
+      : 'border-border hover:border-primary/30'
   const isDimmed = offeringStatus === 'unknown' && !isCompleted
   const title = cleanCourseTitle(course.title, course.number)
   const ectsLabel = course.ects === null
@@ -94,7 +96,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary">
+          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] min-h-[2.45rem] sm:overflow-visible sm:[display:block]">
             {title}
           </h3>
           {visibility.showCompletedLabel ? (
@@ -112,12 +114,14 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
         </div>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-1.5">
+      <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
         <SeasonTags termType={course.termType} />
         <span className={secondaryVisibilityClass}>
           <TypePill label={formatCourseTypeLabel(tagOrder.typeLabels)} />
         </span>
-        <span className={`flex flex-wrap gap-0.75 ${secondaryVisibilityClass}`}>
+        {/* On phones the study-area tags drop to their own bottom line so the
+            ECTS value can stay right-aligned next to the season/type tags. */}
+        <span className={`order-last flex w-full flex-wrap items-center gap-0.75 sm:order-none sm:w-auto ${secondaryVisibilityClass}`}>
           {areaTags.map((tag) => (
             <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
           ))}

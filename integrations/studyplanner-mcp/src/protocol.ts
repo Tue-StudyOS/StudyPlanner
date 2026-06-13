@@ -1,3 +1,8 @@
+import {
+  readStudyPlannerAppResource,
+  STUDYPLANNER_APP_RESOURCES,
+  type McpResourceContent,
+} from './appResources.ts'
 import { resolveStudyPlannerBaseUrl } from './client.ts'
 import { callStudyPlannerTool, STUDYPLANNER_MCP_TOOLS, type McpToolResult } from './tools.ts'
 
@@ -53,6 +58,10 @@ function initializeResult(context: McpRequestContext): Record<string, unknown> {
       tools: {
         listChanged: false,
       },
+      resources: {
+        subscribe: false,
+        listChanged: false,
+      },
     },
     serverInfo: {
       name: MCP_SERVER_NAME,
@@ -62,6 +71,19 @@ function initializeResult(context: McpRequestContext): Record<string, unknown> {
       'Use these read-only StudyPlanner tools for public course catalog search and detail lookup. No personal data or write actions are available.',
     studyPlannerAiBaseUrl: resolveStudyPlannerBaseUrl(context.studyPlannerAiBaseUrl),
   }
+}
+
+function handleResourceRead(params: unknown): { contents: McpResourceContent[] } {
+  const objectParams = asObject(params)
+  const uri = objectParams.uri
+  if (typeof uri !== 'string' || uri.length === 0) {
+    throw new Error('resources/read requires a resource uri.')
+  }
+  const resource = readStudyPlannerAppResource(uri)
+  if (!resource) {
+    throw new Error(`Unknown StudyPlanner MCP resource: ${uri}`)
+  }
+  return { contents: [resource] }
 }
 
 async function handleToolCall(params: unknown, context: McpRequestContext): Promise<McpToolResult> {
@@ -99,6 +121,14 @@ async function handleSingleMcpRequest(
 
     if (request.method === 'tools/list') {
       return resultResponse(request.id, { tools: STUDYPLANNER_MCP_TOOLS })
+    }
+
+    if (request.method === 'resources/list') {
+      return resultResponse(request.id, { resources: STUDYPLANNER_APP_RESOURCES })
+    }
+
+    if (request.method === 'resources/read') {
+      return resultResponse(request.id, handleResourceRead(request.params))
     }
 
     if (request.method === 'tools/call') {

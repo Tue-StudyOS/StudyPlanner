@@ -12,10 +12,8 @@ interface StudyAreaAssignmentFieldProps {
   onChange: (studyAreaCode: string) => void
 }
 
-function wrapperClasses(tone: 'default' | 'error'): string {
-  return tone === 'error'
-    ? 'border-primary/30 bg-primary/5'
-    : 'border-border-light bg-surface-hover/25'
+function labelClasses(tone: 'default' | 'error'): string {
+  return tone === 'error' ? 'text-primary' : 'text-fg-muted'
 }
 
 function selectClasses(tone: 'default' | 'error', size: 'default' | 'compact'): string {
@@ -41,22 +39,15 @@ export function StudyAreaAssignmentField({
   const compact = size === 'compact'
 
   return (
-    <div className={`grid gap-1.5 rounded-[10px] border px-3 py-3 ${wrapperClasses(tone)}`}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            {label}
-          </div>
-          {helpText ? (
-            <p className={`mt-1 ${tone === 'error' ? 'text-primary' : 'text-fg-muted'} ${compact ? 'text-[11.5px]' : 'text-[12px]'}`}>
-              {helpText}
-            </p>
-          ) : null}
+    <div className="grid gap-1">
+      <div>
+        <div className={`text-[10.5px] font-semibold uppercase tracking-[0.08em] ${labelClasses(tone)}`}>
+          {label}
         </div>
-        {selectedOption ? (
-          <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            {selectedOption.shortLabel}
-          </span>
+        {helpText ? (
+          <p className={`mt-1 ${tone === 'error' ? 'text-primary' : 'text-fg-muted'} ${compact ? 'text-[11.5px]' : 'text-[12px]'}`}>
+            {helpText}
+          </p>
         ) : null}
       </div>
 

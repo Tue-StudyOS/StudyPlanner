@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
 import { CloseIcon } from '../../../shared/components/icons'
+import { useTranslation } from '../../i18n'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
 
 const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
@@ -16,8 +17,8 @@ function colorClass(masterCat: MasterCat | null): string {
   return (masterCat ? CAT_COLOR_CLASS[masterCat] : undefined) ?? CAT_COLOR_CLASS.default
 }
 
-function formatCourseLabel(course: RegulationAreaCourse): string {
-  const gradePart = course.grade !== null ? `Note: ${course.grade.toFixed(1)}` : null
+function formatCourseLabel(course: RegulationAreaCourse, gradeLabel: string): string {
+  const gradePart = course.grade !== null ? `${gradeLabel}: ${course.grade.toFixed(1)}` : null
   const parts = [course.courseNumber, course.semester, `${course.ects} ECTS`, gradePart].filter(Boolean)
   return parts.join(' · ')
 }
@@ -30,6 +31,7 @@ function RegulationAreaDetailModal({
   onClose: () => void
 }) {
   const courses = area.courses ?? []
+  const { t } = useTranslation()
 
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-black/45" role="dialog" aria-modal="true" aria-labelledby="regulation-area-modal-title" onClick={onClose}>
@@ -41,14 +43,18 @@ function RegulationAreaDetailModal({
               <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
               <span className="text-[13px] font-semibold text-fg">{area.code}</span>
               <span className="text-[12px] text-fg-muted">
-                {(area.rawAreaCodes ?? []).length > 1 ? `Includes ${area.rawAreaCodes?.join(', ')}` : area.name}
+                {(area.rawAreaCodes ?? []).length > 1 ? `${t('progress.regulationIncludes')} ${area.rawAreaCodes?.join(', ')}` : area.name}
               </span>
             </div>
             <h3 id="regulation-area-modal-title" className="break-words text-[20px] font-semibold text-fg">
               {area.name}
             </h3>
             <p className="mt-1 text-[12.5px] text-fg-muted">
-              {area.earnedEcts}/{area.requiredEcts} ECTS credited · {courses.length} counted course{courses.length !== 1 ? 's' : ''}
+              {t('progress.regulationModalSummary', {
+                earned: area.earnedEcts,
+                required: area.requiredEcts,
+                count: courses.length,
+              })}
             </p>
           </div>
 
@@ -65,7 +71,7 @@ function RegulationAreaDetailModal({
         <div className="px-6 py-5">
           {courses.length === 0 ? (
             <div className="rounded-[10px] border border-dashed border-border px-5 py-10 text-center text-[13px] text-fg-muted">
-              No completed courses are counted toward this regulation part yet.
+              {t('progress.regulationEmpty')}
             </div>
           ) : (
             <div className="grid gap-2 sm:gap-2.5">
@@ -78,7 +84,7 @@ function RegulationAreaDetailModal({
                     {course.title}
                   </div>
                   <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
-                    {formatCourseLabel(course)}
+                    {formatCourseLabel(course, t('progress.courseGrade'))}
                   </div>
                 </div>
               ))}
@@ -97,6 +103,7 @@ interface RegulationProgressProps {
 
 export function RegulationProgress({ areas }: RegulationProgressProps) {
   const [selectedAreaCode, setSelectedAreaCode] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   const selectedArea = useMemo(
     () => areas.find((area) => area.code === selectedAreaCode) ?? null,
@@ -114,9 +121,9 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
         className="overflow-hidden rounded-[10px] border border-border bg-surface px-6 py-5.5"
       >
         <div className="mb-4.5">
-          <div className="text-[14px] font-semibold text-fg">Regulation Progress</div>
+          <div className="text-[14px] font-semibold text-fg">{t('progress.regulationTitle')}</div>
           <p className="mt-1 text-[12px] text-fg-muted">
-            Click a regulation part to inspect the counted courses.
+            {t('progress.regulationDescription')}
           </p>
         </div>
         <div className="grid gap-3.5">
@@ -138,7 +145,7 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
                     <span className="truncate text-[12px] text-fg-muted">{area.name}</span>
                     {area.isFulfilled ? (
                       <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                        Fulfilled
+                        {t('progress.regulationFulfilled')}
                       </span>
                     ) : null}
                   </div>
