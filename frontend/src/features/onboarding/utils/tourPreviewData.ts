@@ -160,7 +160,7 @@ export const TOUR_SAMPLE_COURSES: Record<TourSampleCardVariant, Course> = {
   likely: createTourCourse({
     id: 'tour-sample-likely',
     number: 'TOUR202',
-    title: 'Compiler Optimizations for Productive Procrastination',
+    title: 'Efficient Procrastination',
     lecturer: 'Erika Musterfrau',
     types: ['Lecture', 'Exercise'],
     ects: 6,

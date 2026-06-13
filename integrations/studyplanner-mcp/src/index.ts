@@ -1,3 +1,8 @@
+import {
+  readStudyPlannerAppResource,
+  STUDYPLANNER_APP_HTTP_PATH,
+  STUDYPLANNER_APP_RESOURCE_URI,
+} from './appResources.ts'
 import { handleMcpJsonRpcPayload } from './protocol.ts'
 
 export interface Env {
@@ -22,6 +27,16 @@ function jsonResponse(payload: unknown, status = 200): Response {
 
 function emptyResponse(status = 204): Response {
   return new Response(null, { status, headers: CORS_HEADERS })
+}
+
+function htmlResponse(html: string): Response {
+  return new Response(html, {
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    },
+  })
 }
 
 async function handleMcpPost(request: Request, env: Env): Promise<Response> {
@@ -86,11 +101,18 @@ export default {
           'studyplanner_resolve_course',
           'studyplanner_get_course_detail',
         ],
+        appResourceUri: STUDYPLANNER_APP_RESOURCE_URI,
+        appPreviewPath: STUDYPLANNER_APP_HTTP_PATH,
       })
     }
 
     if (url.pathname === '/sse' && request.method === 'GET') {
       return sseEndpointResponse()
+    }
+
+    if (url.pathname === STUDYPLANNER_APP_HTTP_PATH && request.method === 'GET') {
+      const resource = readStudyPlannerAppResource(STUDYPLANNER_APP_RESOURCE_URI)
+      return resource ? htmlResponse(resource.text) : jsonResponse({ error: 'app_resource_not_found' }, 404)
     }
 
     if ((url.pathname === '/mcp' || url.pathname === '/messages') && request.method === 'POST') {

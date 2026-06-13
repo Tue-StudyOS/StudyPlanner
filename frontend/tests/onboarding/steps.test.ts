@@ -77,6 +77,7 @@ test('planner steps keep the page stable and add one mobile-only add button step
   assert.equal(mobileAddButton?.viewport, 'mobile')
   assert.deepEqual(mobileAddButton?.targets, ['planner-add'])
   assert.equal(mobileAddButton?.resetScroll, true)
+  assert.equal(mobileAddButton?.allowMobileScroll, true)
   assert.equal(mobileAdd?.viewport, 'mobile')
   assert.equal(mobileAdd?.preserveScroll, true)
   assert.deepEqual(mobileAdd?.targets, ['planner-interested-card', 'planner-interested'])

@@ -103,47 +103,14 @@ function clampSpotlightToContent(rect: SpotlightRect, contentTop: number): Spotl
   }
 }
 
-function spotlightFrameStyle(rect: SpotlightRect): Record<string, string> {
+function spotlightFrameStyle(rect: SpotlightRect, contentTop: number): Record<string, string> {
   return {
-    top: `${rect.top}px`,
+    top: `${rect.top - contentTop}px`,
     left: `${rect.left}px`,
     width: `${rect.width}px`,
     height: `${rect.height}px`,
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.58), 0 18px 44px rgba(0, 0, 0, 0.34)',
   }
-}
-
-function dimLayerStyles(rect: SpotlightRect, contentTop: number): Array<Record<string, string>> {
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
-  const rectRight = rect.left + rect.width
-  const rectBottom = rect.top + rect.height
-
-  return [
-    {
-      top: `${contentTop}px`,
-      left: '0px',
-      width: '100vw',
-      height: `${Math.max(0, rect.top - contentTop)}px`,
-    },
-    {
-      top: `${rectBottom}px`,
-      left: '0px',
-      width: '100vw',
-      height: `${Math.max(0, viewportHeight - rectBottom)}px`,
-    },
-    {
-      top: `${rect.top}px`,
-      left: '0px',
-      width: `${Math.max(0, rect.left)}px`,
-      height: `${Math.max(0, rect.height)}px`,
-    },
-    {
-      top: `${rect.top}px`,
-      left: `${rectRight}px`,
-      width: `${Math.max(0, viewportWidth - rectRight)}px`,
-      height: `${Math.max(0, rect.height)}px`,
-    },
-  ]
 }
 
 function rectsRoughlyEqual(a: SpotlightRect | null, b: SpotlightRect): boolean {
@@ -404,10 +371,11 @@ export function TourOverlay({
         window.setTimeout(locateTarget, TARGET_POLL_INTERVAL_MS)
       }
     }
-    locateTarget()
+    const initialLocateTimeoutId = window.setTimeout(locateTarget, step.resetScroll ? 80 : 0)
 
     return () => {
       isCancelled = true
+      window.clearTimeout(initialLocateTimeoutId)
     }
   }, [isMobileViewport, location.pathname, shouldPreserveScroll, step])
 
@@ -485,23 +453,21 @@ export function TourOverlay({
       <div className="absolute inset-0" />
 
       {visibleSpotlight ? (
-        <>
-          {dimLayerStyles(visibleSpotlight, appContentTopPx).map((style, index) => (
-            <div
-              key={`dim-layer-${index}`}
-              aria-hidden="true"
-              className="pointer-events-none absolute bg-black/55"
-              style={style}
-            />
-          ))}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden"
+          style={{ top: `${appContentTopPx}px` }}
+        >
           <div
-            aria-hidden="true"
-            className="pointer-events-none absolute rounded-[14px] border-2 border-white/90 bg-white/5 shadow-[0_18px_44px_rgba(0,0,0,0.34)]"
-            style={spotlightFrameStyle(visibleSpotlight)}
+            className="absolute rounded-[14px] border-2 border-white/90 bg-white/5"
+            style={spotlightFrameStyle(visibleSpotlight, appContentTopPx)}
           />
-        </>
+        </div>
       ) : (
-        <div className="absolute inset-0 bg-black/55" />
+        <div
+          className={hasHighlight ? 'absolute inset-x-0 bottom-0 bg-black/55' : 'absolute inset-0 bg-black/55'}
+          style={hasHighlight ? { top: `${getAppContentTopPx()}px` } : undefined}
+        />
       )}
 
       <div className={`pointer-events-none ${cardZoneClassName}`}>

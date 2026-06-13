@@ -105,6 +105,8 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     viewport: 'mobile',
     preserveScroll: true,
     resetScroll: true,
+    allowMobileScroll: true,
+    targetTopOffsetPx: 96,
     titleKey: 'tour.plannerMobileAddButton.title',
     bodyKey: 'tour.plannerMobileAddButton.body',
   },
