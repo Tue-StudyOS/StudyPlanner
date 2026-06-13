@@ -5,7 +5,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
-from http_utils import empty_response, error_response, json_response
+from http_utils import empty_response, error_response, html_response, json_response
 from request_utils import RequestBodyError, read_json_object
 from services.authentication import (
     AuthConfigurationError,
@@ -69,6 +69,36 @@ from services.user_semester_plans import (
     list_current_user_semester_plans,
     replace_current_user_semester_plan,
 )
+
+
+_PRIVACY_HTML = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Privacy Policy – StudyPlanner AI Integration</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 20px;line-height:1.6;color:#111}
+    h1{font-size:1.4rem;margin-bottom:.25rem}
+    h2{font-size:1rem;margin-top:2rem}
+    .muted{color:#6b7280;font-size:.875rem}
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="muted">StudyPlanner AI Integration &mdash; last updated 2026-06-14</p>
+  <h2>What this integration does</h2>
+  <p>The StudyPlanner GPT Action and MCP server provide read-only access to a public university course catalog. You can search courses, look up details, and resolve course numbers. No account, login, or personal information is required.</p>
+  <h2>Data collected</h2>
+  <p>This integration collects <strong>no personal data</strong>. Requests contain only the search terms or course identifiers you type. No names, email addresses, IP addresses, cookies, or session tokens are stored or logged by this service.</p>
+  <h2>Data sharing</h2>
+  <p>Search queries are forwarded to the StudyPlanner backend API to retrieve public catalog data. No data is sold, shared with third parties, or used for advertising.</p>
+  <h2>Third-party services</h2>
+  <p>The integration is hosted on Cloudflare Workers. Cloudflare may process request metadata (IP, timestamp) in accordance with <a href="https://www.cloudflare.com/privacypolicy/" rel="noreferrer noopener">Cloudflare&#39;s privacy policy</a>. ChatGPT or Claude interactions are governed by OpenAI&#39;s and Anthropic&#39;s respective privacy policies.</p>
+  <h2>Contact</h2>
+  <p>For questions, contact <a href="mailto:ben.tischberger@gmail.com">ben.tischberger@gmail.com</a>.</p>
+</body>
+</html>"""
 
 
 async def _database_status(env: Any) -> dict[str, Any]:
@@ -164,6 +194,9 @@ async def route_request(request: Any, env: Any) -> Any:
 
     if method == "OPTIONS":
         return empty_response(request, env)
+
+    if path == "/privacy":
+        return html_response(_PRIVACY_HTML, max_age=86400)
 
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else ""
 

@@ -76,6 +76,13 @@ def empty_response(
     return Response("", status=status, headers=headers)
 
 
+def html_response(html: str, status: int = 200, max_age: int = 300) -> Response:
+    return Response(html, status=status, headers={
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": f"public, max-age={max_age}",
+    })
+
+
 def error_response(
     code: str,
     message: str,
