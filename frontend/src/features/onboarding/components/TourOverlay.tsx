@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from '../../i18n'
 import { buildTourSteps } from '../steps'
@@ -19,6 +19,8 @@ const TOOLTIP_MAX_WIDTH = 360
 const TARGET_TOP_OFFSET_PX = 96
 const ESTIMATED_CARD_HEIGHT_PX = 200
 const CARD_BOTTOM_MARGIN_PX = 28
+const TOUR_ACTIVE_CLASS_NAME = 'studyplanner-tour-active'
+const SCROLL_LOCK_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'])
 
 function findScrollParent(element: Element): Element {
   let parent = element.parentElement
@@ -59,6 +61,14 @@ function rectsRoughlyEqual(a: SpotlightRect | null, b: SpotlightRect): boolean {
     && Math.abs(a.width - b.width) < 0.5
     && Math.abs(a.height - b.height) < 0.5
   )
+}
+
+function scrollPageToTop(): void {
+  const scrollingElement = document.scrollingElement ?? document.documentElement
+  scrollingElement.scrollTop = 0
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  window.scrollTo(0, 0)
 }
 
 function TourCard({
@@ -150,12 +160,63 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
   const sampleElementRef = useRef<HTMLDivElement | null>(null)
   const step = steps[stepIndex]
   const isLastStep = stepIndex === steps.length - 1
+  const isSampleStep = Boolean(step.sample)
+
+  const closeTour = useCallback((): void => {
+    if (step.id === 'reopen-guide') {
+      scrollPageToTop()
+      window.setTimeout(scrollPageToTop, 0)
+    }
+    onClose()
+  }, [onClose, step.id])
 
   useEffect(() => {
     if (step.route && location.pathname !== step.route) {
       navigate(step.route)
     }
   }, [location.pathname, navigate, step.route])
+
+  useEffect(() => {
+    const { body, documentElement } = document
+    const previousBodyOverflow = body.style.overflow
+    const previousDocumentOverflow = documentElement.style.overflow
+    const previousBodyOverscrollBehavior = body.style.overscrollBehavior
+    const previousDocumentOverscrollBehavior = documentElement.style.overscrollBehavior
+    const hadTourActiveClass = documentElement.classList.contains(TOUR_ACTIVE_CLASS_NAME)
+    const nonPassiveOptions: AddEventListenerOptions = { passive: false }
+
+    function preventScroll(event: Event): void {
+      event.preventDefault()
+    }
+
+    function preventScrollKey(event: KeyboardEvent): void {
+      if (SCROLL_LOCK_KEYS.has(event.key)) {
+        event.preventDefault()
+      }
+    }
+
+    body.style.overflow = 'hidden'
+    documentElement.style.overflow = 'hidden'
+    body.style.overscrollBehavior = 'none'
+    documentElement.style.overscrollBehavior = 'none'
+    documentElement.classList.add(TOUR_ACTIVE_CLASS_NAME)
+    window.addEventListener('wheel', preventScroll, nonPassiveOptions)
+    window.addEventListener('touchmove', preventScroll, nonPassiveOptions)
+    window.addEventListener('keydown', preventScrollKey)
+
+    return () => {
+      body.style.overflow = previousBodyOverflow
+      documentElement.style.overflow = previousDocumentOverflow
+      body.style.overscrollBehavior = previousBodyOverscrollBehavior
+      documentElement.style.overscrollBehavior = previousDocumentOverscrollBehavior
+      if (!hadTourActiveClass) {
+        documentElement.classList.remove(TOUR_ACTIVE_CLASS_NAME)
+      }
+      window.removeEventListener('wheel', preventScroll, nonPassiveOptions)
+      window.removeEventListener('touchmove', preventScroll, nonPassiveOptions)
+      window.removeEventListener('keydown', preventScrollKey)
+    }
+  }, [])
 
   // Locate the live DOM target for the current step and scroll it into place.
   useEffect(() => {
@@ -222,16 +283,16 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') closeTour()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [closeTour])
 
   const goBack = (): void => setStepIndex((index) => Math.max(0, index - 1))
   const goNext = (): void => {
     if (isLastStep) {
-      onClose()
+      closeTour()
       return
     }
     setStepIndex((index) => Math.min(index + 1, steps.length - 1))
@@ -252,9 +313,11 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] overscroll-contain"
+      className={`fixed inset-0 ${isSampleStep ? 'z-[90]' : 'z-[70]'} overscroll-contain`}
       style={{ touchAction: 'none' }}
     >
+      {isSampleStep ? <div aria-hidden="true" className="absolute inset-0 bg-bg" /> : null}
+
       {/* Shield keeps the page inert while the tour is open. */}
       <div className="absolute inset-0" />
 
@@ -262,7 +325,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         <>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute rounded-[18px] border border-primary/70 opacity-90"
+            className="pointer-events-none absolute rounded-[18px] border border-white/45 opacity-90"
             style={buildSpotlightHaloStyle(spotlight)}
           />
           <div
@@ -284,7 +347,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
       ) : null}
 
       <div className={`pointer-events-none ${cardZoneClassName}`}>
-        <TourCard stepIndex={stepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={onClose} />
+        <TourCard stepIndex={stepIndex} steps={steps} onBack={goBack} onNext={goNext} onClose={closeTour} />
       </div>
     </div>
   )

@@ -21,9 +21,12 @@ test('tour includes a final catalog step that highlights the reopen button', () 
 })
 
 test('example card steps render self-contained samples instead of targeting live data', () => {
+  const confirmed = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'catalog-card')
   const likely = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'catalog-card-likely')
   const unknown = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'catalog-card-unknown')
 
+  assert.equal(confirmed?.sample, 'confirmed')
+  assert.equal(confirmed?.targets, undefined)
   assert.equal(likely?.sample, 'likely')
   assert.equal(likely?.targets, undefined)
   assert.equal(unknown?.sample, 'unknown')

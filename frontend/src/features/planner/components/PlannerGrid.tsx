@@ -76,8 +76,7 @@ export function PlannerGrid({
   return (
     <>
       <div
-        data-tour="planner-grid"
-        className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-6 sm:py-5.5"
+        className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-4 sm:py-5.5"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault()
@@ -88,7 +87,10 @@ export function PlannerGrid({
           }
         }}
       >
-        <div className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[64px_repeat(5,minmax(0,1fr))] gap-2'}`}>
+        <div
+          data-tour="planner-grid"
+          className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2'}`}
+        >
           <div />
           {DAY_ORDER.map((day) => (
             <div
@@ -162,7 +164,7 @@ export function PlannerGrid({
                       }}
                     >
                       <div
-                        className="break-words text-[7.5px] font-semibold leading-[9px] [hyphens:auto] sm:text-[11px] sm:leading-[14px]"
+                        className="break-words text-[8px] font-semibold leading-[10px] [hyphens:auto] sm:text-[11.5px] sm:leading-[15px]"
                         style={{
                           display: '-webkit-box',
                           WebkitBoxOrient: 'vertical',
@@ -173,7 +175,7 @@ export function PlannerGrid({
                         {block.courseTitle}
                       </div>
                       {block.slotType ? (
-                        <div className="hidden truncate text-[10px] leading-[13px] opacity-75 sm:block">
+                        <div className="hidden truncate text-[10.5px] leading-[13.5px] opacity-75 sm:block">
                           {block.slotType}
                         </div>
                       ) : null}

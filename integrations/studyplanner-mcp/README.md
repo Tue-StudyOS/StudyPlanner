@@ -5,9 +5,12 @@ Hosted, stateless MCP adapter for the public StudyPlanner AI catalog facade.
 First version exposes read-only public catalog tools only:
 
 - `studyplanner_search_courses`
+- `studyplanner_resolve_course`
 - `studyplanner_get_course_detail`
 
-It does not access D1 directly and does not store or accept OpenAI/Anthropic API keys. External agents call this Worker, and the Worker calls the existing StudyPlanner AI HTTPS endpoints.
+External agents call the deployed Worker endpoint, normally `https://studyplanner-mcp.ben-tischberger.workers.dev/mcp` (or `/sse` for older clients). The Worker calls the existing StudyPlanner AI HTTPS endpoints.
+
+It does not access D1 directly and does not store or accept StudyPlanner passwords, browser session tokens, OpenAI keys, or Anthropic API keys.
 
 ## Development
 

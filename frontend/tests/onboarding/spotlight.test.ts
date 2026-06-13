@@ -17,7 +17,7 @@ test('buildSpotlightFrameStyle keeps a visible cutout with a bright frame and di
   assert.equal(style.boxShadow, SPOTLIGHT_DIM_BOX_SHADOW)
   assert.match(style.boxShadow, /9999px rgba\(0, 0, 0/)
   assert.match(style.boxShadow, /rgba\(255, 255, 255/)
-  assert.match(style.boxShadow, /rgba\(147, 13, 42/)
+  assert.doesNotMatch(style.boxShadow, /rgba\(147, 13, 42/)
 })
 
 test('buildSpotlightHaloStyle expands the glow beyond the measured target', () => {
@@ -28,4 +28,5 @@ test('buildSpotlightHaloStyle expands the glow beyond the measured target', () =
   assert.equal(style.width, '132px')
   assert.equal(style.height, '72px')
   assert.equal(style.boxShadow, SPOTLIGHT_HALO_BOX_SHADOW)
+  assert.doesNotMatch(style.boxShadow, /rgba\(147, 13, 42/)
 })

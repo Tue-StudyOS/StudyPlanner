@@ -41,7 +41,7 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   {
     id: 'catalog-card',
     route: ROUTES.catalog,
-    targets: ['catalog-card'],
+    sample: 'confirmed',
     titleKey: 'tour.catalogCard.title',
     bodyKey: 'tour.catalogCard.body',
   },

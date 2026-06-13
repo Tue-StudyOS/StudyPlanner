@@ -1,3 +1,5 @@
+export type TourSampleCardVariant = 'confirmed' | 'likely' | 'unknown'
+
 export interface TourStep {
   id: string
   title: string
@@ -13,5 +15,5 @@ export interface TourStep {
    * the dashed ("likely") and faded ("no data") card states are always shown
    * correctly regardless of what the catalog currently contains.
    */
-  sample?: 'likely' | 'unknown'
+  sample?: TourSampleCardVariant
 }

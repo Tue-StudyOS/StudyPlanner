@@ -168,7 +168,9 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
           {listEntries.map(({ block, examOrdinal }) => (
             <li
               key={block.blockId}
-              className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-fg-mid"
+              className={`flex flex-wrap items-baseline gap-x-2 text-fg-mid ${
+                block.isExam ? 'gap-y-0.5 text-[11px] leading-4' : 'text-[12px]'
+              }`}
             >
               <span
                 className={`inline-block h-1.5 w-1.5 self-center rounded-full ${

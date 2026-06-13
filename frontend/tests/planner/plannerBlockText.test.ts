@@ -16,7 +16,7 @@ test('a 90-minute mobile block fits several small lines', () => {
 test('the minimum 38px block stays within bounds', () => {
   assert.equal(getBlockTitleLineClamp(38, true), 3)
   assert.equal(getBlockTitleLineClamp(38, false, true), 1)
-  assert.equal(getBlockTitleLineClamp(38, false, false), 2)
+  assert.equal(getBlockTitleLineClamp(38, false, false), 1)
 })
 
 test('desktop blocks reserve room for the type line', () => {

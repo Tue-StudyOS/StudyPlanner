@@ -53,6 +53,10 @@ body {
   background-color: var(--color-bg);
 }
 
+.studyplanner-tour-active [data-app-topbar] {
+  pointer-events: none;
+}
+
 /* Subtle, slim scrollbars everywhere — many scroll containers are small cards. */
 * {
   scrollbar-width: thin;
