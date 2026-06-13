@@ -5,6 +5,7 @@ import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
 import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
+import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../routes'
@@ -16,6 +17,7 @@ export function TopBar() {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
   const { isDark, toggleTheme } = useTheme()
   const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
 
   const themeToggleButton = (
     <button
@@ -31,7 +33,8 @@ export function TopBar() {
   return (
     <>
       <header
-        className="sticky top-0 z-30 flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 [transform:translateZ(0)] sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
+        data-app-topbar
+        className="sticky top-0 z-[80] flex shrink-0 items-center justify-between bg-sidebar pl-4 pr-4 [transform:translateZ(0)] sm:pl-6 sm:pr-5 lg:pl-8 lg:pr-6"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <Link
@@ -48,8 +51,8 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
+            {isAuthenticated ? <HelpButton /> : null}
             {themeToggleButton}
-            <HelpButton />
             <button
               type="button"
               onClick={() => setIsMenuOpen((currentValue) => !currentValue)}
@@ -88,8 +91,8 @@ export function TopBar() {
             </nav>
 
             <div className="flex items-center gap-2">
+              {isAuthenticated ? <HelpButton /> : null}
               {themeToggleButton}
-              <HelpButton />
               <Link
                 to={ROUTES.account}
                 aria-label="Open account settings"
@@ -107,7 +110,7 @@ export function TopBar() {
       </header>
 
       {isMobileNavigation && isMenuOpen ? (
-        <div className="fixed inset-0 z-40 bg-black/25 lg:hidden" onClick={() => setIsMenuOpen(false)}>
+        <div className="fixed inset-0 z-[90] bg-black/25 lg:hidden" onClick={() => setIsMenuOpen(false)}>
           <div
             className="absolute right-0 top-0 flex h-full w-[18rem] flex-col border-l border-border bg-surface px-4 py-5 shadow-2xl"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.25rem)' }}
