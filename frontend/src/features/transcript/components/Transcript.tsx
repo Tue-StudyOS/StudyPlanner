@@ -476,43 +476,43 @@ function AuthenticatedTranscript() {
         onChange={handleFileInputChange}
       />
 
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        <div className="min-w-0" data-tour="transcript-upload">
-        <TranscriptUploadCard
-          isDragActive={isDragActive}
-          disabled={isLoadingCatalog}
-          phase={importPhase}
-          error={importError}
-          maxFileSizeLabel={`${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB`}
-          onBrowse={openFilePicker}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        />
-        </div>
-
-        <div className="grid min-w-0 grid-rows-[auto_1fr] gap-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-[10px] border border-border bg-surface px-3 py-3.5 sm:px-5 sm:py-4"
-              >
-                <StatItem label={stat.label} value={stat.value} />
-              </div>
-            ))}
+      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-[10px] border border-border bg-surface px-3 py-3.5 sm:px-5 sm:py-4"
+          >
+            <StatItem label={stat.label} value={stat.value} />
           </div>
+        ))}
+      </div>
 
-          <ManualCompletedCourseForm
-            defaultSemester={user?.profile.currentSemesterLabel}
-            studyProgramCode={user?.profile.studyProgramCode}
-            regulationVersionCode={user?.profile.regulationVersionCode}
-            regulationRuleGroups={regulationRuleGroups}
-            isLoadingRegulationVersion={isLoadingRegulationVersion}
-            isSaving={isSavingCompletedCourses}
-            onSave={handleManualCourseAdd}
+      {/* Upload card and manual form share one row and stretch to the same
+          height, so the two entry points read as equal-weight options. */}
+      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
+        <div className="min-w-0 lg:h-full" data-tour="transcript-upload">
+          <TranscriptUploadCard
+            isDragActive={isDragActive}
+            disabled={isLoadingCatalog}
+            phase={importPhase}
+            error={importError}
+            maxFileSizeLabel={`${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB`}
+            onBrowse={openFilePicker}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           />
         </div>
+
+        <ManualCompletedCourseForm
+          defaultSemester={user?.profile.currentSemesterLabel}
+          studyProgramCode={user?.profile.studyProgramCode}
+          regulationVersionCode={user?.profile.regulationVersionCode}
+          regulationRuleGroups={regulationRuleGroups}
+          isLoadingRegulationVersion={isLoadingRegulationVersion}
+          isSaving={isSavingCompletedCourses}
+          onSave={handleManualCourseAdd}
+        />
       </div>
 
       {(regulationVersionError || completedCoursesError || importNotice || issuesError || isSavingCompletedCourses || isSavingIssues || isLoadingIssues || isLoadingRegulationVersion) ? (
