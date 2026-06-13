@@ -48,16 +48,14 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   {
     id: 'catalog-card-likely',
     route: ROUTES.catalog,
-    targets: ['catalog-card-likely'],
-    optional: true,
+    sample: 'likely',
     titleKey: 'tour.catalogLikely.title',
     bodyKey: 'tour.catalogLikely.body',
   },
   {
     id: 'catalog-card-unknown',
     route: ROUTES.catalog,
-    targets: ['catalog-card-unknown'],
-    optional: true,
+    sample: 'unknown',
     titleKey: 'tour.catalogUnknown.title',
     bodyKey: 'tour.catalogUnknown.body',
   },
@@ -111,6 +109,7 @@ export function buildTourSteps(t: (key: TranslationKey) => string): TourStep[] {
     route: step.route,
     targets: step.targets,
     optional: step.optional,
+    sample: step.sample,
     title: t(step.titleKey),
     body: t(step.bodyKey),
   }))
