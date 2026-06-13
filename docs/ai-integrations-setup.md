@@ -13,7 +13,8 @@ OAuth (Phase 7) are intentionally not built yet.
 | --- | --- | --- |
 | `/api/ai/meta` | GET | Integration metadata + OpenAPI link |
 | `/api/ai/openapi.json` | GET | OpenAPI 3.1 schema for ChatGPT Actions |
-| `/api/ai/catalog/search` | POST | Compact course search (`query`, `limit` ≤ 25, `periodId` or `all`) |
+| `/api/ai/catalog/search` | POST | Compact course search: `query`, `limit` ≤ 25, `periodId`/`all`, plus structured filters `ects` {min,max,exact}, `weekdays`, `timeWindow` {start,end}, `courseTypes`, `studyAreaCodes`, `termTypes` |
+| `/api/ai/catalog/resolve-course` | POST | Resolve a stable `courseNumber` (+ optional `titleHint`, `periodId`) to the current numeric course id |
 | `/api/ai/catalog/courses/<id>` | GET | Compact course detail incl. description and exams |
 
 ### Hosted MCP adapter
@@ -31,10 +32,40 @@ Tools exposed by the MCP adapter:
 
 | Tool | Purpose |
 | --- | --- |
-| `studyplanner_search_courses` | Calls `/api/ai/catalog/search` |
+| `studyplanner_search_courses` | Calls `/api/ai/catalog/search` (incl. structured filters) |
+| `studyplanner_resolve_course` | Calls `/api/ai/catalog/resolve-course` |
 | `studyplanner_get_course_detail` | Calls `/api/ai/catalog/courses/<id>` |
 
 All AI facade routes and MCP tools are public and read-only; no personal data is reachable.
+
+## Code vs. manual: what ships automatically and what you must do
+
+**Shippable purely by code (already implemented, just deploy):**
+
+- The full public catalog AI facade, now including server-side search filters
+  (ECTS, weekday, time window, course type, study-area code, term) and the
+  `resolve-course` stable-reference endpoint.
+- The hosted MCP adapter with the matching `studyplanner_search_courses`,
+  `studyplanner_resolve_course`, and `studyplanner_get_course_detail` tools.
+- These go live with `npm run deploy:backend` (facade) and a `wrangler deploy`
+  in `integrations/studyplanner-mcp/` (MCP). No secrets, no dashboard changes.
+
+**Requires a manual decision or manual action (cannot be auto-deployed):**
+
+- **Creating the ChatGPT Custom GPT** and **connecting Claude/MCP clients** are
+  external UI steps in ChatGPT / the MCP client — not code (steps 4 and 6).
+- **Personal/authenticated tools (Phases 2–4)** need a product decision first:
+  scoped integration tokens vs. OAuth (see the plan's open questions). Once you
+  choose, the token migration (`0023_user_integration_tokens.sql`), auth
+  helpers, scope checks, and an Account-area token UI can be coded; the DB
+  migration then deploys with `npm run db:migrate:remote`. These are not built
+  yet on purpose because they expose private data and writes.
+- **OAuth for a shared multi-student GPT (Phase 7)** additionally needs client
+  registration and consent screens.
+
+In short: everything public is code-deployable today; everything that touches a
+user's private plan/progress is intentionally gated behind your auth-model
+decision.
 
 ## Manual steps you have to do (in order)
 
@@ -58,10 +89,13 @@ npm run db:migrate:remote     # applies 0021 (course links), 0022 (drop test cou
 ```bash
 curl https://studyplanner-api.<your-account>.workers.dev/api/ai/meta
 curl -X POST https://studyplanner-api.<your-account>.workers.dev/api/ai/catalog/search \
-  -H "Content-Type: application/json" -d '{"query":"machine learning","limit":3}'
+  -H "Content-Type: application/json" \
+  -d '{"query":"machine learning","limit":3,"ects":{"min":6},"termTypes":["summer"]}'
+curl -X POST https://studyplanner-api.<your-account>.workers.dev/api/ai/catalog/resolve-course \
+  -H "Content-Type: application/json" -d '{"courseNumber":"INFM1234"}'
 ```
 
-Both must return JSON; the search must list courses.
+All must return JSON; the search must list courses and honor the filters.
 
 ### 3. Cloudflare dashboard — nothing to change for Phase 1
 

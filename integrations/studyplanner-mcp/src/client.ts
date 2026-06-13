@@ -9,10 +9,22 @@ export interface SearchCoursesArgs {
   query?: string | null
   limit?: number
   periodId?: string
+  ects?: { min?: number; max?: number; exact?: number }
+  weekdays?: string[]
+  timeWindow?: { start?: string; end?: string }
+  courseTypes?: string[]
+  studyAreaCodes?: string[]
+  termTypes?: string[]
 }
 
 export interface GetCourseDetailArgs {
   courseId: number
+}
+
+export interface ResolveCourseArgs {
+  courseNumber: string
+  periodId?: string
+  titleHint?: string
 }
 
 function trimTrailingSlash(value: string): string {
@@ -69,6 +81,12 @@ export async function searchCourses(
         query: args.query ?? undefined,
         limit: args.limit,
         periodId: args.periodId,
+        ects: args.ects,
+        weekdays: args.weekdays,
+        timeWindow: args.timeWindow,
+        courseTypes: args.courseTypes,
+        studyAreaCodes: args.studyAreaCodes,
+        termTypes: args.termTypes,
       }),
     },
     options,
@@ -82,6 +100,25 @@ export async function getCourseDetail(
   return await requestStudyPlannerJson(
     `/api/ai/catalog/courses/${encodeURIComponent(String(args.courseId))}`,
     { method: 'GET' },
+    options,
+  )
+}
+
+export async function resolveCourse(
+  args: ResolveCourseArgs,
+  options: StudyPlannerClientOptions = {},
+): Promise<unknown> {
+  return await requestStudyPlannerJson(
+    '/api/ai/catalog/resolve-course',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        courseNumber: args.courseNumber,
+        periodId: args.periodId,
+        titleHint: args.titleHint,
+      }),
+    },
     options,
   )
 }

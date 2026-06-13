@@ -10,10 +10,52 @@ function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
   })
 }
 
-test('MCP catalog tools expose search and detail only', () => {
+test('MCP catalog tools expose search, resolve, and detail', () => {
   assert.deepEqual(
     STUDYPLANNER_MCP_TOOLS.map((tool) => tool.name),
-    ['studyplanner_search_courses', 'studyplanner_get_course_detail'],
+    ['studyplanner_search_courses', 'studyplanner_resolve_course', 'studyplanner_get_course_detail'],
+  )
+})
+
+test('studyplanner_search_courses forwards structured filters', async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = []
+  const fetchImpl: typeof fetch = async (url, init) => {
+    requests.push({ url: String(url), init })
+    return jsonResponse({ courses: [], count: 0, truncated: false })
+  }
+
+  await callStudyPlannerTool(
+    'studyplanner_search_courses',
+    { query: 'ml', ects: { min: 6 }, weekdays: ['Monday'], termTypes: ['summer'] },
+    { baseUrl: 'https://studyplanner.example', fetchImpl },
+  )
+
+  const body = JSON.parse(String(requests[0].init?.body))
+  assert.deepEqual(body.ects, { min: 6 })
+  assert.deepEqual(body.weekdays, ['Monday'])
+  assert.deepEqual(body.termTypes, ['summer'])
+})
+
+test('studyplanner_resolve_course posts the course number to the resolve endpoint', async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = []
+  const fetchImpl: typeof fetch = async (url, init) => {
+    requests.push({ url: String(url), init })
+    return jsonResponse({ match: { courseId: 7 }, candidates: [], count: 0 })
+  }
+
+  const result = await callStudyPlannerTool(
+    'studyplanner_resolve_course',
+    { courseNumber: 'INFM1234', titleHint: 'Machine' },
+    { baseUrl: 'https://studyplanner.example', fetchImpl },
+  )
+
+  assert.equal(requests[0].url, 'https://studyplanner.example/api/ai/catalog/resolve-course')
+  assert.equal(requests[0].init?.method, 'POST')
+  assert.match(result.content[0].text, /"courseId": 7/)
+
+  await assert.rejects(
+    () => callStudyPlannerTool('studyplanner_resolve_course', {}, { fetchImpl }),
+    /courseNumber is required/,
   )
 })
 
