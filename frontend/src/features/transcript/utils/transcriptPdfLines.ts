@@ -5,7 +5,7 @@
 // x-offsets do not push values into the wrong column.
 import { normalizeLineText, SEMESTER_OR_DATE_SEGMENT_PATTERN } from './transcriptValues.ts'
 
-export interface TextItemLike {
+interface TextItemLike {
   str: string
   transform: number[]
   width: number
@@ -52,7 +52,7 @@ const HEADER_LABEL_MATCHERS: ReadonlyArray<{ key: keyof TranscriptColumnLayout; 
   { key: 'ectsMinX', pattern: /^(?:cp|ects|lp)$/i },
 ]
 
-export function isTextItemLike(value: unknown): value is TextItemLike {
+function isTextItemLike(value: unknown): value is TextItemLike {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -67,7 +67,7 @@ export function isTextItemLike(value: unknown): value is TextItemLike {
   )
 }
 
-export function buildLineText(items: TextItemLike[]): string {
+function buildLineText(items: TextItemLike[]): string {
   let text = ''
   let previousRightEdge: number | null = null
 

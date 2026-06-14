@@ -17,14 +17,14 @@ interface SaveSemesterPlanInput {
   courseAssignments?: Record<string, string>
 }
 
-export interface PlannerBalanceWarning {
+interface PlannerBalanceWarning {
   type: string
   courseId?: string
   courseTitle?: string
   message: string
 }
 
-export interface PlannerBalanceSummaryArea {
+interface PlannerBalanceSummaryArea {
   areaCode: string
   areaName: string
   creditedEcts: number
@@ -32,7 +32,7 @@ export interface PlannerBalanceSummaryArea {
   capacityEcts: number | null
 }
 
-export interface PlannerBalanceResult {
+interface PlannerBalanceResult {
   assignments: Record<string, string>
   warnings: PlannerBalanceWarning[]
   unassignedCourseIds: string[]

@@ -1,4 +1,4 @@
-export interface RegulationAreaInfo {
+interface RegulationAreaInfo {
   code: string
   name: string
   description: string

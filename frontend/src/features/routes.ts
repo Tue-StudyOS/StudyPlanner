@@ -11,7 +11,3 @@ export const ROUTES = {
 export const LEGACY_PLANNER_ROUTE = '/planner'
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES]
-
-export function getCourseDetailRoute(courseId: string): string {
-  return `/catalog/${courseId}`
-}

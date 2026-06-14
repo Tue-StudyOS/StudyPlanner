@@ -3,7 +3,7 @@ import type { TranslationKey } from '../i18n'
 import { ROUTES, type RoutePath } from '../routes'
 import { CatalogIcon, DashboardIcon, PlannerIcon, TranscriptIcon } from './components/icons'
 
-export interface NavEntry {
+interface NavEntry {
   path: RoutePath
   labelKey: TranslationKey
   Icon: ComponentType<{ filled?: boolean }>

@@ -18,7 +18,7 @@ function isProductionPagesHost(hostname: string): boolean {
   return hostname === PRODUCTION_PAGES_HOST || hostname.endsWith(PRODUCTION_PAGES_PREVIEW_SUFFIX)
 }
 
-export function getApiBaseUrl(): string {
+function getApiBaseUrl(): string {
   const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
   if (configuredBaseUrl) {
     return configuredBaseUrl.replace(/\/$/, '')

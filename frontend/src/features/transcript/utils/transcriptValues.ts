@@ -3,7 +3,7 @@
 
 export type TranscriptCompletionStatus = 'completed' | 'ignored' | 'unknown'
 
-export const SEMESTER_OR_DATE_VALUE_SOURCE = String.raw`(?:\b(?:wt|st|ws|ss|wise|sose|winter(?:\s+(?:term|semester))?|summer(?:\s+(?:term|semester))?)\s+\d{2,4}(?:\s*\/\s*\d{2,4})?\b|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b)`
+const SEMESTER_OR_DATE_VALUE_SOURCE = String.raw`(?:\b(?:wt|st|ws|ss|wise|sose|winter(?:\s+(?:term|semester))?|summer(?:\s+(?:term|semester))?)\s+\d{2,4}(?:\s*\/\s*\d{2,4})?\b|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b)`
 export const SEMESTER_OR_DATE_SEGMENT_PATTERN = new RegExp(SEMESTER_OR_DATE_VALUE_SOURCE, 'i')
 const JOINED_SEMESTER_OR_DATE_PATTERN = new RegExp(String.raw`([^\s])(${SEMESTER_OR_DATE_VALUE_SOURCE})`, 'gi')
 const DATE_VALUE_PATTERN = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/

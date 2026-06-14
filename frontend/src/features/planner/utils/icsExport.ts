@@ -74,7 +74,7 @@ function parseGermanDateAnywhere(value: string): Date | null {
   return new Date(year, Number(match[2]) - 1, Number(match[1]))
 }
 
-export interface SemesterIcsInput {
+interface SemesterIcsInput {
   semesterLabel: string
   courses: Course[]
   hiddenSlotIds: string[]

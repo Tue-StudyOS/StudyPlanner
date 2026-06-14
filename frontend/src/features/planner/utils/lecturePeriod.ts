@@ -1,6 +1,6 @@
 import { parseSemesterLabel } from './semesterLabels.ts'
 
-export interface LecturePeriod {
+interface LecturePeriod {
   start: Date
   end: Date
 }

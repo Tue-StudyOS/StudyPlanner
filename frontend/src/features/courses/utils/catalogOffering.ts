@@ -2,9 +2,9 @@ import { getCurrentSemesterLabel, parseSemesterLabel } from '../../planner/utils
 import type { Course, StudyAreaOption } from '../types'
 
 export type OfferingStatus = 'always' | 'confirmed' | 'likely' | 'unknown'
-export type TermSeason = 'summer' | 'winter'
+type TermSeason = 'summer' | 'winter'
 
-export interface ParsedPeriodLabel {
+interface ParsedPeriodLabel {
   season: TermSeason
   // Winter periods span two years; the start year identifies them ("Winter 2025/26" -> 2025).
   startYear: number

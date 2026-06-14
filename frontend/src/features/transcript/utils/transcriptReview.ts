@@ -27,7 +27,7 @@ export function toSavedIssue(issue: SavedTranscriptIssue): SavedTranscriptIssue 
   }
 }
 
-export function toSavedIssuePayload(candidate: TranscriptImportCandidate): SavedTranscriptIssue {
+function toSavedIssuePayload(candidate: TranscriptImportCandidate): SavedTranscriptIssue {
   return {
     id: candidate.id,
     candidate,

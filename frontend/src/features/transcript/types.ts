@@ -78,7 +78,7 @@ export interface BulkCompletedCourseImportItem {
   course: CompletedCourse
 }
 
-export interface BulkCompletedCourseImportResultItem {
+interface BulkCompletedCourseImportResultItem {
   id: string
   message: string
 }
@@ -95,7 +95,7 @@ export interface TranscriptIssuesResponse {
   count: number
 }
 
-export interface TranscriptIssueWritePayload {
+interface TranscriptIssueWritePayload {
   id: string
   candidate: TranscriptImportCandidate
 }

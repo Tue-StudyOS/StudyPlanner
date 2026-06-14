@@ -93,7 +93,7 @@ function splitCourseTypeParts(type: string): string[] {
     .filter((part) => /[\p{L}\p{N}]/u.test(part))
 }
 
-export function translateCourseType(type: string): string {
+function translateCourseType(type: string): string {
   const parts = splitCourseTypeParts(type)
   return parts
     .map((part) => {

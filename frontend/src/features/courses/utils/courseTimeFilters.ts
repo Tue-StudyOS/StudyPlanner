@@ -8,7 +8,7 @@ import type { Course } from '../types'
 
 export type FilterWeekday = (typeof DAY_ORDER)[number]
 
-export interface TimeWindowFilter {
+interface TimeWindowFilter {
   // Minutes since midnight; null means unbounded on that side.
   startMinutes: number | null
   endMinutes: number | null
