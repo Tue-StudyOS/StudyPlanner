@@ -26,7 +26,7 @@ export interface PlannerAssignmentAreaState {
   plannedEcts: number
 }
 
-export interface PlannerAutomaticAssignment {
+interface PlannerAutomaticAssignment {
   areaCode: string
   ects: number
 }

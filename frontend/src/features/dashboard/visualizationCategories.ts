@@ -13,7 +13,7 @@ export const EMPTY_VISUALIZATION_CATEGORIES: VisualizationCategoryProgress[] = [
   { code: 'CLOUD_DEV', name: 'Cloud Dev', referenceEcts: 12, earnedEcts: 0, progressRatio: 0, progressPercentage: 0 },
 ]
 
-export const VISUALIZATION_CATEGORY_COLORS: Record<string, string> = {
+const VISUALIZATION_CATEGORY_COLORS: Record<string, string> = {
   SOFTWARE_ENG: '#4cc9f0',
   THEORY: '#f72585',
   MATHEMATICS: '#ef233c',

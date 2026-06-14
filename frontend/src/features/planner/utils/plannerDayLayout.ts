@@ -3,25 +3,25 @@ import type { PlannerBlock } from './plannerFeedback.ts'
 export const START_HOUR = 8
 export const END_HOUR = 18
 export const MINUTES_PER_HOUR = 60
-export const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
-export const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
+const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
+const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
 export const PIXELS_PER_HOUR = 56
 export const MAX_VISIBLE_OVERLAP_COLUMNS = 3
 
-export interface PositionedPlannerBlock extends PlannerBlock {
+interface PositionedPlannerBlock extends PlannerBlock {
   columnIndex: number
   visibleColumnCount: number
   overlapGroupKey: string
 }
 
-export interface OverflowIndicator {
+interface OverflowIndicator {
   overlapGroupKey: string
   day: PlannerBlock['day']
   top: number
   hiddenBlocks: PlannerBlock[]
 }
 
-export interface PlannerDayLayout {
+interface PlannerDayLayout {
   visibleBlocks: PositionedPlannerBlock[]
   overflowIndicators: OverflowIndicator[]
 }

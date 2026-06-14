@@ -6,7 +6,7 @@ function formatWinterSemester(startYear: number): string {
   return `WS ${startYear}/${String(startYear + 1).slice(-2)}`
 }
 
-export interface ParsedSemesterLabel {
+interface ParsedSemesterLabel {
   term: 'SS' | 'WS'
   year: number
 }
@@ -61,7 +61,7 @@ function stepSemester(semester: ParsedSemesterLabel, delta: number): ParsedSemes
   }
 }
 
-export function formatSemesterLabel(semester: ParsedSemesterLabel): string {
+function formatSemesterLabel(semester: ParsedSemesterLabel): string {
   return semester.term === 'SS'
     ? formatSummerSemester(semester.year)
     : formatWinterSemester(semester.year)

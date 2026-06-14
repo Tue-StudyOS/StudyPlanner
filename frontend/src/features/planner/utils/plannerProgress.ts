@@ -24,7 +24,7 @@ export interface PlannerProgressArea {
   creditedCourses: PlannerCreditedCourse[]
 }
 
-export interface PlannerCreditedCourse {
+interface PlannerCreditedCourse {
   id: string
   title: string
   ects: number
@@ -32,7 +32,7 @@ export interface PlannerCreditedCourse {
   semester: string
 }
 
-export interface PlannerProgressCourse {
+interface PlannerProgressCourse {
   id: string
   title: string
   ects: number
@@ -40,7 +40,7 @@ export interface PlannerProgressCourse {
   options: RegulationAreaOption[]
 }
 
-export interface UnassignedPlannerCourse {
+interface UnassignedPlannerCourse {
   id: string
   title: string
   ects: number

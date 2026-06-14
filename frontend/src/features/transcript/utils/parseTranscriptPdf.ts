@@ -38,7 +38,7 @@ interface ParsedTranscriptRow {
   parseIssues: string[]
 }
 
-export interface TranscriptRowColumns {
+interface TranscriptRowColumns {
   title: string
   semesterText: string
   examinerText?: string

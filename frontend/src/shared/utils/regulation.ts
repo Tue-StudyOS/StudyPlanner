@@ -58,7 +58,7 @@ export function studyAreaCodeToMasterCat(studyAreaCode: string | null | undefine
   return null
 }
 
-export function isFlexibleRegulationArea(
+function isFlexibleRegulationArea(
   ruleGroup: Pick<RegulationRuleGroup, 'code' | 'name' | 'groupType'>,
 ): boolean {
   const normalizedCode = ruleGroup.code.trim().toUpperCase()

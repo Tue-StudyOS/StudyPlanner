@@ -66,7 +66,7 @@ export interface ProgressSummary {
   averageGrade: number | null
 }
 
-export interface IntermediateExamQualifyingGroup {
+interface IntermediateExamQualifyingGroup {
   code: string
   name: string
   description: string
