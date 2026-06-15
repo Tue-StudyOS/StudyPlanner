@@ -30,6 +30,9 @@
 
   --color-row-alt: #FAFAFA;
 
+  /* Scrollbar thumb: dark grey in light mode, overridden to red in .dark below. */
+  --color-scrollbar: #6B6B6B;
+
   /* Brand color is intentionally fixed across themes (logo). Do not override in .dark. */
   --color-brand: rgb(147 13 42);
 
@@ -74,23 +77,31 @@ body {
 }
 
 /* Subtle, slim scrollbars everywhere — many scroll containers are small cards. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
-}
-
+/* WebKit (Chrome, Safari): style the pseudo-elements directly. On macOS this
+   forces a persistent, colored scrollbar instead of the system overlay one,
+   which otherwise ignores custom colors. */
 *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--color-border);
+  background-color: var(--color-scrollbar);
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-track {
   background-color: transparent;
+}
+
+/* Firefox has no ::-webkit-scrollbar, so it needs the standard properties.
+   Scoped to Firefox (-moz-appearance) so these do not make WebKit ignore the
+   pseudo-element styling above and fall back to the uncolored system bar. */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar) transparent;
+  }
 }
 
 .dark {
@@ -116,4 +127,6 @@ body {
   --color-pill-text: #CCCCCC;
 
   --color-row-alt: #2C2E34;
+
+  --color-scrollbar: #D14060;
 }

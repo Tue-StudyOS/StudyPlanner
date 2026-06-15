@@ -4,6 +4,7 @@ import { SeasonTags } from '../../../shared/components/SeasonTag'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import type { Course } from '../types'
+import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
@@ -60,6 +61,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
   )
+  const almaUrl = buildAlmaCourseUrl(course.detailUrl)
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
@@ -192,8 +194,8 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
           ) : (
             <div className="text-fg-muted">{t('courseDetail.noLearningLink')}</div>
           )}
-          {hasValue(course.detailUrl) ? (
-            <a href={course.detailUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+          {almaUrl ? (
+            <a href={almaUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
               {t('courseDetail.openAlma')}
             </a>
           ) : null}

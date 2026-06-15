@@ -34,6 +34,7 @@ import {
 } from '../utils/courseTypeFilter.ts'
 import { courseMatchesStudyAreaFilter } from '../utils/studyAreaFilter.ts'
 import { timeDigitsToMinutes } from '../utils/timeInput.ts'
+import { CatalogLegend } from './CatalogLegend'
 import { CatalogProgressHint } from './CatalogProgressHint'
 import { CourseDetailDrawer } from './CourseDetailDrawer'
 import { TimeRangeInputs } from './TimeRangeInputs'
@@ -544,6 +545,8 @@ export function CoursesOverview() {
             </div>
           </div>
         ) : null}
+
+        <CatalogLegend />
       </div>
 
       {isLoading && !isOnboardingOpen ? (
