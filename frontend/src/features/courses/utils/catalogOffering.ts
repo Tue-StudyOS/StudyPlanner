@@ -1,5 +1,5 @@
 import { getCurrentSemesterLabel, parseSemesterLabel } from '../../planner/utils/semesterLabels.ts'
-import type { Course, StudyAreaOption } from '../types'
+import type { Course, CourseTermType, StudyAreaOption } from '../types'
 
 export type OfferingStatus = 'always' | 'confirmed' | 'likely' | 'unknown'
 type TermSeason = 'summer' | 'winter'
@@ -123,5 +123,49 @@ export function getOfferingStatus(
   }
 
   return bestStatus
+}
+
+function wasOfferedInSeasonYear(labels: string[], season: TermSeason, startYear: number): boolean {
+  return labels.some((label) => {
+    const parsed = parsePeriodLabel(label)
+    return parsed !== null && parsed.season === season && parsed.startYear === startYear
+  })
+}
+
+/**
+ * Season tags to display for a course. A season is only tagged when the course
+ * was offered in the most recent *completed* semester of that season relative to
+ * `now`; the currently running semester does not count yet. During a summer term
+ * the reference summer is therefore the previous year's summer, while the
+ * reference winter is the winter that just ended (and vice versa during winter).
+ */
+export function getRecentSeasonTermType(
+  course: Pick<Course, 'offeredPeriods'>,
+  now: Date = new Date(),
+): CourseTermType {
+  const current = parseSemesterLabel(getCurrentSemesterLabel(now))
+  if (!current) {
+    return 'unknown'
+  }
+
+  // The running term is excluded, so the last completed same-season term is one
+  // year back; the off-season's last completed term is the one that just ended.
+  const summerReferenceYear = current.term === 'SS' ? current.year - 1 : current.year
+  const winterReferenceYear = current.year - 1
+
+  const offeredPeriods = course.offeredPeriods ?? []
+  const hasSummer = wasOfferedInSeasonYear(offeredPeriods, 'summer', summerReferenceYear)
+  const hasWinter = wasOfferedInSeasonYear(offeredPeriods, 'winter', winterReferenceYear)
+
+  if (hasSummer && hasWinter) {
+    return 'both'
+  }
+  if (hasSummer) {
+    return 'summer'
+  }
+  if (hasWinter) {
+    return 'winter'
+  }
+  return 'unknown'
 }
 

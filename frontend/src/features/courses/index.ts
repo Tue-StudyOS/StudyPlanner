@@ -10,6 +10,7 @@ export { findCatalogPeriodForSemesterLabel } from './utils/periods'
 export { cleanCourseTitle, formatCourseTypeLabel } from './utils/courseTitle.ts'
 export {
   getOfferingStatus,
+  getRecentSeasonTermType,
   isCompulsoryCourse,
   type OfferingStatus,
 } from './utils/catalogOffering.ts'

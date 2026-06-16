@@ -1,6 +1,6 @@
 import { forwardRef } from 'react'
 import { useAuth } from '../../features/auth'
-import type { Course } from '../../features/courses'
+import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, buildCourseCardTagOrder, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../features/courses/utils/courseTitle.ts'
@@ -16,6 +16,9 @@ interface CourseCardProps {
   isCompleted?: boolean
   favoriteDisabled?: boolean
   offeringStatus?: OfferingStatus
+  // Overrides the raw course.termType so the season tags can reflect only the
+  // course's most recent same-season offering (see getRecentSeasonTermType).
+  seasonTermType?: CourseTermType
   onSelect: () => void
   onToggleFavorite: () => void
 }
@@ -53,6 +56,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
     isCompleted = false,
     favoriteDisabled = false,
     offeringStatus = 'confirmed',
+    seasonTermType,
     onSelect,
     onToggleFavorite,
   },
@@ -115,7 +119,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
       </div>
 
       <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        <SeasonTags termType={course.termType} />
+        <SeasonTags termType={seasonTermType ?? course.termType} />
         <span className={secondaryVisibilityClass}>
           <TypePill label={formatCourseTypeLabel(tagOrder.typeLabels)} />
         </span>

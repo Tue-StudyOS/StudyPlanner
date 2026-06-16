@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   getOfferingStatus,
+  getRecentSeasonTermType,
   isCompulsoryCourse,
   parsePeriodLabel,
 } from '../../src/features/courses/utils/catalogOffering.ts'
@@ -81,4 +82,35 @@ test('isCompulsoryCourse detects Pflicht markers from the regulation mapping', (
 test('courses without any offering data are unknown', () => {
   assert.equal(getOfferingStatus({ offeredPeriods: [], studyAreaOptions: [] }, KNOWN_PERIODS, NOW), 'unknown')
   assert.equal(getOfferingStatus({ studyAreaOptions: [] }, KNOWN_PERIODS, NOW), 'unknown')
+})
+
+// During summer term 2026 the last *completed* semesters are Sommer 2025 and
+// Winter 2025/26; the running Sommer 2026 does not count yet.
+test('getRecentSeasonTermType tags the last completed same-season semester during summer', () => {
+  assert.equal(
+    getRecentSeasonTermType({ offeredPeriods: ['Sommer 2025', 'Winter 2025/26'] }, NOW),
+    'both',
+  )
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Sommer 2025'] }, NOW), 'summer')
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2025/26'] }, NOW), 'winter')
+})
+
+test('getRecentSeasonTermType ignores the currently running term and older offerings', () => {
+  // Sommer 2026 is still running -> no summer tag yet.
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Sommer 2026'] }, NOW), 'unknown')
+  // Two summers back is too old.
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Sommer 2024'] }, NOW), 'unknown')
+  // Winter that ended over a year ago is too old.
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2024/25'] }, NOW), 'unknown')
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: [] }, NOW), 'unknown')
+})
+
+test('getRecentSeasonTermType shifts the reference window during a winter term', () => {
+  // Mid-January 2026 -> running term is Winter 2025/26. Last completed are
+  // Sommer 2025 and Winter 2024/25.
+  const winterNow = new Date('2026-01-15T12:00:00')
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Sommer 2025'] }, winterNow), 'summer')
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2024/25'] }, winterNow), 'winter')
+  // The running winter does not count yet.
+  assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2025/26'] }, winterNow), 'unknown')
 })

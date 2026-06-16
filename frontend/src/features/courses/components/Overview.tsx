@@ -17,7 +17,12 @@ import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
-import { getOfferingStatus, isCompulsoryCourse, type OfferingStatus } from '../utils/catalogOffering.ts'
+import {
+  getOfferingStatus,
+  getRecentSeasonTermType,
+  isCompulsoryCourse,
+  type OfferingStatus,
+} from '../utils/catalogOffering.ts'
 import {
   CATALOG_SORT_LABELS,
   sortCatalogCourses,
@@ -173,6 +178,13 @@ export function CoursesOverview() {
     }
     return statusMap
   }, [courses, knownPeriodLabels])
+  const seasonTermTypeByCourseId = useMemo(() => {
+    const termTypeMap = new Map<string, CourseTermType>()
+    for (const course of courses) {
+      termTypeMap.set(course.id, getRecentSeasonTermType(course))
+    }
+    return termTypeMap
+  }, [courses])
 
   const completedByCourseKey = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -593,6 +605,7 @@ export function CoursesOverview() {
                     isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
                     favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                     offeringStatus={isTourSampleRow ? sampleOfferingStatus : offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
+                    seasonTermType={isTourSampleRow ? course.termType : seasonTermTypeByCourseId.get(course.id) ?? course.termType}
                     onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
                     onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                   />

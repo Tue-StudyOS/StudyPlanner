@@ -5,6 +5,7 @@ import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import type { Course } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
+import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
@@ -62,6 +63,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
     ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
   )
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
+  const seasonTermType = getRecentSeasonTermType(course)
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
@@ -91,9 +93,9 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
           {title}
         </h1>
 
-        {course.termType || (course.offeredPeriods?.length ?? 0) > 0 ? (
+        {seasonTermType !== 'unknown' || (course.offeredPeriods?.length ?? 0) > 0 ? (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <SeasonTags termType={course.termType} />
+            <SeasonTags termType={seasonTermType} />
             {(course.offeredPeriods ?? []).map((periodLabel) => (
               <span
                 key={periodLabel}
