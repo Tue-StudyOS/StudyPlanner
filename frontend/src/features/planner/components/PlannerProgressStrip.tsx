@@ -3,6 +3,24 @@ import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import { buildPlannerProgressAreas, roundEcts } from '../utils/plannerProgress'
+import { getBalancedColumnCount } from '../utils/progressStripLayout'
+
+// Static class lookups so the dynamic column count maps to classes Tailwind can
+// see at build time (template-literal column counts would get purged). Mobile
+// stays at most 2 columns and tablets at most 3 for width; only lg goes wider.
+const BASE_GRID_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2' }
+const SM_GRID_COLS: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+}
+const LG_GRID_COLS: Record<number, string> = {
+  1: 'lg:grid-cols-1',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+}
 
 // Each area bar is tinted in its study-area tag color; areas without a mapped
 // category fall back to a neutral fill.
@@ -52,10 +70,17 @@ export function PlannerProgressStrip({
     return null
   }
 
+  const columns = getBalancedColumnCount(areas.length)
+  const gridColsClass = [
+    BASE_GRID_COLS[Math.min(columns, 2)],
+    SM_GRID_COLS[Math.min(columns, 3)],
+    LG_GRID_COLS[columns],
+  ].join(' ')
+
   return (
     <div
       data-tour="planner-progress"
-      className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 sm:grid-cols-3 lg:grid-cols-4"
+      className={`grid ${gridColsClass} gap-x-4 gap-y-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5`}
     >
       {areas.map((area) => {
         const targetEcts = area.capacityEcts ?? area.requiredEcts
