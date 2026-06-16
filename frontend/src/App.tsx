@@ -6,6 +6,7 @@ import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
+import { AssistantProvider } from './features/assistant'
 import { LEGACY_PLANNER_ROUTE, ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
@@ -39,27 +40,29 @@ function App() {
       <AuthProvider>
         <FavoritesProvider>
           <TranscriptProvider>
-            <BrowserRouter>
-              <OnboardingProvider>
-                <StudySetupGate />
-                <Suspense fallback={<RouteFallback />}>
-                  <Routes>
-                    <Route element={<Layout />}>
-                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
-                      <Route path={ROUTES.catalog} element={<CoursesOverview />} />
-                      <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
-                      <Route path={ROUTES.overview} element={<Dashboard />} />
-                      <Route path={ROUTES.transcript} element={<Transcript />} />
-                      <Route path={ROUTES.account} element={<AccountPage />} />
-                      <Route
-                        path={LEGACY_PLANNER_ROUTE}
-                        element={<Navigate to={ROUTES.planner} replace />}
-                      />
-                    </Route>
-                  </Routes>
-                </Suspense>
-              </OnboardingProvider>
-            </BrowserRouter>
+            <AssistantProvider>
+              <BrowserRouter>
+                <OnboardingProvider>
+                  <StudySetupGate />
+                  <Suspense fallback={<RouteFallback />}>
+                    <Routes>
+                      <Route element={<Layout />}>
+                        <Route path={ROUTES.planner} element={<SemesterPlanner />} />
+                        <Route path={ROUTES.catalog} element={<CoursesOverview />} />
+                        <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
+                        <Route path={ROUTES.overview} element={<Dashboard />} />
+                        <Route path={ROUTES.transcript} element={<Transcript />} />
+                        <Route path={ROUTES.account} element={<AccountPage />} />
+                        <Route
+                          path={LEGACY_PLANNER_ROUTE}
+                          element={<Navigate to={ROUTES.planner} replace />}
+                        />
+                      </Route>
+                    </Routes>
+                  </Suspense>
+                </OnboardingProvider>
+              </BrowserRouter>
+            </AssistantProvider>
           </TranscriptProvider>
         </FavoritesProvider>
       </AuthProvider>
