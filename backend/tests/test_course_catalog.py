@@ -2,6 +2,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -17,10 +18,14 @@ class Response:
 workers.Response = Response
 sys.modules.setdefault("workers", workers)
 
+from db.d1 import D1ExecutionError  # noqa: E402
+from services import course_catalog  # noqa: E402
 from services.course_catalog import (  # noqa: E402
+    _build_participant_limits,
     _collect_offering_groups,
     _derive_term_type,
     _extract_contents,
+    _load_external_links,
     _period_sort_key,
 )
 
@@ -113,6 +118,104 @@ class CollectOfferingGroupsTest(unittest.TestCase):
         groups = _collect_offering_groups(rows)
 
         self.assertEqual(len(groups), 2)
+
+
+class ParticipantLimitsTest(unittest.TestCase):
+    def test_builds_compact_limits_from_parallel_groups(self) -> None:
+        limits = _build_participant_limits(
+            [
+                {
+                    "id": 10,
+                    "title": "Lab group",
+                    "groupType": "Praktikum",
+                    "minParticipants": 5,
+                    "maxParticipants": 12,
+                },
+                {
+                    "id": 11,
+                    "title": "Lecture",
+                    "groupType": "Vorlesung",
+                    "minParticipants": None,
+                    "maxParticipants": None,
+                },
+            ]
+        )
+
+        self.assertEqual(
+            limits,
+            [
+                {
+                    "parallelGroupId": "10",
+                    "title": "Lab group",
+                    "groupType": "Praktikum",
+                    "minParticipants": 5,
+                    "maxParticipants": 12,
+                }
+            ],
+        )
+
+
+class ExternalLinksTest(unittest.IsolatedAsyncioTestCase):
+    async def test_prefers_course_scoped_links_and_keeps_legacy_fallback(self) -> None:
+        async def fake_fetch_all(env: object, sql: str, params: list[object] | None = None) -> list[dict]:
+            if "course_learning_links" in sql:
+                return [
+                    {
+                        "platform": "moodle",
+                        "url": "https://moodle.example/course/view.php?id=1",
+                        "label": "Moodle",
+                    }
+                ]
+            if "course_external_links" in sql:
+                return [
+                    {
+                        "platform": "moodle",
+                        "url": "https://moodle.example/course/view.php?id=1",
+                        "label": "Duplicate",
+                    },
+                    {
+                        "platform": "ilias",
+                        "url": "https://ilias.example/course",
+                        "label": "Ilias",
+                    },
+                ]
+            raise AssertionError(sql)
+
+        with patch.object(course_catalog, "fetch_all", side_effect=fake_fetch_all):
+            links = await _load_external_links({}, 42, "INF42")
+
+        self.assertEqual(
+            links,
+            [
+                {
+                    "platform": "moodle",
+                    "url": "https://moodle.example/course/view.php?id=1",
+                    "label": "Moodle",
+                },
+                {
+                    "platform": "ilias",
+                    "url": "https://ilias.example/course",
+                    "label": "Ilias",
+                },
+            ],
+        )
+
+    async def test_legacy_links_still_work_when_new_table_is_missing(self) -> None:
+        async def fake_fetch_all(env: object, sql: str, params: list[object] | None = None) -> list[dict]:
+            if "course_learning_links" in sql:
+                raise D1ExecutionError("missing table")
+            return [
+                {
+                    "platform": "moodle",
+                    "url": "https://moodle.example/course/view.php?id=2",
+                    "label": "Legacy Moodle",
+                }
+            ]
+
+        with patch.object(course_catalog, "fetch_all", side_effect=fake_fetch_all):
+            links = await _load_external_links({}, 42, "INF42")
+
+        self.assertEqual(links[0]["label"], "Legacy Moodle")
 
 
 if __name__ == "__main__":

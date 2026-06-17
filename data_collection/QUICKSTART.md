@@ -123,3 +123,37 @@ output/
 - `--list-periods` - Print available period IDs and labels
 
 For full help: `uv run python -m alma_scraper.cli --help`
+
+## Moodle category scrape
+
+Moodle is scraped as supplemental public metadata. It provides Moodle course
+links, summaries, teacher names, and weak text signals such as "participants
+limited". ALMA remains the source for structured schedules and participant
+limits.
+
+From the repo root, scrape the Informatik Moodle category and match it against
+the local ALMA SQLite database:
+
+```powershell
+python -m data_collection.moodle.cli `
+  --category-url "https://moodle.zdv.uni-tuebingen.de/course/index.php?categoryid=235" `
+  --match-sqlite backend/data/alma.sqlite `
+  --out data_collection/output/moodle_courses.json `
+  --matches-out data_collection/output/moodle_matches.json `
+  --pretty
+```
+
+Use `--fetch-course-pages` when you also want to inspect each public
+course/enrolment page for self-enrolment labels. Logged-in course internals and
+numeric Moodle enrolment capacity are not part of this public scrape.
+
+Generate D1 seed SQL from the matched JSON:
+
+```powershell
+python backend/scripts/import_moodle_json_to_d1.py `
+  --input data_collection/output/moodle_matches.json `
+  --out-sql backend/data/seed_moodle_links.sql
+```
+
+Apply migrations first, then execute the generated seed SQL against the target
+D1 database.

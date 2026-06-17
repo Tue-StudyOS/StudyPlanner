@@ -3,7 +3,7 @@ import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { SeasonTags } from '../../../shared/components/SeasonTag'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
-import type { Course } from '../types'
+import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
@@ -20,6 +20,28 @@ function hasValue(value: string | null | undefined): value is string {
 function formatEcts(ects: number | null): string | null {
   if (ects === null) return null
   return Number.isInteger(ects) ? String(ects) : ects.toFixed(1)
+}
+
+function formatParticipantLimit(limit: CourseParticipantLimit): string | null {
+  const label = hasValue(limit.title) ? limit.title : limit.groupType
+  const prefix = hasValue(label) ? `${label}: ` : ''
+  if (limit.minParticipants !== null && limit.maxParticipants !== null) {
+    return `${prefix}${limit.minParticipants}-${limit.maxParticipants}`
+  }
+  if (limit.maxParticipants !== null) {
+    return `${prefix}max. ${limit.maxParticipants}`
+  }
+  if (limit.minParticipants !== null) {
+    return `${prefix}min. ${limit.minParticipants}`
+  }
+  return null
+}
+
+function formatParticipantLimits(limits: CourseParticipantLimit[] | undefined): string | null {
+  const values = (limits ?? [])
+    .map((limit) => formatParticipantLimit(limit))
+    .filter((value): value is string => Boolean(value))
+  return values.length > 0 ? values.join('; ') : null
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -71,6 +93,8 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const ectsText = formatEcts(course.ects)
   if (ectsText) factRows.push(['ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
+  const participantLimitText = formatParticipantLimits(course.participantLimits)
+  if (participantLimitText) factRows.push([t('courseDetail.participants'), participantLimitText])
   if (hasValue(course.language)) factRows.push([t('courseDetail.language'), course.language])
   if (hasValue(course.frequency)) factRows.push([t('courseDetail.frequency'), course.frequency])
   if (hasValue(course.registrationPeriod)) factRows.push([t('courseDetail.registration'), course.registrationPeriod!])

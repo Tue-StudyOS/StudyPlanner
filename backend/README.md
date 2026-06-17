@@ -81,6 +81,36 @@ cd backend
 npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
 ```
 
+## Moodle learning-platform links
+
+The public Moodle Informatik category is supplemental data for Moodle links and
+course summaries. It does not expose reliable numeric participant limits, even
+when inspecting public enrolment pages; structured participant limits continue
+to come from ALMA `parallel_groups`.
+
+Scrape and match Moodle from the repo root:
+
+```bash
+python -m data_collection.moodle.cli \
+  --category-url "https://moodle.zdv.uni-tuebingen.de/course/index.php?categoryid=235" \
+  --match-sqlite backend/data/alma.sqlite \
+  --out data_collection/output/moodle_courses.json \
+  --matches-out data_collection/output/moodle_matches.json
+```
+
+Generate and apply the Moodle seed after schema migrations:
+
+```bash
+python backend/scripts/import_moodle_json_to_d1.py \
+  --input data_collection/output/moodle_matches.json \
+  --out-sql backend/data/seed_moodle_links.sql
+cd backend
+npx wrangler d1 execute DB --local --file data/seed_moodle_links.sql
+```
+
+Only accepted matches are published to `course_learning_links`; ambiguous
+matches remain in `moodle_course_matches` for review.
+
 ## Remote backup/export checklist
 
 Before any remote rebuild or destructive migration:

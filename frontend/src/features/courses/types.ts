@@ -63,6 +63,14 @@ export interface CourseExternalLink {
   label: string
 }
 
+export interface CourseParticipantLimit {
+  parallelGroupId: string
+  title: string | null
+  groupType: string | null
+  minParticipants: number | null
+  maxParticipants: number | null
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -98,4 +106,5 @@ export interface Course {
   offeredPeriods?: string[]
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]
+  participantLimits?: CourseParticipantLimit[]
 }

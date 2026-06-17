@@ -68,6 +68,15 @@ def _normalize_ects(value: Any) -> float | None:
         return None
 
 
+def _normalize_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _unique_preserve_order(values: list[str]) -> list[str]:
     unique_values: list[str] = []
     seen_values: set[str] = set()
@@ -850,33 +859,91 @@ async def _load_offering_history(env: Any, course_key: str | None) -> list[str]:
     return labels
 
 
-async def _load_external_links(env: Any, course_number: str | None) -> list[dict[str, str]]:
-    if not course_number:
-        return []
+def _dedupe_external_links(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        platform = _safe_text(row.get("platform"))
+        url = _safe_text(row.get("url"))
+        if not platform or not url:
+            continue
+        key = (platform.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append(
+            {
+                "platform": platform,
+                "url": url,
+                "label": _safe_text(row.get("label")) or "",
+            }
+        )
+    return links
+
+
+async def _load_external_links(
+    env: Any,
+    course_id: int,
+    course_number: str | None,
+) -> list[dict[str, str]]:
+    link_rows: list[dict[str, Any]] = []
     try:
-        rows = await fetch_all(
-            env,
-            """
-            SELECT platform, url, label
-            FROM course_external_links
-            WHERE course_number = ?
-            ORDER BY platform ASC
-            """,
-            [course_number],
+        link_rows.extend(
+            await fetch_all(
+                env,
+                """
+                SELECT platform, url, label
+                FROM course_learning_links
+                WHERE course_id = ?
+                ORDER BY platform ASC, COALESCE(confidence, 0) DESC, id ASC
+                """,
+                [course_id],
+            )
         )
     except D1ExecutionError:
-        # The links table ships ahead of its data; treat a missing table as empty.
-        return []
+        # Newer link table may not exist in older local D1 snapshots.
+        pass
 
-    return [
-        {
-            "platform": platform,
-            "url": url,
-            "label": _safe_text(row.get("label")) or "",
-        }
-        for row in rows
-        if (platform := _safe_text(row.get("platform"))) and (url := _safe_text(row.get("url")))
-    ]
+    if not course_number:
+        return _dedupe_external_links(link_rows)
+
+    try:
+        link_rows.extend(
+            await fetch_all(
+                env,
+                """
+                SELECT platform, url, label
+                FROM course_external_links
+                WHERE course_number = ?
+                ORDER BY platform ASC
+                """,
+                [course_number],
+            )
+        )
+    except D1ExecutionError:
+        # The legacy links table ships ahead of its data; treat missing as empty.
+        pass
+
+    return _dedupe_external_links(link_rows)
+
+
+def _build_participant_limits(parallel_groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    limits: list[dict[str, Any]] = []
+    for group in parallel_groups:
+        min_participants = _normalize_int(group.get("minParticipants"))
+        max_participants = _normalize_int(group.get("maxParticipants"))
+        if min_participants is None and max_participants is None:
+            continue
+        limits.append(
+            {
+                "parallelGroupId": str(group.get("id") or ""),
+                "title": _safe_text(group.get("title")),
+                "groupType": _safe_text(group.get("groupType")),
+                "minParticipants": min_participants,
+                "maxParticipants": max_participants,
+            },
+        )
+    return limits
 
 
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
@@ -903,7 +970,12 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
         {
             "offeredPeriods": offered_periods,
             "termType": _derive_term_type(offered_periods),
-            "externalLinks": await _load_external_links(env, _safe_text(course.get("number"))),
+            "externalLinks": await _load_external_links(
+                env,
+                course_id_value,
+                _safe_text(course.get("number")),
+            ),
+            "participantLimits": _build_participant_limits(raw_detail["parallelGroups"]),
             "description": _pick_description(summary.get("shortComment"), content_sections),
             "contents": _extract_contents(content_sections),
             "prerequisites": _extract_prerequisites(content_sections),
