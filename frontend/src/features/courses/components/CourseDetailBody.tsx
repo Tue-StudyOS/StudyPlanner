@@ -117,6 +117,14 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
+      {hasValue(course.contents) ? (
+        <Section title={t('courseDetail.contents')}>
+          <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
+            {course.contents}
+          </p>
+        </Section>
+      ) : null}
+
       <Section title={t('courseDetail.weeklySchedule')}>
         <WeeklyScheduleMiniGrid schedule={course.schedule} />
       </Section>
