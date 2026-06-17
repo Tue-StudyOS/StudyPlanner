@@ -22,12 +22,20 @@ function profile(overrides: Partial<AuthProfile> = {}): AuthProfile {
   }
 }
 
-test('isStudySetupComplete requires language, study program, and start semester', () => {
+test('isStudySetupComplete requires study program and start semester', () => {
   assert.equal(isStudySetupComplete(profile()), true)
-  assert.equal(isStudySetupComplete(profile({ appLanguage: null })), false)
   assert.equal(isStudySetupComplete(profile({ studyProgramId: null })), false)
   assert.equal(isStudySetupComplete(profile({ currentSemesterLabel: '' })), false)
   assert.equal(isStudySetupComplete(profile({ currentSemesterLabel: '   ' })), false)
+})
+
+test('isStudySetupComplete does not require a persisted appLanguage', () => {
+  // The backend may omit appLanguage (deploy skew or older accounts); the gate
+  // must still close once a program and start semester are saved.
+  assert.equal(isStudySetupComplete(profile({ appLanguage: null })), true)
+  const withoutLanguage = profile()
+  delete (withoutLanguage as { appLanguage?: unknown }).appLanguage
+  assert.equal(isStudySetupComplete(withoutLanguage), true)
 })
 
 test('isStudySetupComplete treats missing profiles as incomplete', () => {

@@ -19,8 +19,13 @@ export function generateStartSemesters(): string[] {
 }
 
 export function isStudySetupComplete(profile: AuthProfile | null | undefined): boolean {
+  // Completeness depends only on the program and start semester the user picked.
+  // The UI always resolves a language (persisted value → browser → English), so
+  // appLanguage must NOT gate setup: requiring it kept the "Set up your studies"
+  // dialog open whenever the backend omitted the field — e.g. a backend deploy
+  // predating appLanguage, or older accounts — even after a successful save.
   return Boolean(
-    profile?.appLanguage
+    profile
       && profile.studyProgramId !== null
       && profile.currentSemesterLabel
       && profile.currentSemesterLabel.trim().length > 0,

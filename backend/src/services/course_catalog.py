@@ -28,6 +28,14 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "comment",
     "empfehlung",
 )
+# The "Inhalte" (Contents) section is the field users want surfaced verbatim.
+INHALTE_SECTION_TITLE = "inhalte"
+# ALMA renders the active "Inhalte" tab with the page's tab bar plus the heading
+# repeated three times before the real text, e.g. "Semesterplanung Termine
+# Inhalte ... Module / Studiengänge Inhalte Inhalte Inhalte <real text>".
+INHALTE_NAV_MARKER = "Inhalte Inhalte Inhalte"
+# Empty sections carry this placeholder instead of real content.
+INHALTE_EMPTY_PLACEHOLDER = "es wurden noch keine inhalte hinterlegt"
 # German course texts use "LP" (Leistungspunkte) as a synonym for ECTS.
 ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', re.IGNORECASE)
 # ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
@@ -232,6 +240,37 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
         if section_text:
             return section_text
 
+    return ""
+
+
+def _clean_inhalte_text(text: str) -> str | None:
+    """Strip ALMA's scraped tab-navigation chrome from an Inhalte section.
+
+    The real content follows the repeated-heading marker; everything before it
+    is the page's tab bar. Returns None when nothing meaningful remains.
+    """
+    marker_index = text.find(INHALTE_NAV_MARKER)
+    if marker_index != -1:
+        text = text[marker_index + len(INHALTE_NAV_MARKER):]
+
+    cleaned = text.strip()
+    if not cleaned or INHALTE_EMPTY_PLACEHOLDER in cleaned.lower():
+        return None
+    return cleaned
+
+
+def _extract_contents(content_sections: list[dict[str, Any]]) -> str:
+    """Return the cleaned "Inhalte" (Contents) section text, or "" if absent."""
+    for section in content_sections:
+        section_title = (_safe_text(section.get("title")) or "").strip().lower()
+        if section_title != INHALTE_SECTION_TITLE:
+            continue
+        section_text = _safe_text(section.get("text"))
+        if not section_text:
+            continue
+        cleaned = _clean_inhalte_text(section_text)
+        if cleaned:
+            return cleaned
     return ""
 
 
@@ -866,6 +905,7 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
             "termType": _derive_term_type(offered_periods),
             "externalLinks": await _load_external_links(env, _safe_text(course.get("number"))),
             "description": _pick_description(summary.get("shortComment"), content_sections),
+            "contents": _extract_contents(content_sections),
             "prerequisites": _extract_prerequisites(content_sections),
             "exams": [
                 {

@@ -20,8 +20,35 @@ sys.modules.setdefault("workers", workers)
 from services.course_catalog import (  # noqa: E402
     _collect_offering_groups,
     _derive_term_type,
+    _extract_contents,
     _period_sort_key,
 )
+
+
+class ExtractContentsTest(unittest.TestCase):
+    def test_strips_navigation_chrome_and_returns_real_text(self) -> None:
+        sections = [
+            {
+                "title": "Inhalte",
+                "text": (
+                    "Semesterplanung Termine Inhalte Aktive Registerkarte "
+                    "Vorlesungsverzeichnis Gekoppelte Prüfungen Module / Studiengänge "
+                    "Inhalte Inhalte Inhalte This lecture covers medical data science."
+                ),
+            }
+        ]
+        self.assertEqual(
+            _extract_contents(sections),
+            "This lecture covers medical data science.",
+        )
+
+    def test_ignores_empty_placeholder_section(self) -> None:
+        sections = [{"title": "Inhalte", "text": "Es wurden noch keine Inhalte hinterlegt."}]
+        self.assertEqual(_extract_contents(sections), "")
+
+    def test_returns_empty_when_no_inhalte_section(self) -> None:
+        sections = [{"title": "Lernziele", "text": "Lernziele ..."}]
+        self.assertEqual(_extract_contents(sections), "")
 
 
 class PeriodSortKeyTest(unittest.TestCase):

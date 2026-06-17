@@ -33,6 +33,14 @@ When asked to review code, act as a senior React developer and check:
 
 Deliver a prioritized list: file, issue, and why it matters.
 
+## Test data
+
+- Debug/throwaway accounts created while reproducing auth/onboarding issues live in the
+  production D1 (`studyplanner-db`) under the username pattern
+  `debug-onboarding-*@example.com` (e.g. `debug-onboarding-1781713357@example.com`).
+  They are intentionally kept (not deleted) for future debugging. Ignore them in user
+  counts; remove with an explicit `DELETE ... WHERE username = '<exact>'` only if asked.
+
 ## Design
 
 - The app must visually match `StudyOS.html` exactly — always use its colors, typography, spacing, and component styles as the reference.

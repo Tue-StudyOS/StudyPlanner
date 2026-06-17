@@ -84,6 +84,7 @@ export interface Course {
   language: string
   prerequisites: string[]
   description: string
+  contents?: string
   exams: CourseExam[]
   registrationPeriod?: string
   detailUrl?: string
