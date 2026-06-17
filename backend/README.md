@@ -108,8 +108,9 @@ cd backend
 npx wrangler d1 execute DB --local --file data/seed_moodle_links.sql
 ```
 
-Only accepted matches are published to `course_learning_links`; ambiguous
-matches remain in `moodle_course_matches` for review.
+Only automatically accepted matches are published to `course_learning_links`.
+Unmatched rows remain in `moodle_course_matches` for diagnostics and are not
+shown as links.
 
 ## Remote backup/export checklist
 

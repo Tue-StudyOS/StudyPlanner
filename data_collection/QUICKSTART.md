@@ -147,7 +147,9 @@ Use `--fetch-course-pages` when you also want to inspect each public
 course/enrolment page for self-enrolment labels. Logged-in course internals and
 numeric Moodle enrolment capacity are not part of this public scrape.
 
-Generate D1 seed SQL from the matched JSON:
+Generate D1 seed SQL from the matched JSON. The importer publishes only
+automatically accepted matches as Moodle links; unmatched rows stay in the JSON
+for diagnostics and are not imported as visible links.
 
 ```powershell
 python backend/scripts/import_moodle_json_to_d1.py `

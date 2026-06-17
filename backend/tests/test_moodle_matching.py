@@ -54,7 +54,7 @@ class MoodleMatchingTest(unittest.TestCase):
         self.assertEqual(match.course_id, 42)
         self.assertEqual(match.match_method, "exact_code")
 
-    def test_title_match_with_type_conflict_needs_review(self) -> None:
+    def test_title_match_with_type_conflict_is_not_auto_published(self) -> None:
         match = match_one_moodle_course(
             {
                 "moodle_course_id": "1659",
@@ -73,9 +73,8 @@ class MoodleMatchingTest(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(match.status, "needs_review")
-        self.assertEqual(match.course_id, 7)
-        self.assertLess(match.confidence, 0.82)
+        self.assertEqual(match.status, "unmatched")
+        self.assertIsNone(match.course_id)
 
     def test_roman_tokens_help_disambiguate_fachdidaktik_courses(self) -> None:
         match = match_one_moodle_course(
@@ -93,6 +92,50 @@ class MoodleMatchingTest(unittest.TestCase):
 
         self.assertEqual(match.status, "accepted")
         self.assertEqual(match.course_id, 1)
+
+    def test_title_and_lecturer_are_enough_for_automated_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1531",
+                "title": "Network Softwarization SoSe26",
+                "summary_text": "",
+                "teachers": [{"display_name": "Michael Menth"}],
+            },
+            [
+                candidate(
+                    20,
+                    "INF4347",
+                    "Network Softwarization",
+                    "Vorlesung/Uebung",
+                    ["o. Prof. Dr. rer. nat. Michael Menth"],
+                )
+            ],
+        )
+
+        self.assertEqual(match.status, "accepted")
+        self.assertEqual(match.course_id, 20)
+
+    def test_robot_synonym_allows_mobile_robots_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1558",
+                "title": "Mobile Robots (Robotics II)",
+                "summary_text": "",
+                "teachers": [{"display_name": "Andreas Zell"}],
+            },
+            [
+                candidate(
+                    21,
+                    "INF4361",
+                    "Vorlesung Mobile Roboter",
+                    "Vorlesung/Uebung",
+                    ["o. Prof. Dr. rer. nat. Andreas Zell"],
+                )
+            ],
+        )
+
+        self.assertEqual(match.status, "accepted")
+        self.assertEqual(match.course_id, 21)
 
     def test_extracts_multiple_codes_from_alma_number_text(self) -> None:
         self.assertEqual(

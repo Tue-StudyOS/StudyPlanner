@@ -59,6 +59,13 @@ TYPE_KEYWORDS = {
     "uebung": "uebung",
     "übung": "uebung",
 }
+TOKEN_SYNONYMS = {
+    "roboter": "robot",
+    "roboters": "robot",
+    "robotic": "robot",
+    "robotics": "robot",
+    "robots": "robot",
+}
 
 
 @dataclass(slots=True)
@@ -98,19 +105,15 @@ def match_one_moodle_course(
     moodle_course: dict[str, Any],
     alma_candidates: list[AlmaCourseCandidate],
 ) -> MoodleMatch:
-    moodle_codes = extract_course_codes(
-        " ".join(
-            [
-                str(moodle_course.get("title") or ""),
-                str(moodle_course.get("summary_text") or ""),
-            ]
-        )
+    title_codes = extract_course_codes(str(moodle_course.get("title") or ""))
+    all_codes = extract_course_codes(
+        f"{moodle_course.get('title') or ''} {moodle_course.get('summary_text') or ''}"
     )
-    if moodle_codes:
+    if title_codes:
         code_candidates = [
             candidate
             for candidate in alma_candidates
-            if course_codes_overlap(moodle_codes, candidate_code_variants(candidate))
+            if course_codes_overlap(title_codes, candidate_code_variants(candidate))
         ]
         if code_candidates:
             return pick_best_candidate(
@@ -120,23 +123,28 @@ def match_one_moodle_course(
                 force_review=False,
                 base_confidence=0.94,
             )
-        title_match = pick_best_candidate(
+        match = pick_best_candidate(
             moodle_course,
             alma_candidates,
-            method="title_after_code_miss",
-            force_review=True,
+            method="title_after_title_code_miss",
+            force_review=False,
             base_confidence=0.0,
         )
-        title_match.evidence["detectedCodes"] = moodle_codes
-        return title_match
+        match.evidence["detectedTitleCodes"] = title_codes
+        return match
 
-    return pick_best_candidate(
+    match = pick_best_candidate(
         moodle_course,
         alma_candidates,
         method="title_lecturer",
         force_review=False,
         base_confidence=0.0,
     )
+    if all_codes:
+        match.evidence["detectedSummaryCodes"] = [
+            code for code in all_codes if code not in title_codes
+        ]
+    return match
 
 
 def pick_best_candidate(
@@ -159,9 +167,7 @@ def pick_best_candidate(
     runner_up = scored[1][0]["confidence"] if len(scored) > 1 else 0.0
     confidence = best_score["confidence"]
     margin = confidence - runner_up
-    status = "accepted"
-    if force_review or confidence < 0.82 or (len(scored) > 1 and margin < 0.10):
-        status = "needs_review" if confidence >= 0.55 else "unmatched"
+    status = "accepted" if not force_review and is_auto_accepted(best_score, method, margin) else "unmatched"
 
     if status == "unmatched":
         return unmatched(
@@ -190,6 +196,30 @@ def pick_best_candidate(
             "candidateCount": len(candidates),
         },
     )
+
+
+def is_auto_accepted(score: dict[str, Any], method: str, margin: float) -> bool:
+    confidence = float(score["confidence"])
+    title_score = float(score["titleSimilarity"])
+    lecturer_score = float(score["lecturerOverlap"])
+    type_score = float(score["typeSimilarity"])
+    moodle_type = score.get("moodleType")
+    candidate_type = detect_course_type(str(score.get("candidate", {}).get("courseType") or ""))
+    has_type_conflict = bool(moodle_type and candidate_type and moodle_type != candidate_type)
+
+    if method == "exact_code":
+        return confidence >= 0.90
+    if has_type_conflict:
+        return False
+    if confidence >= 0.82 and (margin >= 0.08 or title_score >= 0.92):
+        return True
+    if title_score >= 0.90 and (lecturer_score > 0 or type_score > 0):
+        return True
+    if title_score >= 0.90 and margin >= 0.20:
+        return True
+    if title_score >= 0.65 and lecturer_score >= 0.95 and margin >= 0.20:
+        return True
+    return False
 
 
 def score_candidate(
@@ -302,7 +332,7 @@ def title_tokens(value: str) -> list[str]:
     normalized = normalize_text(value)
     tokens = re.findall(r"[a-z0-9]+", normalized)
     return [
-        token
+        TOKEN_SYNONYMS.get(token, token)
         for token in tokens
         if (len(token) > 2 or token in ROMAN_TOKENS) and token not in STOPWORDS
     ]
@@ -433,12 +463,7 @@ def build_match_payload(
     for course in moodle_payload.get("courses") or []:
         enriched_course = dict(course)
         enriched_course["detected_codes"] = extract_course_codes(
-            " ".join(
-                [
-                    str(course.get("title") or ""),
-                    str(course.get("summary_text") or ""),
-                ]
-            )
+            str(course.get("title") or "")
         )
         courses.append(enriched_course)
     matches = match_moodle_courses(courses, alma_candidates)
