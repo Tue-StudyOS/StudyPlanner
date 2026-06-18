@@ -24,6 +24,7 @@ import {
   isCompulsoryCourse,
   isDefaultVisibleOfferingStatus,
   isOutdatedOfferingStatus,
+  resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
 } from '../utils/catalogOffering.ts'
 import {
@@ -162,16 +163,31 @@ function UnconfirmedOfferingsToggle({
   onChange: (checked: boolean) => void
 }): React.ReactElement {
   return (
-    <label
-      className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg"
-      data-tour="catalog-unconfirmed-toggle"
-    >
+    <label className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 shrink-0 rounded border-border accent-primary"
+        className="peer sr-only"
       />
+      <span
+        aria-hidden
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface ${
+          checked
+            ? 'border-primary bg-primary text-white'
+            : 'border-border bg-surface text-transparent'
+        }`}
+      >
+        <svg width={12} height={12} viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path
+            d="M2.2 6.2 4.8 8.8 9.8 3.2"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
       <span className="min-w-0 break-words">{label}</span>
     </label>
   )
@@ -285,9 +301,10 @@ export function CoursesOverview() {
           : null
       )
     : null
-  const shouldShowUnconfirmedOfferings = showUnconfirmedOfferings
-    || activeCatalogSampleVariant === 'likely'
-    || activeCatalogSampleVariant === 'unknown'
+  const shouldShowUnconfirmedOfferings = resolveUnconfirmedOfferingVisibility(
+    showUnconfirmedOfferings,
+    isOnboardingOpen,
+  )
 
   const filteredCourses = useMemo(
     () =>
@@ -380,20 +397,16 @@ export function CoursesOverview() {
   const catalogSubtitle = t('catalog.subtitle')
   const hasCatalogRows = filteredCourses.length > 0 || activeCatalogSampleVariant !== null
   const visibleCatalogRows = activeCatalogSampleVariant
-    ? activeCatalogSampleVariant === 'unknown'
-      ? [...visibleCourses, TOUR_SAMPLE_COURSES[activeCatalogSampleVariant]]
-      : [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
+    ? [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
     : visibleCourses
   const firstOutdatedVisibleCourseId = shouldShowUnconfirmedOfferings
     ? visibleCatalogRows.find((course) => {
-      const tourSampleVariant = activeCatalogSampleVariant
-        && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id
-        ? activeCatalogSampleVariant
-        : null
-      const offeringStatus = tourSampleVariant
-        ? getTourSampleOfferingStatus(tourSampleVariant)
-        : offeringStatusByCourseId.get(course.id)
-      return isOutdatedOfferingStatus(offeringStatus)
+      const isTourSampleCourse = Boolean(
+        activeCatalogSampleVariant
+        && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id,
+      )
+      return !isTourSampleCourse
+        && isOutdatedOfferingStatus(offeringStatusByCourseId.get(course.id))
     })?.id ?? null
     : null
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'

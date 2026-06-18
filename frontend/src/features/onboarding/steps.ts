@@ -50,7 +50,7 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   {
     id: 'catalog-filters',
     route: ROUTES.catalog,
-    targets: ['catalog-filters', 'catalog-unconfirmed-toggle'],
+    targets: ['catalog-filters'],
     targetTopOffsetPx: 190,
     preserveScroll: true,
     titleKey: 'tour.catalogFilters.title',

@@ -9,6 +9,7 @@ import {
   isDefaultVisibleOfferingStatus,
   isOutdatedOfferingStatus,
   parsePeriodLabel,
+  resolveUnconfirmedOfferingVisibility,
 } from '../../src/features/courses/utils/catalogOffering.ts'
 import type { StudyAreaOption } from '../../src/features/courses/types.ts'
 
@@ -111,6 +112,13 @@ test('catalog offering display helpers keep likely courses in normal order', () 
   assert.equal(getOutdatedOfferingSortRank('confirmed'), 0)
   assert.equal(getOutdatedOfferingSortRank('likely'), 0)
   assert.equal(getOutdatedOfferingSortRank('unknown'), 1)
+})
+
+test('onboarding keeps unconfirmed course examples visible regardless of the checkbox draft state', () => {
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, false), false)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, false), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, true), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, true), true)
 })
 
 // During summer term 2026 the last *completed* semesters are Sommer 2025 and

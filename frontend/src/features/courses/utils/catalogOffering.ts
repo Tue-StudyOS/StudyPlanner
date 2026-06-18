@@ -90,6 +90,13 @@ export function getOutdatedOfferingSortRank(status: OfferingStatus | undefined):
   return isOutdatedOfferingStatus(status) ? 1 : 0
 }
 
+export function resolveUnconfirmedOfferingVisibility(
+  showUnconfirmedOfferings: boolean,
+  isOnboardingOpen: boolean,
+): boolean {
+  return showUnconfirmedOfferings || isOnboardingOpen
+}
+
 /**
  * Offering status of a course relative to its next (or currently running)
  * semester occurrence:
