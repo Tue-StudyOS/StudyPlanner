@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
 import { CloseIcon } from '../../../shared/components/icons'
+import { DetailSheet } from '../../../shared/components/DetailSheet'
 import { useTranslation } from '../../i18n'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
 
@@ -33,67 +34,65 @@ function RegulationAreaDetailModal({
   const courses = area.courses ?? []
   const { t } = useTranslation()
 
-  return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/45" role="dialog" aria-modal="true" aria-labelledby="regulation-area-modal-title" onClick={onClose}>
-      <div className="flex min-h-full items-center justify-center px-4 py-6">
-        <div className="flex w-full max-w-3xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
-              <span className="text-[13px] font-semibold text-fg">{area.code}</span>
-              <span className="text-[12px] text-fg-muted">
-                {(area.rawAreaCodes ?? []).length > 1 ? `${t('progress.regulationIncludes')} ${area.rawAreaCodes?.join(', ')}` : area.name}
-              </span>
-            </div>
-            <h3 id="regulation-area-modal-title" className="break-words text-[20px] font-semibold text-fg">
-              {area.name}
-            </h3>
-            <p className="mt-1 text-[12.5px] text-fg-muted">
-              {t('progress.regulationModalSummary', {
-                earned: area.earnedEcts,
-                required: area.requiredEcts,
-                count: courses.length,
-              })}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
-          >
-            <CloseIcon size={18} />
-          </button>
+  const header = (
+    <div className="flex items-start justify-between gap-4 px-6 py-5">
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
+          <span className="text-[13px] font-semibold text-fg">{area.code}</span>
+          <span className="text-[12px] text-fg-muted">
+            {(area.rawAreaCodes ?? []).length > 1 ? `${t('progress.regulationIncludes')} ${area.rawAreaCodes?.join(', ')}` : area.name}
+          </span>
         </div>
-
-        <div className="px-6 py-5">
-          {courses.length === 0 ? (
-            <div className="rounded-[10px] border border-dashed border-border px-5 py-10 text-center text-[13px] text-fg-muted">
-              {t('progress.regulationEmpty')}
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:gap-2.5">
-              {courses.map((course) => (
-                <div
-                  key={course.completedCourseId}
-                  className="min-w-0 rounded-[10px] border border-border-light bg-surface-hover/35 px-3 py-2.5 sm:px-4 sm:py-3"
-                >
-                  <div className="break-words text-[12.5px] font-semibold text-fg sm:text-[13px]">
-                    {course.title}
-                  </div>
-                  <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
-                    {formatCourseLabel(course, t('progress.courseGrade'))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        </div>
+        <h3 id="regulation-area-modal-title" className="break-words text-[20px] font-semibold text-fg">
+          {area.name}
+        </h3>
+        <p className="mt-1 text-[12.5px] text-fg-muted">
+          {t('progress.regulationModalSummary', {
+            earned: area.earnedEcts,
+            required: area.requiredEcts,
+            count: courses.length,
+          })}
+        </p>
       </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
+      >
+        <CloseIcon size={18} />
+      </button>
     </div>
+  )
+
+  return (
+    <DetailSheet onClose={onClose} header={header} labelledBy="regulation-area-modal-title">
+      <div className="px-6 py-5">
+        {courses.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-border px-5 py-10 text-center text-[13px] text-fg-muted">
+            {t('progress.regulationEmpty')}
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:gap-2.5">
+            {courses.map((course) => (
+              <div
+                key={course.completedCourseId}
+                className="min-w-0 rounded-[10px] border border-border-light bg-surface-hover/35 px-3 py-2.5 sm:px-4 sm:py-3"
+              >
+                <div className="break-words text-[12.5px] font-semibold text-fg sm:text-[13px]">
+                  {course.title}
+                </div>
+                <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
+                  {formatCourseLabel(course, t('progress.courseGrade'))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </DetailSheet>
   )
 }
 

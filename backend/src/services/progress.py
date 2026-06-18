@@ -82,6 +82,35 @@ def _grade_quality_multiplier(grade: float | None) -> float:
     return max(0.85, 1.05 - (clamped_grade - 1.0) * 0.06)
 
 
+def _normalize_match_text(value: Any) -> str:
+    text = (_safe_text(value) or '').lower()
+    return text.replace('ä', 'a').replace('ö', 'o').replace('ü', 'u').replace('ß', 'ss')
+
+
+# The BSC_INFO compulsory math modules ("Mathematik für Informatik 1-4") are no
+# longer a dedicated MATH rule group (merged into INF) and have no reliable
+# progress-category mapping, so identify them by their stable module title.
+MATH_TITLE_MARKERS = (
+    'mathematik fur informatik',
+    'mathematik fuer informatik',
+    'mathematics for computer science',
+)
+
+
+def _is_math_compulsory_course(
+    title: Any,
+    study_area_code: str | None,
+    course_id: int | None,
+    math_course_ids: set[int],
+) -> bool:
+    if study_area_code == 'MATH':
+        return True
+    if course_id is not None and course_id in math_course_ids:
+        return True
+    normalized_title = _normalize_match_text(title)
+    return any(marker in normalized_title for marker in MATH_TITLE_MARKERS)
+
+
 def _build_completed_course_detail(completed_course: dict[str, Any]) -> dict[str, Any]:
     completed_course_id = str(completed_course['id'])
     direct_course_id = (
@@ -123,6 +152,21 @@ def _build_visualization_profile_name(
 
 def _append_progress_course(area_entry: dict[str, Any], completed_course: dict[str, Any]) -> None:
     area_entry['courses'].append(_build_completed_course_detail(completed_course))
+
+
+def _add_course_to_visualization_category(
+    category_entry: dict[str, Any],
+    completed_course: dict[str, Any],
+    weight: float = 1.0,
+) -> None:
+    ects_value = (_normalize_float(completed_course.get('ects')) or 0.0) * weight
+    grade_multiplier = _grade_quality_multiplier(_normalize_float(completed_course.get('grade')))
+    reference_ects = category_entry['referenceEcts']
+    single_course_cap = (reference_ects * 0.3) if reference_ects > 0 else ects_value
+    capped_ects = min(ects_value, single_course_cap)
+    category_entry['earnedEcts'] += ects_value
+    category_entry['qualityScore'] += capped_ects * grade_multiplier
+    category_entry['courses'].append(_build_completed_course_detail(completed_course))
 
 
 def _finalize_regulation_area(area_entry: dict[str, Any]) -> dict[str, Any]:
@@ -401,7 +445,7 @@ async def _evaluate_intermediate_exam(
         title = _safe_text(course.get('title')) or ''
         study_area_code = _normalize_study_area_code(course.get('studyAreaCode'))
 
-        is_math = (course_id is not None and course_id in math_course_ids) or study_area_code == 'MATH'
+        is_math = _is_math_compulsory_course(title, study_area_code, course_id, math_course_ids)
         is_pi = (
             (course_id is not None and course_id in pi_course_ids)
             or (study_area_code == 'INF' and 'Praktische Informatik' in title)
@@ -522,6 +566,12 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         for category in progress_categories
     }
 
+    math_visualization_category_ids = {
+        category_id
+        for category_id, entry in progress_by_category_id.items()
+        if (_safe_text(entry.get('code')) or '').upper() == 'MATHEMATICS'
+    }
+
     used_category_assignments: set[tuple[str, int]] = set()
     unmapped_completed_courses: list[dict[str, Any]] = []
 
@@ -570,16 +620,23 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
             used_category_assignments.add(assignment_key)
             matched_category_ids.add(mapping_category_id)
 
-            category_entry = progress_by_category_id[mapping_category_id]
             weight = _normalize_float(mapping.get('weight')) or 1.0
-            ects_value = (_normalize_float(completed_course.get('ects')) or 0.0) * weight
-            grade_multiplier = _grade_quality_multiplier(_normalize_float(completed_course.get('grade')))
-            reference_ects = category_entry['referenceEcts']
-            single_course_cap = (reference_ects * 0.3) if reference_ects > 0 else ects_value
-            capped_ects = min(ects_value, single_course_cap)
-            category_entry['earnedEcts'] += ects_value
-            category_entry['qualityScore'] += capped_ects * grade_multiplier
-            category_entry['courses'].append(_build_completed_course_detail(completed_course))
+            _add_course_to_visualization_category(
+                progress_by_category_id[mapping_category_id], completed_course, weight
+            )
+
+        # The Mathematics axis has no reliable course mapping (the compulsory math
+        # modules carry no progress-category links), so fold them in by title.
+        study_area_code = _normalize_study_area_code(completed_course.get('studyAreaCode'))
+        if _is_math_compulsory_course(title, study_area_code, direct_course_id, set()):
+            for math_category_id in math_visualization_category_ids:
+                if math_category_id in matched_category_ids:
+                    continue
+                used_category_assignments.add((completed_course_id, math_category_id))
+                matched_category_ids.add(math_category_id)
+                _add_course_to_visualization_category(
+                    progress_by_category_id[math_category_id], completed_course
+                )
 
         if not matched_category_ids:
             unmapped_completed_courses.append(_build_completed_course_detail(completed_course))
