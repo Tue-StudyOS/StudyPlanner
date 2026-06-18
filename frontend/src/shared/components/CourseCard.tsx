@@ -16,8 +16,8 @@ interface CourseCardProps {
   isCompleted?: boolean
   favoriteDisabled?: boolean
   offeringStatus?: OfferingStatus
-  // Overrides the raw course.termType so the season tags can reflect only the
-  // course's most recent same-season offering (see getRecentSeasonTermType).
+  // Overrides the raw course.termType so callers can align season tags with
+  // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
   onSelect: () => void
   onToggleFavorite: () => void

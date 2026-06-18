@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -18,9 +18,13 @@ import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
 import {
+  getLatestKnownSeasonTermType,
   getOfferingStatus,
-  getRecentSeasonTermType,
+  getOutdatedOfferingSortRank,
   isCompulsoryCourse,
+  isDefaultVisibleOfferingStatus,
+  isOutdatedOfferingStatus,
+  resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
 } from '../utils/catalogOffering.ts'
 import {
@@ -39,7 +43,6 @@ import {
 } from '../utils/courseTypeFilter.ts'
 import { courseMatchesStudyAreaFilter } from '../utils/studyAreaFilter.ts'
 import { timeDigitsToMinutes } from '../utils/timeInput.ts'
-import { CatalogLegend } from './CatalogLegend'
 import { CatalogProgressHint } from './CatalogProgressHint'
 import { CourseDetailDrawer } from './CourseDetailDrawer'
 import { TimeRangeInputs } from './TimeRangeInputs'
@@ -140,6 +143,56 @@ function courseMatchesTermFilter(
     : false
 }
 
+function getTourSampleOfferingStatus(variant: 'confirmed' | 'likely' | 'unknown'): OfferingStatus {
+  if (variant === 'likely') {
+    return 'likely'
+  }
+  if (variant === 'unknown') {
+    return 'unknown'
+  }
+  return 'confirmed'
+}
+
+function UnconfirmedOfferingsToggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  label: string
+  onChange: (checked: boolean) => void
+}): React.ReactElement {
+  return (
+    <label className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface ${
+          checked
+            ? 'border-primary bg-primary text-white'
+            : 'border-border bg-surface text-transparent'
+        }`}
+      >
+        <svg width={12} height={12} viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path
+            d="M2.2 6.2 4.8 8.8 9.8 3.2"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <span className="min-w-0 break-words">{label}</span>
+    </label>
+  )
+}
+
 export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
@@ -152,7 +205,7 @@ export function CoursesOverview() {
   const [selectedTerms, setSelectedTerms] = useState<Array<'summer' | 'winter'>>([])
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
-  const [hideUnknownOfferings, setHideUnknownOfferings] = useState<boolean>(false)
+  const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
@@ -178,13 +231,13 @@ export function CoursesOverview() {
     }
     return statusMap
   }, [courses, knownPeriodLabels])
-  const seasonTermTypeByCourseId = useMemo(() => {
+  const latestKnownTermTypeByCourseId = useMemo(() => {
     const termTypeMap = new Map<string, CourseTermType>()
     for (const course of courses) {
-      termTypeMap.set(course.id, getRecentSeasonTermType(course))
+      termTypeMap.set(course.id, getLatestKnownSeasonTermType(course, knownPeriodLabels))
     }
     return termTypeMap
-  }, [courses])
+  }, [courses, knownPeriodLabels])
 
   const completedByCourseKey = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -238,6 +291,21 @@ export function CoursesOverview() {
     [timeFromDigits, timeToDigits],
   )
 
+  const activeCatalogSampleVariant = isOnboardingOpen
+    ? getCatalogTourSampleVariant(activeStepId)
+      ?? (
+        activeStepId === 'catalog-search'
+        || activeStepId === 'catalog-filters'
+        || activeStepId === 'catalog-progress-hint'
+          ? 'confirmed'
+          : null
+      )
+    : null
+  const shouldShowUnconfirmedOfferings = resolveUnconfirmedOfferingVisibility(
+    showUnconfirmedOfferings,
+    isOnboardingOpen,
+  )
+
   const filteredCourses = useMemo(
     () =>
       sortCatalogCourses(
@@ -248,7 +316,7 @@ export function CoursesOverview() {
           if (!courseMatchesStudyAreaFilter(course, selectedStudyAreaCodes, studyProgramCode)) {
             return false
           }
-          if (!courseMatchesTermFilter(course.termType, selectedTerms)) {
+          if (!courseMatchesTermFilter(latestKnownTermTypeByCourseId.get(course.id), selectedTerms)) {
             return false
           }
           if (!courseMatchesTypeFilter(course, selectedCourseTypes)) {
@@ -267,29 +335,32 @@ export function CoursesOverview() {
           ) {
             return false
           }
-          if (hideUnknownOfferings && offeringStatusByCourseId.get(course.id) === 'unknown') {
+          if (
+            !shouldShowUnconfirmedOfferings
+            && !isDefaultVisibleOfferingStatus(offeringStatusByCourseId.get(course.id))
+          ) {
             return false
           }
           return true
         }),
         sortOption,
-      // Courses without current offering data sort behind everything else so
-      // they never mix into the regular results.
-      ).sort((left, right) => {
-        const leftUnknown = offeringStatusByCourseId.get(left.id) === 'unknown' ? 1 : 0
-        const rightUnknown = offeringStatusByCourseId.get(right.id) === 'unknown' ? 1 : 0
-        return leftUnknown - rightUnknown
-      }),
+      // Only stale catalog entries move behind the normal results; likely-but-
+      // unconfirmed courses keep the selected catalog order.
+      ).sort((left, right) =>
+        getOutdatedOfferingSortRank(offeringStatusByCourseId.get(left.id))
+        - getOutdatedOfferingSortRank(offeringStatusByCourseId.get(right.id)),
+      ),
     [
       completedByCourseKey,
       courses,
-      hideUnknownOfferings,
+      latestKnownTermTypeByCourseId,
       offeringStatusByCourseId,
       selectedCourseTypes,
       selectedDays,
       selectedEctsValues,
       selectedStudyAreaCodes,
       selectedTerms,
+      shouldShowUnconfirmedOfferings,
       showOnlyOpenMandatory,
       sortOption,
       studyProgramCode,
@@ -308,7 +379,7 @@ export function CoursesOverview() {
     + selectedTerms.length
     + selectedCourseTypes.length
     + (showOnlyOpenMandatory ? 1 : 0)
-    + (hideUnknownOfferings ? 1 : 0)
+    + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
   function resetAllFilters(): void {
@@ -320,24 +391,24 @@ export function CoursesOverview() {
     setSelectedTerms([])
     setSelectedCourseTypes([])
     setShowOnlyOpenMandatory(false)
-    setHideUnknownOfferings(false)
+    setShowUnconfirmedOfferings(false)
   }
 
   const catalogSubtitle = t('catalog.subtitle')
-  const activeCatalogSampleVariant = isOnboardingOpen
-    ? getCatalogTourSampleVariant(activeStepId)
-      ?? (
-        activeStepId === 'catalog-search'
-        || activeStepId === 'catalog-filters'
-        || activeStepId === 'catalog-progress-hint'
-          ? 'confirmed'
-          : null
-      )
-    : null
   const hasCatalogRows = filteredCourses.length > 0 || activeCatalogSampleVariant !== null
   const visibleCatalogRows = activeCatalogSampleVariant
     ? [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
     : visibleCourses
+  const firstOutdatedVisibleCourseId = shouldShowUnconfirmedOfferings
+    ? visibleCatalogRows.find((course) => {
+      const isTourSampleCourse = Boolean(
+        activeCatalogSampleVariant
+        && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id,
+      )
+      return !isTourSampleCourse
+        && isOutdatedOfferingStatus(offeringStatusByCourseId.get(course.id))
+    })?.id ?? null
+    : null
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
@@ -540,12 +611,6 @@ export function CoursesOverview() {
             </FilterGroup>
 
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-3">
-              <FilterChip
-                label="Apply filter"
-                title="Hide courses without current offering data"
-                active={hideUnknownOfferings}
-                onClick={() => setHideUnknownOfferings((value) => !value)}
-              />
               <button
                 type="button"
                 onClick={resetAllFilters}
@@ -558,7 +623,11 @@ export function CoursesOverview() {
           </div>
         ) : null}
 
-        <CatalogLegend />
+        <UnconfirmedOfferingsToggle
+          checked={shouldShowUnconfirmedOfferings}
+          label={t('catalog.showUnconfirmedOfferings')}
+          onChange={setShowUnconfirmedOfferings}
+        />
       </div>
 
       {isLoading && !isOnboardingOpen ? (
@@ -583,33 +652,50 @@ export function CoursesOverview() {
           </div>
           <div className={`grid items-stretch gap-3.5 ${gridColsClass}`} data-tour="catalog-card-list">
             {visibleCatalogRows.map((course, index) => {
-              const isTourSampleRow = Boolean(activeCatalogSampleVariant && index === 0)
-              const sampleOfferingStatus = activeCatalogSampleVariant === 'likely'
-                ? 'likely'
-                : activeCatalogSampleVariant === 'unknown' ? 'unknown' : 'confirmed'
+              const isTourSampleRow = Boolean(
+                activeCatalogSampleVariant
+                && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id,
+              )
+              const sampleOfferingStatus = activeCatalogSampleVariant
+                ? getTourSampleOfferingStatus(activeCatalogSampleVariant)
+                : 'confirmed'
+              const offeringStatus = isTourSampleRow
+                ? sampleOfferingStatus
+                : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
+              const shouldShowUnconfirmedDivider = course.id === firstOutdatedVisibleCourseId
 
               return (
-                <div
-                  key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}
-                  className="min-w-0 h-full"
-                  data-tour={
-                    isTourSampleRow && activeCatalogSampleVariant
-                      ? getTourCatalogSampleTarget(activeCatalogSampleVariant)
-                      : index === 0 ? 'catalog-card' : undefined
-                  }
-                >
-                  <CourseCard
-                    course={course}
-                    isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
-                    isActive={!isTourSampleRow && selectedCourse?.id === course.id}
-                    isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
-                    favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
-                    offeringStatus={isTourSampleRow ? sampleOfferingStatus : offeringStatusByCourseId.get(course.id) ?? 'confirmed'}
-                    seasonTermType={isTourSampleRow ? course.termType : seasonTermTypeByCourseId.get(course.id) ?? course.termType}
-                    onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
-                    onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
-                  />
-                </div>
+                <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
+                  {shouldShowUnconfirmedDivider ? (
+                    <div className="col-span-full my-2 flex min-w-0 items-center gap-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                      <span className="h-px min-w-0 flex-1 bg-border-light" />
+                      <span className="max-w-full shrink break-words px-1">
+                        {t('catalog.unconfirmedDivider')}
+                      </span>
+                      <span className="h-px min-w-0 flex-1 bg-border-light" />
+                    </div>
+                  ) : null}
+                  <div
+                    className="min-w-0 h-full"
+                    data-tour={
+                      isTourSampleRow && activeCatalogSampleVariant
+                        ? getTourCatalogSampleTarget(activeCatalogSampleVariant)
+                        : index === 0 ? 'catalog-card' : undefined
+                    }
+                  >
+                    <CourseCard
+                      course={course}
+                      isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
+                      isActive={!isTourSampleRow && selectedCourse?.id === course.id}
+                      isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
+                      favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
+                      offeringStatus={offeringStatus}
+                      seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
+                      onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
+                    />
+                  </div>
+                </Fragment>
               )
             })}
           </div>
