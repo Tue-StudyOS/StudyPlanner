@@ -12,6 +12,7 @@ from typing import Any
 from services.course_catalog import get_catalog_course_detail, list_catalog_courses
 
 AI_API_VERSION = "1"
+PUBLIC_AI_GATEWAY_BASE_URL = "https://studyplaner.pages.dev"
 MAX_SEARCH_LIMIT = 25
 # When structured filters are present we post-filter a wider candidate slice,
 # because list_catalog_courses cannot apply these filters server-side yet.
@@ -29,11 +30,21 @@ _WEEKDAY_ALIASES: dict[str, str] = {
 _TIME_RANGE_PATTERN = re.compile(r"(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})")
 
 
+def resolve_public_ai_base_url(base_url: str) -> str:
+    """Return the public AI gateway URL while keeping localhost usable for dev."""
+    normalized = base_url.rstrip("/")
+    if normalized.startswith("http://localhost") or normalized.startswith("http://127.0.0.1"):
+        return normalized
+    return PUBLIC_AI_GATEWAY_BASE_URL
+
+
 def build_ai_meta(base_url: str) -> dict[str, Any]:
+    public_base_url = resolve_public_ai_base_url(base_url)
     return {
         "service": "studyplanner-ai",
         "apiVersion": AI_API_VERSION,
-        "openapiUrl": f"{base_url}/api/ai/openapi.json",
+        "openapiUrl": f"{public_base_url}/api/ai/openapi.json",
+        "privacyUrl": f"{public_base_url}/privacy",
         "capabilities": ["searchCourses", "getCourseDetail", "resolveCourse"],
         "auth": "none (public catalog only in this version)",
     }
@@ -337,6 +348,7 @@ async def get_course_detail_for_ai(env: Any, course_id: int) -> dict[str, Any] |
 
 def build_openapi_schema(base_url: str) -> dict[str, Any]:
     """OpenAPI 3.1 document for ChatGPT Actions (public endpoints only)."""
+    public_base_url = resolve_public_ai_base_url(base_url)
     return {
         "openapi": "3.1.0",
         "info": {
@@ -347,7 +359,7 @@ def build_openapi_schema(base_url: str) -> dict[str, Any]:
                 "University of Tübingen. Read-only; no personal data."
             ),
         },
-        "servers": [{"url": base_url}],
+        "servers": [{"url": public_base_url}],
         "paths": {
             "/api/ai/catalog/search": {
                 "post": {

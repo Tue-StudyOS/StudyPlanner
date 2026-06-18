@@ -25,7 +25,7 @@ That means login, register, favorites, planner, transcript, and other personal f
 Create `frontend/.env.local` (gitignored):
 
 ```bash
-VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
+VITE_API_BASE_URL=https://studyplaner.pages.dev
 ```
 
 Then restart Vite:
@@ -34,7 +34,7 @@ Then restart Vite:
 npm run dev
 ```
 
-Now `http://localhost:5173` talks to the same backend as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
+Now `http://localhost:5173` talks through the same public Pages gateway as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
 
 ## Full local auth testing
 

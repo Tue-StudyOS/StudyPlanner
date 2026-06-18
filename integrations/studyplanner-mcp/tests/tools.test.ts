@@ -15,6 +15,7 @@ test('MCP catalog tools expose search, resolve, and detail', () => {
     STUDYPLANNER_MCP_TOOLS.map((tool) => tool.name),
     ['studyplanner_search_courses', 'studyplanner_resolve_course', 'studyplanner_get_course_detail'],
   )
+  assert.equal('securitySchemes' in STUDYPLANNER_MCP_TOOLS[0], false)
 })
 
 test('studyplanner_search_courses forwards structured filters', async () => {
@@ -59,9 +60,9 @@ test('studyplanner_resolve_course posts the course number to the resolve endpoin
   )
 })
 
-test('resolveStudyPlannerBaseUrl trims configured URLs and falls back to the deployed API', () => {
+test('resolveStudyPlannerBaseUrl trims configured URLs and falls back to the public gateway', () => {
   assert.equal(resolveStudyPlannerBaseUrl('https://example.com///'), 'https://example.com')
-  assert.equal(resolveStudyPlannerBaseUrl('').startsWith('https://studyplanner-api.'), true)
+  assert.equal(resolveStudyPlannerBaseUrl(''), 'https://studyplaner.pages.dev')
 })
 
 test('studyplanner_search_courses calls the public AI search endpoint', async () => {

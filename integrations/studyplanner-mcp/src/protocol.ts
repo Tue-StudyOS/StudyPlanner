@@ -6,7 +6,7 @@ import {
 import { resolveStudyPlannerBaseUrl } from './client.ts'
 import { callStudyPlannerTool, STUDYPLANNER_MCP_TOOLS, type McpToolResult } from './tools.ts'
 
-export const MCP_PROTOCOL_VERSION = '2024-11-05'
+export const MCP_PROTOCOL_VERSION = '2025-06-18'
 export const MCP_SERVER_NAME = 'studyplanner-mcp'
 export const MCP_SERVER_VERSION = '0.1.0'
 
@@ -68,7 +68,7 @@ function initializeResult(context: McpRequestContext): Record<string, unknown> {
       version: MCP_SERVER_VERSION,
     },
     instructions:
-      'Use these read-only StudyPlanner tools for public course catalog search and detail lookup. No personal data or write actions are available.',
+      'Use StudyPlanner for public Informatik course catalog searches at the University of Tübingen. If the user asks for courses and does not specify a university, assume StudyPlanner/Tübingen Informatik and search first. For broad requests like "spannende Kurse fürs nächste Wintersemester", call studyplanner_search_courses with termTypes=["winter"], omit subjective adjectives from query, show options, then ask follow-up questions. No personal data or write actions are available.',
     studyPlannerAiBaseUrl: resolveStudyPlannerBaseUrl(context.studyPlannerAiBaseUrl),
   }
 }
