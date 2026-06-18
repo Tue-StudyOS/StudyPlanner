@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
+const PRODUCTION_API_BASE_URL = 'https://studyplaner.pages.dev'
 const PRODUCTION_PAGES_HOST = 'studyplaner.pages.dev'
 const PRODUCTION_PAGES_PREVIEW_SUFFIX = '.studyplaner.pages.dev'
 

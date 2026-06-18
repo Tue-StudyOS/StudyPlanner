@@ -10,11 +10,23 @@ workers.Response = object
 sys.modules.setdefault("workers", workers)
 
 from services.ai_catalog import (  # noqa: E402
+    build_ai_meta,
     course_matches_ai_filters,
     parse_search_payload,
     pick_resolved_course,
+    resolve_public_ai_base_url,
     summarize_course_for_ai,
 )
+
+
+class PublicAiBaseUrlTest(unittest.TestCase):
+    def test_uses_public_gateway_for_non_local_requests(self) -> None:
+        self.assertEqual(resolve_public_ai_base_url("https://worker.example"), "https://studyplaner.pages.dev")
+        self.assertEqual(build_ai_meta("https://worker.example")["openapiUrl"], "https://studyplaner.pages.dev/api/ai/openapi.json")
+        self.assertEqual(build_ai_meta("https://worker.example")["privacyUrl"], "https://studyplaner.pages.dev/privacy")
+
+    def test_keeps_localhost_for_local_development(self) -> None:
+        self.assertEqual(resolve_public_ai_base_url("http://localhost:8789"), "http://localhost:8789")
 
 
 class ParseSearchPayloadTest(unittest.TestCase):
