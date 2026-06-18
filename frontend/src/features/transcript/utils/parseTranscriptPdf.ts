@@ -34,6 +34,7 @@ interface ParsedTranscriptRow {
   semester: string
   grade: number | null
   ects: number | null
+  examiner: string | null
   hasDetailTokens: boolean
   parseIssues: string[]
 }
@@ -186,6 +187,7 @@ export function parseTranscriptRowColumns(
   const ects = parseTranscriptNumber(ectsText)
   const gradeText = normalizeLineText(columns.gradeText)
   const grade = gradeText ? parseTranscriptNumber(gradeText) : null
+  const examiner = normalizeLineText(columns.examinerText ?? '') || null
 
   if (ects === null || (gradeText && grade === null)) {
     return null
@@ -209,7 +211,8 @@ export function parseTranscriptRowColumns(
     semester,
     grade,
     ects,
-    hasDetailTokens: Boolean(normalizeLineText(columns.examinerText ?? '') || normalizeLineText(columns.formText ?? '')),
+    examiner,
+    hasDetailTokens: Boolean(examiner || normalizeLineText(columns.formText ?? '')),
     parseIssues,
   }
 }
@@ -366,17 +369,20 @@ function toTranscriptEntries(parsedRows: ParsedTranscriptRow[]): ParsedTranscrip
     const nextRow = parsedRows[index + 1]
     const titleCandidates = [currentRow.title]
     const rawTextCandidates = [currentRow.rawText]
+    const examinerCandidates = [currentRow.examiner]
     const parseIssues = [...currentRow.parseIssues]
 
     if (nextRow && areLikelyDuplicateRows(currentRow, nextRow)) {
       titleCandidates.push(nextRow.title)
       rawTextCandidates.push(nextRow.rawText)
+      examinerCandidates.push(nextRow.examiner)
       parseIssues.push(...nextRow.parseIssues)
       index += 1
     }
 
     const uniqueTitleCandidates = [...new Set(titleCandidates.map((title) => normalizeLineText(title)).filter(Boolean))]
     const uniqueRawTextCandidates = [...new Set(rawTextCandidates.map((text) => normalizeLineText(text)).filter(Boolean))]
+    const uniqueExaminerCandidates = [...new Set(examinerCandidates.map((examiner) => normalizeLineText(examiner ?? '')).filter(Boolean))]
     const extractedTitle = uniqueTitleCandidates[0] ?? currentRow.title
 
     entries.push({
@@ -388,6 +394,8 @@ function toTranscriptEntries(parsedRows: ParsedTranscriptRow[]): ParsedTranscrip
       titleCandidates: uniqueTitleCandidates,
       extractedGrade: currentRow.grade,
       extractedEcts: currentRow.ects,
+      extractedExaminer: uniqueExaminerCandidates[0] ?? null,
+      examinerCandidates: uniqueExaminerCandidates,
       extractedSemester: currentRow.semester,
       defaultMasterCat: toDefaultMasterCat(currentRow.section),
       parseIssues: [...new Set(parseIssues)],

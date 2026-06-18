@@ -4,6 +4,7 @@ import type { TranscriptImportCandidate } from '../types'
 import {
   acceptCandidateAsUebk,
   applyCatalogCourseMatch,
+  resolveSectionRuleGroupCode,
   UEBK_AREA_CODE,
   updateTranscriptImportCandidate,
 } from '../utils/buildTranscriptImportCandidates'
@@ -16,6 +17,7 @@ import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
   buildFlexibleRegulationAreaOptions,
+  buildRegulationAreaOptionByCode,
   studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation'
 
@@ -72,8 +74,30 @@ export function TranscriptImportRow({
     () => buildFlexibleRegulationAreaOptions(regulationRuleGroups),
     [regulationRuleGroups],
   )
-  const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
+  // The official transcript section is the authoritative regulation placement, so
+  // surface that area (including the compulsory part) even when the catalog has
+  // no mapping that would otherwise expose it.
+  const sectionAreaOption = useMemo(
+    () =>
+      candidate.matchedCourse
+        ? buildRegulationAreaOptionByCode(
+            regulationRuleGroups,
+            resolveSectionRuleGroupCode(candidate.sourceSection, regulationRuleGroups),
+          )
+        : null,
+    [candidate.matchedCourse, candidate.sourceSection, regulationRuleGroups],
+  )
   const isAreaLocked = mappedAreaOptions.length === 1
+  const areaOptions = useMemo(() => {
+    const baseAreaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
+    if (isAreaLocked || !sectionAreaOption || baseAreaOptions.some((option) => option.code === sectionAreaOption.code)) {
+      return baseAreaOptions
+    }
+    return [...baseAreaOptions, sectionAreaOption]
+  }, [flexibleAreaOptions, isAreaLocked, mappedAreaOptions, sectionAreaOption])
+  const canAssignAsUebk = !hasActiveRegulation || flexibleAreaOptions.some(
+    (option) => option.code.trim().toUpperCase() === UEBK_AREA_CODE,
+  )
   const isAcceptedAsUebk = !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
   const isMissingCatalogCourse = !candidate.matchedCourse && !isAcceptedAsUebk
   const isMissingSemester = !candidate.semester.trim()
@@ -156,12 +180,14 @@ export function TranscriptImportRow({
             />
           </div>
 
-          {!candidate.matchedCourse ? (
+          {canAssignAsUebk ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2">
               <span className="min-w-0 flex-1 text-[11.5px] text-fg-muted">
                 {isAcceptedAsUebk
                   ? 'Accepted as written — counts toward the übK area.'
-                  : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
+                  : candidate.matchedCourse
+                    ? 'Wrong catalog match? Search above to replace it, or accept the row as written into übK.'
+                    : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
               </span>
               {!isAcceptedAsUebk ? (
                 <button
@@ -172,6 +198,10 @@ export function TranscriptImportRow({
                   Accept as übK
                 </button>
               ) : null}
+            </div>
+          ) : candidate.matchedCourse ? (
+            <div className="rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2 text-[11.5px] text-fg-muted">
+              Wrong catalog match? Search above to replace it. übK is not available in the active regulation.
             </div>
           ) : null}
 

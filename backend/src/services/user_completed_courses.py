@@ -250,44 +250,50 @@ def _resolve_assignment(
     assignable_options = _build_assignable_options(course, mapped_options, rule_groups_by_code)
     assignable_codes = [option['studyAreaCode'] for option in assignable_options if option.get('studyAreaCode')]
     unique_assignable_codes = list(dict.fromkeys(assignable_codes))
+    course_is_catalog_matched = course.get('courseId') is not None
 
-    if unique_assignable_codes:
-        if len(unique_assignable_codes) == 1:
-            resolved_code = unique_assignable_codes[0]
-        else:
-            if not selected_study_area_code or selected_study_area_code not in unique_assignable_codes:
-                raise CompletedCourseUpdateError(
-                    'This course can count toward multiple regulation areas. Choose the correct regulation area before saving.'
-                )
-            resolved_code = selected_study_area_code
-
-        resolved_master_cat = _rule_group_code_to_master_cat(resolved_code) or str(course['masterCat'])
-        return resolved_code, resolved_master_cat, len(unique_assignable_codes) == 1, assignable_options
-
+    # An explicit selection (for example the regulation area the official
+    # transcript counted a course toward) wins over auto-resolution, so a
+    # compulsory module can be stored in its compulsory area even when the
+    # catalog carries no mapping for it.
     if selected_study_area_code:
         rule_group = rule_groups_by_code.get(selected_study_area_code)
         if rule_group is None:
             raise CompletedCourseUpdateError(
                 'The selected regulation area is not part of your active examination regulation.'
             )
-        if not _is_flexible_rule_group(
+        is_assignable = selected_study_area_code in unique_assignable_codes
+        is_flexible = _is_flexible_rule_group(
             selected_study_area_code,
             _safe_text(rule_group.get('name')),
             _safe_text(rule_group.get('groupType')),
-        ):
+        )
+        # Catalog-matched courses (transcript imports and manual catalog picks)
+        # may also use their compulsory area; anonymous manual rows without a
+        # catalog course stay limited to flexible elective areas or ÜBK.
+        if not (is_assignable or is_flexible or course_is_catalog_matched):
             raise CompletedCourseUpdateError(
                 'Manual external courses can only be saved in flexible elective areas or ÜBK.'
             )
         resolved_master_cat = (
             _rule_group_code_to_master_cat(selected_study_area_code) or str(course['masterCat'])
         )
-        return selected_study_area_code, resolved_master_cat, False, [
+        return selected_study_area_code, resolved_master_cat, is_assignable, assignable_options or [
             {
                 'studyAreaCode': selected_study_area_code,
                 'studyAreaName': _safe_text(rule_group.get('name')),
                 'groupType': _safe_text(rule_group.get('groupType')),
             }
         ]
+
+    if unique_assignable_codes:
+        if len(unique_assignable_codes) == 1:
+            resolved_code = unique_assignable_codes[0]
+            resolved_master_cat = _rule_group_code_to_master_cat(resolved_code) or str(course['masterCat'])
+            return resolved_code, resolved_master_cat, True, assignable_options
+        raise CompletedCourseUpdateError(
+            'This course can count toward multiple regulation areas. Choose the correct regulation area before saving.'
+        )
 
     if rule_groups_by_code:
         raise CompletedCourseUpdateError(
