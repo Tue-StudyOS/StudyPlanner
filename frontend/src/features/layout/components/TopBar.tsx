@@ -11,6 +11,8 @@ import { HelpButton } from '../../onboarding'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 
+const STUDYOS_BOT_URL = 'https://chatgpt.com/g/g-6a2de082a0b88191b833f7307d0c9429-studyos-bot'
+
 export function TopBar() {
   const isOnAccountPage = Boolean(useMatch(ROUTES.account))
   const isMobileNavigation = useMediaQuery('(max-width: 960px)')
@@ -18,6 +20,18 @@ export function TopBar() {
   const { isDark, toggleTheme } = useTheme()
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
+
+  const askGptButton = (
+    <a
+      href={STUDYOS_BOT_URL}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="flex h-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover px-2.5 text-[12px] font-semibold text-white/85 transition-colors hover:text-white sm:px-3"
+    >
+      <span className="hidden sm:inline">{t('askGpt.button')}</span>
+      <span className="sm:hidden">GPT</span>
+    </a>
+  )
 
   const themeToggleButton = (
     <button
@@ -51,6 +65,7 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
+            {askGptButton}
             {isAuthenticated ? <HelpButton /> : null}
             {themeToggleButton}
             <button
@@ -91,6 +106,7 @@ export function TopBar() {
             </nav>
 
             <div className="flex items-center gap-2">
+              {askGptButton}
               {isAuthenticated ? <HelpButton /> : null}
               {themeToggleButton}
               <Link
