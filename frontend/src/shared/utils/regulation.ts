@@ -269,3 +269,28 @@ export function findRegulationAreaLabel(
   }
   return ruleGroups.find((ruleGroup) => ruleGroup.code === studyAreaCode)?.name ?? null
 }
+
+// Builds a full selectable option for one rule-group code, including the
+// compulsory part. The transcript review uses this to surface the area a course
+// was officially counted toward, even when the catalog has no mapping for it.
+export function buildRegulationAreaOptionByCode(
+  ruleGroups: RegulationRuleGroup[],
+  code: string | null | undefined,
+): RegulationAreaOption | null {
+  const normalizedCode = code?.trim().toUpperCase()
+  if (!normalizedCode) {
+    return null
+  }
+  const ruleGroup = ruleGroups.find((group) => group.code.trim().toUpperCase() === normalizedCode)
+  if (!ruleGroup) {
+    return null
+  }
+  const labels = buildAreaLabel(ruleGroup.code, ruleGroup.name, ruleGroup.groupType)
+  return {
+    code: ruleGroup.code,
+    label: labels.label,
+    shortLabel: labels.shortLabel,
+    masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
+    isFlexible: isFlexibleRegulationArea(ruleGroup),
+  }
+}

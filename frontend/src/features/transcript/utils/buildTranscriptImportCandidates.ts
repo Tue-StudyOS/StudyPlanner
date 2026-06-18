@@ -4,6 +4,7 @@ import {
   buildRelevantCourseAreaOptions,
   studyAreaCodeToMasterCat,
 } from '../../../shared/utils/regulation.ts'
+import type { RegulationRuleGroup } from '../../../shared/utils/regulation.ts'
 import type {
   ParsedTranscriptEntry,
   TranscriptCoursePreview,
@@ -494,6 +495,126 @@ function getAssignableRegulationAreaCodes(
   ).map((option) => option.code)
 }
 
+function findRuleGroupCode(
+  ruleGroups: RegulationRuleGroup[],
+  predicate: (group: RegulationRuleGroup, normalizedCode: string, groupType: string) => boolean,
+): string | null {
+  const match = ruleGroups.find((group) =>
+    predicate(group, group.code.trim().toUpperCase(), (group.groupType ?? '').trim().toLowerCase()),
+  )
+  return match?.code ?? null
+}
+
+function findCompulsoryRuleGroupCode(ruleGroups: RegulationRuleGroup[]): string | null {
+  return (
+    findRuleGroupCode(ruleGroups, (_group, _code, groupType) => groupType === 'pflicht') ??
+    findRuleGroupCode(ruleGroups, (_group, code) => code === 'INF' || code === 'REQUIRED')
+  )
+}
+
+function findUebkRuleGroupCode(ruleGroups: RegulationRuleGroup[]): string | null {
+  return findRuleGroupCode(ruleGroups, (group, code, groupType) => {
+    const normalizedName = normalizeText(group.name)
+    return (
+      code === 'UEBK' ||
+      groupType === 'free_choice' ||
+      normalizedName.includes('uberfachlich') ||
+      normalizedName.includes('professional')
+    )
+  })
+}
+
+function findElectiveRuleGroupCodeForMasterCat(
+  ruleGroups: RegulationRuleGroup[],
+  masterCat: MasterCat,
+): string | null {
+  return (
+    findRuleGroupCode(
+      ruleGroups,
+      (_group, code, groupType) =>
+        groupType !== 'pflicht' && studyAreaCodeToMasterCat(code) === masterCat,
+    ) ?? findRuleGroupCode(ruleGroups, (_group, code) => studyAreaCodeToMasterCat(code) === masterCat)
+  )
+}
+
+// The official transcript groups each course under a study-area heading; that
+// heading is the authoritative regulation placement, so map it back to a rule
+// group in the active regulation to drive auto-assignment and selectability.
+export function resolveSectionRuleGroupCode(
+  section: string | null | undefined,
+  ruleGroups: RegulationRuleGroup[],
+): string | null {
+  const normalizedSection = normalizeText(section)
+  if (
+    !normalizedSection ||
+    ruleGroups.length === 0 ||
+    normalizedSection.includes('unzugeordnet') ||
+    normalizedSection.includes('unassigned')
+  ) {
+    return null
+  }
+
+  if (
+    normalizedSection.includes('uberfachlich') ||
+    normalizedSection.includes('professional') ||
+    normalizedSection.includes('studium professionale') ||
+    /\buebk\b/.test(normalizedSection) ||
+    /\bubk\b/.test(normalizedSection)
+  ) {
+    return findUebkRuleGroupCode(ruleGroups)
+  }
+
+  if (normalizedSection.includes('proseminar')) {
+    return (
+      findRuleGroupCode(ruleGroups, (_group, code) => code === 'PROSEM') ??
+      findUebkRuleGroupCode(ruleGroups)
+    )
+  }
+
+  if (normalizedSection.includes('praktische') || normalizedSection.includes('practical')) {
+    return findElectiveRuleGroupCodeForMasterCat(ruleGroups, 'PRAK')
+  }
+  if (
+    normalizedSection.includes('theoretische') ||
+    normalizedSection.includes('theoretical') ||
+    normalizedSection.includes('logik') ||
+    normalizedSection.includes('logics')
+  ) {
+    return findElectiveRuleGroupCodeForMasterCat(ruleGroups, 'THEO')
+  }
+  if (
+    normalizedSection.includes('technische') ||
+    normalizedSection.includes('technical') ||
+    normalizedSection.includes('robotik')
+  ) {
+    return findElectiveRuleGroupCodeForMasterCat(ruleGroups, 'TECH')
+  }
+
+  if (normalizedSection.includes('mathematik') || normalizedSection.includes('mathematics')) {
+    return (
+      findRuleGroupCode(ruleGroups, (_group, code) => code === 'MATH') ??
+      findCompulsoryRuleGroupCode(ruleGroups)
+    )
+  }
+
+  const isElectiveSection =
+    normalizedSection.includes('wahlpflicht') || normalizedSection.includes('elective')
+  if (
+    !isElectiveSection &&
+    (normalizedSection.includes('pflicht') ||
+      normalizedSection.includes('compulsory') ||
+      normalizedSection.includes('required'))
+  ) {
+    return findCompulsoryRuleGroupCode(ruleGroups)
+  }
+
+  if (normalizedSection.includes('informatik') || normalizedSection.includes('computer science')) {
+    return findElectiveRuleGroupCodeForMasterCat(ruleGroups, 'INFO')
+  }
+
+  return null
+}
+
 export function buildTranscriptImportCandidates(
   entries: ParsedTranscriptEntry[],
   courses: Course[],
@@ -504,9 +625,18 @@ export function buildTranscriptImportCandidates(
     const matchedCourse = pickAutoMatchedCourse(entry, matchResults)
 
     const assignableRegulationAreaCodes = getAssignableRegulationAreaCodes(matchedCourse, context)
-    const autoStudyAreaCode = assignableRegulationAreaCodes.length === 1
-      ? assignableRegulationAreaCodes[0]
+    const sectionAreaCode = matchedCourse
+      ? resolveSectionRuleGroupCode(entry.sourceSection, context.regulationRuleGroups)
       : null
+    const selectableRegulationAreaCodes =
+      sectionAreaCode && !assignableRegulationAreaCodes.includes(sectionAreaCode)
+        ? [...assignableRegulationAreaCodes, sectionAreaCode]
+        : assignableRegulationAreaCodes
+    const autoStudyAreaCode = sectionAreaCode
+      ? sectionAreaCode
+      : assignableRegulationAreaCodes.length === 1
+        ? assignableRegulationAreaCodes[0]
+        : null
 
     return finalizeCandidate({
       id: entry.id,
@@ -520,7 +650,9 @@ export function buildTranscriptImportCandidates(
       grade: entry.extractedGrade,
       extractedEcts: entry.extractedEcts,
       ects: entry.extractedEcts ?? matchedCourse?.ects ?? null,
-      masterCat: pickDefaultMasterCat(entry, matchedCourse),
+      masterCat: autoStudyAreaCode
+        ? studyAreaCodeToMasterCat(autoStudyAreaCode) ?? pickDefaultMasterCat(entry, matchedCourse)
+        : pickDefaultMasterCat(entry, matchedCourse),
       studyAreaCode: autoStudyAreaCode,
       status: matchedCourse ? 'matched' : matchResults.length > 0 ? 'uncertain' : 'unmatched',
       statusDetail: '',
@@ -533,7 +665,7 @@ export function buildTranscriptImportCandidates(
       matchedCourse: matchedCourse
         ? {
             ...matchedCourse,
-            regulationAreaCodes: assignableRegulationAreaCodes,
+            regulationAreaCodes: selectableRegulationAreaCodes,
           }
         : null,
       courseId: matchedCourse?.id ?? null,

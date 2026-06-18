@@ -6,7 +6,9 @@ import {
   acceptCandidateAsUebk,
   buildTranscriptImportCandidates,
   canImportTranscriptCandidate,
+  resolveSectionRuleGroupCode,
 } from '../../src/features/transcript/utils/buildTranscriptImportCandidates.ts'
+import type { RegulationRuleGroup } from '../../src/shared/utils/regulation.ts'
 import {
   classifyTranscriptCompletionStatus,
   parseTranscriptRowColumns,
@@ -558,6 +560,89 @@ test('automatched courses can be converted back to anonymous übK rows', () => {
   assert.equal(acceptedAsUebk.title, entry.extractedTitle)
   assert.equal(acceptedAsUebk.ects, entry.extractedEcts)
   assert.equal(canImportTranscriptCandidate(acceptedAsUebk), true)
+})
+
+// Mirrors the live BSC_INFO_2021 rule groups (real German group types).
+const BSC_INFO_RULE_GROUPS: RegulationRuleGroup[] = [
+  { code: 'INF', name: 'Pflichtstudienbereich Informatik', groupType: 'pflicht', sortOrder: 1 },
+  { code: 'PRAK', name: 'Wahlpflichtfach Praktische Informatik', groupType: 'wahlpflicht', sortOrder: 2 },
+  { code: 'TECH', name: 'Wahlpflichtfach Technische Informatik', groupType: 'wahlpflicht', sortOrder: 3 },
+  { code: 'THEO', name: 'Wahlpflichtfach Theoretische Informatik', groupType: 'wahlpflicht', sortOrder: 4 },
+  { code: 'INFO', name: 'Wahlpflichtfach Informatik', groupType: 'wahlpflicht', sortOrder: 5 },
+  { code: 'UEBK', name: 'Ueberfachliche Kompetenzen', groupType: 'free_choice', sortOrder: 6 },
+  { code: 'THESIS', name: 'Bachelorarbeit incl. Vortrag', groupType: 'thesis', sortOrder: 7 },
+]
+
+test('resolveSectionRuleGroupCode maps ToR sections to regulation rule groups', () => {
+  const resolve = (section: string | null): string | null =>
+    resolveSectionRuleGroupCode(section, BSC_INFO_RULE_GROUPS)
+
+  assert.equal(resolve('Pflichtbereich Informatik'), 'INF')
+  assert.equal(resolve('Compulsory Area: Computer Science'), 'INF')
+  assert.equal(resolve('Mathematik für Informatik 1: Analysis'), 'INF')
+  assert.equal(resolve('Wahlpflichtfach Praktische Informatik'), 'PRAK')
+  assert.equal(resolve('Elective Area: Theoretical Computer Science'), 'THEO')
+  assert.equal(resolve('Wahlpflichtfach Technische Informatik'), 'TECH')
+  assert.equal(resolve('Wahlpflichtfach Informatik'), 'INFO')
+  assert.equal(resolve('Studium Professionale (übK)'), 'UEBK')
+  assert.equal(resolve('Unzugeordnete Elemente'), null)
+  assert.equal(resolveSectionRuleGroupCode('Pflichtbereich Informatik', []), null)
+})
+
+test('compulsory transcript rows auto-assign to the MAIN area even without a catalog mapping', () => {
+  const entry = createEntry({
+    sourceSection: 'Pflichtbereich Informatik',
+    extractedTitle: 'Theoretische Informatik',
+    titleCandidates: ['Theoretische Informatik'],
+    extractedEcts: 9,
+    defaultMasterCat: 'BASIS',
+  })
+  const course = createCourse({
+    id: 'course-theoretische-informatik',
+    number: 'INF1100',
+    title: 'Theoretische Informatik',
+    ects: 9,
+    masterCats: ['BASIS' satisfies MasterCat],
+    studyAreaOptions: undefined,
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: BSC_INFO_RULE_GROUPS,
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.studyAreaCode, 'INF')
+  assert.equal(candidate.masterCat, 'BASIS')
+  assert.ok(candidate.matchedCourse?.regulationAreaCodes?.includes('INF'))
+  assert.equal(canImportTranscriptCandidate(candidate), true)
+})
+
+test('elective transcript rows auto-assign to the section area instead of staying ambiguous', () => {
+  const entry = createEntry({
+    sourceSection: 'Wahlpflichtfach Praktische Informatik',
+    extractedTitle: 'Datenbanksysteme',
+    titleCandidates: ['Datenbanksysteme'],
+    extractedEcts: 6,
+    defaultMasterCat: 'PRAK',
+  })
+  const course = createCourse({
+    id: 'course-datenbanksysteme',
+    number: 'INF3000',
+    title: 'Datenbanksysteme',
+    ects: 6,
+    masterCats: ['PRAK' satisfies MasterCat],
+    studyAreaOptions: undefined,
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: BSC_INFO_RULE_GROUPS,
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.studyAreaCode, 'PRAK')
+  assert.equal(canImportTranscriptCandidate(candidate), true)
 })
 
 test('entries without a catalog match stay visible as unmatched review candidates', () => {
