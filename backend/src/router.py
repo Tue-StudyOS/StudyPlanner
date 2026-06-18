@@ -37,6 +37,7 @@ from services.course_catalog import (
     list_courses,
 )
 from services.progress import get_current_user_progress
+from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
     PlannerAssignmentError,
     balance_current_user_semester_plan,
@@ -424,6 +425,13 @@ async def route_request(request: Any, env: Any) -> Any:
             progress = await get_current_user_progress(env, request)
             return json_response(progress, request=request, env=env)
 
+        if path == "/api/feedback":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+
+            feedback = await submit_feedback(env, request, await read_json_object(request))
+            return json_response(feedback, request=request, env=env, status=201)
+
         if method != "GET":
             return _method_not_allowed_response(request, env)
 
@@ -445,6 +453,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "semesterPlans": "/api/me/semester-plans",
                         "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",
+                        "feedback": "/api/feedback",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogPeriods": "/api/catalog/periods",
@@ -716,6 +725,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except PlannerAssignmentError as exc:
         return error_response(
             code="planner_assignment_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except FeedbackSubmissionError as exc:
+        return error_response(
+            code="feedback_submission_error",
             message=str(exc),
             request=request,
             env=env,

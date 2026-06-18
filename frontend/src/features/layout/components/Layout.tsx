@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { FeedbackWidget } from '../../feedback'
 import { TopBar } from './TopBar'
 
 export function Layout() {
@@ -24,6 +25,7 @@ export function Layout() {
       <main className="min-w-0 flex-1 overflow-x-hidden">
         <Outlet />
       </main>
+      <FeedbackWidget />
     </div>
   )
 }
