@@ -3,7 +3,7 @@ import {
   STUDYPLANNER_APP_HTTP_PATH,
   STUDYPLANNER_APP_RESOURCE_URI,
 } from './appResources.ts'
-import { handleMcpJsonRpcPayload } from './protocol.ts'
+import { handleMcpJsonRpcPayload, MCP_PROTOCOL_VERSION } from './protocol.ts'
 
 export interface Env {
   STUDYPLANNER_AI_BASE_URL?: string
@@ -16,7 +16,9 @@ export interface Env {
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, MCP-Protocol-Version',
+  'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, Last-Event-ID, MCP-Protocol-Version, MCP-Session-Id',
+  'Access-Control-Expose-Headers': 'MCP-Protocol-Version, MCP-Session-Id',
+  'MCP-Protocol-Version': MCP_PROTOCOL_VERSION,
 }
 
 function isLocalHostname(hostname: string): boolean {
@@ -151,6 +153,7 @@ export default {
         ok: true,
         service: 'studyplanner-mcp',
         transport: 'streamable-http',
+        protocolVersion: MCP_PROTOCOL_VERSION,
         mcpEndpoint: '/mcp',
         tools: [
           'studyplanner_search_courses',
@@ -162,7 +165,7 @@ export default {
       })
     }
 
-    if (url.pathname === '/sse' && request.method === 'GET') {
+    if ((url.pathname === '/sse' || url.pathname === '/mcp') && request.method === 'GET') {
       return sseEndpointResponse()
     }
 

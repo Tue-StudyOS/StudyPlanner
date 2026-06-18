@@ -17,7 +17,7 @@ test('MCP initialize returns server capabilities without requiring auth', async 
 
   assert.equal(Array.isArray(response), false)
   assert.deepEqual(response && 'result' in response ? response.result : null, {
-    protocolVersion: '2024-11-05',
+    protocolVersion: '2025-06-18',
     capabilities: {
       tools: { listChanged: false },
       resources: { subscribe: false, listChanged: false },
