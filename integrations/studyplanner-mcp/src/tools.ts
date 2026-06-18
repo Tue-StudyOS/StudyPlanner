@@ -30,7 +30,8 @@ function appToolMeta(invoking: string, invoked: string): Record<string, unknown>
 
 const SEARCH_COURSES_TOOL: McpToolDefinition = {
   name: 'studyplanner_search_courses',
-  description: 'Search the public StudyPlanner course catalog. Read-only and unauthenticated.',
+  description:
+    'Search or browse the public StudyPlanner catalog for Informatik courses at the University of Tübingen. Use this whenever a user asks for courses. For broad requests like "spannende Kurse fürs nächste Wintersemester", omit the subjective adjective from query, set termTypes to ["winter"], and search before asking follow-up questions. Read-only and unauthenticated.',
   annotations: { readOnlyHint: true },
   _meta: appToolMeta('Searching StudyPlanner courses…', 'StudyPlanner course results ready.'),
   inputSchema: {
@@ -38,7 +39,8 @@ const SEARCH_COURSES_TOOL: McpToolDefinition = {
     properties: {
       query: {
         type: 'string',
-        description: 'Free-text query over course title, number, or organization.',
+        description:
+          'Optional free-text query over course title, number, or organization. Omit for broad browsing requests; do not use subjective words like "spannend" as the query.',
       },
       limit: {
         type: 'integer',
@@ -87,7 +89,7 @@ const SEARCH_COURSES_TOOL: McpToolDefinition = {
       termTypes: {
         type: 'array',
         items: { type: 'string', enum: ['summer', 'winter'] },
-        description: 'Restrict to summer and/or winter courses.',
+        description: 'Restrict to summer and/or winter courses. Use winter for WS/Wintersemester and summer for SS/Sommersemester.',
       },
     },
     additionalProperties: false,
