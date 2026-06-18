@@ -153,10 +153,7 @@ export const STUDYPLANNER_APP_RESOURCES: McpResourceDefinition[] = [
       'openai/widgetDescription': 'Shows public StudyPlanner catalog results returned by the MCP tools.',
       'openai/widgetPrefersBorder': true,
       'openai/widgetCSP': {
-        connect_domains: [
-          'https://studyplanner-api.ben-tischberger.workers.dev',
-          'https://studyplanner-mcp.ben-tischberger.workers.dev',
-        ],
+        connect_domains: ['https://studyplaner.pages.dev'],
         resource_domains: [],
       },
     },

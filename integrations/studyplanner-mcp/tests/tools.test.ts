@@ -59,9 +59,9 @@ test('studyplanner_resolve_course posts the course number to the resolve endpoin
   )
 })
 
-test('resolveStudyPlannerBaseUrl trims configured URLs and falls back to the deployed API', () => {
+test('resolveStudyPlannerBaseUrl trims configured URLs and falls back to the public gateway', () => {
   assert.equal(resolveStudyPlannerBaseUrl('https://example.com///'), 'https://example.com')
-  assert.equal(resolveStudyPlannerBaseUrl('').startsWith('https://studyplanner-api.'), true)
+  assert.equal(resolveStudyPlannerBaseUrl(''), 'https://studyplaner.pages.dev')
 })
 
 test('studyplanner_search_courses calls the public AI search endpoint', async () => {

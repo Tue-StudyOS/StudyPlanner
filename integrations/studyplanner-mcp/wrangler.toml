@@ -4,9 +4,9 @@ compatibility_date = "2026-06-12"
 
 [vars]
 # Used to build request paths and as a fallback when the service binding is
-# absent (e.g. local dev). Override with a custom StudyPlanner API domain if one
-# is managed in Cloudflare.
-STUDYPLANNER_AI_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
+# absent (e.g. local dev). The public gateway avoids exposing account-specific
+# workers.dev subdomains in integration metadata.
+STUDYPLANNER_AI_BASE_URL = "https://studyplaner.pages.dev"
 
 # Same-account workers.dev subrequests fail with 404, so the MCP worker reaches
 # the AI facade worker through a service binding instead of its public URL.

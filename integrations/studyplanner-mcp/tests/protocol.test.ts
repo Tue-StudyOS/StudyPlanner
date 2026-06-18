@@ -25,7 +25,7 @@ test('MCP initialize returns server capabilities without requiring auth', async 
     serverInfo: { name: 'studyplanner-mcp', version: '0.1.0' },
     instructions:
       'Use these read-only StudyPlanner tools for public course catalog search and detail lookup. No personal data or write actions are available.',
-    studyPlannerAiBaseUrl: 'https://studyplanner-api.ben-tischberger.workers.dev',
+    studyPlannerAiBaseUrl: 'https://studyplaner.pages.dev',
   })
 })
 

@@ -1,4 +1,4 @@
-export const DEFAULT_STUDYPLANNER_AI_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
+export const DEFAULT_STUDYPLANNER_AI_BASE_URL = 'https://studyplaner.pages.dev'
 
 export interface StudyPlannerClientOptions {
   baseUrl?: string
