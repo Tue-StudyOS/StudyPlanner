@@ -3,6 +3,7 @@ import test from 'node:test'
 import type { Course, MasterCat } from '../../src/features/courses/index.ts'
 import type { ParsedTranscriptEntry } from '../../src/features/transcript/types.ts'
 import {
+  acceptCandidateAsUebk,
   buildTranscriptImportCandidates,
   canImportTranscriptCandidate,
 } from '../../src/features/transcript/utils/buildTranscriptImportCandidates.ts'
@@ -56,6 +57,8 @@ function createEntry(overrides: Partial<ParsedTranscriptEntry>): ParsedTranscrip
     titleCandidates: overrides.titleCandidates ?? [overrides.extractedTitle ?? 'Placeholder title'],
     extractedGrade: overrides.extractedGrade ?? 1.7,
     extractedEcts: overrides.extractedEcts ?? 6,
+    extractedExaminer: overrides.extractedExaminer,
+    examinerCandidates: overrides.examinerCandidates,
     extractedSemester: overrides.extractedSemester ?? 'WS 2024/25',
     defaultMasterCat: overrides.defaultMasterCat ?? 'INFO',
     parseIssues: overrides.parseIssues ?? [],
@@ -347,6 +350,214 @@ test('German duplicate title candidates still auto-match without manual re-entry
   assert.equal(candidate.matchedCourse?.title, course.title)
   assert.equal(candidate.matchOptions[0]?.title, course.title)
   assert.equal(canImportTranscriptCandidate(candidate), true)
+})
+
+test('catalog prefixes and type suffixes do not block safe transcript auto-matches', () => {
+  const entry = createEntry({
+    extractedTitle: 'Modern Search Engines',
+    titleCandidates: ['Modern Search Engines'],
+    extractedEcts: 6,
+  })
+  const course = createCourse({
+    id: 'course-modern-search',
+    number: 'INFO4271',
+    title: 'INFO4271 Modern Search Engines - Vorlesung/Übung',
+    ects: 6,
+    masterCats: ['INFO' satisfies MasterCat],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, course.id)
+  assert.equal(candidate.courseNumber, course.number)
+  assert.equal(canImportTranscriptCandidate(candidate), true)
+})
+
+test('catalog former-title notes and ASCII German transliterations still auto-match safely', () => {
+  const entry = createEntry({
+    extractedTitle: 'Mathematik für Informatik 2: Lineare Algebra',
+    titleCandidates: ['Mathematik für Informatik 2: Lineare Algebra'],
+    extractedEcts: 9,
+  })
+  const course = createCourse({
+    id: 'course-linear-algebra',
+    number: 'INF1020',
+    title: 'INF1020 Mathematik fuer Informatik 2: Lineare Algebra (früher Mathematik II) - Vorlesung',
+    ects: 9,
+    masterCats: ['BASIS' satisfies MasterCat],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, course.id)
+  assert.equal(canImportTranscriptCandidate(candidate), true)
+})
+
+test('minor hyphenation differences do not block safe transcript auto-matches', () => {
+  const entry = createEntry({
+    extractedTitle: 'Praktische Informatik 2: Imperative und objekt-orientierte Programmierung',
+    titleCandidates: ['Praktische Informatik 2: Imperative und objekt-orientierte Programmierung'],
+    extractedEcts: 9,
+  })
+  const course = createCourse({
+    id: 'course-pi2',
+    number: 'INF1120',
+    title: 'Praktische Informatik 2: Imperative und objektorientierte Programmierung',
+    ects: 9,
+    masterCats: ['INFO' satisfies MasterCat],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, course.id)
+  assert.equal(canImportTranscriptCandidate(candidate), true)
+})
+
+test('lecturer names disambiguate duplicate lecture and practical-course suggestions', () => {
+  const entry = createEntry({
+    extractedTitle: 'Grundlagen des Maschinellen Lernens',
+    titleCandidates: ['Grundlagen des Maschinellen Lernens'],
+    extractedEcts: 6,
+    extractedExaminer: 'Martius',
+    examinerCandidates: ['Martius'],
+  })
+  const lecture = createCourse({
+    id: 'course-ml-lecture',
+    number: 'INF3151',
+    title: 'INF3151 Grundlagen des Maschinellen Lernens - Vorlesung/Übung',
+    ects: 6,
+    lecturer: 'Prof. Dr. rer. nat. Georg Martius',
+  })
+  const practical = createCourse({
+    id: 'course-ml-practical',
+    number: 'INF3152',
+    title: 'INF3152 Grundlagen des Maschinellen Lernens - Praktikum',
+    ects: 6,
+    lecturer: 'o. Prof. Dr. rer. nat. Andreas Schilling',
+    courseType: 'Praktikum',
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [practical, lecture], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, lecture.id)
+  assert.equal(candidate.courseNumber, lecture.number)
+})
+
+test('exact title matches may auto-match while preserving transcript ECTS', () => {
+  const entry = createEntry({
+    extractedTitle: 'Natural Language Processing',
+    titleCandidates: ['Natural Language Processing'],
+    extractedEcts: 6,
+  })
+  const course = createCourse({
+    id: 'course-nlp',
+    number: 'INFO4193',
+    title: 'INFO4193 Natural Language Processing - Vorlesung/Übung',
+    moduleTitle: 'Natural Language Processing',
+    ects: 9,
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, course.id)
+  assert.equal(candidate.ects, 6)
+})
+
+test('Praktische Informatik 4 transcript rows map to the research project course alias', () => {
+  const entry = createEntry({
+    extractedTitle: 'Praktische Informatik 4: Teamprojekt',
+    titleCandidates: ['Praktische Informatik 4: Teamprojekt'],
+    extractedEcts: 9,
+  })
+  const course = createCourse({
+    id: 'course-research-project',
+    number: 'INFO4998',
+    title: 'INFO4998 Forschungsprojekt Informatik - Projekt',
+    moduleTitle: 'Forschungsprojekt Informatik',
+    ects: 9,
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'matched')
+  assert.equal(candidate.matchedCourse?.id, course.id)
+})
+
+test('similar top suggestions stay uncertain when cleaned titles differ', () => {
+  const entry = createEntry({
+    extractedTitle: 'Neural Data Science',
+    titleCandidates: ['Neural Data Science'],
+    extractedEcts: 6,
+  })
+  const course = createCourse({
+    id: 'course-medical-data-science',
+    number: 'MEDZ4991',
+    title: 'Medical Data Science',
+    ects: 6,
+    masterCats: ['INFO' satisfies MasterCat],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+
+  assert.equal(candidate.status, 'uncertain')
+  assert.equal(candidate.matchedCourse, null)
+  assert.equal(candidate.matchOptions[0]?.id, course.id)
+})
+
+test('automatched courses can be converted back to anonymous übK rows', () => {
+  const entry = createEntry({
+    extractedTitle: 'Natural Language Processing',
+    titleCandidates: ['Natural Language Processing'],
+    extractedEcts: 6,
+  })
+  const course = createCourse({
+    id: 'course-nlp',
+    number: 'INFO4193',
+    title: 'INFO4193 Natural Language Processing - Vorlesung/Übung',
+    moduleTitle: 'Natural Language Processing',
+    ects: 9,
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: null,
+    regulationRuleGroups: [],
+  })
+  const acceptedAsUebk = acceptCandidateAsUebk(candidate)
+
+  assert.equal(acceptedAsUebk.status, 'matched')
+  assert.equal(acceptedAsUebk.matchedCourse, null)
+  assert.equal(acceptedAsUebk.courseId, null)
+  assert.equal(acceptedAsUebk.courseNumber, null)
+  assert.equal(acceptedAsUebk.studyAreaCode, 'UEBK')
+  assert.equal(acceptedAsUebk.title, entry.extractedTitle)
+  assert.equal(acceptedAsUebk.ects, entry.extractedEcts)
+  assert.equal(canImportTranscriptCandidate(acceptedAsUebk), true)
 })
 
 test('entries without a catalog match stay visible as unmatched review candidates', () => {

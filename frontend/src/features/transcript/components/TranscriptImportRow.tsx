@@ -73,6 +73,9 @@ export function TranscriptImportRow({
     [regulationRuleGroups],
   )
   const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
+  const canAssignAsUebk = !hasActiveRegulation || flexibleAreaOptions.some(
+    (option) => option.code.trim().toUpperCase() === UEBK_AREA_CODE,
+  )
   const isAreaLocked = mappedAreaOptions.length === 1
   const isAcceptedAsUebk = !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
   const isMissingCatalogCourse = !candidate.matchedCourse && !isAcceptedAsUebk
@@ -156,12 +159,14 @@ export function TranscriptImportRow({
             />
           </div>
 
-          {!candidate.matchedCourse ? (
+          {canAssignAsUebk ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2">
               <span className="min-w-0 flex-1 text-[11.5px] text-fg-muted">
                 {isAcceptedAsUebk
                   ? 'Accepted as written — counts toward the übK area.'
-                  : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
+                  : candidate.matchedCourse
+                    ? 'Wrong catalog match? Search above to replace it, or accept the row as written into übK.'
+                    : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
               </span>
               {!isAcceptedAsUebk ? (
                 <button
@@ -172,6 +177,10 @@ export function TranscriptImportRow({
                   Accept as übK
                 </button>
               ) : null}
+            </div>
+          ) : candidate.matchedCourse ? (
+            <div className="rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2 text-[11.5px] text-fg-muted">
+              Wrong catalog match? Search above to replace it. übK is not available in the active regulation.
             </div>
           ) : null}
 

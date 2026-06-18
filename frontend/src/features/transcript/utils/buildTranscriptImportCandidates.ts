@@ -16,6 +16,8 @@ import { isValidTranscriptGrade } from './grades.ts'
 interface CourseMatchResult {
   preview: TranscriptCoursePreview
   score: number
+  lecturerScore: number
+  ectsCompatibility: number
   priority: number
 }
 
@@ -41,6 +43,15 @@ const STOP_WORDS = new Set([
   'with',
 ])
 
+const LEADING_COURSE_CODE_PATTERN = /^\s*(?:[a-zäöü]{2,10}\s*)?\d{3,5}[a-z]?\s+/i
+const FORMER_TITLE_NOTE_PATTERN = /\s*\((?:früher|formerly)[^)]*\)/gi
+const COURSE_TYPE_SUFFIX_PATTERN = /\s+[-–—]\s*(?:(?:vorlesung|lecture|übung|uebung|exercise|tutorial|praktikum|lab course|seminar|projekt|project)\s*(?:\/|\+|&|and)?\s*)+$/i
+
+const COURSE_TITLE_ALIASES = new Map<string, string[]>([
+  ['praktische informatik 4 teamprojekt', ['forschungsprojekt informatik']],
+  ['practical computer science 4 team project', ['forschungsprojekt informatik']],
+])
+
 export function normalizeText(value: string | null | undefined): string {
   return (value ?? '')
     .normalize('NFKD')
@@ -53,8 +64,57 @@ export function normalizeText(value: string | null | undefined): string {
     .trim()
 }
 
-function tokenize(value: string): string[] {
-  return normalizeText(value)
+function stripCatalogTitleDecorations(value: string): string {
+  return value
+    .replace(LEADING_COURSE_CODE_PATTERN, '')
+    .replace(FORMER_TITLE_NOTE_PATTERN, '')
+    .replace(COURSE_TYPE_SUFFIX_PATTERN, '')
+    .trim()
+}
+
+function addCompactVariant(normalizedValues: Set<string>, value: string): void {
+  const compactValue = value.replace(/\s+/g, '')
+  if (compactValue && compactValue !== value) {
+    normalizedValues.add(compactValue)
+  }
+}
+
+function addGermanTransliterationVariants(normalizedValues: Set<string>, value: string): void {
+  const transliterated = value
+    .replace(/ae/g, 'a')
+    .replace(/oe/g, 'o')
+    .replace(/ue/g, 'u')
+  if (transliterated) {
+    normalizedValues.add(transliterated)
+    addCompactVariant(normalizedValues, transliterated)
+  }
+}
+
+function addTitleMatchVariant(normalizedValues: Set<string>, value: string): void {
+  const normalizedValue = normalizeText(value)
+  if (!normalizedValue) {
+    return
+  }
+  normalizedValues.add(normalizedValue)
+  addCompactVariant(normalizedValues, normalizedValue)
+  addGermanTransliterationVariants(normalizedValues, normalizedValue)
+}
+
+function buildTitleMatchVariants(value: string | null | undefined): string[] {
+  const normalizedValues = new Set<string>()
+  for (const titleValue of [value ?? '', stripCatalogTitleDecorations(value ?? '')]) {
+    addTitleMatchVariant(normalizedValues, titleValue)
+  }
+  for (const normalizedValue of [...normalizedValues]) {
+    for (const alias of COURSE_TITLE_ALIASES.get(normalizedValue) ?? []) {
+      addTitleMatchVariant(normalizedValues, alias)
+    }
+  }
+  return [...normalizedValues]
+}
+
+function tokenizeMatchVariant(value: string): string[] {
+  return value
     .split(' ')
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token))
 }
@@ -98,45 +158,56 @@ export function toTranscriptCoursePreview(
 }
 
 function scoreCourseTitle(candidateTitle: string, courseTitle: string, expectedEcts: number | null): number {
-  const normalizedCandidateTitle = normalizeText(candidateTitle)
-  const normalizedCourseTitle = normalizeText(courseTitle)
-  if (!normalizedCandidateTitle || !normalizedCourseTitle) {
+  const normalizedCandidateTitles = buildTitleMatchVariants(candidateTitle)
+  const normalizedCourseTitles = buildTitleMatchVariants(courseTitle)
+  if (normalizedCandidateTitles.length === 0 || normalizedCourseTitles.length === 0) {
     return 0
   }
 
-  if (normalizedCandidateTitle === normalizedCourseTitle) {
-    return expectedEcts !== null ? 1 : 0.98
+  let bestScore = 0
+
+  for (const normalizedCandidateTitle of normalizedCandidateTitles) {
+    for (const normalizedCourseTitle of normalizedCourseTitles) {
+      if (normalizedCandidateTitle === normalizedCourseTitle) {
+        bestScore = Math.max(bestScore, expectedEcts !== null ? 1 : 0.98)
+        continue
+      }
+
+      if (
+        normalizedCandidateTitle.length >= 12 &&
+        normalizedCourseTitle.includes(normalizedCandidateTitle)
+      ) {
+        bestScore = Math.max(bestScore, expectedEcts !== null ? 0.95 : 0.9)
+        continue
+      }
+
+      if (
+        normalizedCourseTitle.length >= 12 &&
+        normalizedCandidateTitle.includes(normalizedCourseTitle)
+      ) {
+        bestScore = Math.max(bestScore, expectedEcts !== null ? 0.93 : 0.88)
+        continue
+      }
+
+      const candidateTokens = tokenizeMatchVariant(normalizedCandidateTitle)
+      const courseTokens = tokenizeMatchVariant(normalizedCourseTitle)
+      if (candidateTokens.length === 0 || courseTokens.length === 0) {
+        continue
+      }
+
+      const courseTokenSet = new Set(courseTokens)
+      const overlappingTokenCount = candidateTokens.filter((token) => courseTokenSet.has(token)).length
+      if (overlappingTokenCount === 0) {
+        continue
+      }
+
+      const tokenScore = overlappingTokenCount / Math.max(candidateTokens.length, courseTokens.length)
+      const ectsBonus = expectedEcts !== null ? 0.08 : 0
+      bestScore = Math.max(bestScore, Math.min(0.92, tokenScore + ectsBonus))
+    }
   }
 
-  if (
-    normalizedCandidateTitle.length >= 12 &&
-    normalizedCourseTitle.includes(normalizedCandidateTitle)
-  ) {
-    return expectedEcts !== null ? 0.95 : 0.9
-  }
-
-  if (
-    normalizedCourseTitle.length >= 12 &&
-    normalizedCandidateTitle.includes(normalizedCourseTitle)
-  ) {
-    return expectedEcts !== null ? 0.93 : 0.88
-  }
-
-  const candidateTokens = tokenize(candidateTitle)
-  const courseTokens = tokenize(courseTitle)
-  if (candidateTokens.length === 0 || courseTokens.length === 0) {
-    return 0
-  }
-
-  const courseTokenSet = new Set(courseTokens)
-  const overlappingTokenCount = candidateTokens.filter((token) => courseTokenSet.has(token)).length
-  if (overlappingTokenCount === 0) {
-    return 0
-  }
-
-  const tokenScore = overlappingTokenCount / Math.max(candidateTokens.length, courseTokens.length)
-  const ectsBonus = expectedEcts !== null ? 0.08 : 0
-  return Math.min(0.92, tokenScore + ectsBonus)
+  return bestScore
 }
 
 function isLikelyExerciseCourse(course: Course): boolean {
@@ -152,6 +223,43 @@ function isLikelyExerciseCourse(course: Course): boolean {
     normalizedTitle.includes('ubungen zur vorlesung') ||
     normalizedTitle.includes('exercise for')
   )
+}
+
+function normalizePersonName(value: string | null | undefined): string {
+  return normalizeText(value)
+    .replace(/\b(?:o|prof|dr|phil|med|rer|nat|ing|apl|jun|univ|m sc|msc|ma|ba)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function personNameTokens(value: string | null | undefined): string[] {
+  return normalizePersonName(value)
+    .split(' ')
+    .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
+}
+
+function scoreLecturerMatch(entry: ParsedTranscriptEntry, course: Course): number {
+  const examinerTokens = new Set(
+    (entry.examinerCandidates ?? [])
+      .flatMap((examiner) => personNameTokens(examiner)),
+  )
+  if (examinerTokens.size === 0) {
+    return 0
+  }
+
+  const lecturerTokens = [course.lecturer, ...(course.lecturers ?? [])].flatMap((lecturer) => personNameTokens(lecturer))
+  if (lecturerTokens.length === 0) {
+    return 0
+  }
+
+  return lecturerTokens.some((token) => examinerTokens.has(token)) ? 1 : 0
+}
+
+function getEctsCompatibility(entry: ParsedTranscriptEntry, course: Course): number {
+  if (entry.extractedEcts === null || course.ects === null) {
+    return 1
+  }
+  return entry.extractedEcts === course.ects ? 2 : 0
 }
 
 function buildMatchKey(preview: TranscriptCoursePreview): string {
@@ -261,6 +369,8 @@ function buildMatchResults(
     const candidateMatchResult: CourseMatchResult = {
       preview,
       score,
+      lecturerScore: scoreLecturerMatch(entry, course),
+      ectsCompatibility: getEctsCompatibility(entry, course),
       priority: isLikelyExerciseCourse(course) ? 1 : 0,
     }
     const existingMatchResult = scoredMatches.get(key)
@@ -268,7 +378,21 @@ function buildMatchResults(
     if (
       !existingMatchResult ||
       candidateMatchResult.score > existingMatchResult.score ||
-      (candidateMatchResult.score === existingMatchResult.score && candidateMatchResult.priority < existingMatchResult.priority)
+      (
+        candidateMatchResult.score === existingMatchResult.score &&
+        candidateMatchResult.lecturerScore > existingMatchResult.lecturerScore
+      ) ||
+      (
+        candidateMatchResult.score === existingMatchResult.score &&
+        candidateMatchResult.lecturerScore === existingMatchResult.lecturerScore &&
+        candidateMatchResult.ectsCompatibility > existingMatchResult.ectsCompatibility
+      ) ||
+      (
+        candidateMatchResult.score === existingMatchResult.score &&
+        candidateMatchResult.lecturerScore === existingMatchResult.lecturerScore &&
+        candidateMatchResult.ectsCompatibility === existingMatchResult.ectsCompatibility &&
+        candidateMatchResult.priority < existingMatchResult.priority
+      )
     ) {
       scoredMatches.set(key, candidateMatchResult)
     }
@@ -278,6 +402,12 @@ function buildMatchResults(
     if (secondMatch.score !== firstMatch.score) {
       return secondMatch.score - firstMatch.score
     }
+    if (secondMatch.lecturerScore !== firstMatch.lecturerScore) {
+      return secondMatch.lecturerScore - firstMatch.lecturerScore
+    }
+    if (secondMatch.ectsCompatibility !== firstMatch.ectsCompatibility) {
+      return secondMatch.ectsCompatibility - firstMatch.ectsCompatibility
+    }
     return firstMatch.priority - secondMatch.priority
   })
 }
@@ -286,15 +416,66 @@ function pickDefaultMasterCat(entry: ParsedTranscriptEntry, matchedCourse: Trans
   return matchedCourse?.masterCats[0] ?? entry.defaultMasterCat
 }
 
+function hasCompatibleEcts(matchResult: CourseMatchResult): boolean {
+  return matchResult.ectsCompatibility > 0
+}
+
 function hasExactNormalizedTitleMatch(
   entry: ParsedTranscriptEntry,
   matchResult: CourseMatchResult,
 ): boolean {
-  const candidateTitles = entry.titleCandidates.map((candidateTitle) => normalizeText(candidateTitle))
-  const previewTitles = [matchResult.preview.title, matchResult.preview.number].map((value) => normalizeText(value))
+  const candidateTitles = entry.titleCandidates.flatMap((candidateTitle) => buildTitleMatchVariants(candidateTitle))
+  const previewTitles = [
+    ...buildTitleMatchVariants(matchResult.preview.title),
+    normalizeText(matchResult.preview.number),
+  ]
   return candidateTitles.some((candidateTitle) =>
     previewTitles.some((previewTitle) => candidateTitle.length > 0 && candidateTitle === previewTitle),
   )
+}
+
+function compareAutoMatchCandidates(firstMatch: CourseMatchResult, secondMatch: CourseMatchResult): number {
+  if (secondMatch.lecturerScore !== firstMatch.lecturerScore) {
+    return secondMatch.lecturerScore - firstMatch.lecturerScore
+  }
+  if (secondMatch.ectsCompatibility !== firstMatch.ectsCompatibility) {
+    return secondMatch.ectsCompatibility - firstMatch.ectsCompatibility
+  }
+  if (firstMatch.priority !== secondMatch.priority) {
+    return firstMatch.priority - secondMatch.priority
+  }
+  return secondMatch.score - firstMatch.score
+}
+
+function pickAutoMatchedCourse(
+  entry: ParsedTranscriptEntry,
+  matchResults: CourseMatchResult[],
+): TranscriptCoursePreview | null {
+  const exactMatches = matchResults.filter((matchResult) => hasExactNormalizedTitleMatch(entry, matchResult))
+  if (exactMatches.length === 0) {
+    return null
+  }
+  if (exactMatches.length === 1) {
+    return exactMatches[0].preview
+  }
+
+  const sortedExactMatches = [...exactMatches].sort(compareAutoMatchCandidates)
+  const bestMatch = sortedExactMatches[0]
+  const secondBestMatch = sortedExactMatches[1]
+  if (!secondBestMatch) {
+    return bestMatch.preview
+  }
+
+  const hasUniqueLecturerMatch = bestMatch.lecturerScore > 0 && bestMatch.lecturerScore > secondBestMatch.lecturerScore
+  const hasUniqueEctsMatch = hasCompatibleEcts(bestMatch) && bestMatch.ectsCompatibility > secondBestMatch.ectsCompatibility
+  const hasUniqueCourseTypeMatch =
+    bestMatch.priority < secondBestMatch.priority &&
+    bestMatch.lecturerScore === secondBestMatch.lecturerScore &&
+    bestMatch.ectsCompatibility === secondBestMatch.ectsCompatibility
+
+  return hasUniqueLecturerMatch || hasUniqueEctsMatch || hasUniqueCourseTypeMatch
+    ? bestMatch.preview
+    : null
 }
 
 function getAssignableRegulationAreaCodes(
@@ -320,8 +501,7 @@ export function buildTranscriptImportCandidates(
 ): TranscriptImportCandidate[] {
   return entries.map((entry) => {
     const matchResults = buildMatchResults(entry, courses, context.studyProgramCode)
-    const exactMatches = matchResults.filter((matchResult) => hasExactNormalizedTitleMatch(entry, matchResult))
-    const matchedCourse = exactMatches.length === 1 ? exactMatches[0].preview : null
+    const matchedCourse = pickAutoMatchedCourse(entry, matchResults)
 
     const assignableRegulationAreaCodes = getAssignableRegulationAreaCodes(matchedCourse, context)
     const autoStudyAreaCode = assignableRegulationAreaCodes.length === 1
@@ -339,7 +519,7 @@ export function buildTranscriptImportCandidates(
       semester: entry.extractedSemester ?? '',
       grade: entry.extractedGrade,
       extractedEcts: entry.extractedEcts,
-      ects: matchedCourse?.ects ?? entry.extractedEcts,
+      ects: entry.extractedEcts ?? matchedCourse?.ects ?? null,
       masterCat: pickDefaultMasterCat(entry, matchedCourse),
       studyAreaCode: autoStudyAreaCode,
       status: matchedCourse ? 'matched' : matchResults.length > 0 ? 'uncertain' : 'unmatched',
@@ -372,7 +552,7 @@ export function applyCatalogCourseMatch(
   return finalizeCandidate({
     ...candidate,
     title: course.title,
-    ects: course.ects ?? candidate.extractedEcts,
+    ects: candidate.extractedEcts ?? course.ects,
     masterCat: course.masterCats[0] ?? candidate.masterCat,
     studyAreaCode: nextStudyAreaCode,
     matchedCourse: course,
@@ -397,8 +577,13 @@ export function updateTranscriptImportCandidate(
 export function acceptCandidateAsUebk(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
   return finalizeCandidate({
     ...candidate,
+    title: candidate.extractedTitle,
+    ects: candidate.extractedEcts,
     studyAreaCode: UEBK_AREA_CODE,
     masterCat: studyAreaCodeToMasterCat(UEBK_AREA_CODE) ?? candidate.masterCat,
+    matchedCourse: null,
+    courseId: null,
+    courseNumber: null,
     isUserEdited: true,
   })
 }
