@@ -45,6 +45,8 @@ URL: https://studyplaner.pages.dev/mcp
 Authentication: None
 ```
 
+Use the exact `/mcp` URL. If Claude shows `Dieser Konnektor hat keine Tools verfügbar`, remove the connector and add it again after deployment; Claude can cache failed tool discovery attempts.
+
 For Claude Desktop clients that need a local bridge, add this to `claude_desktop_config.json` and restart Claude Desktop:
 
 ```json

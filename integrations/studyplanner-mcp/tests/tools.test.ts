@@ -15,6 +15,7 @@ test('MCP catalog tools expose search, resolve, and detail', () => {
     STUDYPLANNER_MCP_TOOLS.map((tool) => tool.name),
     ['studyplanner_search_courses', 'studyplanner_resolve_course', 'studyplanner_get_course_detail'],
   )
+  assert.equal('securitySchemes' in STUDYPLANNER_MCP_TOOLS[0], false)
 })
 
 test('studyplanner_search_courses forwards structured filters', async () => {

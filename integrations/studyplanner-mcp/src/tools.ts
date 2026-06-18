@@ -6,7 +6,6 @@ export interface McpToolDefinition {
   description: string
   inputSchema: Record<string, unknown>
   annotations?: Record<string, unknown>
-  securitySchemes?: Array<Record<string, unknown>>
   _meta?: Record<string, unknown>
 }
 
@@ -33,7 +32,6 @@ const SEARCH_COURSES_TOOL: McpToolDefinition = {
   name: 'studyplanner_search_courses',
   description: 'Search the public StudyPlanner course catalog. Read-only and unauthenticated.',
   annotations: { readOnlyHint: true },
-  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
   _meta: appToolMeta('Searching StudyPlanner courses…', 'StudyPlanner course results ready.'),
   inputSchema: {
     type: 'object',
@@ -101,7 +99,6 @@ const RESOLVE_COURSE_TOOL: McpToolDefinition = {
   description:
     'Resolve a stable course number (and optional title hint) to the current numeric course id before quoting or linking a course.',
   annotations: { readOnlyHint: true },
-  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
   _meta: appToolMeta('Resolving StudyPlanner course…', 'StudyPlanner course resolved.'),
   inputSchema: {
     type: 'object',
@@ -119,7 +116,6 @@ const GET_COURSE_DETAIL_TOOL: McpToolDefinition = {
   name: 'studyplanner_get_course_detail',
   description: 'Get compact public details for one StudyPlanner course by numeric course id.',
   annotations: { readOnlyHint: true },
-  securitySchemes: [NO_AUTH_SECURITY_SCHEME],
   _meta: appToolMeta('Loading StudyPlanner course details…', 'StudyPlanner course details ready.'),
   inputSchema: {
     type: 'object',
