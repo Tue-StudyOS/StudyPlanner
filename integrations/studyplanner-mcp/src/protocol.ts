@@ -6,7 +6,7 @@ import {
 import { resolveStudyPlannerBaseUrl } from './client.ts'
 import { callStudyPlannerTool, STUDYPLANNER_MCP_TOOLS, type McpToolResult } from './tools.ts'
 
-export const MCP_PROTOCOL_VERSION = '2024-11-05'
+export const MCP_PROTOCOL_VERSION = '2025-06-18'
 export const MCP_SERVER_NAME = 'studyplanner-mcp'
 export const MCP_SERVER_VERSION = '0.1.0'
 

@@ -55,6 +55,8 @@ If your Claude or MCP client supports remote MCP/connectors directly:
 4. Authentication: **None**.
 5. Test with: `Nutze StudyPlanner und suche Kurse zu Machine Learning.`
 
+Use the exact `/mcp` URL. If Claude shows `Dieser Konnektor hat keine Tools verfügbar`, remove the connector and add it again after deployment; Claude can cache failed discovery attempts.
+
 For Claude Desktop clients that still need a local bridge, add this to `claude_desktop_config.json`:
 
 ```json
