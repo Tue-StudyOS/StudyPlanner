@@ -78,6 +78,18 @@ const STATUS_RANK: Record<OfferingStatus, number> = {
   unknown: 0,
 }
 
+export function isDefaultVisibleOfferingStatus(status: OfferingStatus | undefined): boolean {
+  return status === undefined || status === 'always' || status === 'confirmed'
+}
+
+export function isOutdatedOfferingStatus(status: OfferingStatus | undefined): boolean {
+  return status === 'unknown'
+}
+
+export function getOutdatedOfferingSortRank(status: OfferingStatus | undefined): number {
+  return isOutdatedOfferingStatus(status) ? 1 : 0
+}
+
 /**
  * Offering status of a course relative to its next (or currently running)
  * semester occurrence:
@@ -139,6 +151,30 @@ function wasOfferedInSeasonYear(labels: string[], season: TermSeason, startYear:
  * the reference summer is therefore the previous year's summer, while the
  * reference winter is the winter that just ended (and vice versa during winter).
  */
+export function getLatestKnownSeasonTermType(
+  course: Pick<Course, 'offeredPeriods'>,
+  knownPeriodLabels: string[],
+): CourseTermType {
+  const offeredPeriods = course.offeredPeriods ?? []
+  const newestSummerYear = newestStartYearForSeason(knownPeriodLabels, 'summer')
+  const newestWinterYear = newestStartYearForSeason(knownPeriodLabels, 'winter')
+  const hasSummer = newestSummerYear !== null
+    && wasOfferedInSeasonYear(offeredPeriods, 'summer', newestSummerYear)
+  const hasWinter = newestWinterYear !== null
+    && wasOfferedInSeasonYear(offeredPeriods, 'winter', newestWinterYear)
+
+  if (hasSummer && hasWinter) {
+    return 'both'
+  }
+  if (hasSummer) {
+    return 'summer'
+  }
+  if (hasWinter) {
+    return 'winter'
+  }
+  return 'unknown'
+}
+
 export function getRecentSeasonTermType(
   course: Pick<Course, 'offeredPeriods'>,
   now: Date = new Date(),
