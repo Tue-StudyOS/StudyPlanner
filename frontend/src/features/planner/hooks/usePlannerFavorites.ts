@@ -7,11 +7,13 @@ import {
   getResolvedPlannerAssignment,
   getSuggestedPlannerAssignment,
 } from '../utils/plannerAssignments'
+import { isCourseOfferedInTerm } from '../utils/plannerOffering'
 
 /** A favorite course prepared for display in the planner favorites panel. */
 export interface PlannerFavoriteCandidate {
   course: Course
   isPlanned: boolean
+  isOfferedInActiveSemester: boolean
   completedCourse: CompletedCourse | null
   options: RegulationAreaOption[]
   selectedAreaCode: string | null
@@ -27,6 +29,7 @@ interface UsePlannerFavoritesParams {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+  activeTerm: 'SS' | 'WS' | null
   onSetAssignment: (courseId: string, areaCode: string | null) => void
 }
 
@@ -47,6 +50,7 @@ export function usePlannerFavorites({
   planAssignments,
   plannedCourses,
   completedCourses,
+  activeTerm,
   onSetAssignment,
 }: UsePlannerFavoritesParams): UsePlannerFavoritesResult {
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({})
@@ -78,6 +82,12 @@ export function usePlannerFavorites({
       const rightAssignable = isAssignable(rightCourse)
       if (leftAssignable !== rightAssignable) {
         return Number(rightAssignable) - Number(leftAssignable)
+      }
+      // Courses not offered in the selected semester sort below offered ones.
+      const leftOffered = isCourseOfferedInTerm(leftCourse.termType, activeTerm)
+      const rightOffered = isCourseOfferedInTerm(rightCourse.termType, activeTerm)
+      if (leftOffered !== rightOffered) {
+        return Number(rightOffered) - Number(leftOffered)
       }
       const leftIsPlanned = plannedCourseIds.includes(leftCourse.id)
       const rightIsPlanned = plannedCourseIds.includes(rightCourse.id)
@@ -121,6 +131,7 @@ export function usePlannerFavorites({
       return {
         course,
         isPlanned,
+        isOfferedInActiveSemester: isCourseOfferedInTerm(course.termType, activeTerm),
         completedCourse: completedCourseByCatalogKey.get(course.id) ?? completedCourseByCatalogKey.get(course.number) ?? null,
         options,
         selectedAreaCode,
@@ -136,6 +147,7 @@ export function usePlannerFavorites({
     planAssignments,
     plannedCourses,
     completedCourses,
+    activeTerm,
     completedCourseByCatalogKey,
     assignmentDrafts,
   ])
