@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { FavStar } from '../../../shared/components/FavStar'
 import { CloseIcon } from '../../../shared/components/icons'
+import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useCatalogCourseDetail } from '../hooks/useCatalogCourseDetail'
 import type { Course } from '../types'
@@ -23,6 +24,8 @@ export function CourseDetailDrawer({
 }: CourseDetailDrawerProps) {
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useBodyScrollLock()
   // The catalog list only carries summary data; the full record adds the
   // description, exam dates, prerequisites, and learning platform links.
   const { course: detailCourse } = useCatalogCourseDetail(course.id)
@@ -44,7 +47,7 @@ export function CourseDetailDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 px-4 py-10"
+      className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 backdrop-blur-sm px-4 py-10"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -76,7 +79,7 @@ export function CourseDetailDrawer({
 
         <div
           ref={scrollRef}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
         >
           <CourseDetailBody course={displayCourse} />
         </div>
