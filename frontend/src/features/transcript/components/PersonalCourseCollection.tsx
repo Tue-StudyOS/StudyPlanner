@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { CompletedCourse } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import type { TranscriptImportCandidate } from '../types'
-import { CloseIcon } from '../../../shared/components/icons'
+import { TrashIcon } from './icons'
 import { TranscriptImportRow } from './TranscriptImportRow'
 
 function formatCompletedSubtitle(course: CompletedCourse): string {
@@ -32,9 +32,9 @@ function CompletedCourseRow({
         type="button"
         onClick={onDelete}
         aria-label={`Remove ${course.title} from your personal courses`}
-        className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
+        className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-danger"
       >
-        <CloseIcon />
+        <TrashIcon />
       </button>
     </div>
   )
@@ -160,6 +160,19 @@ export function PersonalCourseCollection({
                   onChange={onCurrentReviewCandidateChange}
                 />
               ))}
+
+              {/* The primary import also sits at the bottom of the list, where
+                  users look for it after editing the rows above. */}
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-2.5">
+                <button
+                  type="button"
+                  onClick={onImportCurrentReview}
+                  disabled={isBusy || currentReviewImportableCount === 0}
+                  className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Import ready rows{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
+                </button>
+              </div>
             </div>
           ) : null}
 

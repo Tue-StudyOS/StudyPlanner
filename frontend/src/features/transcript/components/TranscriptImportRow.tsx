@@ -10,7 +10,7 @@ import {
 } from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
-import { CloseIcon } from '../../../shared/components/icons'
+import { TrashIcon } from './icons'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
@@ -57,6 +57,7 @@ export function TranscriptImportRow({
   onDiscard,
 }: TranscriptImportRowProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState<boolean>(false)
   const displayTitle = candidate.matchedCourse?.title ?? candidate.title
   const displayNumber = candidate.matchedCourse?.number ?? candidate.courseNumber ?? 'Catalog course required'
   const hasActiveRegulation = regulationRuleGroups.length > 0
@@ -153,14 +154,34 @@ export function TranscriptImportRow({
         </button>
 
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={onDiscard}
-            aria-label={`Discard ${displayTitle} from transcript review`}
-            className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
-          >
-            <CloseIcon />
-          </button>
+          {isConfirmingDiscard ? (
+            <>
+              <button
+                type="button"
+                onClick={onDiscard}
+                className="rounded-md border border-danger/40 bg-danger-soft px-2 py-1 text-[11px] font-medium text-danger transition-colors hover:opacity-90"
+              >
+                Remove
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDiscard(false)}
+                className="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:bg-surface-hover"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDiscard(true)}
+              aria-label={`Remove ${displayTitle} from transcript review`}
+              title={`Remove ${displayTitle} from transcript review`}
+              className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-danger"
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </div>
 
