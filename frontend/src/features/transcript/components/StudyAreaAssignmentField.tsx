@@ -13,13 +13,13 @@ interface StudyAreaAssignmentFieldProps {
 }
 
 function labelClasses(tone: 'default' | 'error'): string {
-  return tone === 'error' ? 'text-primary' : 'text-fg-muted'
+  return tone === 'error' ? 'text-danger' : 'text-fg-muted'
 }
 
 function selectClasses(tone: 'default' | 'error', size: 'default' | 'compact'): string {
   return [
     'w-full rounded-md border bg-surface text-fg outline-none disabled:cursor-not-allowed disabled:opacity-60',
-    tone === 'error' ? 'border-primary/40 focus:border-primary' : 'border-border focus:border-primary',
+    tone === 'error' ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-fg-mid',
     size === 'compact' ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2 text-[12.5px]',
   ].join(' ')
 }
@@ -45,14 +45,14 @@ export function StudyAreaAssignmentField({
           {label}
         </div>
         {helpText ? (
-          <p className={`mt-1 ${tone === 'error' ? 'text-primary' : 'text-fg-muted'} ${compact ? 'text-[11.5px]' : 'text-[12px]'}`}>
+          <p className={`mt-1 ${tone === 'error' ? 'text-danger' : 'text-fg-muted'} ${compact ? 'text-[11.5px]' : 'text-[12px]'}`}>
             {helpText}
           </p>
         ) : null}
       </div>
 
       {options.length === 0 ? (
-        <div className={`rounded-lg border border-dashed px-3 py-2.5 ${tone === 'error' ? 'border-primary/40 text-primary' : 'border-border text-fg-muted'} ${compact ? 'text-[12px]' : 'text-[12.5px]'}`}>
+        <div className={`rounded-lg border border-dashed px-3 py-2.5 ${tone === 'error' ? 'border-danger/40 text-danger' : 'border-border text-fg-muted'} ${compact ? 'text-[12px]' : 'text-[12.5px]'}`}>
           No compatible regulation areas are available for the current selection.
         </div>
       ) : locked && selectedOption ? (

@@ -245,7 +245,7 @@ export function FeedbackWidget() {
                   </label>
 
                   {submissionState === 'error' ? (
-                    <div className="mt-3 rounded-[10px] border border-primary/30 bg-primary-soft px-3 py-2 text-[12.5px] text-primary">
+                    <div className="mt-3 rounded-[10px] border border-danger/30 bg-danger-soft px-3 py-2 text-[12.5px] text-danger">
                       {errorMessage || t('feedback.submitFailed')}
                     </div>
                   ) : null}

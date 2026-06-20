@@ -1,0 +1,27 @@
+Interview 1
+
+Alma is primarily used as a source of information.
+In some sections of the course page, professors' doctoral titles are missing (although they are displayed correctly in the detailed view)
+The translation is inconsistent, the content is partly in German and partly in English
+Courses marked with dashed lines can be added to favorites but do not appear in the planner (they are simply not visible anywhere, which is not particularly user-friendly)
+Favorites can be added to the timetable for any semester, even if the courses are not offered in that semester (e.g., "Introduction to Cryptography")
+On the course details page, list entries for different types of sessions (e.g., lecture vs. tutorial) are displayed in different colors, but these colors are difficult to distinguish
+Searching the Transcript of Records (ToR) for courses to be added manually can take up to 10 seconds
+
+Interview 2
+
+Dropdowns share the same color/border as error messages; users might mistakenly think something was entered incorrectly or is missing, even though they simply selected an item from the dropdown.
+The "X" next to event blocks in the ToR upload looks like a control to collapse the module, but it actually deletes the item. This can lead to unnecessary complications. Either label the interaction clearly or provide an "Undo" button.
+After filling in the ToR categories, users expect the main button to be at the bottom; they often accidentally click the "Feedback" button because it has the same visual prominence as the "Import" button at the top. The latter should be moved to the bottom of the form.
+The "Feedback" button needs a different color, as it currently shares the same color scheme as all other primary (first-level) buttons.
+Users are slow to notice which categories they have already completed in the progress window because the "Completed" tag isn't highlighted in green.
+Adjust the color scheme: red/dark pink should be reserved exclusively for errors, or the color palette needs a complete overhaul.
+When a catalog module is selected, the background behind the pop-up should be blurred to prevent cognitive overload.
+The course catalog search function is always in English, regardless of the selected language.
+The same event taking place in multiple lecture halls is flagged as a scheduling conflict; this shouldn't happen.
+The planner displays too much information and too many individual modules—it's information overload. The design needs rethinking; otherwise, using it isn't enjoyable.
+The font size is too small, and the planner should dynamically adjust to the screen size—there is far too little space in the planner view.
+The "Complete Semester" pop-up is stuck to the top header, making the first line unreadable; also, scrolling within the pop-up causes the background to move as well.
+
+
+

@@ -119,11 +119,11 @@ export function CatalogCoursePicker({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search catalog by title or number"
-          className={`rounded-md border border-border bg-surface text-fg outline-none focus:border-primary ${compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2 text-[12.5px]'}`}
+          className={`rounded-md border border-border bg-surface text-fg outline-none focus:border-fg-mid ${compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2 text-[12.5px]'}`}
         />
 
         {error ? (
-          <div className={`rounded-lg border border-primary/30 bg-primary/5 text-primary ${compact ? 'px-3 py-2.5 text-[12px]' : 'px-4 py-3 text-[12.5px]'}`}>
+          <div className={`rounded-lg border border-danger/30 bg-danger-soft text-danger ${compact ? 'px-3 py-2.5 text-[12px]' : 'px-4 py-3 text-[12.5px]'}`}>
             {error}
           </div>
         ) : null}

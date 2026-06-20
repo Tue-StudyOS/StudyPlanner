@@ -160,7 +160,7 @@ export function PlannerFavoritesPanel({
         {isLoading ? (
           <div className="text-[13px] text-fg-muted">Loading your interested courses...</div>
         ) : error ? (
-          <div className="text-[13px] text-primary">Failed to load planner candidates. {error}</div>
+          <div className="text-[13px] text-danger">Failed to load planner candidates. {error}</div>
         ) : visibleCandidates.length === 0 ? (
           <div className="grid justify-items-center gap-3 rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
             <span>Bookmark some courses in the catalog first, then plan with them here.</span>

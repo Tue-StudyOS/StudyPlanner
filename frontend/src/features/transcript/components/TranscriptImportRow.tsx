@@ -38,7 +38,7 @@ function cardClasses(hasIncomplete: boolean, isExpanded: boolean): string {
   if (isExpanded) {
     return 'border-border bg-surface'
   }
-  return 'border-primary/30 bg-primary/5'
+  return 'border-danger/40 bg-danger-soft'
 }
 
 interface TranscriptImportRowProps {
@@ -170,7 +170,7 @@ export function TranscriptImportRow({
             <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
           ) : null}
 
-          <div className={`${isMissingCatalogCourse ? 'rounded-[10px] border border-primary/40 bg-primary/5 p-2' : ''}`}>
+          <div className={`${isMissingCatalogCourse ? 'rounded-[10px] border border-danger/40 bg-danger-soft p-2' : ''}`}>
             <CatalogCoursePicker
               selectedCourse={candidate.matchedCourse}
               suggestedCourses={candidate.matchOptions}
@@ -217,7 +217,7 @@ export function TranscriptImportRow({
                   onChange(updateTranscriptImportCandidate(candidate, { semester: event.target.value }))
                 }
                 placeholder="e.g. WS 24/25"
-                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary ${isMissingSemester ? 'border-primary/60' : 'border-border'}`}
+                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-fg-mid ${isMissingSemester ? 'border-danger/60' : 'border-border'}`}
               />
             </label>
 
@@ -234,7 +234,7 @@ export function TranscriptImportRow({
                     }),
                   )
                 }
-                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-fg-mid"
               />
             </label>
 
