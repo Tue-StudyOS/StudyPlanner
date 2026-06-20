@@ -99,6 +99,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
     () => new Map(blocks.map((block) => [block.blockId, block])),
     [blocks],
   )
+  const hasExam = blocks.some((block) => block.isExam)
 
   return (
     <div>
@@ -146,7 +147,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
                   key={block.blockId}
                   title={block.label}
                   className={`absolute rounded-[3px] border ${
-                    isExam ? 'border-accent/60 bg-accent/30' : 'border-primary/50 bg-primary/25'
+                    isExam ? 'border-accent/80 bg-accent/45' : 'border-primary/70 bg-primary/35'
                   }`}
                   style={{
                     top: `${toPercent(block.startMinutes)}%`,
@@ -161,6 +162,21 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
         ))}
       </div>
 
+      {blocks.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-fg-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-[2px] border border-primary/70 bg-primary/35" />
+            {t('courseDetail.weekly')}
+          </span>
+          {hasExam ? (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-[2px] border border-accent/80 bg-accent/45" />
+              {t('courseDetail.exam')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       {blocks.length === 0 ? (
         <div className="mt-2 text-[12px] text-fg-muted">No weekly times published yet.</div>
       ) : (
@@ -173,8 +189,8 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
               }`}
             >
               <span
-                className={`inline-block h-1.5 w-1.5 self-center rounded-full ${
-                  block.isExam ? 'bg-accent' : 'bg-primary/70'
+                className={`inline-block h-2 w-2 self-center rounded-full ${
+                  block.isExam ? 'bg-accent' : 'bg-primary'
                 }`}
               />
               <span className="font-medium text-fg">{block.label.split(' · ')[0]}</span>
