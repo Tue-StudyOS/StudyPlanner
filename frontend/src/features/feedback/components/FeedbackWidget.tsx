@@ -170,7 +170,7 @@ export function FeedbackWidget() {
       <button
         type="button"
         onClick={openFromButton}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-primary/25 bg-primary px-4 py-2 text-[12.5px] font-semibold text-white shadow-lg shadow-black/10 transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 md:right-6"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-border bg-surface px-4 py-2 text-[12.5px] font-medium text-fg-mid shadow-lg shadow-black/10 transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-muted focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 md:right-6"
       >
         {t('feedback.button')}
       </button>
