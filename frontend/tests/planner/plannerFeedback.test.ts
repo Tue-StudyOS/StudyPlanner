@@ -125,6 +125,31 @@ test('buildPlannerBlocks flags overlapping blocks on the same day only', () => {
   assert.equal(overlapByBlockId.get('course-b-1'), false)
 })
 
+test('buildPlannerBlocks does not flag the same course in parallel rooms as a conflict', () => {
+  const course = createCourse('multi-room', [
+    { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
+    { day: 'Mo', time: '10:00 - 12:00', room: 'B210', type: 'lecture' },
+  ])
+
+  const blocks = buildPlannerBlocks([course])
+
+  assert.equal(blocks.length, 2)
+  assert.ok(blocks.every((block) => !block.hasOverlap))
+})
+
+test('buildPlannerBlocks still flags two different courses sharing a room slot', () => {
+  const courseA = createCourse('course-a', [
+    { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
+  ])
+  const courseB = createCourse('course-b', [
+    { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
+  ])
+
+  const blocks = buildPlannerBlocks([courseA, courseB])
+
+  assert.ok(blocks.every((block) => block.hasOverlap))
+})
+
 test('buildPlannerBlocks sorts by weekday then start time', () => {
   const course = createCourse('sorted', [
     { day: 'Fr', time: '08:00 - 09:00', room: '', type: '' },

@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  getLatestKnownSeasonTermType,
   getOfferingStatus,
+  getOutdatedOfferingSortRank,
   getRecentSeasonTermType,
   isCompulsoryCourse,
+  isDefaultVisibleOfferingStatus,
+  isOutdatedOfferingStatus,
   parsePeriodLabel,
+  resolveUnconfirmedOfferingVisibility,
 } from '../../src/features/courses/utils/catalogOffering.ts'
 import type { StudyAreaOption } from '../../src/features/courses/types.ts'
 
@@ -82,6 +87,38 @@ test('isCompulsoryCourse detects Pflicht markers from the regulation mapping', (
 test('courses without any offering data are unknown', () => {
   assert.equal(getOfferingStatus({ offeredPeriods: [], studyAreaOptions: [] }, KNOWN_PERIODS, NOW), 'unknown')
   assert.equal(getOfferingStatus({ studyAreaOptions: [] }, KNOWN_PERIODS, NOW), 'unknown')
+})
+
+test('getLatestKnownSeasonTermType uses the newest known catalog period for each selected season', () => {
+  assert.equal(
+    getLatestKnownSeasonTermType({ offeredPeriods: ['Sommer 2026', 'Winter 2025/26'] }, KNOWN_PERIODS),
+    'both',
+  )
+  assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Sommer 2026'] }, KNOWN_PERIODS), 'summer')
+  assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Winter 2025/26'] }, KNOWN_PERIODS), 'winter')
+  assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Winter 2024/25'] }, KNOWN_PERIODS), 'unknown')
+  assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Sommer 2025'] }, KNOWN_PERIODS), 'unknown')
+})
+
+test('catalog offering display helpers keep likely courses in normal order', () => {
+  assert.equal(isDefaultVisibleOfferingStatus('always'), true)
+  assert.equal(isDefaultVisibleOfferingStatus('confirmed'), true)
+  assert.equal(isDefaultVisibleOfferingStatus(undefined), true)
+  assert.equal(isDefaultVisibleOfferingStatus('likely'), false)
+  assert.equal(isDefaultVisibleOfferingStatus('unknown'), false)
+
+  assert.equal(isOutdatedOfferingStatus('likely'), false)
+  assert.equal(isOutdatedOfferingStatus('unknown'), true)
+  assert.equal(getOutdatedOfferingSortRank('confirmed'), 0)
+  assert.equal(getOutdatedOfferingSortRank('likely'), 0)
+  assert.equal(getOutdatedOfferingSortRank('unknown'), 1)
+})
+
+test('onboarding keeps unconfirmed course examples visible regardless of the checkbox draft state', () => {
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, false), false)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, false), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, true), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, true), true)
 })
 
 // During summer term 2026 the last *completed* semesters are Sommer 2025 and

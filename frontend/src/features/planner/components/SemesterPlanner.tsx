@@ -5,7 +5,7 @@ import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
 import type { Course } from '../../courses'
-import { findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
+import { ALL_CATALOG_PERIODS, findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
 import { useFavorites } from '../../favorites'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
@@ -23,7 +23,7 @@ import {
   getSuggestedPlannerAssignment,
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
-import { formatSemesterLabelShort } from '../utils/semesterLabels'
+import { formatSemesterLabelShort, parseSemesterLabel } from '../utils/semesterLabels'
 import {
   getPlannerFavoritesLayout,
   PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY,
@@ -90,6 +90,15 @@ export function SemesterPlanner() {
   )
   const { courses, isLoading, error } = useCatalogCourses('', 500, activePeriodId)
 
+  // Favorites can include courses from other terms (e.g. dashed "likely"
+  // catalog cards). Resolve their data from the full multi-period catalog so
+  // they still surface here instead of silently disappearing.
+  const { courses: allCatalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+  const activeTerm = useMemo(
+    () => parseSemesterLabel(activeSemesterLabel)?.term ?? null,
+    [activeSemesterLabel],
+  )
+
   const favoritesLayout = getPlannerFavoritesLayout(hasSidebarSpace)
   const courseById = useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses])
   const plannedCourses = plannedCourseIds
@@ -101,12 +110,17 @@ export function SemesterPlanner() {
     [regulationVersion?.ruleGroups],
   )
   // Show every interested course in the planner. Courses that cannot be mapped
-  // to a regulation area are rendered dimmed instead of hidden, so they never
-  // silently disappear.
-  const favoriteCourses = useMemo(
-    () => courses.filter((course) => favoriteIds.includes(course.id)),
-    [courses, favoriteIds],
-  )
+  // to a regulation area, or that are not offered in the selected semester, are
+  // rendered dimmed instead of hidden, so they never silently disappear.
+  const favoriteCourses = useMemo(() => {
+    const favoriteById = new Map<string, Course>()
+    for (const course of allCatalogCourses) {
+      if (favoriteIds.includes(course.id) && !favoriteById.has(course.id)) {
+        favoriteById.set(course.id, course)
+      }
+    }
+    return [...favoriteById.values()]
+  }, [allCatalogCourses, favoriteIds])
   const isPlannerTourPreview = isOnboardingOpen && isPlannerTourStep(activeStepId)
   const shouldShowTourAddDrawer = isSmallViewport && isOnboardingOpen && activeStepId === 'planner-add-mobile'
   const isPlannerMobileInterestedTour = shouldShowTourAddDrawer && isPlannerTourPreview
@@ -301,6 +315,8 @@ export function SemesterPlanner() {
   const plannerFavoritesPanel = (
     <PlannerFavoritesPanel
       favoriteCourses={displayFavoriteCourses}
+      activeTerm={isPlannerTourPreview ? null : activeTerm}
+      activeSemesterLabel={activeSemesterLabel}
       plannedCourseIds={displayPlannedCourseIds}
       isLoading={isPlannerTourPreview ? false : isLoading}
       error={isPlannerTourPreview ? null : error}

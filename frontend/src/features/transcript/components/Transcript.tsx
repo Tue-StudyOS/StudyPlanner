@@ -551,7 +551,7 @@ function AuthenticatedTranscript() {
       {(displayRegulationVersionError || displayCompletedCoursesError || displayImportNotice || displayIssuesError || displayIsSavingCompletedCourses || displayIsSavingIssues || displayIsLoadingIssues || displayIsLoadingRegulationVersion) ? (
         <div className="grid gap-2">
           {displayRegulationVersionError ? (
-            <div className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+            <div className="rounded-[10px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13px] text-danger">
               {displayRegulationVersionError}
             </div>
           ) : null}
@@ -563,13 +563,13 @@ function AuthenticatedTranscript() {
           ) : null}
 
           {displayCompletedCoursesError ? (
-            <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
+            <div className="rounded-[10px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13px] text-danger">
               {displayCompletedCoursesError}
             </div>
           ) : null}
 
           {displayIssuesError ? (
-            <div className="rounded-[10px] border border-primary/30 bg-primary/5 px-4 py-3 text-[13px] text-primary">
+            <div className="rounded-[10px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13px] text-danger">
               {displayIssuesError}
             </div>
           ) : null}
