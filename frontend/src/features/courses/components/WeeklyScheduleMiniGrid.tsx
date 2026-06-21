@@ -29,7 +29,7 @@ function toPercent(minutes: number): number {
 
 function getGridBlockClasses(kind: ScheduleSlotKind): string {
   if (kind === 'resit') {
-    return 'border-border bg-surface-hover/60'
+    return 'border-accent/45 bg-accent/18'
   }
   if (kind === 'exam') return 'border-accent/80 bg-accent/45'
   return 'border-primary/70 bg-primary/35'
@@ -37,14 +37,14 @@ function getGridBlockClasses(kind: ScheduleSlotKind): string {
 
 function getLegendSwatchClasses(kind: ScheduleSlotKind): string {
   if (kind === 'resit') {
-    return 'border-border bg-surface-hover/60'
+    return 'border-accent/45 bg-accent/18'
   }
   if (kind === 'exam') return 'border-accent/80 bg-accent/45'
   return 'border-primary/70 bg-primary/35'
 }
 
 function getDotClasses(kind: ScheduleSlotKind): string {
-  if (kind === 'resit') return 'bg-fg-muted'
+  if (kind === 'resit') return 'bg-accent/55'
   if (kind === 'exam') return 'bg-accent'
   return 'bg-primary'
 }
