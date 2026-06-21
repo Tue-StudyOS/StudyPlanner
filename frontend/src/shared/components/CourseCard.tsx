@@ -31,10 +31,6 @@ function TypePill({ label }: { label: string }) {
   )
 }
 
-function plainLecturerName(lecturer: string): string {
-  return lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g, '')
-}
-
 // The dashed card border already marks likely-offered courses; only the
 // faded "no current data" state keeps an explicit tag.
 function OfferingStatusTag({ status }: { status: OfferingStatus }) {
@@ -109,7 +105,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
             </div>
           ) : (
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
-              {plainLecturerName(course.lecturer || 'TBA')}
+              {course.lecturer || 'TBA'}
             </span>
           )}
         </div>
