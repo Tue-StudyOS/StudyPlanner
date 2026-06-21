@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
+import { useTranslation } from '../../i18n'
 import type { TranscriptImportCandidate } from '../types'
 import {
   acceptCandidateAsUebk,
@@ -10,7 +11,7 @@ import {
 } from '../utils/buildTranscriptImportCandidates'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
-import { CloseIcon } from '../../../shared/components/icons'
+import { TrashIcon } from './icons'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
@@ -23,14 +24,6 @@ import {
 
 const ALL_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
 
-function formatGrade(value: number | null): string {
-  return value === null ? 'No grade' : `Grade ${value.toFixed(1)}`
-}
-
-function formatSemester(value: string): string {
-  return value.trim() || 'Semester missing'
-}
-
 function cardClasses(hasIncomplete: boolean, isExpanded: boolean): string {
   if (!hasIncomplete) {
     return 'border-border bg-surface'
@@ -38,7 +31,7 @@ function cardClasses(hasIncomplete: boolean, isExpanded: boolean): string {
   if (isExpanded) {
     return 'border-border bg-surface'
   }
-  return 'border-primary/30 bg-primary/5'
+  return 'border-danger/40 bg-danger-soft'
 }
 
 interface TranscriptImportRowProps {
@@ -56,9 +49,15 @@ export function TranscriptImportRow({
   onChange,
   onDiscard,
 }: TranscriptImportRowProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState<boolean>(false)
   const displayTitle = candidate.matchedCourse?.title ?? candidate.title
-  const displayNumber = candidate.matchedCourse?.number ?? candidate.courseNumber ?? 'Catalog course required'
+  const displayNumber = candidate.matchedCourse?.number ?? candidate.courseNumber ?? t('transcript.row.catalogRequired')
+  const gradeText = candidate.grade === null
+    ? t('transcript.row.noGrade')
+    : `${t('transcript.row.grade')} ${candidate.grade.toFixed(1)}`
+  const semesterText = candidate.semester.trim() || t('transcript.row.semesterMissing')
   const hasActiveRegulation = regulationRuleGroups.length > 0
   const mappedAreaOptions = useMemo(
     () =>
@@ -147,30 +146,50 @@ export function TranscriptImportRow({
               {displayNumber} · {candidate.ects ?? '–'} ECTS
             </div>
             <div className="mt-1 text-[11.5px] text-fg-muted">
-              {formatGrade(candidate.grade)} · {formatSemester(candidate.semester)}
+              {gradeText} · {semesterText}
             </div>
           </div>
         </button>
 
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={onDiscard}
-            aria-label={`Discard ${displayTitle} from transcript review`}
-            className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
-          >
-            <CloseIcon />
-          </button>
+          {isConfirmingDiscard ? (
+            <>
+              <button
+                type="button"
+                onClick={onDiscard}
+                className="rounded-md border border-danger/40 bg-danger-soft px-2 py-1 text-[11px] font-medium text-danger transition-colors hover:opacity-90"
+              >
+                {t('common.remove')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDiscard(false)}
+                className="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:bg-surface-hover"
+              >
+                {t('common.cancel')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDiscard(true)}
+              aria-label={`Remove ${displayTitle} from transcript review`}
+              title={`Remove ${displayTitle} from transcript review`}
+              className="flex items-center justify-center rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-hover hover:text-danger"
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </div>
 
       {isExpanded ? (
         <div className="mt-2.5 grid min-w-0 gap-2.5 border-t border-border-light pt-2.5">
           {candidate.extractedTitle !== displayTitle ? (
-            <div className="text-[11px] text-fg-muted">Extracted title: {candidate.extractedTitle}</div>
+            <div className="text-[11px] text-fg-muted">{t('transcript.row.extractedTitle', { title: candidate.extractedTitle })}</div>
           ) : null}
 
-          <div className={`${isMissingCatalogCourse ? 'rounded-[10px] border border-primary/40 bg-primary/5 p-2' : ''}`}>
+          <div className={`${isMissingCatalogCourse ? 'rounded-[10px] border border-danger/40 bg-danger-soft p-2' : ''}`}>
             <CatalogCoursePicker
               selectedCourse={candidate.matchedCourse}
               suggestedCourses={candidate.matchOptions}
@@ -184,10 +203,10 @@ export function TranscriptImportRow({
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2">
               <span className="min-w-0 flex-1 text-[11.5px] text-fg-muted">
                 {isAcceptedAsUebk
-                  ? 'Accepted as written — counts toward the übK area.'
+                  ? t('transcript.row.uebkAccepted')
                   : candidate.matchedCourse
-                    ? 'Wrong catalog match? Search above to replace it, or accept the row as written into übK.'
-                    : 'Not in the catalog? Accept the row as written; it then counts toward übK.'}
+                    ? t('transcript.row.uebkReplaceOrAccept')
+                    : t('transcript.row.uebkAcceptNew')}
               </span>
               {!isAcceptedAsUebk ? (
                 <button
@@ -195,20 +214,20 @@ export function TranscriptImportRow({
                   onClick={() => onChange(acceptCandidateAsUebk(candidate))}
                   className="shrink-0 rounded-md border border-border px-3 py-1.5 text-[11.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
                 >
-                  Accept as übK
+                  {t('transcript.row.acceptUebk')}
                 </button>
               ) : null}
             </div>
           ) : candidate.matchedCourse ? (
             <div className="rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2 text-[11.5px] text-fg-muted">
-              Wrong catalog match? Search above to replace it. übK is not available in the active regulation.
+              {t('transcript.row.uebkUnavailable')}
             </div>
           ) : null}
 
           <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,7rem)_minmax(0,1.4fr)]">
             <label className="grid gap-1">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Semester
+                {t('transcript.row.semester')}
               </span>
               <input
                 type="text"
@@ -216,14 +235,14 @@ export function TranscriptImportRow({
                 onChange={(event) =>
                   onChange(updateTranscriptImportCandidate(candidate, { semester: event.target.value }))
                 }
-                placeholder="e.g. WS 24/25"
-                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary ${isMissingSemester ? 'border-primary/60' : 'border-border'}`}
+                placeholder={t('transcript.row.semesterPlaceholder')}
+                className={`rounded-md border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-fg-mid ${isMissingSemester ? 'border-danger/60' : 'border-border'}`}
               />
             </label>
 
             <label className="grid gap-1">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Grade
+                {t('transcript.row.grade')}
               </span>
               <TranscriptGradeSelect
                 value={candidate.grade}
@@ -234,7 +253,7 @@ export function TranscriptImportRow({
                     }),
                   )
                 }
-                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-fg-mid"
               />
             </label>
 
@@ -261,7 +280,7 @@ export function TranscriptImportRow({
           {!hasActiveRegulation ? (
             <div>
               <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Category
+                {t('transcript.row.category')}
               </div>
               <div className="flex flex-wrap gap-1">
                 {ALL_CATEGORIES.map((cat) => (

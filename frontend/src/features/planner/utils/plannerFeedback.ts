@@ -164,6 +164,15 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         if (candidate.blockId === block.blockId || candidate.day !== block.day) {
           return false
         }
+        // The same course listed in several rooms at the same time is one event,
+        // not a clash with itself, so it must not be flagged as a conflict.
+        if (
+          candidate.courseId === block.courseId
+          && candidate.startMinutes === block.startMinutes
+          && candidate.endMinutes === block.endMinutes
+        ) {
+          return false
+        }
         return candidate.startMinutes < block.endMinutes && block.startMinutes < candidate.endMinutes
       })
       return { ...block, hasOverlap }

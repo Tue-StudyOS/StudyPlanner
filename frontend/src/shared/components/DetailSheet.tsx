@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 
 interface DetailSheetProps {
@@ -16,6 +17,8 @@ interface DetailSheetProps {
 export function DetailSheet({ onClose, header, children, labelledBy }: DetailSheetProps) {
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
 
+  useBodyScrollLock()
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
@@ -28,7 +31,7 @@ export function DetailSheet({ onClose, header, children, labelledBy }: DetailShe
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/45 px-4 py-6 sm:py-10"
+      className="fixed inset-0 z-[90] overflow-y-auto bg-black/45 backdrop-blur-sm px-4 py-6 sm:py-10"
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledBy}
@@ -43,7 +46,7 @@ export function DetailSheet({ onClose, header, children, labelledBy }: DetailShe
         onClick={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 border-b border-border">{header}</div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom,0px)]">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom,0px)]">
           {children}
         </div>
       </div>

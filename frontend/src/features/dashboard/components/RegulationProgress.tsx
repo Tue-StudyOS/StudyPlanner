@@ -143,7 +143,7 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
                     <span className="text-[13px] font-semibold text-fg">{area.code}</span>
                     <span className="truncate text-[12px] text-fg-muted">{area.name}</span>
                     {area.isFulfilled ? (
-                      <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                      <span className="shrink-0 rounded-full border border-success/30 bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success">
                         {t('progress.regulationFulfilled')}
                       </span>
                     ) : null}
@@ -154,7 +154,7 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
                 </div>
                 <div className="h-1.25 overflow-hidden rounded-[3px] bg-border-light">
                   <div
-                    className={`h-full rounded-[3px] ${colorClass(area.masterCat)}`}
+                    className={`h-full rounded-[3px] ${area.isFulfilled ? 'bg-success' : colorClass(area.masterCat)}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>

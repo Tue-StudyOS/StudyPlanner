@@ -1,5 +1,6 @@
 import type { CompletedCourse } from '../../courses'
 import { CatBadge } from '../../../shared/components/CatBadge'
+import { useTranslation } from '../../i18n'
 import { useCompletedCourses } from '../hooks/useCompletedCourses'
 
 interface SemesterTabsProps {
@@ -62,19 +63,20 @@ function CompletedCourseRow({ course, index, isLast }: CompletedCourseRowProps) 
 }
 
 export function CompletedCourses() {
+  const { t } = useTranslation()
   const { semesters, activeSemester, setActiveSemester, courses } = useCompletedCourses()
 
   return (
     <div className="rounded-[10px] border border-border bg-surface px-6 py-5.5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="text-[14px] font-semibold text-fg">Completed Courses</div>
+        <div className="text-[14px] font-semibold text-fg">{t('transcript.completedTitle')}</div>
         <SemesterTabs semesters={semesters} active={activeSemester} onSelect={setActiveSemester} />
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
         {courses.length === 0 ? (
           <div className="px-6 py-6 text-center text-[13px] text-fg-muted">
-            No courses in this semester.
+            {t('transcript.noCoursesInSemester')}
           </div>
         ) : (
           courses.map((course, index) => (

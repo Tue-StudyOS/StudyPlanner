@@ -95,7 +95,7 @@ export function PlannerGrid({
           {DAY_ORDER.map((day) => (
             <div
               key={day}
-              className="text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[12px]"
+              className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
             >
               {DAY_LABELS[day]}
             </div>
@@ -105,7 +105,7 @@ export function PlannerGrid({
             {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
               <div
                 key={index}
-                className="absolute right-0 -translate-y-1/2 text-right text-[9px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[11px]"
+                className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
                 style={{ top: `${index * PIXELS_PER_HOUR}px` }}
               >
                 {`${String(START_HOUR + index).padStart(2, '0')}:00`}
@@ -136,7 +136,7 @@ export function PlannerGrid({
                   const height = Math.max(
                     ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
                     * PIXELS_PER_HOUR,
-                    38,
+                    44,
                   )
                   const titleLineClamp = getBlockTitleLineClamp(
                     height,
@@ -162,7 +162,7 @@ export function PlannerGrid({
                       }}
                     >
                       <div
-                        className="text-[6px] font-semibold leading-[7.25px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[9px] sm:leading-[10.5px]"
+                        className="text-[9px] font-semibold leading-[12px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[11px] sm:leading-[14px]"
                         style={{
                           display: '-webkit-box',
                           WebkitBoxOrient: 'vertical',
@@ -173,7 +173,7 @@ export function PlannerGrid({
                         {block.courseTitle}
                       </div>
                       {block.slotType ? (
-                        <div className="hidden truncate text-[9px] leading-[11px] opacity-75 sm:block">
+                        <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
                           {block.slotType}
                         </div>
                       ) : null}

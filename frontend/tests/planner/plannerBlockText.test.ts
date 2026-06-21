@@ -7,20 +7,20 @@ test('short blocks always keep at least one line', () => {
   assert.equal(getBlockTitleLineClamp(10, false), 1)
 })
 
-test('a 90-minute mobile block fits several small lines', () => {
-  // 90 minutes at 56px/h = 84px.
-  const lines = getBlockTitleLineClamp(84, true)
+test('a 90-minute mobile block fits several lines', () => {
+  // 90 minutes at 64px/h = 96px.
+  const lines = getBlockTitleLineClamp(96, true)
   assert.ok(lines >= 6, `expected >= 6 lines, got ${lines}`)
 })
 
-test('the minimum 38px block stays within bounds', () => {
-  assert.equal(getBlockTitleLineClamp(38, true), 4)
-  assert.equal(getBlockTitleLineClamp(38, false, true), 1)
-  assert.equal(getBlockTitleLineClamp(38, false, false), 2)
+test('the minimum 44px block stays within bounds', () => {
+  assert.equal(getBlockTitleLineClamp(44, true), 3)
+  assert.equal(getBlockTitleLineClamp(44, false, true), 1)
+  assert.equal(getBlockTitleLineClamp(44, false, false), 2)
 })
 
 test('desktop blocks reserve room for the type line', () => {
-  const withType = getBlockTitleLineClamp(84, false, true)
-  const withoutType = getBlockTitleLineClamp(84, false, false)
+  const withType = getBlockTitleLineClamp(96, false, true)
+  const withoutType = getBlockTitleLineClamp(96, false, false)
   assert.ok(withType < withoutType)
 })

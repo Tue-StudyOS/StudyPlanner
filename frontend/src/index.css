@@ -24,6 +24,14 @@
   --color-primary-soft: #FBEBEF;
   --color-accent: rgb(156 109 0);
 
+  /* Semantic feedback colors. Kept distinct from the brand primary so that
+     error states no longer read as "primary action" and completed states pop.
+     StudyOS.html has no dedicated error/success hues, so these are additions. */
+  --color-danger: #DC2626;
+  --color-danger-soft: #FCE9E9;
+  --color-success: #15803D;
+  --color-success-soft: #DCFCE7;
+
   --color-pill-bg: #F0F0F0;
   --color-pill-border: #E0E0E0;
   --color-pill-text: #444444;
@@ -121,6 +129,11 @@ body {
 
   --color-primary: #D14060;
   --color-primary-soft: #3A1A22;
+
+  --color-danger: #F87171;
+  --color-danger-soft: #3A1D1D;
+  --color-success: #4ADE80;
+  --color-success-soft: #14321E;
 
   --color-pill-bg: #34363C;
   --color-pill-border: #42454C;

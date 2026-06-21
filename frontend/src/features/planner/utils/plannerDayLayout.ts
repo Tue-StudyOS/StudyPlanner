@@ -5,7 +5,7 @@ export const END_HOUR = 18
 export const MINUTES_PER_HOUR = 60
 const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
 const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
-export const PIXELS_PER_HOUR = 56
+export const PIXELS_PER_HOUR = 64
 export const MAX_VISIBLE_OVERLAP_COLUMNS = 3
 
 interface PositionedPlannerBlock extends PlannerBlock {
