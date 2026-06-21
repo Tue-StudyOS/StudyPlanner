@@ -30,6 +30,7 @@ STOPWORDS = {
     "vorlesung",
     "zu",
 }
+TITLE_VARIANT_SPLIT_RE = re.compile(r"\s+(?:/|\||-|–|—)\s+")
 
 
 def load_alma_candidates(alma_db_path: Path, *, period_label: str | None = None) -> list[AlmaCourseCandidate]:
@@ -108,13 +109,13 @@ def match_courses(
 
         title_candidates = _title_candidates(course, alma_candidates)
         narrowed = _narrow_by_people(course, title_candidates)
-        if len(narrowed) == 1:
-            matches.append(
-                CourseMatch(course.ref_id, narrowed[0].course_id, 0.82, "title_and_lecturer", "Title similarity narrowed by lecturer.", len(title_candidates))
-            )
-        elif len(title_candidates) == 1:
+        if len(title_candidates) == 1:
             matches.append(
                 CourseMatch(course.ref_id, title_candidates[0].course_id, 0.74, "title_similarity", "Single strong title match.", 1)
+            )
+        elif len(narrowed) == 1:
+            matches.append(
+                CourseMatch(course.ref_id, narrowed[0].course_id, 0.82, "title_and_lecturer", "Title similarity narrowed by lecturer.", len(title_candidates))
             )
         elif title_candidates:
             matches.append(
@@ -151,34 +152,68 @@ def normalize_text(value: str) -> str:
 
 
 def title_tokens(value: str) -> set[str]:
+    value = re.sub(r"\([^)]*\)", " ", value)
     return {
         token
         for token in normalize_text(value).split()
-        if len(token) >= 4 and token not in STOPWORDS and not token.isdigit()
+        if (
+            len(token) >= 4
+            and token not in STOPWORDS
+            and not token.isdigit()
+            and not (
+                any(character.isalpha() for character in token)
+                and any(character.isdigit() for character in token)
+            )
+        )
     }
+
+
+def title_token_variants(value: str) -> list[set[str]]:
+    variants: list[set[str]] = []
+    for part in [value, *TITLE_VARIANT_SPLIT_RE.split(value)]:
+        tokens = title_tokens(part)
+        if tokens and tokens not in variants:
+            variants.append(tokens)
+    return variants
 
 
 def _title_candidates(
     course: IliasCourse,
     alma_candidates: list[AlmaCourseCandidate],
 ) -> list[AlmaCourseCandidate]:
-    source_tokens = title_tokens(course.title)
-    if not source_tokens:
+    source_variants = title_token_variants(course.title)
+    if not source_variants:
         return []
     scored: list[tuple[float, AlmaCourseCandidate]] = []
     for candidate in alma_candidates:
-        candidate_tokens = title_tokens(candidate.title)
-        if not candidate_tokens:
+        candidate_variants = title_token_variants(candidate.title)
+        if not candidate_variants:
             continue
-        overlap = len(source_tokens & candidate_tokens)
-        score = overlap / max(len(source_tokens), len(candidate_tokens))
-        if score >= 0.55 and overlap >= 2:
-            scored.append((score, candidate))
+        best_score = 0.0
+        for source_tokens in source_variants:
+            for candidate_tokens in candidate_variants:
+                overlap = len(source_tokens & candidate_tokens)
+                score = overlap / max(len(source_tokens), len(candidate_tokens))
+                if _is_strong_title_score(score, overlap, source_tokens, candidate_tokens):
+                    best_score = max(best_score, score)
+        if best_score:
+            scored.append((best_score, candidate))
     scored.sort(key=lambda item: (-item[0], item[1].course_id))
     if not scored:
         return []
     best_score = scored[0][0]
     return [candidate for score, candidate in scored if best_score - score <= 0.12]
+
+
+def _is_strong_title_score(
+    score: float,
+    overlap: int,
+    source_tokens: set[str],
+    candidate_tokens: set[str],
+) -> bool:
+    if score >= 0.55 and overlap >= 2:
+        return True
+    return score >= 0.9 and overlap >= 1 and min(len(source_tokens), len(candidate_tokens)) <= 2
 
 
 def _narrow_by_people(
@@ -187,11 +222,16 @@ def _narrow_by_people(
 ) -> list[AlmaCourseCandidate]:
     if not course.instructors:
         return candidates
-    people = {normalize_person(person) for person in course.instructors}
+    people = [person for person in (normalize_person(person) for person in course.instructors) if person]
     narrowed = [
         candidate
         for candidate in candidates
-        if people & {normalize_person(person) for person in candidate.lecturers}
+        if any(
+            people_match(source_person, candidate_person)
+            for source_person in people
+            for candidate_person in (normalize_person(person) for person in candidate.lecturers)
+            if candidate_person
+        )
     ]
     return narrowed or candidates
 
@@ -200,6 +240,14 @@ def normalize_person(value: str) -> str:
     text = normalize_text(value)
     parts = [part for part in text.split() if len(part) > 1 and part not in {"prof", "dr"}]
     return " ".join(parts[-2:])
+
+
+def people_match(source_person: str, candidate_person: str) -> bool:
+    if source_person == candidate_person:
+        return True
+    source_parts = source_person.split()
+    candidate_parts = set(candidate_person.split())
+    return bool(source_parts and source_parts[-1] in candidate_parts)
 
 
 def _unique_candidates(candidates: Iterable[AlmaCourseCandidate]) -> list[AlmaCourseCandidate]:

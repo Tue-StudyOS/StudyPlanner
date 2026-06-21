@@ -133,20 +133,27 @@ def import_scrape(connection: sqlite3.Connection, payload: dict[str, Any]) -> in
 
 def load_illias_courses(connection: sqlite3.Connection) -> list[IliasCourse]:
     initialize_database(connection)
+    latest_run = connection.execute("SELECT MAX(id) AS run_id FROM illias_scrape_runs").fetchone()
+    latest_run_id = latest_run["run_id"] if latest_run else None
+    if latest_run_id is None:
+        return []
     rows = connection.execute(
         """
         SELECT ref_id, title, url, object_type, description, availability,
                registration, deadline, max_participants, tags_json,
                instructors_json, raw_fields_json, raw_text
         FROM illias_courses
+        WHERE run_id = ?
         ORDER BY title
-        """
+        """,
+        (latest_run_id,),
     ).fetchall()
     return [_course_from_row(row) for row in rows]
 
 
 def save_matches(connection: sqlite3.Connection, matches: list[CourseMatch]) -> None:
     initialize_database(connection)
+    connection.execute("DELETE FROM illias_alma_matches")
     connection.executemany(
         """
         INSERT OR REPLACE INTO illias_alma_matches (
@@ -204,4 +211,3 @@ def _course_from_row(row: sqlite3.Row) -> IliasCourse:
         fields=json.loads(row["raw_fields_json"] or "{}"),
         raw_text=row["raw_text"],
     )
-

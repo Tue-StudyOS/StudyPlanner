@@ -2,6 +2,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -21,8 +22,11 @@ from services.course_catalog import (  # noqa: E402
     _collect_offering_groups,
     _derive_term_type,
     _extract_contents,
+    _json_list,
+    _load_illias_metadata,
     _period_sort_key,
 )
+from db.d1 import D1ExecutionError  # noqa: E402
 
 
 class ExtractContentsTest(unittest.TestCase):
@@ -113,6 +117,56 @@ class CollectOfferingGroupsTest(unittest.TestCase):
         groups = _collect_offering_groups(rows)
 
         self.assertEqual(len(groups), 2)
+
+
+class IliasMetadataTest(unittest.TestCase):
+    def test_json_list_ignores_non_list_payloads(self) -> None:
+        self.assertEqual(_json_list('{"name": "not a list"}'), [])
+        self.assertEqual(_json_list("not json"), [])
+        self.assertEqual(_json_list('["Ada", "", null, "Grace"]'), ["Ada", "Grace"])
+
+
+class LoadIliasMetadataTest(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_none_when_illias_tables_are_missing(self) -> None:
+        fetch_one = AsyncMock(side_effect=D1ExecutionError("no such table: illias_courses"))
+
+        with patch("services.course_catalog.fetch_one", fetch_one):
+            self.assertIsNone(await _load_illias_metadata({}, 42))
+
+    async def test_raises_unrelated_d1_errors(self) -> None:
+        fetch_one = AsyncMock(side_effect=D1ExecutionError("D1 query failed: syntax error"))
+
+        with patch("services.course_catalog.fetch_one", fetch_one):
+            with self.assertRaises(D1ExecutionError):
+                await _load_illias_metadata({}, 42)
+
+    async def test_normalizes_matched_illias_row(self) -> None:
+        fetch_one = AsyncMock(
+            return_value={
+                "refId": "123",
+                "title": "ILIAS Course",
+                "url": "https://example.test/ilias.php?ref_id=123",
+                "description": "Visible before joining",
+                "availability": "Online",
+                "registration": "Request membership",
+                "deadline": "30.06.2026",
+                "maxParticipants": 24,
+                "tagsJson": '["INFO2342"]',
+                "instructorsJson": '["Ada Lovelace"]',
+                "confidence": 0.95,
+                "matchType": "course_number_and_lecturer",
+                "notes": "Exact code narrowed by lecturer.",
+            }
+        )
+
+        with patch("services.course_catalog.fetch_one", fetch_one):
+            metadata = await _load_illias_metadata({}, 42)
+
+        self.assertEqual(metadata["refId"], "123")
+        self.assertEqual(metadata["maxParticipants"], 24)
+        self.assertEqual(metadata["tags"], ["INFO2342"])
+        self.assertEqual(metadata["instructors"], ["Ada Lovelace"])
+        self.assertEqual(metadata["match"]["confidence"], 0.95)
 
 
 if __name__ == "__main__":

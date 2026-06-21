@@ -65,6 +65,61 @@ class IliasMatcherTests(unittest.TestCase):
         self.assertIsNone(matches[0].alma_course_id)
         self.assertEqual(matches[0].match_type, "unmatched")
 
+    def test_parenthetical_lecturer_does_not_dilute_title_match(self) -> None:
+        course = IliasCourse(
+            ref_id="1",
+            title="Database Systems (Torsten Grust)",
+            url="https://example.test",
+            instructors=["Torsten Grust"],
+        )
+        alma = [
+            AlmaCourseCandidate(1, "INFO2420", "Database Systems", "229", "Sommer 2026", ["Grust, Torsten"]),
+        ]
+
+        matches = match_courses([course], alma)
+
+        self.assertEqual(matches[0].alma_course_id, 1)
+        self.assertIn(matches[0].match_type, {"title_similarity", "title_and_lecturer"})
+
+    def test_slash_title_variant_matches_alma_title_without_code_prefix(self) -> None:
+        course = IliasCourse(
+            ref_id="1",
+            title="Grundlagen des Maschinellen Lernens / Basics of Machine Learning",
+            url="https://example.test",
+        )
+        alma = [
+            AlmaCourseCandidate(
+                1,
+                "INF3151",
+                "INF3151 Grundlagen des Maschinellen Lernens - Vorlesung/Übung",
+                "229",
+                "Sommer 2026",
+            ),
+        ]
+
+        matches = match_courses([course], alma)
+
+        self.assertEqual(matches[0].alma_course_id, 1)
+        self.assertEqual(matches[0].match_type, "title_similarity")
+
+    def test_single_distinctive_title_token_can_match_when_candidate_is_exactly_narrow(self) -> None:
+        course = IliasCourse(ref_id="1", title="Programming in C++ - SS 2026", url="https://example.test")
+        alma = [
+            AlmaCourseCandidate(1, "INF3185", "INF3185 C++-Programming - Vorlesung", "229", "Sommer 2026"),
+            AlmaCourseCandidate(
+                2,
+                "INFO4481",
+                "INFO4481 Topics in Programming Language Theory - Seminar",
+                "229",
+                "Sommer 2026",
+            ),
+        ]
+
+        matches = match_courses([course], alma)
+
+        self.assertEqual(matches[0].alma_course_id, 1)
+        self.assertEqual(matches[0].match_type, "title_similarity")
+
 
 if __name__ == "__main__":
     unittest.main()

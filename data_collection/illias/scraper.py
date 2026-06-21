@@ -30,6 +30,15 @@ DEADLINE_RE = re.compile(
     r"(?:frist|deadline|anmeldeschluss|registration until|beitritt bis)[^\n:]*:?\s*([^\n]+)",
     re.IGNORECASE,
 )
+REGISTRATION_UNLIMITED_RE = re.compile(r"\bUnbegrenzt\b", re.IGNORECASE)
+REGISTRATION_MODE_RE = re.compile(
+    r"Aufnahmeverfahren\s+(.{1,180}?)(?=\s+(?:Teilnehmer|Einsichtnahme|Angaben|Zustimmung)|$)",
+    re.IGNORECASE,
+)
+REGISTRATION_DEADLINE_RE = re.compile(
+    r"Anmeldungsende:\s*(.{3,100}?)(?=\s+(?:Aufnahmeverfahren|Teilnehmer|Einsichtnahme|Angaben|Zustimmung)|$)",
+    re.IGNORECASE,
+)
 
 
 class IliasScraper:
@@ -61,29 +70,56 @@ class IliasScraper:
         start_url = f"{self.base_url}/login.php?target=&client_id=pr02"
         response = self.session.get(start_url, timeout=self.timeout)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-        form = _pick_login_form(soup)
-        if form is None:
+        for _attempt in range(8):
+            soup = BeautifulSoup(response.text, "html.parser")
             if _looks_logged_in(soup):
                 return
-            raise RuntimeError("Could not find ILIAS login form.")
 
-        action = urljoin(response.url, str(form.get("action") or response.url))
+            form = _pick_login_form(soup)
+            if form is not None:
+                response = self._post_login_form(response.url, form)
+                continue
+
+            central_login_url = _central_login_url(soup, response.url)
+            if central_login_url:
+                response = self.session.get(central_login_url, timeout=self.timeout)
+                response.raise_for_status()
+                continue
+
+            auto_form = _pick_auto_submit_form(soup)
+            if auto_form is not None:
+                response = self._post_form(response.url, auto_form, _form_payload(auto_form))
+                continue
+
+            break
+
+        raise RuntimeError("ILIAS login did not complete; check credentials or login flow.")
+
+    def _post_login_form(self, page_url: str, form: Tag) -> requests.Response:
         payload = _form_payload(form)
-        user_key = _find_input_name(form, ("username", "login", "user", "uid")) or "username"
-        password_key = _find_input_name(form, ("password", "passwd", "pass")) or "password"
+        user_key = _find_input_name(form, ("username", "j_username", "login", "user", "uid")) or "j_username"
+        password_key = _find_input_name(form, ("password", "j_password", "passwd", "pass")) or "j_password"
         payload[user_key] = self.username
         payload[password_key] = self.password
-        submit_response = self.session.post(action, data=payload, timeout=self.timeout)
-        submit_response.raise_for_status()
-        if _pick_login_form(BeautifulSoup(submit_response.text, "html.parser")) is not None:
-            raise RuntimeError("ILIAS login did not complete; check credentials or login flow.")
+        return self._post_form(page_url, form, payload)
 
-    def scrape_repository(self, start_url: str = DEFAULT_INFORMATICS_URL) -> dict[str, Any]:
+    def _post_form(self, page_url: str, form: Tag, payload: dict[str, str]) -> requests.Response:
+        action = urljoin(page_url, str(form.get("action") or page_url))
+        response = self.session.post(action, data=payload, timeout=self.timeout)
+        response.raise_for_status()
+        return response
+
+    def scrape_repository(
+        self,
+        start_url: str = DEFAULT_INFORMATICS_URL,
+        *,
+        max_courses: int | None = None,
+        max_depth: int = 1,
+    ) -> dict[str, Any]:
         self.login()
-        page = self._get_readonly(start_url)
-        soup = BeautifulSoup(page.text, "html.parser")
-        course_links = _extract_course_links(soup, page.url)
+        course_links = self._collect_repository_items(start_url, max_depth=max_depth)
+        if max_courses is not None:
+            course_links = course_links[: max(max_courses, 0)]
         courses: list[IliasCourse] = []
         seen_ref_ids: set[str] = set()
         for link in course_links:
@@ -92,7 +128,9 @@ class IliasScraper:
                 continue
             seen_ref_ids.add(ref_id)
             detail = self._get_readonly(link["url"])
-            courses.append(parse_course_page(detail.text, detail.url, fallback_title=link["title"]))
+            course = parse_course_page(detail.text, detail.url, fallback_title=link["title"])
+            course.object_type = link.get("object_type") or course.object_type
+            courses.append(course)
             time.sleep(self.polite_delay)
         return {
             "source": {
@@ -102,6 +140,30 @@ class IliasScraper:
             },
             "courses": [asdict(course) for course in courses],
         }
+
+    def _collect_repository_items(self, start_url: str, *, max_depth: int) -> list[dict[str, str]]:
+        queue: list[tuple[str, int]] = [(start_url, 0)]
+        seen_pages: set[str] = set()
+        seen_items: set[str] = set()
+        items: list[dict[str, str]] = []
+
+        while queue:
+            page_url, depth = queue.pop(0)
+            page = self._get_readonly(page_url)
+            if page.url in seen_pages:
+                continue
+            seen_pages.add(page.url)
+            soup = BeautifulSoup(page.text, "html.parser")
+            page_items = _extract_course_links(soup, page.url)
+            for item in page_items:
+                ref_id = item["ref_id"]
+                if item.get("object_type") == "crs" and ref_id not in seen_items:
+                    seen_items.add(ref_id)
+                    items.append(item)
+                if item.get("object_type") == "cat" and depth < max_depth:
+                    queue.append((item["url"], depth + 1))
+            time.sleep(self.polite_delay)
+        return items
 
     def _get_readonly(self, url: str) -> requests.Response:
         absolute_url = urljoin(self.base_url + "/", url)
@@ -122,10 +184,23 @@ def parse_course_page(html_text: str, url: str, *, fallback_title: str = "") -> 
     instructors = _split_people(
         _first_field(fields, ("Dozent", "Dozent/-in", "Lehrperson", "Tutor", "Administrator"))
     )
+    if not instructors:
+        instructors = _people_from_title(title)
     availability = _first_field(fields, ("Verfügbarkeit", "Availability", "Online"))
-    registration = _first_field(fields, ("Beitritt", "Anmeldung", "Registration", "Aufnahmemodus"))
-    deadline = _first_field(fields, ("Anmeldefrist", "Anmeldeschluss", "Deadline")) or _regex_value(
-        DEADLINE_RE, raw_text
+    registration_period = _first_field(
+        fields,
+        ("Anmeldungszeitraum", "Beitritt", "Anmeldung", "Registration", "Aufnahmemodus"),
+    )
+    registration = _clean_registration(
+        registration_period,
+        raw_text,
+        mode=_first_field(fields, ("Aufnahmeverfahren", "Aufnahmemodus")),
+    )
+    deadline = (
+        _first_field(fields, ("Anmeldefrist", "Anmeldeschluss", "Deadline"))
+        or _registration_deadline(registration)
+        or _registration_deadline(registration_period)
+        or _regex_value(DEADLINE_RE, raw_text, max_length=180)
     )
     max_participants = _maybe_int(
         _first_field(fields, ("Maximale Teilnehmerzahl", "Teilnehmerbegrenzung", "Max. Teilnehmer"))
@@ -136,7 +211,7 @@ def parse_course_page(html_text: str, url: str, *, fallback_title: str = "") -> 
         ref_id=ref_id,
         title=title,
         url=url,
-        object_type=_detect_object_type(soup),
+        object_type=_detect_object_type(soup, url),
         description=description,
         instructors=instructors,
         availability=availability,
@@ -154,28 +229,38 @@ def _extract_course_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, 
     for anchor in soup.find_all("a", href=True):
         href = str(anchor["href"])
         text = _clean_text(anchor)
+        classes = {str(class_name) for class_name in anchor.get("class", [])}
+        if "il_ContainerItemTitle" not in classes:
+            continue
         ref_id = _ref_id_from_url(href)
         if not ref_id or not text or FORBIDDEN_ACTION_RE.search(href):
             continue
-        object_context = " ".join(anchor.get("class", [])) + " " + _clean_text(
-            anchor.find_parent(["div", "tr", "li"]) or anchor
-        )
-        if not _looks_like_course_link(href, text, object_context):
+        object_type = _object_type_from_url(href)
+        if object_type not in {"cat", "crs"}:
             continue
-        links.append({"ref_id": ref_id, "title": text, "url": urljoin(base_url, href)})
+        links.append(
+            {
+                "ref_id": ref_id,
+                "title": text,
+                "url": urljoin(base_url, href),
+                "object_type": object_type,
+            }
+        )
     return links
-
-
-def _looks_like_course_link(href: str, text: str, context: str) -> bool:
-    haystack = f"{href} {text} {context}".casefold()
-    return (
-        "baseclass=ilrepositorygui" in haystack
-        and ("course" in haystack or "crs" in haystack or COURSE_CODE_RE.search(text) is not None)
-    )
 
 
 def _extract_fields(soup: BeautifulSoup) -> dict[str, str]:
     fields: dict[str, str] = {}
+    for property_row in soup.find_all(class_=re.compile(r"\bil-item-property\b")):
+        if not isinstance(property_row, Tag):
+            continue
+        label_node = property_row.find(class_=re.compile(r"\bil-item-property-name\b"))
+        value_node = property_row.find(class_=re.compile(r"\bil-item-property-value\b"))
+        label = _clean_text(label_node).rstrip(":")
+        value = _clean_text(value_node)
+        if label and value:
+            fields.setdefault(label, value)
+
     for row in soup.find_all(["tr", "div", "li"]):
         if not isinstance(row, Tag):
             continue
@@ -205,6 +290,30 @@ def _pick_login_form(soup: BeautifulSoup) -> Tag | None:
             continue
         text = str(form).casefold()
         if "password" in text or "passwd" in text:
+            return form
+    return None
+
+
+def _central_login_url(soup: BeautifulSoup, base_url: str) -> str | None:
+    for anchor in soup.find_all("a", href=True):
+        if not isinstance(anchor, Tag):
+            continue
+        href = str(anchor.get("href") or "")
+        text = _clean_text(anchor)
+        haystack = f"{href} {text}".casefold()
+        if "shib_login" in haystack or "zentraler universitäts-kennung" in haystack:
+            return urljoin(base_url, href)
+    return None
+
+
+def _pick_auto_submit_form(soup: BeautifulSoup) -> Tag | None:
+    for form in soup.find_all("form"):
+        if not isinstance(form, Tag):
+            continue
+        if _pick_login_form(BeautifulSoup(str(form), "html.parser")) is not None:
+            continue
+        payload = _form_payload(form)
+        if payload and form.get("action"):
             return form
     return None
 
@@ -251,7 +360,10 @@ def _page_title(soup: BeautifulSoup) -> str:
     return ""
 
 
-def _detect_object_type(soup: BeautifulSoup) -> str | None:
+def _detect_object_type(soup: BeautifulSoup, url: str) -> str | None:
+    object_type = _object_type_from_url(url)
+    if object_type:
+        return object_type
     text = str(soup)
     if re.search(r"\bilObjCourseGUI\b|\bcrs\b|Course", text, re.I):
         return "course"
@@ -261,7 +373,22 @@ def _detect_object_type(soup: BeautifulSoup) -> str | None:
 def _ref_id_from_url(url: str) -> str | None:
     query = parse_qs(urlparse(url).query)
     ref_id = query.get("ref_id") or query.get("refId")
-    return ref_id[0] if ref_id else None
+    if ref_id:
+        return ref_id[0]
+    match = re.search(r"/(?:goto\.php/)?(?:cat|crs|grp|fold)/(\d+)", urlparse(url).path)
+    return match.group(1) if match else None
+
+
+def _object_type_from_url(url: str) -> str | None:
+    path = urlparse(url).path
+    match = re.search(r"/(?:goto\.php/)?(cat|crs|grp|fold)/\d+", path)
+    if match:
+        return match.group(1)
+    if "type=crs" in url:
+        return "crs"
+    if "type=cat" in url:
+        return "cat"
+    return None
 
 
 def _first_field(fields: dict[str, str], names: tuple[str, ...]) -> str | None:
@@ -286,9 +413,50 @@ def _split_people(value: str | None) -> list[str]:
     ]
 
 
-def _regex_value(pattern: re.Pattern[str], text: str) -> str | None:
+def _people_from_title(title: str) -> list[str]:
+    people: list[str] = []
+    for value in re.findall(r"\(([^)]{3,120})\)", title):
+        cleaned = re.sub(r"\bProf\.?(?:\s+Dr\.?)?|\bDr\.?|\bJun\.-Prof\.?", "", value).strip()
+        for part in re.split(r";|,| und | and ", cleaned):
+            person = part.strip()
+            if len(person.split()) >= 2:
+                people.append(person)
+    return people
+
+
+def _clean_registration(value: str | None, raw_text: str, *, mode: str | None = None) -> str | None:
+    candidates = [value, raw_text]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        pieces: list[str] = []
+        if REGISTRATION_UNLIMITED_RE.search(candidate):
+            pieces.append("Unbegrenzt")
+        mode_text = mode or _regex_value(REGISTRATION_MODE_RE, candidate, max_length=180)
+        if mode_text:
+            pieces.append(mode_text.rstrip(".") + ".")
+        if pieces:
+            return " ".join(pieces)
+        cleaned = candidate.strip()
+        if 0 < len(cleaned) <= 180 and "Einsichtnahme" not in cleaned and "Zustimmung" not in cleaned:
+            return cleaned
+    return None
+
+
+def _registration_deadline(registration: str | None) -> str | None:
+    if not registration:
+        return None
+    return _regex_value(REGISTRATION_DEADLINE_RE, registration, max_length=100)
+
+
+def _regex_value(pattern: re.Pattern[str], text: str, *, max_length: int | None = None) -> str | None:
     match = pattern.search(text)
-    return match.group(1).strip() if match else None
+    if not match:
+        return None
+    value = match.group(1).strip()
+    if max_length is not None and len(value) > max_length:
+        return None
+    return value
 
 
 def _maybe_int(value: object) -> int | None:
@@ -304,4 +472,3 @@ def _clean_text(node: Tag | BeautifulSoup | Any) -> str:
     if isinstance(node, (Tag, BeautifulSoup)):
         return re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
     return re.sub(r"\s+", " ", str(node)).strip()
-

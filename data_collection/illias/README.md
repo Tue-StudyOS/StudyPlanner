@@ -7,12 +7,18 @@ join, subscribe, or otherwise change membership state.
 ## Workflow
 
 ```powershell
-cd data_collection
-py -3 -m illias.cli scrape --out-json output/illias_courses.json
-py -3 -m illias.cli match --period-label "Sommer 2026" --out-json output/illias_matches.json
+uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli scrape --out-json data_collection/output/illias_courses.json
+uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli match --period-label "Sommer 2026" --out-json data_collection/output/illias_matches.json
+uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli export-sql --out backend/data/seed_illias.sql
 ```
 
 The default SQLite output is `data_collection/output/illias.sqlite`.
+
+For a smoke run without fetching every course detail:
+
+```powershell
+uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli scrape --max-courses 5 --out-json data_collection/output/illias_smoke.json
+```
 
 The matcher is conservative:
 
@@ -23,4 +29,3 @@ The matcher is conservative:
 
 The credentials file is read from `data_collection/illias/.env` by default and
 must contain the keys shown in `.env.template`.
-
