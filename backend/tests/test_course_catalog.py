@@ -22,6 +22,7 @@ from db.d1 import D1ExecutionError  # noqa: E402
 from services import course_catalog  # noqa: E402
 from services.course_catalog import (  # noqa: E402
     _build_participant_limits,
+    _build_schedule,
     _collect_offering_groups,
     _derive_term_type,
     _extract_contents,
@@ -83,6 +84,74 @@ class PickDescriptionTest(unittest.TestCase):
 
     def test_falls_back_to_ects_only_short_comment_when_no_section_exists(self) -> None:
         self.assertEqual(_pick_description("9 CP", []), "9 CP")
+
+
+class BuildScheduleTest(unittest.TestCase):
+    def test_deduplicates_multi_room_exam_appointments(self) -> None:
+        rows = [
+            {
+                "dateText": "27.07.2026",
+                "timeText": "08:00 - 11:00",
+                "roomText": "Hörsaal N02",
+                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "courseType": "Vorlesung",
+            },
+            {
+                "dateText": "27.07.2026",
+                "timeText": "08:00 - 11:00",
+                "roomText": "Hörsaal N03",
+                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "courseType": "Vorlesung",
+            },
+            {
+                "dateText": "29.09.2026",
+                "timeText": "09:00 - 12:00",
+                "roomText": "Hörsaal 25",
+                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "note": "Nachklausur",
+                "courseType": "Vorlesung",
+            },
+            {
+                "dateText": "29.09.2026",
+                "timeText": "09:00 - 12:00",
+                "roomText": "Hörsaal 24",
+                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "note": "Nachklausur",
+                "courseType": "Vorlesung",
+            },
+        ]
+
+        self.assertEqual(
+            _build_schedule(rows),
+            [
+                {
+                    "day": "27.07.2026",
+                    "time": "08:00 - 11:00",
+                    "room": "Hörsaal N02",
+                    "type": "Klausur",
+                },
+                {
+                    "day": "29.09.2026",
+                    "time": "09:00 - 12:00",
+                    "room": "Hörsaal 25",
+                    "type": "Nachklausur",
+                },
+            ],
+        )
+
+    def test_keeps_weekly_date_range_slots(self) -> None:
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "10:00 - 12:00",
+                "roomText": "Hörsaal N06",
+                "groupTitle": "Mathematik für Informatik 2",
+                "courseType": "Vorlesung",
+            },
+        ]
+
+        self.assertEqual(_build_schedule(rows)[0]["day"], "13.04.2026 - 20.07.2026")
+        self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung")
 
 
 class PeriodSortKeyTest(unittest.TestCase):

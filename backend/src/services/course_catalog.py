@@ -40,6 +40,8 @@ INHALTE_EMPTY_PLACEHOLDER = "es wurden noch keine inhalte hinterlegt"
 ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', re.IGNORECASE)
 # ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
+EXAM_SLOT_PATTERN = re.compile(r"\b(klausur|nachklausur|pruefung|prüfung|exam|resit)\b", re.IGNORECASE)
+RESIT_SLOT_PATTERN = re.compile(r"\b(nachklausur|resit)\b", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.
 PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
 # Course numbers are unique and stable across ALMA periods, so they identify the
@@ -172,6 +174,32 @@ def _normalize_master_cats(option_rows: list[dict[str, Any]]) -> list[str]:
     return sorted(unique_categories, key=lambda category: MASTER_CAT_ORDER.index(category))
 
 
+def _appointment_context(row: dict[str, Any]) -> str:
+    return " ".join(
+        value
+        for value in [
+            _safe_text(row.get("groupTitle")),
+            _safe_text(row.get("groupType")),
+            _safe_text(row.get("timeNote")),
+            _safe_text(row.get("note")),
+        ]
+        if value
+    )
+
+
+def _is_exam_appointment(row: dict[str, Any]) -> bool:
+    return bool(EXAM_SLOT_PATTERN.search(_appointment_context(row)))
+
+
+def _appointment_slot_type(row: dict[str, Any]) -> str:
+    context = _appointment_context(row)
+    if RESIT_SLOT_PATTERN.search(context):
+        return "Nachklausur"
+    if EXAM_SLOT_PATTERN.search(context):
+        return "Klausur"
+    return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
+
+
 def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     schedule: list[dict[str, str]] = []
     seen_slots: set[tuple[str, str, str, str]] = set()
@@ -180,9 +208,9 @@ def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, st
         day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
-        slot_type = _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
+        slot_type = _appointment_slot_type(row)
 
-        slot_key = (day, time_text, room_text, slot_type)
+        slot_key = (day, time_text, "" if _is_exam_appointment(row) else room_text, slot_type)
         if slot_key in seen_slots:
             continue
         seen_slots.add(slot_key)
@@ -478,6 +506,7 @@ async def _load_catalog_related_chunk(
         f"""
         SELECT
             pg.course_id AS courseId,
+            pg.title AS groupTitle,
             pg.group_type AS groupType,
             c.course_type AS courseType,
             a.weekday,
@@ -486,6 +515,8 @@ async def _load_catalog_related_chunk(
             a.date_text AS dateText,
             a.start_time AS startTime,
             a.room_text AS roomText,
+            a.time_note AS timeNote,
+            a.note,
             a.position
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
@@ -1114,6 +1145,9 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         SELECT
             a.id,
             a.parallel_group_id AS parallelGroupId,
+            pg.title AS groupTitle,
+            pg.group_type AS groupType,
+            c.course_type AS courseType,
             a.position,
             a.rhythm,
             a.weekday,
@@ -1132,6 +1166,7 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             a.cancellation_text AS cancellationText
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
+        JOIN courses AS c ON c.id = pg.course_id
         WHERE pg.course_id = ?
         ORDER BY a.weekday_index ASC, a.start_time ASC, a.position ASC
     """

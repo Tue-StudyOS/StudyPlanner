@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import {
   DAY_LABELS,
   DAY_ORDER,
-  isSingleDateSlot,
   normalizeWeekday,
   parseTimeRange,
   type PlannerBlock,
@@ -10,6 +9,7 @@ import {
 import { buildDayLayout } from '../../planner/utils/plannerDayLayout'
 import { useTranslation } from '../../i18n'
 import { getDateOrdinal, parseDateSortValue } from '../utils/examLabels.ts'
+import { getScheduleSlotKind, type ScheduleSlotKind } from '../utils/scheduleSlotKind.ts'
 import type { ScheduleSlot } from '../types'
 
 const GRID_START_MINUTES = 8 * 60
@@ -17,7 +17,7 @@ const GRID_END_MINUTES = 18 * 60
 const GRID_HEIGHT_PX = 108
 
 interface MiniGridBlock extends PlannerBlock {
-  isExam: boolean
+  kind: ScheduleSlotKind
   /** Concrete date string for one-off exam slots, null for weekly slots. */
   examDate: string | null
 }
@@ -27,9 +27,31 @@ function toPercent(minutes: number): number {
   return ((clamped - GRID_START_MINUTES) / (GRID_END_MINUTES - GRID_START_MINUTES)) * 100
 }
 
+function getGridBlockClasses(kind: ScheduleSlotKind): string {
+  if (kind === 'resit') {
+    return 'border-amber-600/80 bg-amber-400/45 dark:border-amber-300/80 dark:bg-amber-300/35'
+  }
+  if (kind === 'exam') return 'border-accent/80 bg-accent/45'
+  return 'border-primary/70 bg-primary/35'
+}
+
+function getLegendSwatchClasses(kind: ScheduleSlotKind): string {
+  if (kind === 'resit') {
+    return 'border-amber-600/80 bg-amber-400/45 dark:border-amber-300/80 dark:bg-amber-300/35'
+  }
+  if (kind === 'exam') return 'border-accent/80 bg-accent/45'
+  return 'border-primary/70 bg-primary/35'
+}
+
+function getDotClasses(kind: ScheduleSlotKind): string {
+  if (kind === 'resit') return 'bg-amber-500 dark:bg-amber-300'
+  if (kind === 'exam') return 'bg-accent'
+  return 'bg-primary'
+}
+
 /**
  * Compact Mon-Fri grid marking weekly slots as primary-colored blocks and
- * one-off exam dates in a distinct accent color; overlapping blocks share the
+ * one-off exam/resit dates in distinct colors; overlapping blocks share the
  * column side by side. Always renders, even without time data.
  */
 export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] }) {
@@ -42,7 +64,8 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
       if (!day || !timeRange || timeRange.endMinutes <= GRID_START_MINUTES) {
         return
       }
-      const isExam = isSingleDateSlot(slot.day)
+      const kind = getScheduleSlotKind(slot)
+      const isExam = kind !== 'weekly'
       // Exams keep their concrete date in the label; weekly slots show the day.
       const dayLabel = isExam ? slot.day.trim() : DAY_LABELS[day]
       parsedBlocks.push({
@@ -57,7 +80,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
         room: slot.room,
         slotType: slot.type,
         hasOverlap: false,
-        isExam,
+        kind,
         examDate: isExam ? slot.day.trim() : null,
       })
     })
@@ -67,9 +90,9 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
   // The list below the grid shows weekly course times first, then the exam
   // dates in chronological order labelled Exam / Resit exam.
   const listEntries = useMemo(() => {
-    const weeklyBlocks = blocks.filter((block) => !block.isExam)
+    const weeklyBlocks = blocks.filter((block) => block.kind === 'weekly')
     const examBlocks = blocks
-      .filter((block) => block.isExam)
+      .filter((block) => block.kind !== 'weekly')
       .sort((left, right) => {
         const leftValue = parseDateSortValue(left.examDate ?? '')
         const rightValue = parseDateSortValue(right.examDate ?? '')
@@ -99,7 +122,8 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
     () => new Map(blocks.map((block) => [block.blockId, block])),
     [blocks],
   )
-  const hasExam = blocks.some((block) => block.isExam)
+  const hasExam = blocks.some((block) => block.kind === 'exam')
+  const hasResit = blocks.some((block) => block.kind === 'resit')
 
   return (
     <div>
@@ -140,15 +164,13 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
               />
             ))}
             {dayLayouts[day].visibleBlocks.map((block) => {
-              const isExam = blockById.get(block.blockId)?.isExam ?? false
+              const kind = blockById.get(block.blockId)?.kind ?? 'weekly'
               const widthPercent = 100 / block.visibleColumnCount
               return (
                 <div
                   key={block.blockId}
                   title={block.label}
-                  className={`absolute rounded-[3px] border ${
-                    isExam ? 'border-accent/80 bg-accent/45' : 'border-primary/70 bg-primary/35'
-                  }`}
+                  className={`absolute rounded-[3px] border ${getGridBlockClasses(kind)}`}
                   style={{
                     top: `${toPercent(block.startMinutes)}%`,
                     height: `${Math.max(toPercent(block.endMinutes) - toPercent(block.startMinutes), 4)}%`,
@@ -165,13 +187,19 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
       {blocks.length > 0 ? (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-fg-muted">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-[2px] border border-primary/70 bg-primary/35" />
+            <span className={`inline-block h-2 w-2 rounded-[2px] border ${getLegendSwatchClasses('weekly')}`} />
             {t('courseDetail.weekly')}
           </span>
           {hasExam ? (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-[2px] border border-accent/80 bg-accent/45" />
+              <span className={`inline-block h-2 w-2 rounded-[2px] border ${getLegendSwatchClasses('exam')}`} />
               {t('courseDetail.exam')}
+            </span>
+          ) : null}
+          {hasResit ? (
+            <span className="flex items-center gap-1.5">
+              <span className={`inline-block h-2 w-2 rounded-[2px] border ${getLegendSwatchClasses('resit')}`} />
+              {t('courseDetail.resitExam')}
             </span>
           ) : null}
         </div>
@@ -185,21 +213,17 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
             <li
               key={block.blockId}
               className={`flex flex-wrap items-baseline gap-x-2 text-fg-mid ${
-                block.isExam ? 'gap-y-0.5 text-[11px] leading-4' : 'text-[12px]'
+                block.kind !== 'weekly' ? 'gap-y-0.5 text-[11px] leading-4' : 'text-[12px]'
               }`}
             >
-              <span
-                className={`inline-block h-2 w-2 self-center rounded-full ${
-                  block.isExam ? 'bg-accent' : 'bg-primary'
-                }`}
-              />
+              <span className={`inline-block h-2 w-2 self-center rounded-full ${getDotClasses(block.kind)}`} />
               <span className="font-medium text-fg">{block.label.split(' · ')[0]}</span>
               {block.room && block.room !== 'TBA' ? (
                 <span className="text-fg-muted">{block.room}</span>
               ) : null}
               {examOrdinal !== null ? (
                 <span className="text-fg-muted">
-                  · {examOrdinal === 0 ? t('courseDetail.exam') : t('courseDetail.resitExam')}
+                  · {block.kind === 'resit' || examOrdinal > 0 ? t('courseDetail.resitExam') : t('courseDetail.exam')}
                 </span>
               ) : null}
             </li>
