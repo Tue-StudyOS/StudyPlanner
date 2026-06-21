@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CompletedCourse } from '../../courses'
+import { useTranslation } from '../../i18n'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import type { TranscriptImportCandidate } from '../types'
 import { TrashIcon } from './icons'
@@ -79,6 +80,7 @@ export function PersonalCourseCollection({
   onDeleteCompleted: (completedCourseId: string) => void
   onClearAll: () => void
 }) {
+  const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
 
@@ -86,7 +88,7 @@ export function PersonalCourseCollection({
     <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[14px] font-semibold text-fg">Personal Courses</div>
+          <div className="text-[14px] font-semibold text-fg">{t('transcript.personalTitle')}</div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -98,7 +100,7 @@ export function PersonalCourseCollection({
                 : 'border-border text-fg hover:bg-surface-hover'
             }`}
           >
-            {isEditing ? 'Done' : 'Edit'}
+            {isEditing ? t('transcript.done') : t('transcript.edit')}
           </button>
           {isEditing ? (
             <button
@@ -107,7 +109,7 @@ export function PersonalCourseCollection({
               disabled={!hasContent || isBusy}
               className="rounded-md border border-primary/40 px-3 py-1.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Clear all
+              {t('transcript.clearAll')}
             </button>
           ) : null}
         </div>
@@ -115,7 +117,7 @@ export function PersonalCourseCollection({
 
       {!hasContent ? (
         <div className="rounded-[10px] border border-dashed border-border px-4 py-6 text-center text-[12.5px] text-fg-muted">
-          Import a transcript or add a completed course manually to build your personal courses.
+          {t('transcript.empty')}
         </div>
       ) : (
         <div className="grid min-w-0 gap-3.5">
@@ -124,10 +126,10 @@ export function PersonalCourseCollection({
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
-                    Current review
+                    {t('transcript.currentReview')}
                   </div>
                   <p className="mt-1 text-[11.5px] text-fg-muted">
-                    Ready now: {currentReviewImportableCount}/{currentReviewCandidates.length} row(s). Rows stay here until you import, discard, or reset them.
+                    {t('transcript.currentReviewHint', { ready: currentReviewImportableCount, total: currentReviewCandidates.length })}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -137,7 +139,7 @@ export function PersonalCourseCollection({
                     disabled={isBusy || currentReviewImportableCount === 0}
                     className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Import ready rows{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
+                    {t('transcript.importReady')}{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
                   </button>
                   <button
                     type="button"
@@ -145,7 +147,7 @@ export function PersonalCourseCollection({
                     disabled={isBusy}
                     className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Reset review
+                    {t('transcript.resetReview')}
                   </button>
                 </div>
               </div>
@@ -170,7 +172,7 @@ export function PersonalCourseCollection({
                   disabled={isBusy || currentReviewImportableCount === 0}
                   className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Import ready rows{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
+                  {t('transcript.importReady')}{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
                 </button>
               </div>
             </div>
@@ -181,10 +183,10 @@ export function PersonalCourseCollection({
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                    Saved for later
+                    {t('transcript.savedForLater')}
                   </div>
                   <p className="mt-1 text-[11.5px] text-fg-muted">
-                    Ready now: {savedIssueImportableCount}/{savedIssueCandidates.length} row(s). These rows stay in your account until you import or discard them.
+                    {t('transcript.savedForLaterHint', { ready: savedIssueImportableCount, total: savedIssueCandidates.length })}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -194,7 +196,7 @@ export function PersonalCourseCollection({
                     disabled={isBusy || savedIssueImportableCount === 0}
                     className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Import ready saved rows{savedIssueImportableCount > 0 ? ` (${savedIssueImportableCount})` : ''}
+                    {t('transcript.importSaved')}{savedIssueImportableCount > 0 ? ` (${savedIssueImportableCount})` : ''}
                   </button>
                   <button
                     type="button"
@@ -202,7 +204,7 @@ export function PersonalCourseCollection({
                     disabled={isBusy}
                     className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Clear saved rows
+                    {t('transcript.clearSaved')}
                   </button>
                 </div>
               </div>
@@ -223,7 +225,7 @@ export function PersonalCourseCollection({
           {completedCourses.length > 0 ? (
             <div className="grid min-w-0 gap-2">
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                Credited
+                {t('transcript.credited')}
               </div>
               {completedCourses.map((course) => (
                 <CompletedCourseRow

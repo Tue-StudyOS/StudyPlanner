@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
+import { useTranslation } from '../../i18n'
 import type { TranscriptCoursePreview } from '../types'
 import { toTranscriptCoursePreview } from '../utils/buildTranscriptImportCandidates'
 
@@ -37,6 +38,7 @@ export function CatalogCoursePicker({
   compact = false,
   onSelect,
 }: CatalogCoursePickerProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState<string>('')
   const { courses: catalogCourses, isLoading: isCatalogLoading, error: catalogError } =
     useCatalogCourses('', CATALOG_PICKER_LIMIT, ALL_CATALOG_PERIODS)
@@ -82,7 +84,7 @@ export function CatalogCoursePicker({
     <div className="grid gap-2.5">
       <div className="grid gap-1">
         <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-          Catalog course
+          {t('catalog.picker.label')}
         </span>
         {selectedCourse ? (
           <div className={`rounded-lg border border-border bg-surface ${compact ? 'px-3 py-2.5' : 'px-4 py-3'}`}>
@@ -101,7 +103,7 @@ export function CatalogCoursePicker({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search catalog by title or number"
+          placeholder={t('catalog.picker.placeholder')}
           className={`rounded-md border border-border bg-surface text-fg outline-none focus:border-fg-mid ${compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2 text-[12.5px]'}`}
         />
 
@@ -113,9 +115,9 @@ export function CatalogCoursePicker({
 
         {shouldShowResults ? (
           isLoading ? (
-            <div className="text-[12px] text-fg-muted">Searching catalog courses...</div>
+            <div className="text-[12px] text-fg-muted">{t('catalog.picker.searching')}</div>
           ) : hasSearchQuery && visibleCourses.length === 0 ? (
-            <div className="text-[12px] text-fg-muted">No matching catalog courses found.</div>
+            <div className="text-[12px] text-fg-muted">{t('catalog.picker.noResults')}</div>
           ) : visibleCourses.length > 0 ? (
             <div
               className={`grid gap-1.5 ${hasSearchQuery ? `${compact ? 'max-h-[8.5rem]' : 'max-h-[18rem]'} overflow-y-auto pr-1` : ''}`}

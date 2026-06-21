@@ -3,6 +3,7 @@ import { FavStar } from '../../../shared/components/FavStar'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
+import { useTranslation } from '../../i18n'
 import { useCatalogCourseDetail } from '../hooks/useCatalogCourseDetail'
 import type { Course } from '../types'
 import { CourseDetailBody } from './CourseDetailBody'
@@ -22,6 +23,7 @@ export function CourseDetailDrawer({
   onToggleFavorite,
   onClose,
 }: CourseDetailDrawerProps) {
+  const { t } = useTranslation()
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -62,14 +64,14 @@ export function CourseDetailDrawer({
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-4 py-3.5 sm:px-5">
           <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-            Course Details
+            {t('courseDetail.detailsTitle')}
           </span>
           <div className="flex items-center gap-1.5">
             <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close course details"
+              aria-label={t('courseDetail.closeDetails')}
               className="flex items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
             >
               <CloseIcon size={18} />
