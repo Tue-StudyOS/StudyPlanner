@@ -100,6 +100,25 @@ def _extract_ects_from_text(value: str | None) -> float | None:
     return _normalize_ects(match.group(1).replace(',', '.'))
 
 
+def _is_ects_only_text(value: str | None) -> bool:
+    if not value:
+        return False
+
+    remainder = ECTS_TEXT_PATTERN.sub("", value).strip(" \t\r\n.,;:-()/")
+    return not remainder
+
+
+def _strip_repeated_section_title(section_title: str, section_text: str) -> str:
+    normalized_title = section_title.strip()
+    normalized_text = section_text.strip()
+    if not normalized_title:
+        return normalized_text
+
+    if normalized_text.casefold().startswith(normalized_title.casefold()):
+        return normalized_text[len(normalized_title):].lstrip(" \t\r\n.,;:-")
+    return normalized_text
+
+
 def _escape_like_search_term(value: str) -> str:
     return value.replace('^', '^^').replace('%', '^%').replace('_', '^_')
 
@@ -233,23 +252,25 @@ def _extract_prerequisites(content_sections: list[dict[str, Any]]) -> list[str]:
 
 
 def _pick_description(short_comment: str | None, content_sections: list[dict[str, Any]]) -> str:
-    if short_comment:
-        return short_comment
+    normalized_short_comment = _safe_text(short_comment)
+    if normalized_short_comment and not _is_ects_only_text(normalized_short_comment):
+        return normalized_short_comment
 
     for section in content_sections:
-        section_title = (_safe_text(section.get("title")) or "").lower()
-        if not any(keyword in section_title for keyword in DESCRIPTION_SECTION_KEYWORDS):
+        section_title = _safe_text(section.get("title")) or ""
+        if not any(keyword in section_title.lower() for keyword in DESCRIPTION_SECTION_KEYWORDS):
             continue
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return section_text
+            return _strip_repeated_section_title(section_title, section_text)
 
     for section in content_sections:
+        section_title = _safe_text(section.get("title")) or ""
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return section_text
+            return _strip_repeated_section_title(section_title, section_text)
 
-    return ""
+    return normalized_short_comment or ""
 
 
 def _clean_inhalte_text(text: str) -> str | None:

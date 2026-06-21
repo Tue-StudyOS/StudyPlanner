@@ -26,6 +26,7 @@ from services.course_catalog import (  # noqa: E402
     _derive_term_type,
     _extract_contents,
     _load_external_links,
+    _pick_description,
     _period_sort_key,
 )
 
@@ -54,6 +55,34 @@ class ExtractContentsTest(unittest.TestCase):
     def test_returns_empty_when_no_inhalte_section(self) -> None:
         sections = [{"title": "Lernziele", "text": "Lernziele ..."}]
         self.assertEqual(_extract_contents(sections), "")
+
+
+class PickDescriptionTest(unittest.TestCase):
+    def test_uses_informative_short_comment_first(self) -> None:
+        self.assertEqual(
+            _pick_description(
+                "Registration opens in April.",
+                [{"title": "Empfehlung", "text": "Useful section text"}],
+            ),
+            "Registration opens in April.",
+        )
+
+    def test_skips_ects_only_short_comment_for_real_section_text(self) -> None:
+        self.assertEqual(
+            _pick_description(
+                "9 CP",
+                [
+                    {
+                        "title": "Empfehlung",
+                        "text": "Empfehlung Willkommen zur Vorlesung Mathematik.",
+                    }
+                ],
+            ),
+            "Willkommen zur Vorlesung Mathematik.",
+        )
+
+    def test_falls_back_to_ects_only_short_comment_when_no_section_exists(self) -> None:
+        self.assertEqual(_pick_description("9 CP", []), "9 CP")
 
 
 class PeriodSortKeyTest(unittest.TestCase):
