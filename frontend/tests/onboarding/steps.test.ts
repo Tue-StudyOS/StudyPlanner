@@ -53,6 +53,7 @@ test('catalog setup steps keep mobile targets reachable and explain open degree 
   assert.equal(search?.allowMobileScroll, undefined)
   assert.equal(filters?.preserveScroll, true)
   assert.equal(filters?.allowMobileScroll, undefined)
+  assert.deepEqual(filters?.targets, ['catalog-filters'])
   assert.deepEqual(progressHint?.targets, ['catalog-progress-hint'])
   assert.equal(progressHint?.spotlightPaddingPx, 0)
 })

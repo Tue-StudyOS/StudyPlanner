@@ -3,7 +3,7 @@ import {
   STUDYPLANNER_APP_HTTP_PATH,
   STUDYPLANNER_APP_RESOURCE_URI,
 } from './appResources.ts'
-import { handleMcpJsonRpcPayload } from './protocol.ts'
+import { handleMcpJsonRpcPayload, MCP_PROTOCOL_VERSION } from './protocol.ts'
 
 export interface Env {
   STUDYPLANNER_AI_BASE_URL?: string
@@ -16,7 +16,25 @@ export interface Env {
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, MCP-Protocol-Version',
+  'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, Last-Event-ID, MCP-Protocol-Version, MCP-Session-Id',
+  'Access-Control-Expose-Headers': 'MCP-Protocol-Version, MCP-Session-Id',
+  'MCP-Protocol-Version': MCP_PROTOCOL_VERSION,
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
+function isLocalRequest(request: Request): boolean {
+  return isLocalHostname(new URL(request.url).hostname)
+}
+
+function resolveAiBaseUrlForRequest(request: Request, env: Env): string | undefined {
+  return isLocalRequest(request) ? 'http://localhost:8787' : env.STUDYPLANNER_AI_BASE_URL
+}
+
+function resolveApiBindingForRequest(request: Request, env: Env): { fetch: typeof fetch } | undefined {
+  return isLocalRequest(request) ? undefined : env.STUDYPLANNER_API
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -58,7 +76,7 @@ const PRIVACY_HTML = `<!doctype html>
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p class="muted">StudyPlanner AI Integration &mdash; last updated 2026-06-14</p>
+  <p class="muted">StudyPlanner AI Integration &mdash; last updated 2026-06-18</p>
 
   <h2>What this integration does</h2>
   <p>The StudyPlanner GPT Action and MCP server provide read-only access to a public university course catalog. You can search courses, look up details, and resolve course numbers. No account, login, or personal information is required.</p>
@@ -73,7 +91,7 @@ const PRIVACY_HTML = `<!doctype html>
   <p>The integration is hosted on Cloudflare Workers. Cloudflare may process request metadata (IP, timestamp) in accordance with <a href="https://www.cloudflare.com/privacypolicy/" rel="noreferrer noopener">Cloudflare's privacy policy</a>. ChatGPT or Claude interactions are governed by OpenAI's and Anthropic's respective privacy policies.</p>
 
   <h2>Contact</h2>
-  <p>For questions, contact <a href="mailto:ben.tischberger@gmail.com">ben.tischberger@gmail.com</a>.</p>
+  <p>For questions, use the support contact provided in the integration listing.</p>
 </body>
 </html>`
 
@@ -92,9 +110,9 @@ async function handleMcpPost(request: Request, env: Env): Promise<Response> {
     )
   }
 
-  const apiBinding = env.STUDYPLANNER_API
+  const apiBinding = resolveApiBindingForRequest(request, env)
   const responsePayload = await handleMcpJsonRpcPayload(payload, {
-    studyPlannerAiBaseUrl: env.STUDYPLANNER_AI_BASE_URL,
+    studyPlannerAiBaseUrl: resolveAiBaseUrlForRequest(request, env),
     fetchImpl: apiBinding ? (input, init) => apiBinding.fetch(input, init) : undefined,
   })
   if (responsePayload === null) {
@@ -135,6 +153,7 @@ export default {
         ok: true,
         service: 'studyplanner-mcp',
         transport: 'streamable-http',
+        protocolVersion: MCP_PROTOCOL_VERSION,
         mcpEndpoint: '/mcp',
         tools: [
           'studyplanner_search_courses',
@@ -146,7 +165,7 @@ export default {
       })
     }
 
-    if (url.pathname === '/sse' && request.method === 'GET') {
+    if ((url.pathname === '/sse' || url.pathname === '/mcp') && request.method === 'GET') {
       return sseEndpointResponse()
     }
 

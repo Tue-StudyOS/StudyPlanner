@@ -1,6 +1,6 @@
 # Cloudflare runtime configuration
 
-This is the canonical repo-side reference for the Cloudflare Worker, Pages API URL, and D1 database names.
+This is the canonical repo-side reference for the Cloudflare Workers, Pages public gateway, and D1 database names.
 
 ## Current active resources
 
@@ -8,11 +8,16 @@ This is the canonical repo-side reference for the Cloudflare Worker, Pages API U
 | --- | --- | --- | --- |
 | Active D1 runtime database | `studyplanner-db` | `80ca9092-ddc6-454a-b04a-8ccae85ef2f5` | Production database since the approved `integrate_new_db` cutover (multi-period ALMA catalog). |
 | Previous test D1 | `studyplaner-db-test` | `297f7a28-9069-431d-b989-49acf2537513` | Superseded by the cutover; delete after the new database is verified. |
-| Canonical Worker | `studyplanner-api` | `https://studyplanner-api.ben-tischberger.workers.dev` | Pages should call this URL. |
-| Legacy typo Worker | `studyplaner-api` | `https://studyplaner-api.ben-tischberger.workers.dev` | Keep only as a temporary compatibility endpoint while old Pages builds/env vars exist. |
-| Pages project | `studyplaner` | `https://studyplaner.pages.dev` | Build-time `VITE_API_BASE_URL` must point at the canonical Worker. |
+| API Worker | `studyplanner-api` | internal Worker service binding | Source of truth for app and public AI facade API routes. |
+| MCP Worker | `studyplanner-mcp` | internal Worker service binding | Hosted MCP adapter for Claude/MCP-capable clients. |
+| Pages project / public gateway | `studyplaner` | `https://studyplaner.pages.dev` | Public frontend, OpenAPI, privacy, and MCP gateway. |
 
 The Worker D1 binding name is always `DB`. Helper commands intentionally use `DB` so migrations follow the checked `backend/wrangler.toml` binding instead of duplicating a database name in multiple scripts.
+
+The public gateway avoids exposing account-specific `workers.dev` subdomains. Pages Functions forward:
+
+- `/api/*` → `STUDYPLANNER_API` service binding
+- `/mcp`, `/messages`, `/sse`, `/privacy`, `/app/catalog-results.html` → `STUDYPLANNER_MCP` service binding
 
 ## Secret handling
 
@@ -43,7 +48,8 @@ npm run db:verify-config
 The verifier checks:
 
 - `backend/wrangler.toml` keeps `DB` bound to `studyplanner-db`
-- `frontend/wrangler.toml` and `frontend/.env.production` point Pages builds at `studyplanner-api`
+- `frontend/wrangler.toml` and `frontend/.env.production` point Pages builds at `https://studyplaner.pages.dev`
+- `frontend/wrangler.toml` keeps the Pages gateway service bindings for API and MCP
 - `.env.example` documents the active D1 name and id
 - package scripts keep using the checked `DB` binding
 
@@ -54,14 +60,23 @@ The GitHub workflow `.github/workflows/verify-cloudflare-config.yml` runs the sa
 ```bash
 npm run db:verify-config
 npm run deploy:backend
+cd integrations/studyplanner-mcp
+npx wrangler deploy
+cd ../../frontend
+npm run build
+npx wrangler pages deploy dist --project-name studyplaner
 ```
 
 Then verify:
 
 ```bash
-curl https://studyplanner-api.ben-tischberger.workers.dev/health
-curl https://studyplanner-api.ben-tischberger.workers.dev/api/auth/session \
+curl https://studyplaner.pages.dev/api/ai/meta
+curl https://studyplaner.pages.dev/privacy
+curl https://studyplaner.pages.dev/api/auth/session \
   -H "Authorization: Bearer invalid-token"
+curl -X POST https://studyplaner.pages.dev/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-Expected auth-session response for an invalid token is `{"authenticated": false, "user": null}`. If it returns `AUTH_TOKEN_SECRET must be configured as a Worker secret`, the Worker secret is missing on the script that received the request.
+Expected auth-session response for an invalid token is `{"authenticated": false, "user": null}`. If it returns `AUTH_TOKEN_SECRET must be configured as a Worker secret`, the Worker secret is missing on the API Worker.

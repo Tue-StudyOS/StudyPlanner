@@ -36,6 +36,8 @@ export interface ParsedTranscriptEntry {
   titleCandidates: string[]
   extractedGrade: number | null
   extractedEcts: number | null
+  extractedExaminer?: string | null
+  examinerCandidates?: string[]
   extractedSemester: string | null
   defaultMasterCat: MasterCat
   parseIssues: string[]

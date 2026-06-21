@@ -5,7 +5,23 @@ pages_build_output_dir = "dist"
 compatibility_date = "2026-05-21"
 
 [vars]
-VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
+VITE_API_BASE_URL = "https://studyplaner.pages.dev"
 
 [env.production.vars]
-VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
+VITE_API_BASE_URL = "https://studyplaner.pages.dev"
+
+[[services]]
+binding = "STUDYPLANNER_API"
+service = "studyplanner-api"
+
+[[services]]
+binding = "STUDYPLANNER_MCP"
+service = "studyplanner-mcp"
+
+[[env.production.services]]
+binding = "STUDYPLANNER_API"
+service = "studyplanner-api"
+
+[[env.production.services]]
+binding = "STUDYPLANNER_MCP"
+service = "studyplanner-mcp"

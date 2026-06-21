@@ -1,174 +1,175 @@
-# AI Integrations — Setup and Manual Cloudflare Steps
+# AI Integrations — GPT and Claude Setup
 
-Status: **Phase 1 implemented** (public catalog AI facade for ChatGPT Actions)
-and **public MCP adapter implemented** (hosted Worker for Claude/MCP-capable
-agents). Personal/authenticated tools (Phases 2–4), writes, user grants, and
-OAuth (Phase 7) are intentionally not built yet.
+Status: **public catalog integration implemented** for ChatGPT/OpenAPI and hosted MCP. Personal/authenticated tools, writes, user grants, and OAuth are intentionally not built yet.
 
-## What exists in the code now
+Public gateway:
 
-### Existing StudyPlanner AI facade
+```text
+https://studyplaner.pages.dev
+```
+
+Public endpoints:
 
 | Route | Method | Purpose |
 | --- | --- | --- |
 | `/api/ai/meta` | GET | Integration metadata + OpenAPI link |
 | `/api/ai/openapi.json` | GET | OpenAPI 3.1 schema for ChatGPT Actions |
-| `/api/ai/catalog/search` | POST | Compact course search: `query`, `limit` ≤ 25, `periodId`/`all`, plus structured filters `ects` {min,max,exact}, `weekdays`, `timeWindow` {start,end}, `courseTypes`, `studyAreaCodes`, `termTypes` |
-| `/api/ai/catalog/resolve-course` | POST | Resolve a stable `courseNumber` (+ optional `titleHint`, `periodId`) to the current numeric course id |
-| `/api/ai/catalog/courses/<id>` | GET | Compact course detail incl. description and exams |
-
-### Hosted MCP adapter
-
-Location: `integrations/studyplanner-mcp/`
-
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/health` | GET | Worker smoke check |
+| `/api/ai/catalog/search` | POST | Compact course search with structured filters |
+| `/api/ai/catalog/resolve-course` | POST | Resolve a stable `courseNumber` to the current numeric course id |
+| `/api/ai/catalog/courses/<id>` | GET | Compact public course detail |
 | `/mcp` | POST | Streamable HTTP JSON-RPC MCP endpoint |
 | `/messages` | POST | Compatibility alias for `/mcp` |
-| `/sse` | GET | Lightweight SSE endpoint advertisement for older clients |
+| `/sse` | GET | Lightweight SSE endpoint advertisement for older MCP clients |
+| `/privacy` | GET | Public privacy policy |
 
-Tools exposed by the MCP adapter:
+All routes above are public and read-only. They do not expose accounts, profiles, progress, semester plans, transcripts, passwords, browser tokens, OpenAI keys, or Anthropic keys.
 
-| Tool | Purpose |
-| --- | --- |
-| `studyplanner_search_courses` | Calls `/api/ai/catalog/search` (incl. structured filters) |
-| `studyplanner_resolve_course` | Calls `/api/ai/catalog/resolve-course` |
-| `studyplanner_get_course_detail` | Calls `/api/ai/catalog/courses/<id>` |
+## ChatGPT Custom GPT setup
 
-All AI facade routes and MCP tools are public and read-only; no personal data is reachable.
+1. ChatGPT → **Explore GPTs** → **Create**.
+2. Configure → **Actions** → **Import from URL**.
+3. Import this OpenAPI URL:
 
-## Code vs. manual: what ships automatically and what you must do
+   ```text
+   https://studyplaner.pages.dev/api/ai/openapi.json
+   ```
 
-**Shippable purely by code (already implemented, just deploy):**
+4. Authentication: **None**.
+5. Privacy policy URL:
 
-- The full public catalog AI facade, now including server-side search filters
-  (ECTS, weekday, time window, course type, study-area code, term) and the
-  `resolve-course` stable-reference endpoint.
-- The hosted MCP adapter with the matching `studyplanner_search_courses`,
-  `studyplanner_resolve_course`, and `studyplanner_get_course_detail` tools.
-- These go live with `npm run deploy:backend` (facade) and a `wrangler deploy`
-  in `integrations/studyplanner-mcp/` (MCP). No secrets, no dashboard changes.
+   ```text
+   https://studyplaner.pages.dev/privacy
+   ```
 
-**Requires a manual decision or manual action (cannot be auto-deployed):**
+6. Suggested instructions:
 
-- **Creating the ChatGPT Custom GPT** and **connecting Claude/MCP clients** are
-  external UI steps in ChatGPT / the MCP client — not code (steps 4 and 6).
-- **Personal/authenticated tools (Phases 2–4)** need a product decision first:
-  scoped integration tokens vs. OAuth (see the plan's open questions). Once you
-  choose, the token migration (`0023_user_integration_tokens.sql`), auth
-  helpers, scope checks, and an Account-area token UI can be coded; the DB
-  migration then deploys with `npm run db:migrate:remote`. These are not built
-  yet on purpose because they expose private data and writes.
-- **OAuth for a shared multi-student GPT (Phase 7)** additionally needs client
-  registration and consent screens.
+   ```text
+   You help Informatik students at the University of Tübingen find courses in the StudyPlanner catalog. Use searchCourses for course searches, resolveCourse when the user gives a course number, and getCourseDetail before making claims about a specific course. Always mention the course number and title when available. The integration is read-only and has no access to personal StudyPlanner data.
+   ```
 
-In short: everything public is code-deployable today; everything that touches a
-user's private plan/progress is intentionally gated behind your auth-model
-decision.
+7. Test prompts:
+   - `Welche Machine-Learning-Kurse gibt es?`
+   - `Zeig mir Details zum passendsten Kurs.`
+   - `Suche Seminare mit 6 ECTS im Sommer.`
 
-## Manual steps you have to do (in order)
+## Claude / MCP setup
 
-### 1. Deploy the worker
+Use the hosted MCP endpoint:
 
-The AI routes live in the existing Python worker, so a normal deploy ships them:
-
-```bash
-npm run db:verify-config      # guardrail, runs automatically on predeploy too
-npm run deploy:backend        # wrangler deploy of backend/
+```text
+https://studyplaner.pages.dev/mcp
 ```
 
-Also still pending from earlier work (safe, additive):
+For Claude or another MCP client with direct remote MCP support:
 
-```bash
-npm run db:migrate:remote     # applies 0021 (course links), 0022 (drop test courses)
+1. Add a custom MCP connector/server.
+2. Name: `StudyPlanner`.
+3. URL: `https://studyplaner.pages.dev/mcp`.
+4. Authentication: **None**.
+5. Test with: `Nutze StudyPlanner und suche Kurse zu Machine Learning.`
+
+Use the exact `/mcp` URL. If Claude shows `Dieser Konnektor hat keine Tools verfügbar`, remove the connector and add it again after deployment; Claude can cache failed discovery attempts.
+
+For Claude Desktop clients that need a local bridge, add this to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "studyplanner": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://studyplaner.pages.dev/mcp"
+      ]
+    }
+  }
+}
 ```
 
-### 2. Verify the deployment
+Restart Claude Desktop after saving the file.
+
+Older clients that ask for an SSE discovery URL can try:
+
+```text
+https://studyplaner.pages.dev/sse
+```
+
+## Local smoke test
+
+Run the three public pieces locally:
 
 ```bash
-curl https://studyplanner-api.<your-account>.workers.dev/api/ai/meta
-curl -X POST https://studyplanner-api.<your-account>.workers.dev/api/ai/catalog/search \
+# terminal 1: backend AI facade at http://localhost:8787
+cd backend
+npx wrangler dev
+
+# terminal 2: MCP worker at http://localhost:8788
+cd integrations/studyplanner-mcp
+npx wrangler dev --port 8788
+
+# terminal 3: Pages gateway at http://localhost:8789
+cd frontend
+npm run build
+npx wrangler pages dev dist --port 8789
+```
+
+Then verify:
+
+```bash
+curl http://localhost:8789/api/ai/meta
+curl http://localhost:8789/privacy
+curl -X POST http://localhost:8789/api/ai/catalog/search \
   -H "Content-Type: application/json" \
   -d '{"query":"machine learning","limit":3,"ects":{"min":6},"termTypes":["summer"]}'
-curl -X POST https://studyplanner-api.<your-account>.workers.dev/api/ai/catalog/resolve-course \
-  -H "Content-Type: application/json" -d '{"courseNumber":"INFM1234"}'
+curl -X POST http://localhost:8789/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-All must return JSON; the search must list courses and honor the filters.
+## Deploy order
 
-### 3. Cloudflare dashboard — nothing to change for Phase 1
+1. Verify config:
 
-No new bindings, secrets, or routes are required: the AI facade reuses the
-existing `DB` D1 binding. Check only that the worker URL is publicly reachable
-(Workers → studyplanner-api → Triggers). If you front the worker with a custom
-domain later, use that domain in step 4.
+   ```bash
+   npm run db:verify-config
+   ```
 
-### 4. Create the Custom GPT (ChatGPT)
+2. Deploy the backend AI facade:
 
-1. ChatGPT → Explore GPTs → **Create**.
-2. Configure → **Actions** → *Import from URL* →
-   `https://<worker-domain>/api/ai/openapi.json`.
-3. Authentication: **None** (Phase 1 is public).
-4. Instructions suggestion:
-   > You help Informatik students at the University of Tübingen find courses.
-   > Use searchCourses for queries and getCourseDetail before making claims
-   > about a specific course. Always cite course number and title.
-5. Test prompts: "Welche Machine-Learning-Vorlesungen gibt es?", then a detail
-   question about one result.
+   ```bash
+   npm run deploy:backend
+   ```
 
-### 5. Deploy the hosted MCP worker
+3. Deploy the MCP Worker:
 
-The first MCP worker is stateless and calls the existing StudyPlanner AI facade.
-It does not need D1, OpenAI, or Anthropic secrets.
+   ```bash
+   npm run test:mcp
+   npm run build:mcp
+   cd integrations/studyplanner-mcp
+   npx wrangler deploy
+   ```
 
-It reaches the API worker through the `STUDYPLANNER_API` **service binding**
-declared in `integrations/studyplanner-mcp/wrangler.toml` (`service =
-"studyplanner-api"`). This is required: a Worker calling another Worker on the
-same Cloudflare account over its public `workers.dev` URL returns 404, which
-made every `tools/call` fail. Deploy the API worker (step 1) first so the bound
-service exists, then deploy the MCP worker.
+4. Deploy the Pages gateway/frontend:
 
-```bash
-npm run test:mcp
-npm run build:mcp
-npm run db:verify-config
-cd integrations/studyplanner-mcp
-npx wrangler deploy
-```
+   ```bash
+   cd frontend
+   npm run build
+   npx wrangler pages deploy dist --project-name studyplaner
+   ```
 
-Cloudflare domain choice:
+5. Production smoke tests:
 
-- If an existing StudyPlanner domain/subdomain is already managed in
-  Cloudflare, add a Worker route for the MCP Worker there.
-- Otherwise use the default `*.workers.dev` URL. Do not buy a new domain for
-  this first public-catalog-only version.
-
-If the StudyPlanner API is available under a custom domain, set the MCP
-Worker variable `STUDYPLANNER_AI_BASE_URL` to that API origin. Otherwise keep
-the default Workers URL in `integrations/studyplanner-mcp/wrangler.toml`.
-
-### 6. Connect Claude / MCP-capable clients
-
-Use the deployed MCP Worker URL, normally:
-
-```text
-https://<mcp-worker-domain>/mcp
-```
-
-For clients that still expect the older SSE discovery URL, try:
-
-```text
-https://<mcp-worker-domain>/sse
-```
-
-The first version exposes only public course search/detail tools. Do not paste
-StudyPlanner passwords, browser session tokens, OpenAI keys, or Anthropic keys
-into the MCP Worker config.
+   ```bash
+   curl https://studyplaner.pages.dev/api/ai/meta
+   curl https://studyplaner.pages.dev/privacy
+   curl -X POST https://studyplaner.pages.dev/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```
 
 ## What unlocks the next phases
 
-- **Phase 2 (tokens):** migration `user_integration_tokens` + Account UI; after
-  that you must set no Cloudflare config — tokens live in D1.
-- **Private MCP/GPT tools:** add scoped integration tokens or OAuth first;
-  then extend the AI facade and MCP adapter with read-only personal tools.
+- **Scoped integration tokens:** required before private profile/progress/plan tools.
+- **OAuth:** required before a shared multi-user GPT can safely access personal StudyPlanner data.
+- **Write tools:** require backend dry-run, explicit `confirmApply: true`, scope checks, validation, and revocation before public release.

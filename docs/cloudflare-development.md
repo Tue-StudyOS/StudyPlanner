@@ -79,7 +79,7 @@ Important variables:
 - `ALLOWED_ORIGINS`
 - D1 binding `DB` to `studyplaner-db-test` until the approved production cutover
 
-The frontend still expects `VITE_API_BASE_URL` to be set during Pages builds. The checked Pages config and production env file point at `https://studyplanner-api.ben-tischberger.workers.dev`. As a production safeguard, the client also falls back to that URL only when it is running on `studyplaner.pages.dev` or a `*.studyplaner.pages.dev` preview host.
+The frontend still expects `VITE_API_BASE_URL` to be set during Pages builds. The checked Pages config and production env file point at the public Pages gateway, `https://studyplaner.pages.dev`. Pages Functions proxy `/api/*` to the API Worker and `/mcp`, `/messages`, `/sse`, `/privacy`, and `/app/catalog-results.html` to the MCP Worker through service bindings.
 
 For Pages preview deployments, `ALLOWED_ORIGINS` should allow both the production Pages origin and preview subdomains, for example:
 

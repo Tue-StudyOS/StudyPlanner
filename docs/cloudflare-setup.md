@@ -103,8 +103,10 @@ Production branch: main
 Set this environment variable in Pages:
 
 ```text
-VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
+VITE_API_BASE_URL=https://studyplaner.pages.dev
 ```
+
+Also keep the Pages Functions service bindings from `frontend/wrangler.toml` so the public gateway can forward `/api/*` to `studyplanner-api` and `/mcp`, `/messages`, `/sse`, `/privacy`, and `/app/catalog-results.html` to `studyplanner-mcp`.
 
 ## 9. Connect the backend in Cloudflare Workers
 

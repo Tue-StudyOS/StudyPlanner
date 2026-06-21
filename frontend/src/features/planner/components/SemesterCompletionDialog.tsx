@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CompletedBadge } from '../../../shared/components/CompletedBadge'
+import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { CloseIcon } from '../../../shared/components/icons'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { getEffectiveRuleGroupCapacity, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
@@ -277,6 +278,8 @@ export function SemesterCompletionDialog({
   )
   const blockingSelectionCount = selectedRows.filter((row) => row.needsAreaChoice).length
 
+  useBodyScrollLock()
+
   useEffect(() => {
     clearCompletedCoursesError()
   }, [clearCompletedCoursesError])
@@ -445,7 +448,7 @@ export function SemesterCompletionDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 px-3 py-3 sm:px-6 sm:py-6" onClick={handleClose}>
+    <div className="fixed inset-0 z-[90] bg-black/30 backdrop-blur-sm px-3 py-3 sm:px-6 sm:py-6" onClick={handleClose}>
       <div
         className="mx-auto flex h-full max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
         onClick={(event) => event.stopPropagation()}
@@ -467,7 +470,7 @@ export function SemesterCompletionDialog({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
           {plannedCourses.length === 0 ? (
             <div className="rounded-[12px] border border-dashed border-border px-5 py-8 text-center text-[13px] text-fg-muted">
               No planned courses are saved for this semester yet.

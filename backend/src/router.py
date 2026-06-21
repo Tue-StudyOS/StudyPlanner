@@ -37,6 +37,7 @@ from services.course_catalog import (
     list_courses,
 )
 from services.progress import get_current_user_progress
+from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
     PlannerAssignmentError,
     balance_current_user_semester_plan,
@@ -86,7 +87,7 @@ _PRIVACY_HTML = """<!doctype html>
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p class="muted">StudyPlanner AI Integration &mdash; last updated 2026-06-14</p>
+  <p class="muted">StudyPlanner AI Integration &mdash; last updated 2026-06-18</p>
   <h2>What this integration does</h2>
   <p>The StudyPlanner GPT Action and MCP server provide read-only access to a public university course catalog. You can search courses, look up details, and resolve course numbers. No account, login, or personal information is required.</p>
   <h2>Data collected</h2>
@@ -96,7 +97,7 @@ _PRIVACY_HTML = """<!doctype html>
   <h2>Third-party services</h2>
   <p>The integration is hosted on Cloudflare Workers. Cloudflare may process request metadata (IP, timestamp) in accordance with <a href="https://www.cloudflare.com/privacypolicy/" rel="noreferrer noopener">Cloudflare&#39;s privacy policy</a>. ChatGPT or Claude interactions are governed by OpenAI&#39;s and Anthropic&#39;s respective privacy policies.</p>
   <h2>Contact</h2>
-  <p>For questions, contact <a href="mailto:ben.tischberger@gmail.com">ben.tischberger@gmail.com</a>.</p>
+  <p>For questions, use the support contact provided in the integration listing.</p>
 </body>
 </html>"""
 
@@ -424,6 +425,13 @@ async def route_request(request: Any, env: Any) -> Any:
             progress = await get_current_user_progress(env, request)
             return json_response(progress, request=request, env=env)
 
+        if path == "/api/feedback":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+
+            feedback = await submit_feedback(env, request, await read_json_object(request))
+            return json_response(feedback, request=request, env=env, status=201)
+
         if method != "GET":
             return _method_not_allowed_response(request, env)
 
@@ -445,6 +453,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "semesterPlans": "/api/me/semester-plans",
                         "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",
+                        "feedback": "/api/feedback",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogPeriods": "/api/catalog/periods",
@@ -716,6 +725,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except PlannerAssignmentError as exc:
         return error_response(
             code="planner_assignment_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except FeedbackSubmissionError as exc:
+        return error_response(
+            code="feedback_submission_error",
             message=str(exc),
             request=request,
             env=env,

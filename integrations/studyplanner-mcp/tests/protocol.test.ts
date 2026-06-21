@@ -17,15 +17,15 @@ test('MCP initialize returns server capabilities without requiring auth', async 
 
   assert.equal(Array.isArray(response), false)
   assert.deepEqual(response && 'result' in response ? response.result : null, {
-    protocolVersion: '2024-11-05',
+    protocolVersion: '2025-06-18',
     capabilities: {
       tools: { listChanged: false },
       resources: { subscribe: false, listChanged: false },
     },
     serverInfo: { name: 'studyplanner-mcp', version: '0.1.0' },
     instructions:
-      'Use these read-only StudyPlanner tools for public course catalog search and detail lookup. No personal data or write actions are available.',
-    studyPlannerAiBaseUrl: 'https://studyplanner-api.ben-tischberger.workers.dev',
+      'Use StudyPlanner for public Informatik course catalog searches at the University of Tübingen. If the user asks for courses and does not specify a university, assume StudyPlanner/Tübingen Informatik and search first. For broad requests like "spannende Kurse fürs nächste Wintersemester", call studyplanner_search_courses with termTypes=["winter"], omit subjective adjectives from query, show options, then ask follow-up questions. No personal data or write actions are available.',
+    studyPlannerAiBaseUrl: 'https://studyplaner.pages.dev',
   })
 })
 

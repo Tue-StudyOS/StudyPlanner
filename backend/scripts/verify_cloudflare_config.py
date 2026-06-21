@@ -17,9 +17,12 @@ PREVIOUS_TEST_D1_ID = '297f7a28-9069-431d-b989-49acf2537513'
 EXPECTED_D1_BINDING = 'DB'
 EXPECTED_WORKER_NAME = 'studyplanner-api'
 LEGACY_WORKER_NAME = 'studyplaner-api'
-EXPECTED_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
+EXPECTED_API_BASE_URL = 'https://studyplaner.pages.dev'
 EXPECTED_PAGES_PROJECT = 'studyplaner'
 EXPECTED_PAGES_OUTPUT_DIR = 'dist'
+EXPECTED_API_GATEWAY_BINDING = 'STUDYPLANNER_API'
+EXPECTED_MCP_GATEWAY_BINDING = 'STUDYPLANNER_MCP'
+EXPECTED_MCP_WORKER_NAME = 'studyplanner-mcp'
 
 
 class ConfigVerificationError(RuntimeError):
@@ -68,6 +71,16 @@ def _verify_backend_wrangler(errors: list[str]) -> None:
     _record_check(errors, database.get('database_id') == EXPECTED_ACTIVE_D1_ID, f'{path}: active D1 database_id must be {EXPECTED_ACTIVE_D1_ID!r}.')
 
 
+def _service_by_binding(services: Any) -> dict[str, str]:
+    if not isinstance(services, list):
+        return {}
+    return {
+        str(service.get('binding')): str(service.get('service'))
+        for service in services
+        if isinstance(service, dict)
+    }
+
+
 def _verify_frontend_wrangler(errors: list[str]) -> None:
     path = REPO_ROOT / 'frontend' / 'wrangler.toml'
     config = _load_toml(path)
@@ -81,6 +94,14 @@ def _verify_frontend_wrangler(errors: list[str]) -> None:
     _record_check(errors, vars_config.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, f'{path}: preview VITE_API_BASE_URL must be {EXPECTED_API_BASE_URL!r}.')
     _record_check(errors, production_vars.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, f'{path}: production VITE_API_BASE_URL must be {EXPECTED_API_BASE_URL!r}.')
 
+    services = config.get('services')
+    service_by_binding = _service_by_binding(services)
+    production_service_by_binding = _service_by_binding(production_config.get('services'))
+    _record_check(errors, service_by_binding.get(EXPECTED_API_GATEWAY_BINDING) == EXPECTED_WORKER_NAME, f'{path}: Pages must bind {EXPECTED_API_GATEWAY_BINDING!r} to {EXPECTED_WORKER_NAME!r}.')
+    _record_check(errors, service_by_binding.get(EXPECTED_MCP_GATEWAY_BINDING) == EXPECTED_MCP_WORKER_NAME, f'{path}: Pages must bind {EXPECTED_MCP_GATEWAY_BINDING!r} to {EXPECTED_MCP_WORKER_NAME!r}.')
+    _record_check(errors, production_service_by_binding.get(EXPECTED_API_GATEWAY_BINDING) == EXPECTED_WORKER_NAME, f'{path}: production Pages must bind {EXPECTED_API_GATEWAY_BINDING!r} to {EXPECTED_WORKER_NAME!r}.')
+    _record_check(errors, production_service_by_binding.get(EXPECTED_MCP_GATEWAY_BINDING) == EXPECTED_MCP_WORKER_NAME, f'{path}: production Pages must bind {EXPECTED_MCP_GATEWAY_BINDING!r} to {EXPECTED_MCP_WORKER_NAME!r}.')
+
 
 def _verify_env_examples(errors: list[str]) -> None:
     root_env = _read_env_file(REPO_ROOT / '.env.example')
@@ -88,7 +109,7 @@ def _verify_env_examples(errors: list[str]) -> None:
 
     _record_check(errors, root_env.get('D1_DATABASE_NAME') == EXPECTED_ACTIVE_D1_NAME, '.env.example: D1_DATABASE_NAME must document the current active test database.')
     _record_check(errors, root_env.get('D1_DATABASE_ID') == EXPECTED_ACTIVE_D1_ID, '.env.example: D1_DATABASE_ID must document the current active test database id.')
-    _record_check(errors, frontend_env.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, 'frontend/.env.production: VITE_API_BASE_URL must point at the canonical Worker URL.')
+    _record_check(errors, frontend_env.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, 'frontend/.env.production: VITE_API_BASE_URL must point at the public Pages API gateway.')
 
 
 def _verify_package_scripts(errors: list[str]) -> None:

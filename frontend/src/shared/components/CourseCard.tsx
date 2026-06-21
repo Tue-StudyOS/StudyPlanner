@@ -16,8 +16,8 @@ interface CourseCardProps {
   isCompleted?: boolean
   favoriteDisabled?: boolean
   offeringStatus?: OfferingStatus
-  // Overrides the raw course.termType so the season tags can reflect only the
-  // course's most recent same-season offering (see getRecentSeasonTermType).
+  // Overrides the raw course.termType so callers can align season tags with
+  // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
   onSelect: () => void
   onToggleFavorite: () => void
@@ -29,10 +29,6 @@ function TypePill({ label }: { label: string }) {
       {label}
     </span>
   )
-}
-
-function plainLecturerName(lecturer: string): string {
-  return lecturer.replace(/Prof\. Dr\. |Prof\. |Dr\. /g, '')
 }
 
 // The dashed card border already marks likely-offered courses; only the
@@ -109,7 +105,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
             </div>
           ) : (
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
-              {plainLecturerName(course.lecturer || 'TBA')}
+              {course.lecturer || 'TBA'}
             </span>
           )}
         </div>

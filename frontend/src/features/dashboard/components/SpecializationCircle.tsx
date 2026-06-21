@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
 import { CloseIcon } from '../../../shared/components/icons'
+import { DetailSheet } from '../../../shared/components/DetailSheet'
 import { useTranslation } from '../../i18n'
 import { useTheme } from '../../theme'
 import type { VisualizationCategoryCourse, VisualizationCategoryProgress } from '../types'
@@ -58,61 +59,53 @@ function SpecializationDetailModal({
 }) {
   const courses = category.courses ?? []
   const { t } = useTranslation()
-  return (
-    <div
-      className="fixed inset-0 z-40 overflow-y-auto bg-black/45"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div className="flex min-h-full items-center justify-center px-4 py-6">
-      <div
-        className="flex w-full max-w-2xl flex-col rounded-[14px] border border-border bg-surface shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
+
+  const header = (
+    <div className="flex items-start justify-between gap-4 px-6 py-5">
+      <div className="min-w-0">
+        <div className="text-[14px] font-semibold text-fg">{category.name}</div>
+        <p className="mt-1 text-[12.5px] text-fg-muted">
+          {category.earnedEcts}/{category.referenceEcts} ECTS · {courses.length} course
+          {courses.length === 1 ? '' : 's'}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-          <div className="min-w-0">
-            <div className="text-[14px] font-semibold text-fg">{category.name}</div>
-            <p className="mt-1 text-[12.5px] text-fg-muted">
-              {category.earnedEcts}/{category.referenceEcts} ECTS · {courses.length} course
-              {courses.length === 1 ? '' : 's'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
-          >
-            <CloseIcon size={18} />
-          </button>
-        </div>
-        <div className="px-6 py-5">
-          {courses.length === 0 ? (
-            <div className="rounded-[10px] border border-dashed border-border px-5 py-8 text-center text-[12.5px] text-fg-muted">
-              {t('progress.specializationNoCourses')}
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:gap-2.5">
-              {courses.map((course) => (
-                <div
-                  key={course.completedCourseId}
-                  className="min-w-0 rounded-[10px] border border-border-light bg-surface-hover/35 px-3 py-2.5 sm:px-4 sm:py-3"
-                >
-                  <div className="break-words text-[12.5px] font-semibold text-fg sm:text-[13px]">
-                    {course.title}
-                  </div>
-                  <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
-                    {formatCourseLabel(course)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      </div>
+        <CloseIcon size={18} />
+      </button>
     </div>
+  )
+
+  return (
+    <DetailSheet onClose={onClose} header={header}>
+      <div className="px-6 py-5">
+        {courses.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-border px-5 py-8 text-center text-[12.5px] text-fg-muted">
+            {t('progress.specializationNoCourses')}
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:gap-2.5">
+            {courses.map((course) => (
+              <div
+                key={course.completedCourseId}
+                className="min-w-0 rounded-[10px] border border-border-light bg-surface-hover/35 px-3 py-2.5 sm:px-4 sm:py-3"
+              >
+                <div className="break-words text-[12.5px] font-semibold text-fg sm:text-[13px]">
+                  {course.title}
+                </div>
+                <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
+                  {formatCourseLabel(course)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </DetailSheet>
   )
 }
 
