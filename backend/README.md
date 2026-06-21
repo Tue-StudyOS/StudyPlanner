@@ -16,22 +16,40 @@ backend/
 
 ## Worker routes
 
-- `GET /` – service metadata
+- `GET /` – service metadata and route overview
 - `GET /health` – health check plus D1 reachability
-- `GET /api/courses?limit=50` – lightweight course list from D1
-- `GET /api/courses/<id>` – course detail with related rows from D1
-- `GET /api/study-programs` – supported official PO 2021 study program list from D1
-- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/session`, `POST /api/auth/logout`
-- `GET/PATCH /api/me/profile`, `PATCH /api/me/credentials`
-- `GET/PUT /api/me/favorites`, `GET/PUT /api/me/completed-courses`, `POST /api/me/completed-courses/import`
-- `GET/PUT /api/me/transcript-issues`, `GET/PUT/DELETE /api/me/semester-plans/<semester>`, `GET /api/me/progress`
+- `GET /privacy` – privacy policy page for public AI integrations
+- Public AI catalog facade:
+  - `GET /api/ai/meta`
+  - `GET /api/ai/openapi.json`
+  - `POST /api/ai/catalog/search`
+  - `POST /api/ai/catalog/resolve-course`
+  - `GET /api/ai/catalog/courses/<id>`
+- Public catalog and regulation data:
+  - `GET /api/courses?limit=50`, `GET /api/courses/<id>`
+  - `GET /api/catalog/periods`
+  - `GET /api/catalog/courses?limit=100&period=<periodId|all>&q=<search>`
+  - `GET /api/catalog/courses/<id>`
+  - `GET /api/study-programs`
+  - `GET /api/regulation-versions`, `GET /api/regulation-versions/<code>`
+  - `GET /api/regulation-versions/<code>/courses?limit=100&q=<search>`
+- Auth and user data:
+  - `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/session`, `POST /api/auth/logout`
+  - `GET/PATCH /api/me/profile`, `PATCH /api/me/credentials`
+  - `GET/PUT /api/me/favorites`
+  - `GET/PUT /api/me/completed-courses`, `POST /api/me/completed-courses/import`
+  - `GET/PUT /api/me/transcript-issues`
+  - `GET /api/me/semester-plans`, `GET/PUT/DELETE /api/me/semester-plans/<semester>`
+  - `POST /api/me/semester-plans/<semester>/balance`
+  - `GET /api/me/progress`
+- `POST /api/feedback` – public user feedback submission
 
 ## D1 databases
 
-- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the current active runtime database configured in `wrangler.toml` through the `DB` binding.
-- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is reserved for a later production cutover and must not be used yet without explicit human approval.
+- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is the current active runtime database configured in `wrangler.toml` through the `DB` binding.
+- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the previous test database from before the approved `integrate_new_db` cutover.
 - Database names and UUIDs are public Cloudflare binding config; keep `AUTH_TOKEN_SECRET` as a Worker secret only.
-- Do not run destructive remote D1 commands until a human explicitly confirms the remote rebuild/migration step.
+- Do not switch the active D1 binding or run destructive remote D1 commands until a human explicitly confirms the change.
 
 ## User/auth schema
 
@@ -86,10 +104,10 @@ npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
 Before any remote rebuild or destructive migration:
 
 1. Confirm the active Cloudflare account and list D1 databases with `npx wrangler d1 list`.
-2. Export/backup both databases, especially active `studyplaner-db-test` and reserved production `studyplanner-db`.
+2. Export/backup the active `studyplanner-db`; also keep a backup of `studyplaner-db-test` if it is needed as a historical reference.
 3. Store dumps outside the repo, not in `backend/.tmp/` if they contain private user data.
 4. Verify local migration plus API behavior against the checked `DB` binding.
-5. Ask for explicit approval before applying remote schema changes, deleting remote tables, or switching the app to `studyplanner-db`.
+5. Ask for explicit approval before applying remote schema changes, deleting remote tables, or changing the active D1 binding.
 
 Remote migration command from the repo root, after approval only:
 
