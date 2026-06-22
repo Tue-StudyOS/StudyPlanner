@@ -1,15 +1,15 @@
-# Scraper Pipeline
+# Scraper Update Pipeline
 
-Short update flow from the repo root.
+Run commands from the repo root unless noted.
 
-## ALMA catalog
+## 1. Scrape ALMA
 
 ```powershell
 uv run python -m alma_scraper.cli --details --from-semester "Sommer 2022"
 python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/<run>/courses_multi_semester.json --out-sql backend/data/seed_alma_catalog.sql
 ```
 
-## Moodle links
+## 2. Scrape Moodle
 
 ```powershell
 python -m data_collection.moodle.cli `
@@ -24,9 +24,9 @@ python backend/scripts/import_moodle_json_to_d1.py `
   --out-sql backend/data/seed_moodle_links.sql
 ```
 
-## ILIAS metadata
+## 3. Scrape ILIAS
 
-Create `data_collection/illias/.env` from `.env.template` first.
+Create `data_collection/illias/.env` from `.env.template`, then run:
 
 ```powershell
 uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli scrape --out-json data_collection/output/illias_courses.json
@@ -34,7 +34,7 @@ uv run --no-project --with beautifulsoup4 --with requests python -m data_collect
 uv run --no-project --with beautifulsoup4 --with requests python -m data_collection.illias.cli export-sql --out backend/data/seed_illias.sql
 ```
 
-## Apply to D1
+## 4. Update D1
 
 ```powershell
 npm run db:verify-config
@@ -45,5 +45,5 @@ npx wrangler d1 execute DB --local --file data/seed_moodle_links.sql
 npx wrangler d1 execute DB --local --file data/seed_illias.sql
 ```
 
-Use `--remote` instead of `--local` only when intentionally updating the active
-Cloudflare D1 database.
+Use `--remote` instead of `--local` only when intentionally updating the deployed
+`studyplanner-db` binding.
