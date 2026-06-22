@@ -83,6 +83,24 @@ export interface CourseParticipantLimit {
   maxParticipants: number | null
 }
 
+export interface CourseIliasMetadata {
+  refId: string
+  title: string
+  url: string
+  description?: string | null
+  availability?: string | null
+  registration?: string | null
+  deadline?: string | null
+  maxParticipants?: number | null
+  instructors?: string[]
+  tags?: string[]
+  match?: {
+    confidence: number
+    type: string
+    notes: string
+  }
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -122,4 +140,5 @@ export interface Course {
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]
   participantLimits?: CourseParticipantLimit[]
+  illias?: CourseIliasMetadata | null
 }

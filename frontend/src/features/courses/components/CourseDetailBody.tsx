@@ -9,6 +9,7 @@ import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
+import { buildIliasMetadataRows, hasIliasMetadata } from '../utils/illiasMetadata.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
@@ -109,6 +110,13 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   )
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
   const seasonTermType = getRecentSeasonTermType(course)
+  const illiasRows = buildIliasMetadataRows(course.illias, {
+    availability: t('courseDetail.illiasAvailability'),
+    deadline: t('courseDetail.illiasDeadline'),
+    instructors: t('courseDetail.illiasInstructors'),
+    maxParticipants: t('courseDetail.illiasMaxParticipants'),
+    registration: t('courseDetail.illiasRegistration'),
+  })
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
@@ -169,6 +177,50 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
             <LinkedText text={course.contents!} links={course.contentsLinks} />
           </p>
+        </Section>
+      ) : null}
+
+      {hasIliasMetadata(course.illias) ? (
+        <Section title={t('courseDetail.illias')}>
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={course.illias.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-w-0 items-center rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-[12.5px] font-semibold text-primary hover:underline"
+              >
+                <span className="truncate">{t('courseDetail.openIlias')}</span>
+              </a>
+              {course.illias.title && course.illias.title !== course.title ? (
+                <span className="min-w-0 break-words text-[12px] text-fg-muted">
+                  {course.illias.title}
+                </span>
+              ) : null}
+            </div>
+
+            {illiasRows.length > 0 ? (
+              <div className="grid min-w-0 overflow-hidden rounded-lg border border-border-light bg-surface">
+                {illiasRows.map((row, index) => (
+                  <div
+                    key={row.key}
+                    className={`grid min-w-0 grid-cols-[minmax(6.5rem,8rem)_minmax(0,1fr)] gap-3 px-3.5 py-2.5 text-[12.5px] ${
+                      index < illiasRows.length - 1 ? 'border-b border-border-light' : ''
+                    }`}
+                  >
+                    <span className="font-medium text-fg-muted">{row.label}</span>
+                    <span className="min-w-0 break-words text-fg">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {hasValue(course.illias.description) ? (
+              <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
+                {course.illias.description}
+              </p>
+            ) : null}
+          </div>
         </Section>
       ) : null}
 

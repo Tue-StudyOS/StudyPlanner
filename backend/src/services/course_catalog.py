@@ -1062,6 +1062,83 @@ def _build_participant_limits(parallel_groups: list[dict[str, Any]]) -> list[dic
     return limits
 
 
+def _json_list(value: Any) -> list[str]:
+    if not value:
+        return []
+    try:
+        import json
+
+        decoded = json.loads(str(value))
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(decoded, list):
+        return []
+    return [
+        text
+        for item in decoded
+        if (text := _safe_text(item))
+    ]
+
+
+async def _load_illias_metadata(env: Any, course_id: int) -> dict[str, Any] | None:
+    try:
+        row = await fetch_one(
+            env,
+            """
+            SELECT
+                ic.ref_id AS refId,
+                ic.title,
+                ic.url,
+                ic.description,
+                ic.availability,
+                ic.registration,
+                ic.deadline,
+                ic.max_participants AS maxParticipants,
+                ic.tags_json AS tagsJson,
+                ic.instructors_json AS instructorsJson,
+                m.confidence,
+                m.match_type AS matchType,
+                m.notes
+            FROM illias_alma_matches AS m
+            JOIN illias_courses AS ic ON ic.ref_id = m.illias_course_ref_id
+            WHERE m.alma_course_id = ?
+            ORDER BY m.confidence DESC, ic.title ASC
+            LIMIT 1
+            """,
+            [course_id],
+        )
+    except D1ExecutionError as exc:
+        message = str(exc).lower()
+        if "no such table" not in message or "illias_" not in message:
+            raise
+        return None
+
+    if row is None:
+        return None
+
+    url = _safe_text(row.get("url"))
+    if not url:
+        return None
+
+    return {
+        "refId": _safe_text(row.get("refId")) or "",
+        "title": _safe_text(row.get("title")) or "",
+        "url": url,
+        "description": _safe_text(row.get("description")),
+        "availability": _safe_text(row.get("availability")),
+        "registration": _safe_text(row.get("registration")),
+        "deadline": _safe_text(row.get("deadline")),
+        "maxParticipants": row.get("maxParticipants"),
+        "instructors": _json_list(row.get("instructorsJson")),
+        "tags": _json_list(row.get("tagsJson")),
+        "match": {
+            "confidence": _normalize_ects(row.get("confidence")) or 0,
+            "type": _safe_text(row.get("matchType")) or "",
+            "notes": _safe_text(row.get("notes")) or "",
+        },
+    }
+
+
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     raw_detail = await get_course_detail(env, course_id)
     if raw_detail is None:
@@ -1084,15 +1161,29 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
     offered_periods = await _load_offering_history(env, summary.get("number") or None)
     description_entry = _pick_description_entry(summary.get("shortComment"), content_sections)
     contents = _extract_contents(content_sections)
+    external_links = await _load_external_links(
+        env,
+        course_id_value,
+        _safe_text(course.get("number")),
+    )
+    illias_metadata = await _load_illias_metadata(env, course_id_value)
+    if illias_metadata and not any(
+        (_safe_text(link.get("platform")) or "").lower() == "ilias"
+        for link in external_links
+    ):
+        external_links.append(
+            {
+                "platform": "ilias",
+                "url": illias_metadata["url"],
+                "label": "Open ILIAS course",
+            }
+        )
     summary.update(
         {
             "offeredPeriods": offered_periods,
             "termType": _derive_term_type(offered_periods),
-            "externalLinks": await _load_external_links(
-                env,
-                course_id_value,
-                _safe_text(course.get("number")),
-            ),
+            "externalLinks": external_links,
+            "illias": illias_metadata,
             "participantLimits": _build_participant_limits(raw_detail["parallelGroups"]),
             "description": description_entry["text"],
             "descriptionLinks": description_entry["links"],
