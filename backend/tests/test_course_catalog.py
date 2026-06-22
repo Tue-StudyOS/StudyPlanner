@@ -26,8 +26,10 @@ from services.course_catalog import (  # noqa: E402
     _collect_offering_groups,
     _derive_term_type,
     _extract_contents,
+    _extract_contents_links,
     _load_external_links,
     _pick_description,
+    _pick_description_entry,
     _period_sort_key,
 )
 
@@ -57,6 +59,19 @@ class ExtractContentsTest(unittest.TestCase):
         sections = [{"title": "Lernziele", "text": "Lernziele ..."}]
         self.assertEqual(_extract_contents(sections), "")
 
+    def test_returns_links_for_cleaned_inhalte_section(self) -> None:
+        sections = [
+            {
+                "title": "Inhalte",
+                "text": "Inhalte Inhalte Inhalte See Webseite",
+                "links": [{"label": "Webseite", "url": "https://example.org/course"}],
+            }
+        ]
+        self.assertEqual(
+            _extract_contents_links(sections),
+            [{"label": "Webseite", "url": "https://example.org/course"}],
+        )
+
 
 class PickDescriptionTest(unittest.TestCase):
     def test_uses_informative_short_comment_first(self) -> None:
@@ -84,6 +99,24 @@ class PickDescriptionTest(unittest.TestCase):
 
     def test_falls_back_to_ects_only_short_comment_when_no_section_exists(self) -> None:
         self.assertEqual(_pick_description("9 CP", []), "9 CP")
+
+    def test_keeps_links_from_selected_description_section(self) -> None:
+        self.assertEqual(
+            _pick_description_entry(
+                "9 CP",
+                [
+                    {
+                        "title": "Empfehlung",
+                        "text": "Empfehlung Webseite",
+                        "links": [{"label": "Webseite", "url": "https://example.org/course"}],
+                    }
+                ],
+            ),
+            {
+                "text": "Webseite",
+                "links": [{"label": "Webseite", "url": "https://example.org/course"}],
+            },
+        )
 
 
 class BuildScheduleTest(unittest.TestCase):

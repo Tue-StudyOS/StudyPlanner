@@ -63,6 +63,18 @@ export interface CourseExternalLink {
   label: string
 }
 
+export interface CourseTextLink {
+  label: string
+  url: string
+}
+
+export interface CourseContentSection {
+  position: number
+  title: string
+  text: string
+  links?: CourseTextLink[]
+}
+
 export interface CourseParticipantLimit {
   parallelGroupId: string
   title: string | null
@@ -92,7 +104,10 @@ export interface Course {
   language: string
   prerequisites: string[]
   description: string
+  descriptionLinks?: CourseTextLink[]
   contents?: string
+  contentsLinks?: CourseTextLink[]
+  contentSections?: CourseContentSection[]
   exams: CourseExam[]
   registrationPeriod?: string
   detailUrl?: string

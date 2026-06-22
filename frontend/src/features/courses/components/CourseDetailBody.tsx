@@ -9,6 +9,7 @@ import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
+import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
 const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration period published'])
@@ -61,6 +62,28 @@ function TypePill({ label }: { label: string }) {
     <span className="inline-block whitespace-nowrap rounded-full border border-pill-border bg-pill-bg px-2.5 py-0.75 text-[11px] font-medium text-pill-text">
       {label}
     </span>
+  )
+}
+
+function LinkedText({ text, links }: { text: string; links?: TextLink[] }) {
+  return (
+    <>
+      {buildLinkedTextSegments(text, links).map((segment, index) =>
+        segment.kind === 'link' ? (
+          <a
+            key={`${segment.url}-${index}`}
+            href={segment.url}
+            target="_blank"
+            rel="noreferrer"
+            className="break-all text-primary hover:underline"
+          >
+            {segment.text}
+          </a>
+        ) : (
+          <span key={`${segment.text}-${index}`}>{segment.text}</span>
+        ),
+      )}
+    </>
   )
 }
 
@@ -136,7 +159,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
       {hasValue(course.description) ? (
         <Section title={t('courseDetail.description')}>
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
-            {course.description}
+            <LinkedText text={course.description} links={course.descriptionLinks} />
           </p>
         </Section>
       ) : null}
@@ -144,7 +167,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
       {hasValue(course.contents) ? (
         <Section title={t('courseDetail.contents')}>
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
-            {course.contents}
+            <LinkedText text={course.contents!} links={course.contentsLinks} />
           </p>
         </Section>
       ) : null}
@@ -183,7 +206,9 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
                 className="flex items-baseline gap-2.5 text-[13.5px] text-fg-mid"
               >
                 <span className="mt-1.5 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />
-                <span>{prerequisite}</span>
+                <span>
+                  <LinkedText text={prerequisite} />
+                </span>
               </li>
             ))}
           </ul>

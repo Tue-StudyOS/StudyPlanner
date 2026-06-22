@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -119,6 +120,44 @@ def _strip_repeated_section_title(section_title: str, section_text: str) -> str:
     if normalized_text.casefold().startswith(normalized_title.casefold()):
         return normalized_text[len(normalized_title):].lstrip(" \t\r\n.,;:-")
     return normalized_text
+
+
+def _decode_text_links(value: Any) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    else:
+        parsed = value
+    if not isinstance(parsed, list):
+        return []
+
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        url = _safe_text(item.get("url"))
+        if not url:
+            continue
+        label = _safe_text(item.get("label")) or url
+        key = (label.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append({"label": label, "url": url})
+    return links
+
+
+def _normalize_content_section(row: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(row)
+    normalized["links"] = _decode_text_links(row.get("linksJson") or row.get("links_json"))
+    normalized.pop("linksJson", None)
+    normalized.pop("links_json", None)
+    return normalized
 
 
 def _escape_like_search_term(value: str) -> str:
@@ -279,10 +318,13 @@ def _extract_prerequisites(content_sections: list[dict[str, Any]]) -> list[str]:
     return _unique_preserve_order(extracted_prerequisites)
 
 
-def _pick_description(short_comment: str | None, content_sections: list[dict[str, Any]]) -> str:
+def _pick_description_entry(
+    short_comment: str | None,
+    content_sections: list[dict[str, Any]],
+) -> dict[str, Any]:
     normalized_short_comment = _safe_text(short_comment)
     if normalized_short_comment and not _is_ects_only_text(normalized_short_comment):
-        return normalized_short_comment
+        return {"text": normalized_short_comment, "links": []}
 
     for section in content_sections:
         section_title = _safe_text(section.get("title")) or ""
@@ -290,15 +332,25 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
             continue
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return _strip_repeated_section_title(section_title, section_text)
+            return {
+                "text": _strip_repeated_section_title(section_title, section_text),
+                "links": _decode_text_links(section.get("links")),
+            }
 
     for section in content_sections:
         section_title = _safe_text(section.get("title")) or ""
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return _strip_repeated_section_title(section_title, section_text)
+            return {
+                "text": _strip_repeated_section_title(section_title, section_text),
+                "links": _decode_text_links(section.get("links")),
+            }
 
-    return normalized_short_comment or ""
+    return {"text": normalized_short_comment or "", "links": []}
+
+
+def _pick_description(short_comment: str | None, content_sections: list[dict[str, Any]]) -> str:
+    return str(_pick_description_entry(short_comment, content_sections)["text"])
 
 
 def _clean_inhalte_text(text: str) -> str | None:
@@ -330,6 +382,18 @@ def _extract_contents(content_sections: list[dict[str, Any]]) -> str:
         if cleaned:
             return cleaned
     return ""
+
+
+def _extract_contents_links(content_sections: list[dict[str, Any]]) -> list[dict[str, str]]:
+    for section in content_sections:
+        section_title = (_safe_text(section.get("title")) or "").strip().lower()
+        if section_title != INHALTE_SECTION_TITLE:
+            continue
+        section_text = _safe_text(section.get("text"))
+        if not section_text or not _clean_inhalte_text(section_text):
+            continue
+        return _decode_text_links(section.get("links"))
+    return []
 
 
 def _period_sort_key(period_label: str) -> tuple[int, int, str]:
@@ -1018,6 +1082,8 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
     )
 
     offered_periods = await _load_offering_history(env, summary.get("number") or None)
+    description_entry = _pick_description_entry(summary.get("shortComment"), content_sections)
+    contents = _extract_contents(content_sections)
     summary.update(
         {
             "offeredPeriods": offered_periods,
@@ -1028,8 +1094,10 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
                 _safe_text(course.get("number")),
             ),
             "participantLimits": _build_participant_limits(raw_detail["parallelGroups"]),
-            "description": _pick_description(summary.get("shortComment"), content_sections),
-            "contents": _extract_contents(content_sections),
+            "description": description_entry["text"],
+            "descriptionLinks": description_entry["links"],
+            "contents": contents,
+            "contentsLinks": _extract_contents_links(content_sections) if contents else [],
             "prerequisites": _extract_prerequisites(content_sections),
             "exams": [
                 {
@@ -1187,7 +1255,8 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         SELECT
             position,
             title,
-            text
+            text,
+            links_json AS linksJson
         FROM content_sections
         WHERE course_id = ?
         ORDER BY position ASC
@@ -1195,7 +1264,8 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     course_fields_sql = """
         SELECT
             key,
-            value
+            value,
+            links_json AS linksJson
         FROM course_fields
         WHERE course_id = ?
         ORDER BY key ASC
@@ -1205,8 +1275,18 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     parallel_groups = await fetch_all(env, parallel_groups_sql, [course_id])
     appointments = await fetch_all(env, appointments_sql, [course_id])
     assessment_dates = await fetch_all(env, assessment_dates_sql, [course_id])
-    content_sections = await fetch_all(env, content_sections_sql, [course_id])
+    content_sections = [
+        _normalize_content_section(row)
+        for row in await fetch_all(env, content_sections_sql, [course_id])
+    ]
     course_fields = await fetch_all(env, course_fields_sql, [course_id])
+    course_field_links: dict[str, list[dict[str, str]]] = {}
+    for row in course_fields:
+        if "key" not in row:
+            continue
+        links = _decode_text_links(row.get("linksJson"))
+        if links:
+            course_field_links[str(row["key"])] = links
 
     return {
         "course": course,
@@ -1220,4 +1300,5 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             for row in course_fields
             if "key" in row and "value" in row
         },
+        "courseFieldLinks": course_field_links,
     }
