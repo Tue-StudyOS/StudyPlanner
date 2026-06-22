@@ -23,7 +23,7 @@ FORBIDDEN_ACTION_RE = re.compile(
 )
 COURSE_CODE_RE = re.compile(r"\b[A-ZÄÖÜ]{2,}[A-ZÄÖÜ0-9]{1,}[-_/]?[A-Z0-9]*\d{2,}[A-Z0-9-]*\b")
 MAX_PARTICIPANTS_RE = re.compile(
-    r"(?:max(?:imale)?\.?\s*(?:teilnehmer(?:zahl)?|participants)|teilnehmerbegrenzung)\D{0,20}(\d+)",
+    r"(?:max(?:imale|imum)?\.?\s*(?:teilnehmer(?:zahl)?|participants|capacity)|teilnehmerbegrenzung)\D{0,30}(\d+)",
     re.IGNORECASE,
 )
 DEADLINE_RE = re.compile(
@@ -130,6 +130,7 @@ class IliasScraper:
             detail = self._get_readonly(link["url"])
             course = parse_course_page(detail.text, detail.url, fallback_title=link["title"])
             course.object_type = link.get("object_type") or course.object_type
+            _merge_repository_item_metadata(course, link)
             courses.append(course)
             time.sleep(self.polite_delay)
         return {
@@ -141,7 +142,7 @@ class IliasScraper:
             "courses": [asdict(course) for course in courses],
         }
 
-    def _collect_repository_items(self, start_url: str, *, max_depth: int) -> list[dict[str, str]]:
+    def _collect_repository_items(self, start_url: str, *, max_depth: int) -> list[dict[str, Any]]:
         queue: list[tuple[str, int]] = [(start_url, 0)]
         seen_pages: set[str] = set()
         seen_items: set[str] = set()
@@ -160,7 +161,7 @@ class IliasScraper:
                 if item.get("object_type") == "crs" and ref_id not in seen_items:
                     seen_items.add(ref_id)
                     items.append(item)
-                if item.get("object_type") == "cat" and depth < max_depth:
+                if item.get("object_type") in {"cat", "crs"} and depth < max_depth:
                     queue.append((item["url"], depth + 1))
             time.sleep(self.polite_delay)
         return items
@@ -224,8 +225,9 @@ def parse_course_page(html_text: str, url: str, *, fallback_title: str = "") -> 
     )
 
 
-def _extract_course_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, str]]:
-    links: list[dict[str, str]] = []
+def _extract_course_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, Any]]:
+    links: list[dict[str, Any]] = []
+    seen_ref_ids: set[str] = set()
     for anchor in soup.find_all("a", href=True):
         href = str(anchor["href"])
         text = _clean_text(anchor)
@@ -238,6 +240,7 @@ def _extract_course_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, 
         object_type = _object_type_from_url(href)
         if object_type not in {"cat", "crs"}:
             continue
+        seen_ref_ids.add(ref_id)
         links.append(
             {
                 "ref_id": ref_id,
@@ -246,7 +249,63 @@ def _extract_course_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, 
                 "object_type": object_type,
             }
         )
+    for row in soup.find_all(id=re.compile(r"^item_row_(?:crs|cat)-\d+$")):
+        if not isinstance(row, Tag):
+            continue
+        row_id = str(row.get("id") or "")
+        match = re.match(r"^item_row_(crs|cat)-(\d+)$", row_id)
+        if not match:
+            continue
+        object_type, ref_id = match.groups()
+        if ref_id in seen_ref_ids:
+            continue
+        title_node = row.find(["a", "h3"], class_=re.compile(r"\bil_ContainerItemTitle\b"))
+        title = _clean_text(title_node)
+        if not title:
+            continue
+        fields = _extract_inline_item_fields(row)
+        seen_ref_ids.add(ref_id)
+        links.append(
+            {
+                "ref_id": ref_id,
+                "title": title,
+                "url": urljoin(base_url, f"/ilias.php?baseClass=ilrepositorygui&ref_id={ref_id}"),
+                "object_type": object_type,
+                "description": _clean_text(row.find(class_=re.compile(r"\bil_Description\b"))) or "",
+                "availability": fields.get("Verfügbarkeit") or fields.get("Availability") or "",
+                "registration": fields.get("Anmeldungszeitraum") or fields.get("Registration") or "",
+                "raw_text": _clean_text(row),
+            }
+        )
     return links
+
+
+def _extract_inline_item_fields(row: Tag) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for node in row.find_all(class_=re.compile(r"\bil_ItemProperty\b")):
+        text = _clean_text(node)
+        if ":" not in text:
+            continue
+        key, value = text.split(":", 1)
+        if key.strip() and value.strip():
+            fields.setdefault(key.strip(), value.strip())
+    return fields
+
+
+def _merge_repository_item_metadata(course: IliasCourse, item: dict[str, Any]) -> None:
+    description = str(item.get("description") or "").strip()
+    availability = str(item.get("availability") or "").strip()
+    registration = str(item.get("registration") or "").strip()
+    raw_text = str(item.get("raw_text") or "").strip()
+
+    if description and not course.description:
+        course.description = description
+    if availability and not course.availability:
+        course.availability = availability
+    if registration and not course.registration:
+        course.registration = registration
+    if course.max_participants is None:
+        course.max_participants = _maybe_int(_regex_value(MAX_PARTICIPANTS_RE, f"{description} {raw_text}"))
 
 
 def _extract_fields(soup: BeautifulSoup) -> dict[str, str]:

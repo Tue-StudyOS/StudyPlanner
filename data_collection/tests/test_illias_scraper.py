@@ -25,6 +25,8 @@ class IliasScraperParsingTests(unittest.TestCase):
             category_url: f"""
             <a class="il_ContainerItemTitle" href="{nested_course_url}">Nested Course</a>
             """,
+            course_url: "",
+            nested_course_url: "",
         }
         scraper = IliasScraper(username="user", password="secret", polite_delay=0)
         scraper._get_readonly = lambda url: FakeResponse(url, pages[url])  # type: ignore[method-assign]
@@ -33,6 +35,41 @@ class IliasScraperParsingTests(unittest.TestCase):
 
         self.assertEqual([item["ref_id"] for item in items], ["3", "4"])
         self.assertEqual([item["object_type"] for item in items], ["crs", "crs"])
+
+    def test_collect_repository_items_extracts_ilias9_non_link_course_rows(self) -> None:
+        start_url = "https://ovidius.uni-tuebingen.de/ilias.php?baseClass=ilrepositorygui&ref_id=5549597"
+        pages = {
+            start_url: """
+            <div id="item_row_crs-5549599" class="ilCLI ilObjListRow">
+              <div class="il_ContainerListItem">
+                <div class="il_ContainerItemTitle form-inline">
+                  <h3 class="il_ContainerItemTitle">Introduction to Quantum Computing</h3>
+                </div>
+                <div class="ilListItemSection il_Description">
+                  Please register for this course if you would like to take the lecture.
+                </div>
+                <div class="ilListItemSection il_ItemProperties">
+                  <span class="il_ItemProperty">Anmeldungszeitraum: Keine Anmeldung moeglich</span>
+                  <span class="il_ItemProperty">Availability: 27. Mar 2026, 12:00 - 1. Oct 2026, 00:00</span>
+                </div>
+              </div>
+            </div>
+            """,
+        }
+        scraper = IliasScraper(username="user", password="secret", polite_delay=0)
+        scraper._get_readonly = lambda url: FakeResponse(url, pages[url])  # type: ignore[method-assign]
+
+        items = scraper._collect_repository_items(start_url, max_depth=0)
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["ref_id"], "5549599")
+        self.assertEqual(items[0]["title"], "Introduction to Quantum Computing")
+        self.assertEqual(items[0]["object_type"], "crs")
+        self.assertEqual(
+            items[0]["url"],
+            "https://ovidius.uni-tuebingen.de/ilias.php?baseClass=ilrepositorygui&ref_id=5549599",
+        )
+        self.assertIn("Please register", items[0]["description"])
 
     def test_extracts_registration_deadline_and_capacity_without_profile_consent_text(self) -> None:
         html = """
@@ -88,6 +125,23 @@ class IliasScraperParsingTests(unittest.TestCase):
 
         self.assertIsNone(course.deadline)
         self.assertEqual(course.registration, "Unbegrenzt Sie können diesem Kurs direkt beitreten.")
+
+    def test_extracts_maximum_capacity_wording(self) -> None:
+        html = """
+        <html>
+          <body>
+            <h1>AI for Scientific Discovery II</h1>
+            <div class="ilListItemSection il_Description">
+              Registration is starting on 27th March at noon.
+              The maximum capacity is 26 slots.
+            </div>
+          </body>
+        </html>
+        """
+
+        course = parse_course_page(html, "https://ovidius.uni-tuebingen.de/goto.php/crs/5549598")
+
+        self.assertEqual(course.max_participants, 26)
 
 
 if __name__ == "__main__":
