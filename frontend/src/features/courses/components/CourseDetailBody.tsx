@@ -9,7 +9,8 @@ import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
-import { buildIliasMetadataRows, hasIliasMetadata } from '../utils/illiasMetadata.ts'
+import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
+import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
@@ -88,6 +89,16 @@ function LinkedText({ text, links }: { text: string; links?: TextLink[] }) {
   )
 }
 
+function learningPlatformLabel(
+  platform: string,
+  labels: { moodle: string; ilias: string },
+): string {
+  const normalized = platform.trim().toLowerCase()
+  if (normalized === 'moodle') return labels.moodle
+  if (normalized === 'ilias') return labels.ilias
+  return `Open ${platform}`
+}
+
 interface CourseDetailBodyProps {
   course: Course
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
@@ -97,7 +108,7 @@ interface CourseDetailBodyProps {
 /**
  * Shared course detail content for the catalog drawer, the detail route, and
  * the planner's centered detail modal. Only renders information that exists —
- * with the deliberate exception of the Moodle/Ilias slot, which shows an
+ * with the deliberate exception of the Moodle/ILIAS slot, which shows an
  * explicit empty state.
  */
 export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
@@ -105,9 +116,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const { user } = useAuth()
   const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
   const title = cleanCourseTitle(course.title, course.number)
-  const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
-    ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
-  )
+  const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
   const seasonTermType = getRecentSeasonTermType(course)
   const illiasRows = buildIliasMetadataRows(course.illias, {
@@ -117,6 +126,15 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
     maxParticipants: t('courseDetail.illiasMaxParticipants'),
     registration: t('courseDetail.illiasRegistration'),
   })
+  const hasIliasTitle =
+    hasValue(course.illias?.title) && course.illias.title.trim() !== course.title.trim()
+  const hasIliasDetails =
+    Boolean(course.illias) &&
+    (hasIliasTitle || illiasRows.length > 0 || hasValue(course.illias?.description))
+  const learningPlatformLabels = {
+    ilias: t('courseDetail.openIlias'),
+    moodle: t('courseDetail.openMoodle'),
+  }
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
@@ -180,24 +198,42 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
-      {hasIliasMetadata(course.illias) ? (
+      <Section title={t('courseDetail.learningPlatforms')}>
+        <div className="grid gap-2.5">
+          {learningPlatformLinks.length > 0 ? (
+            learningPlatformLinks.map((link) => (
+              <div key={`${link.platform}-${link.url}`} className="flex min-w-0 flex-wrap items-center gap-2">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-w-0 items-center rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-[12.5px] font-semibold text-primary hover:underline"
+                >
+                  <span className="truncate">
+                    {learningPlatformLabel(link.platform, learningPlatformLabels)}
+                  </span>
+                </a>
+                {hasValue(link.label) ? (
+                  <span className="min-w-0 break-words text-[12px] text-fg-muted">
+                    {link.label}
+                  </span>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="text-[13px] text-fg-muted">{t('courseDetail.noLearningLink')}</div>
+          )}
+        </div>
+      </Section>
+
+      {hasIliasDetails && course.illias ? (
         <Section title={t('courseDetail.illias')}>
           <div className="grid gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={course.illias.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-w-0 items-center rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-[12.5px] font-semibold text-primary hover:underline"
-              >
-                <span className="truncate">{t('courseDetail.openIlias')}</span>
-              </a>
-              {course.illias.title && course.illias.title !== course.title ? (
-                <span className="min-w-0 break-words text-[12px] text-fg-muted">
-                  {course.illias.title}
-                </span>
-              ) : null}
-            </div>
+            {hasIliasTitle ? (
+              <div className="min-w-0 break-words text-[12.5px] text-fg-muted">
+                {course.illias.title}
+              </div>
+            ) : null}
 
             {illiasRows.length > 0 ? (
               <div className="grid min-w-0 overflow-hidden rounded-lg border border-border-light bg-surface">
@@ -288,30 +324,15 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
-      <Section title={t('courseDetail.links')}>
-        <div className="grid gap-2 text-[13px]">
-          {learningPlatformLinks.length > 0 ? (
-            learningPlatformLinks.map((link) => (
-              <a
-                key={`${link.platform}-${link.url}`}
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                {link.label || `Open ${link.platform}`}
-              </a>
-            ))
-          ) : (
-            <div className="text-fg-muted">{t('courseDetail.noLearningLink')}</div>
-          )}
-          {almaUrl ? (
+      {almaUrl ? (
+        <Section title={t('courseDetail.links')}>
+          <div className="grid gap-2 text-[13px]">
             <a href={almaUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
               {t('courseDetail.openAlma')}
             </a>
-          ) : null}
-        </div>
-      </Section>
+          </div>
+        </Section>
+      ) : null}
 
       {factRows.length > 0 ? (
         <div className="min-w-0 overflow-hidden rounded-[12px] border border-border bg-surface">
