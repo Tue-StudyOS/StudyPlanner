@@ -136,7 +136,7 @@ def _run_export_sql(args: argparse.Namespace) -> None:
         ).fetchall()
         courses = connection.execute(
             """
-            SELECT ref_id, run_id, title, url, object_type, description,
+            SELECT id, ref_id, run_id, title, url, object_type, description,
                    availability, registration, deadline, max_participants,
                    tags_json, instructors_json, raw_fields_json, raw_text,
                    imported_at_unix
@@ -148,22 +148,22 @@ def _run_export_sql(args: argparse.Namespace) -> None:
         ).fetchall()
         fields = connection.execute(
             """
-            SELECT f.course_ref_id, f.key, f.value
+            SELECT f.course_id, f.key, f.value
             FROM illias_course_fields AS f
-            JOIN illias_courses AS c ON c.ref_id = f.course_ref_id
+            JOIN illias_courses AS c ON c.id = f.course_id
             WHERE c.run_id = ?
-            ORDER BY f.course_ref_id, f.key
+            ORDER BY f.course_id, f.key
             """,
             (latest_run_id,),
         ).fetchall()
         matches = connection.execute(
             """
-            SELECT m.illias_course_ref_id, m.alma_course_id, m.confidence, m.match_type,
+            SELECT m.illias_course_id, m.alma_course_id, m.confidence, m.match_type,
                    m.notes, m.candidate_count, m.matched_at_unix
             FROM illias_alma_matches AS m
-            JOIN illias_courses AS c ON c.ref_id = m.illias_course_ref_id
+            JOIN illias_courses AS c ON c.id = m.illias_course_id
             WHERE c.run_id = ?
-            ORDER BY m.illias_course_ref_id
+            ORDER BY m.illias_course_id
             """,
             (latest_run_id,),
         ).fetchall()

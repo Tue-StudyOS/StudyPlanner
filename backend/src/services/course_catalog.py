@@ -917,7 +917,7 @@ async def _load_illias_metadata(env: Any, course_id: int) -> dict[str, Any] | No
                 m.match_type AS matchType,
                 m.notes
             FROM illias_alma_matches AS m
-            JOIN illias_courses AS ic ON ic.ref_id = m.illias_course_ref_id
+            JOIN illias_courses AS ic ON ic.id = m.illias_course_id
             WHERE m.alma_course_id = ?
             ORDER BY m.confidence DESC, ic.title ASC
             LIMIT 1

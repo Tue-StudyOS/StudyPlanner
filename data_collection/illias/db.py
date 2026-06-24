@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS illias_scrape_runs (
 );
 
 CREATE TABLE IF NOT EXISTS illias_courses (
-    ref_id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
+    ref_id TEXT NOT NULL UNIQUE,
     run_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -39,22 +40,22 @@ CREATE TABLE IF NOT EXISTS illias_courses (
 );
 
 CREATE TABLE IF NOT EXISTS illias_course_fields (
-    course_ref_id TEXT NOT NULL,
+    course_id INTEGER NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    PRIMARY KEY (course_ref_id, key),
-    FOREIGN KEY (course_ref_id) REFERENCES illias_courses(ref_id) ON DELETE CASCADE
+    PRIMARY KEY (course_id, key),
+    FOREIGN KEY (course_id) REFERENCES illias_courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS illias_alma_matches (
-    illias_course_ref_id TEXT PRIMARY KEY,
+    illias_course_id INTEGER PRIMARY KEY,
     alma_course_id INTEGER,
     confidence REAL NOT NULL,
     match_type TEXT NOT NULL,
     notes TEXT NOT NULL,
     candidate_count INTEGER NOT NULL,
     matched_at_unix INTEGER NOT NULL DEFAULT (unixepoch()),
-    FOREIGN KEY (illias_course_ref_id) REFERENCES illias_courses(ref_id) ON DELETE CASCADE
+    FOREIGN KEY (illias_course_id) REFERENCES illias_courses(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_illias_courses_title ON illias_courses(title);
@@ -93,14 +94,30 @@ def import_scrape(connection: sqlite3.Connection, payload: dict[str, Any]) -> in
     run_id = int(cursor.lastrowid)
     for raw_course in payload.get("courses") or []:
         course = _course_from_mapping(raw_course)
-        connection.execute(
+        row = connection.execute(
             """
-            INSERT OR REPLACE INTO illias_courses (
+            INSERT INTO illias_courses (
                 ref_id, run_id, title, url, object_type, description, availability,
                 registration, deadline, max_participants, tags_json, instructors_json,
                 raw_fields_json, raw_text
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(ref_id) DO UPDATE SET
+                run_id = excluded.run_id,
+                title = excluded.title,
+                url = excluded.url,
+                object_type = excluded.object_type,
+                description = excluded.description,
+                availability = excluded.availability,
+                registration = excluded.registration,
+                deadline = excluded.deadline,
+                max_participants = excluded.max_participants,
+                tags_json = excluded.tags_json,
+                instructors_json = excluded.instructors_json,
+                raw_fields_json = excluded.raw_fields_json,
+                raw_text = excluded.raw_text,
+                imported_at_unix = unixepoch()
+            RETURNING id
             """,
             (
                 course.ref_id,
@@ -118,14 +135,17 @@ def import_scrape(connection: sqlite3.Connection, payload: dict[str, Any]) -> in
                 json.dumps(course.fields, ensure_ascii=False),
                 course.raw_text,
             ),
-        )
-        connection.execute("DELETE FROM illias_course_fields WHERE course_ref_id = ?", (course.ref_id,))
+        ).fetchone()
+        if row is None:
+            raise RuntimeError(f"Failed to upsert ILIAS course {course.ref_id!r}.")
+        course_id = int(row["id"])
+        connection.execute("DELETE FROM illias_course_fields WHERE course_id = ?", (course_id,))
         connection.executemany(
             """
-            INSERT INTO illias_course_fields (course_ref_id, key, value)
+            INSERT INTO illias_course_fields (course_id, key, value)
             VALUES (?, ?, ?)
             """,
-            [(course.ref_id, key, value) for key, value in course.fields.items()],
+            [(course_id, key, value) for key, value in course.fields.items()],
         )
     connection.commit()
     return run_id
@@ -154,17 +174,28 @@ def load_illias_courses(connection: sqlite3.Connection) -> list[IliasCourse]:
 def save_matches(connection: sqlite3.Connection, matches: list[CourseMatch]) -> None:
     initialize_database(connection)
     connection.execute("DELETE FROM illias_alma_matches")
+    ref_id_rows = connection.execute("SELECT id, ref_id FROM illias_courses").fetchall()
+    course_ids_by_ref_id = {row["ref_id"]: int(row["id"]) for row in ref_id_rows}
+    missing_ref_ids = sorted(
+        {
+            match.illias_course_ref_id
+            for match in matches
+            if match.illias_course_ref_id not in course_ids_by_ref_id
+        }
+    )
+    if missing_ref_ids:
+        raise ValueError(f"Cannot save matches for unknown ILIAS courses: {', '.join(missing_ref_ids)}")
     connection.executemany(
         """
         INSERT OR REPLACE INTO illias_alma_matches (
-            illias_course_ref_id, alma_course_id, confidence, match_type,
+            illias_course_id, alma_course_id, confidence, match_type,
             notes, candidate_count
         )
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         [
             (
-                match.illias_course_ref_id,
+                course_ids_by_ref_id[match.illias_course_ref_id],
                 match.alma_course_id,
                 match.confidence,
                 match.match_type,
