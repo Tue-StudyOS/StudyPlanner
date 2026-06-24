@@ -29,14 +29,14 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "comment",
     "empfehlung",
 )
-# The "Inhalte" (Contents) section is the field users want surfaced verbatim.
-INHALTE_SECTION_TITLE = "inhalte"
 # ALMA renders the active "Inhalte" tab with the page's tab bar plus the heading
 # repeated three times before the real text, e.g. "Semesterplanung Termine
 # Inhalte ... Module / Studiengänge Inhalte Inhalte Inhalte <real text>".
 INHALTE_NAV_MARKER = "Inhalte Inhalte Inhalte"
 # Empty sections carry this placeholder instead of real content.
 INHALTE_EMPTY_PLACEHOLDER = "es wurden noch keine inhalte hinterlegt"
+# The syllabus box is titled exactly "Inhalte"; its embedded links feed contentsLinks.
+INHALTE_SECTION_TITLE = "inhalte"
 # German course texts use "LP" (Leistungspunkte) as a synonym for ECTS.
 ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', re.IGNORECASE)
 # ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
@@ -344,11 +344,12 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
     return str(_pick_description_entry(short_comment, content_sections)["text"])
 
 
-def _clean_inhalte_text(text: str) -> str | None:
-    """Strip ALMA's scraped tab-navigation chrome from an Inhalte section.
+def _clean_section_text(text: str) -> str | None:
+    """Strip ALMA's scraped tab-navigation chrome from a content section.
 
-    The real content follows the repeated-heading marker; everything before it
-    is the page's tab bar. Returns None when nothing meaningful remains.
+    Unstructured "Inhalte" sections carry the page's tab bar before the real
+    text, which follows the repeated-heading marker; everything before it is
+    chrome. Returns None when nothing meaningful remains.
     """
     marker_index = text.find(INHALTE_NAV_MARKER)
     if marker_index != -1:
@@ -360,19 +361,53 @@ def _clean_inhalte_text(text: str) -> str | None:
     return cleaned
 
 
-def _extract_contents(content_sections: list[dict[str, Any]]) -> str:
-    """Return the cleaned "Inhalte" (Contents) section text, or "" if absent."""
+def _strip_leading_title(title: str, text: str) -> str:
+    """Drop a heading that the scraper duplicated as the first words of the body.
+
+    Labelled boxes store their text as "<title> <body>" (e.g. title "Lernziele",
+    text "Lernziele ..."); the title is shown separately, so trim the repeat.
+    """
+    if title and text.lower().startswith(title.lower()):
+        return text[len(title):].lstrip(" \t:–—-")
+    return text
+
+
+def _build_content_sections(
+    content_sections: list[dict[str, Any]],
+    description: str,
+) -> list[dict[str, Any]]:
+    """Return the ALMA "Inhalte" tab content as ordered title/text/links blocks.
+
+    ALMA stores structured courses as labelled sub-boxes (Lernziele,
+    Qualifikationsziel, ...) and unstructured ones as a single "Inhalte" blob;
+    both shapes land in ``content_sections``. Surface every block with real
+    text, minus what other detail fields already show — the description (shown
+    verbatim) and the prerequisites (their own section) — so nothing repeats.
+    Each block keeps its embedded links so the client can render them inline.
+    """
+    blocks: list[dict[str, Any]] = []
     for section in content_sections:
-        section_title = (_safe_text(section.get("title")) or "").strip().lower()
-        if section_title != INHALTE_SECTION_TITLE:
-            continue
+        section_title = _safe_text(section.get("title")) or ""
         section_text = _safe_text(section.get("text"))
         if not section_text:
             continue
-        cleaned = _clean_inhalte_text(section_text)
-        if cleaned:
-            return cleaned
-    return ""
+        # Prerequisites have their own detail section.
+        if any(keyword in section_title.lower() for keyword in PREREQUISITE_KEYWORDS):
+            continue
+        # The description already surfaces this exact text.
+        if section_text == description:
+            continue
+        cleaned = _clean_section_text(section_text)
+        if not cleaned:
+            continue
+        blocks.append(
+            {
+                "title": section_title,
+                "text": _strip_leading_title(section_title, cleaned),
+                "links": _decode_text_links(section.get("links")),
+            }
+        )
+    return blocks
 
 
 def _extract_contents_links(content_sections: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -381,7 +416,7 @@ def _extract_contents_links(content_sections: list[dict[str, Any]]) -> list[dict
         if section_title != INHALTE_SECTION_TITLE:
             continue
         section_text = _safe_text(section.get("text"))
-        if not section_text or not _clean_inhalte_text(section_text):
+        if not section_text or not _clean_section_text(section_text):
             continue
         return _decode_text_links(section.get("links"))
     return []
@@ -1151,7 +1186,7 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
 
     offered_periods = await _load_offering_history(env, summary.get("number") or None)
     description_entry = _pick_description_entry(summary.get("shortComment"), content_sections)
-    contents = _extract_contents(content_sections)
+    contents = _build_content_sections(content_sections, description_entry["text"])
     external_links = await _load_external_links(
         env,
         course_id_value,

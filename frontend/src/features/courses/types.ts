@@ -69,7 +69,7 @@ export interface CourseTextLink {
 }
 
 export interface CourseContentSection {
-  position: number
+  position?: number
   title: string
   text: string
   links?: CourseTextLink[]
@@ -123,7 +123,7 @@ export interface Course {
   prerequisites: string[]
   description: string
   descriptionLinks?: CourseTextLink[]
-  contents?: string
+  contents?: CourseContentSection[]
   contentsLinks?: CourseTextLink[]
   contentSections?: CourseContentSection[]
   exams: CourseExam[]

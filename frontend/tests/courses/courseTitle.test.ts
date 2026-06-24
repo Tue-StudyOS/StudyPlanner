@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cleanCourseTitle, formatCourseTypeLabel } from '../../src/features/courses/utils/courseTitle.ts'
+import {
+  cleanCourseTitle,
+  formatCourseTypeLabel,
+  isGenericContentTitle,
+} from '../../src/features/courses/utils/courseTitle.ts'
 
 test('cleanCourseTitle strips parenthesized type suffixes', () => {
   assert.equal(cleanCourseTitle('Algorithmen und Datenstrukturen (Vorlesung)'), 'Algorithmen und Datenstrukturen')
@@ -70,4 +74,17 @@ test('formatCourseTypeLabel translates combined German types', () => {
 
 test('formatCourseTypeLabel drops separator-only garbage types', () => {
   assert.equal(formatCourseTypeLabel(['/////////////////////////////////////////']), 'Course')
+})
+
+test('isGenericContentTitle suppresses the bare "Inhalte" wrapper heading', () => {
+  assert.equal(isGenericContentTitle('Inhalte'), true)
+  assert.equal(isGenericContentTitle('  inhalt '), true)
+  assert.equal(isGenericContentTitle('Contents'), true)
+  assert.equal(isGenericContentTitle('content'), true)
+})
+
+test('isGenericContentTitle keeps labelled section titles as headings', () => {
+  assert.equal(isGenericContentTitle('Lernziele'), false)
+  assert.equal(isGenericContentTitle('Qualifikationsziel'), false)
+  assert.equal(isGenericContentTitle('Literatur'), false)
 })
