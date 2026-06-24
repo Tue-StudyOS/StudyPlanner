@@ -28,8 +28,6 @@ DESCRIPTION_SECTION_KEYWORDS = (
     "comment",
     "empfehlung",
 )
-# The "Inhalte" (Contents) section is the field users want surfaced verbatim.
-INHALTE_SECTION_TITLE = "inhalte"
 # ALMA renders the active "Inhalte" tab with the page's tab bar plus the heading
 # repeated three times before the real text, e.g. "Semesterplanung Termine
 # Inhalte ... Module / Studiengänge Inhalte Inhalte Inhalte <real text>".
@@ -243,11 +241,12 @@ def _pick_description(short_comment: str | None, content_sections: list[dict[str
     return ""
 
 
-def _clean_inhalte_text(text: str) -> str | None:
-    """Strip ALMA's scraped tab-navigation chrome from an Inhalte section.
+def _clean_section_text(text: str) -> str | None:
+    """Strip ALMA's scraped tab-navigation chrome from a content section.
 
-    The real content follows the repeated-heading marker; everything before it
-    is the page's tab bar. Returns None when nothing meaningful remains.
+    Unstructured "Inhalte" sections carry the page's tab bar before the real
+    text, which follows the repeated-heading marker; everything before it is
+    chrome. Returns None when nothing meaningful remains.
     """
     marker_index = text.find(INHALTE_NAV_MARKER)
     if marker_index != -1:
@@ -259,19 +258,48 @@ def _clean_inhalte_text(text: str) -> str | None:
     return cleaned
 
 
-def _extract_contents(content_sections: list[dict[str, Any]]) -> str:
-    """Return the cleaned "Inhalte" (Contents) section text, or "" if absent."""
+def _strip_leading_title(title: str, text: str) -> str:
+    """Drop a heading that the scraper duplicated as the first words of the body.
+
+    Labelled boxes store their text as "<title> <body>" (e.g. title "Lernziele",
+    text "Lernziele ..."); the title is shown separately, so trim the repeat.
+    """
+    if title and text.lower().startswith(title.lower()):
+        return text[len(title):].lstrip(" \t:–—-")
+    return text
+
+
+def _build_content_sections(
+    content_sections: list[dict[str, Any]],
+    description: str,
+) -> list[dict[str, str]]:
+    """Return the ALMA "Inhalte" tab content as ordered title/text blocks.
+
+    ALMA stores structured courses as labelled sub-boxes (Lernziele,
+    Qualifikationsziel, ...) and unstructured ones as a single "Inhalte" blob;
+    both shapes land in ``content_sections``. Surface every block with real
+    text, minus what other detail fields already show — the description (shown
+    verbatim) and the prerequisites (their own section) — so nothing repeats.
+    """
+    blocks: list[dict[str, str]] = []
     for section in content_sections:
-        section_title = (_safe_text(section.get("title")) or "").strip().lower()
-        if section_title != INHALTE_SECTION_TITLE:
-            continue
+        section_title = _safe_text(section.get("title")) or ""
         section_text = _safe_text(section.get("text"))
         if not section_text:
             continue
-        cleaned = _clean_inhalte_text(section_text)
-        if cleaned:
-            return cleaned
-    return ""
+        # Prerequisites have their own detail section.
+        if any(keyword in section_title.lower() for keyword in PREREQUISITE_KEYWORDS):
+            continue
+        # The description already surfaces this exact text.
+        if section_text == description:
+            continue
+        cleaned = _clean_section_text(section_text)
+        if not cleaned:
+            continue
+        blocks.append(
+            {"title": section_title, "text": _strip_leading_title(section_title, cleaned)}
+        )
+    return blocks
 
 
 def _period_sort_key(period_label: str) -> tuple[int, int, str]:
@@ -899,13 +927,14 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
     )
 
     offered_periods = await _load_offering_history(env, summary.get("number") or None)
+    description = _pick_description(summary.get("shortComment"), content_sections)
     summary.update(
         {
             "offeredPeriods": offered_periods,
             "termType": _derive_term_type(offered_periods),
             "externalLinks": await _load_external_links(env, _safe_text(course.get("number"))),
-            "description": _pick_description(summary.get("shortComment"), content_sections),
-            "contents": _extract_contents(content_sections),
+            "description": description,
+            "contents": _build_content_sections(content_sections, description),
             "prerequisites": _extract_prerequisites(content_sections),
             "exams": [
                 {

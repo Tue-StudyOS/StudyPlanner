@@ -18,15 +18,15 @@ workers.Response = Response
 sys.modules.setdefault("workers", workers)
 
 from services.course_catalog import (  # noqa: E402
+    _build_content_sections,
     _collect_offering_groups,
     _derive_term_type,
-    _extract_contents,
     _period_sort_key,
 )
 
 
-class ExtractContentsTest(unittest.TestCase):
-    def test_strips_navigation_chrome_and_returns_real_text(self) -> None:
+class BuildContentSectionsTest(unittest.TestCase):
+    def test_strips_navigation_chrome_from_unstructured_inhalte_blob(self) -> None:
         sections = [
             {
                 "title": "Inhalte",
@@ -38,17 +38,42 @@ class ExtractContentsTest(unittest.TestCase):
             }
         ]
         self.assertEqual(
-            _extract_contents(sections),
-            "This lecture covers medical data science.",
+            _build_content_sections(sections, description=""),
+            [{"title": "Inhalte", "text": "This lecture covers medical data science."}],
+        )
+
+    def test_keeps_labelled_sections_and_strips_duplicated_heading(self) -> None:
+        sections = [
+            {"title": "Lernziele", "text": "Lernziele Understand statistics."},
+            {"title": "Literatur", "text": "Literatur Kruschke, Doing Bayesian Data Analysis."},
+        ]
+        self.assertEqual(
+            _build_content_sections(sections, description=""),
+            [
+                {"title": "Lernziele", "text": "Understand statistics."},
+                {"title": "Literatur", "text": "Kruschke, Doing Bayesian Data Analysis."},
+            ],
+        )
+
+    def test_drops_prerequisite_and_description_sections(self) -> None:
+        sections = [
+            {"title": "Voraussetzung", "text": "Voraussetzung Linear algebra."},
+            {"title": "Empfehlung", "text": "Empfehlung Read chapter one."},
+            {"title": "Lernziele", "text": "Lernziele Understand statistics."},
+        ]
+        # The Empfehlung text is what _pick_description chose, so it must not repeat.
+        result = _build_content_sections(sections, description="Empfehlung Read chapter one.")
+        self.assertEqual(
+            result,
+            [{"title": "Lernziele", "text": "Understand statistics."}],
         )
 
     def test_ignores_empty_placeholder_section(self) -> None:
         sections = [{"title": "Inhalte", "text": "Es wurden noch keine Inhalte hinterlegt."}]
-        self.assertEqual(_extract_contents(sections), "")
+        self.assertEqual(_build_content_sections(sections, description=""), [])
 
-    def test_returns_empty_when_no_inhalte_section(self) -> None:
-        sections = [{"title": "Lernziele", "text": "Lernziele ..."}]
-        self.assertEqual(_extract_contents(sections), "")
+    def test_returns_empty_when_no_content_sections(self) -> None:
+        self.assertEqual(_build_content_sections([], description=""), [])
 
 
 class PeriodSortKeyTest(unittest.TestCase):

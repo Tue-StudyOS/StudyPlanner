@@ -114,3 +114,12 @@ export function formatCourseTypeLabel(types: string[]): string {
   ]
   return uniqueTypes.join(' + ') || 'Course'
 }
+
+// Unstructured courses carry a single content block literally titled "Inhalte";
+// repeating that as a sub-heading inside the "Contents" section is noise, so it
+// is suppressed. Labelled blocks (Lernziele, Literatur, ...) keep their heading.
+const GENERIC_CONTENT_TITLES = new Set(['inhalt', 'inhalte', 'content', 'contents'])
+
+export function isGenericContentTitle(title: string): boolean {
+  return GENERIC_CONTENT_TITLES.has(title.trim().toLowerCase())
+}

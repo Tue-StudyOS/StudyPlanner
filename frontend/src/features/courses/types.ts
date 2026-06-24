@@ -63,6 +63,11 @@ export interface CourseExternalLink {
   label: string
 }
 
+export interface CourseContentSection {
+  title: string
+  text: string
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -84,7 +89,7 @@ export interface Course {
   language: string
   prerequisites: string[]
   description: string
-  contents?: string
+  contents?: CourseContentSection[]
   exams: CourseExam[]
   registrationPeriod?: string
   detailUrl?: string
