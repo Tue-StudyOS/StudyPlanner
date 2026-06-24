@@ -147,9 +147,27 @@ Use `--fetch-course-pages` when you also want to inspect each public
 course/enrolment page for self-enrolment labels. Logged-in course internals and
 numeric Moodle enrolment capacity are not part of this public scrape.
 
-Generate D1 seed SQL from the matched JSON. The importer publishes only
-automatically accepted matches as Moodle links; unmatched rows stay in the JSON
-for diagnostics and are not imported as visible links.
+If the scrape reports unresolved matches, open the local review helper, select
+the correct ALMA course or mark the Moodle row as ignored, save, stop the server,
+and apply the overrides:
+
+```powershell
+python -m data_collection.moodle.review serve `
+  --matches data_collection/output/moodle_matches.json `
+  --alma-db backend/data/alma.sqlite `
+  --out data_collection/output/moodle_manual_overrides.json `
+  --open
+
+python -m data_collection.moodle.review apply `
+  --matches data_collection/output/moodle_matches.json `
+  --overrides data_collection/output/moodle_manual_overrides.json `
+  --out data_collection/output/moodle_matches.json
+```
+
+Generate D1 seed SQL from the matched JSON. The importer publishes accepted
+matches as Moodle links; unmatched rows stay in diagnostics and are not imported
+as visible links. Accepted Moodle links are only visible when the matched ALMA
+course exists in the target D1 snapshot.
 
 ```powershell
 python backend/scripts/import_moodle_json_to_d1.py `

@@ -28,8 +28,8 @@ backend/
 
 ## D1 databases
 
-- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the current active runtime database configured in `wrangler.toml` through the `DB` binding.
-- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is reserved for a later production cutover and must not be used yet without explicit human approval.
+- `studyplanner-db` (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`) is the current active runtime database configured in `wrangler.toml` through the `DB` binding.
+- `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the previous test database; do not switch the active runtime DB again without explicit human approval.
 - Database names and UUIDs are public Cloudflare binding config; keep `AUTH_TOKEN_SECRET` as a Worker secret only.
 - Do not run destructive remote D1 commands until a human explicitly confirms the remote rebuild/migration step.
 
@@ -98,6 +98,21 @@ python -m data_collection.moodle.cli \
   --matches-out data_collection/output/moodle_matches.json
 ```
 
+If unresolved matches remain, run the manual review helper, save overrides in
+the browser, stop the server, and apply the saved overrides:
+
+```bash
+python -m data_collection.moodle.review serve \
+  --matches data_collection/output/moodle_matches.json \
+  --alma-db backend/data/alma.sqlite \
+  --out data_collection/output/moodle_manual_overrides.json \
+  --open
+python -m data_collection.moodle.review apply \
+  --matches data_collection/output/moodle_matches.json \
+  --overrides data_collection/output/moodle_manual_overrides.json \
+  --out data_collection/output/moodle_matches.json
+```
+
 Generate and apply the Moodle seed after schema migrations:
 
 ```bash
@@ -108,19 +123,21 @@ cd backend
 npx wrangler d1 execute DB --local --file data/seed_moodle_links.sql
 ```
 
-Only automatically accepted matches are published to `course_learning_links`.
+Only accepted matches are published to `course_learning_links`.
 Unmatched rows remain in `moodle_course_matches` for diagnostics and are not
-shown as links.
+shown as links. Accepted Moodle links are inserted conditionally by stable
+`period_id` and course number, so stale local D1 catalogs skip missing ALMA rows
+instead of aborting the whole seed.
 
 ## Remote backup/export checklist
 
 Before any remote rebuild or destructive migration:
 
 1. Confirm the active Cloudflare account and list D1 databases with `npx wrangler d1 list`.
-2. Export/backup both databases, especially active `studyplaner-db-test` and reserved production `studyplanner-db`.
+2. Export/backup both databases, especially active `studyplanner-db` and previous test `studyplaner-db-test`.
 3. Store dumps outside the repo, not in `backend/.tmp/` if they contain private user data.
 4. Verify local migration plus API behavior against the checked `DB` binding.
-5. Ask for explicit approval before applying remote schema changes, deleting remote tables, or switching the app to `studyplanner-db`.
+5. Ask for explicit approval before applying remote schema changes, deleting remote tables, or switching the app to a different D1 database.
 
 Remote migration command from the repo root, after approval only:
 

@@ -17,13 +17,15 @@ def candidate(
     title: str,
     course_type: str,
     lecturers: list[str] | None = None,
+    period_id: str = "229",
+    period_label: str = "Sommer 2026",
 ) -> AlmaCourseCandidate:
     return AlmaCourseCandidate(
         course_id=course_id,
         number=number,
         title=title,
-        period_id="229",
-        period_label="Sommer 2026",
+        period_id=period_id,
+        period_label=period_label,
         course_type=course_type,
         lecturers=lecturers or [],
         organisation="Fachbereich Informatik",
@@ -142,6 +144,105 @@ class MoodleMatchingTest(unittest.TestCase):
             extract_course_codes("INF3241c (frueher INF1510)"),
             ["INF3241C", "INF1510"],
         )
+
+    def test_period_hint_prevents_old_exact_code_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1605",
+                "title": "Mobile Robots Practical Course (INF4362) - SS26",
+                "summary_text": "",
+                "teachers": [{"display_name": "Andreas Zell"}],
+            },
+            [
+                candidate(
+                    76,
+                    "INF4362",
+                    "INF4362 Praktikum Mobile Roboter",
+                    "Praktikum",
+                    ["o. Prof. Dr. rer. nat. Andreas Zell"],
+                    period_id="236",
+                    period_label="Winter 2025/26",
+                )
+            ],
+        )
+
+        self.assertEqual(match.status, "unmatched")
+        self.assertIsNone(match.course_id)
+
+    def test_period_hint_prefers_summer_exact_code_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1605",
+                "title": "Mobile Robots Practical Course (INF4362) - SS26",
+                "summary_text": "",
+                "teachers": [{"display_name": "Andreas Zell"}],
+            },
+            [
+                candidate(
+                    76,
+                    "INF4362",
+                    "INF4362 Praktikum Mobile Roboter",
+                    "Praktikum",
+                    ["o. Prof. Dr. rer. nat. Andreas Zell"],
+                    period_id="236",
+                    period_label="Winter 2025/26",
+                ),
+                candidate(
+                    176,
+                    "INF4362",
+                    "INF4362 Praktikum Mobile Roboter",
+                    "Praktikum",
+                    ["o. Prof. Dr. rer. nat. Andreas Zell"],
+                ),
+            ],
+        )
+
+        self.assertEqual(match.status, "accepted")
+        self.assertEqual(match.course_id, 176)
+
+    def test_multimodal_praktikum_accepts_same_period_title_type_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1658",
+                "title": "Praktikum - Advances in Multimodal Learning SS26",
+                "summary_text": "ML4103",
+                "teachers": [{"display_name": "Hildegard Kuehne"}],
+            },
+            [
+                candidate(
+                    200,
+                    "ML4512",
+                    "ML4512 Advances in Multimodal Learning - Praktikum - Praktikum",
+                    "Praktikum",
+                    ["Prof. Dr.-Ing. Hildegard Kuehne"],
+                )
+            ],
+        )
+
+        self.assertEqual(match.status, "accepted")
+        self.assertEqual(match.course_id, 200)
+
+    def test_multimodal_seminar_accepts_same_period_title_type_match(self) -> None:
+        match = match_one_moodle_course(
+            {
+                "moodle_course_id": "1659",
+                "title": "Seminar - Advances in Multimodal Learning SS26",
+                "summary_text": "",
+                "teachers": [{"display_name": "Hildegard Kuehne"}],
+            },
+            [
+                candidate(
+                    237,
+                    "ML4503",
+                    "ML4503 Advances in Multimodal Learning - Seminar",
+                    "Seminar",
+                    ["Prof. Dr.-Ing. Hildegard Kuehne"],
+                )
+            ],
+        )
+
+        self.assertEqual(match.status, "accepted")
+        self.assertEqual(match.course_id, 237)
 
 
 if __name__ == "__main__":

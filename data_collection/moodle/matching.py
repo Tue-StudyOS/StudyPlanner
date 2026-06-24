@@ -15,6 +15,8 @@ COURSE_CODE_RE = re.compile(
     re.IGNORECASE,
 )
 ROMAN_TOKENS = {"i", "ii", "iii", "iv", "v", "vi"}
+SUMMER_PERIOD_RE = re.compile(r"\b(?:sose|ss|sommer)\s*'?(?:20)?(\d{2})\b", re.IGNORECASE)
+WINTER_PERIOD_RE = re.compile(r"\b(?:wise|ws|winter)\s*'?(?:20)?(\d{2})(?:\s*/?\s*(\d{2}))?\b", re.IGNORECASE)
 STOPWORDS = {
     "and",
     "course",
@@ -66,6 +68,15 @@ TOKEN_SYNONYMS = {
     "robotics": "robot",
     "robots": "robot",
 }
+PERIOD_LABEL_TO_ID = {
+    "sommer 2026": "229",
+    "winter 2025 26": "236",
+    "sommer 2025": "235",
+    "winter 2024 25": "234",
+    "sommer 2024": "227",
+    "winter 2023 24": "226",
+    "sommer 2023": "225",
+}
 
 
 @dataclass(slots=True)
@@ -105,6 +116,8 @@ def match_one_moodle_course(
     moodle_course: dict[str, Any],
     alma_candidates: list[AlmaCourseCandidate],
 ) -> MoodleMatch:
+    preferred_period_label = infer_period_label(str(moodle_course.get("title") or ""))
+    scoped_candidates = scope_candidates_by_period(alma_candidates, preferred_period_label)
     title_codes = extract_course_codes(str(moodle_course.get("title") or ""))
     all_codes = extract_course_codes(
         f"{moodle_course.get('title') or ''} {moodle_course.get('summary_text') or ''}"
@@ -112,7 +125,7 @@ def match_one_moodle_course(
     if title_codes:
         code_candidates = [
             candidate
-            for candidate in alma_candidates
+            for candidate in scoped_candidates
             if course_codes_overlap(title_codes, candidate_code_variants(candidate))
         ]
         if code_candidates:
@@ -125,17 +138,19 @@ def match_one_moodle_course(
             )
         match = pick_best_candidate(
             moodle_course,
-            alma_candidates,
+            scoped_candidates,
             method="title_after_title_code_miss",
             force_review=False,
             base_confidence=0.0,
         )
         match.evidence["detectedTitleCodes"] = title_codes
+        if preferred_period_label:
+            match.evidence["preferredPeriodLabel"] = preferred_period_label
         return match
 
     match = pick_best_candidate(
         moodle_course,
-        alma_candidates,
+        scoped_candidates,
         method="title_lecturer",
         force_review=False,
         base_confidence=0.0,
@@ -144,6 +159,8 @@ def match_one_moodle_course(
         match.evidence["detectedSummaryCodes"] = [
             code for code in all_codes if code not in title_codes
         ]
+    if preferred_period_label:
+        match.evidence["preferredPeriodLabel"] = preferred_period_label
     return match
 
 
@@ -219,7 +236,48 @@ def is_auto_accepted(score: dict[str, Any], method: str, margin: float) -> bool:
         return True
     if title_score >= 0.65 and lecturer_score >= 0.95 and margin >= 0.20:
         return True
+    if confidence >= 0.70 and title_score >= 0.70 and type_score > 0:
+        return True
     return False
+
+
+def infer_period_label(text: str) -> str | None:
+    normalized = normalize_text(text)
+    summer_match = SUMMER_PERIOD_RE.search(normalized)
+    if summer_match:
+        return f"Sommer 20{summer_match.group(1)}"
+    winter_match = WINTER_PERIOD_RE.search(normalized)
+    if not winter_match:
+        return None
+    start_year = int(winter_match.group(1))
+    end_year = winter_match.group(2)
+    if end_year is None:
+        end_year = f"{(start_year + 1) % 100:02d}"
+    return f"Winter 20{start_year:02d}/{end_year}"
+
+
+def scope_candidates_by_period(
+    candidates: list[AlmaCourseCandidate],
+    preferred_period_label: str | None,
+) -> list[AlmaCourseCandidate]:
+    if not preferred_period_label:
+        return candidates
+    scoped = [
+        candidate
+        for candidate in candidates
+        if candidate_matches_period(candidate, preferred_period_label)
+    ]
+    return scoped
+
+
+def candidate_matches_period(
+    candidate: AlmaCourseCandidate,
+    preferred_period_label: str,
+) -> bool:
+    normalized_label = normalize_text(preferred_period_label)
+    if normalize_text(candidate.period_label) == normalized_label:
+        return True
+    return candidate.period_id == PERIOD_LABEL_TO_ID.get(normalized_label)
 
 
 def score_candidate(

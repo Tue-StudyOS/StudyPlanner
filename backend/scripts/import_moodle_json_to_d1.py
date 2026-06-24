@@ -63,6 +63,46 @@ def insert_statement(table: str, columns: list[str], values: list[object]) -> st
     return f'INSERT INTO "{table}" ({column_list}) VALUES ({value_list});'
 
 
+def insert_statement_with_expressions(table: str, columns: list[str], values: list[str]) -> str:
+    column_list = ", ".join(f'"{column}"' for column in columns)
+    value_list = ", ".join(values)
+    return f'INSERT INTO "{table}" ({column_list}) VALUES ({value_list});'
+
+
+def insert_select_statement_with_expressions(
+    table: str,
+    columns: list[str],
+    values: list[str],
+    where_condition: str,
+) -> str:
+    column_list = ", ".join(f'"{column}"' for column in columns)
+    value_list = ", ".join(values)
+    return f'INSERT INTO "{table}" ({column_list}) SELECT {value_list} WHERE {where_condition};'
+
+
+def course_id_expression(row: dict[str, Any]) -> str:
+    course_number = row.get("course_number")
+    period_id = row.get("period_id")
+    if not course_number or not period_id:
+        return "NULL"
+    return (
+        "(SELECT id FROM courses "
+        f"WHERE period_id = {sql_literal(period_id)} AND number = {sql_literal(course_number)} "
+        "ORDER BY id LIMIT 1)"
+    )
+
+
+def course_id_exists_condition(row: dict[str, Any]) -> str:
+    course_number = row.get("course_number")
+    period_id = row.get("period_id")
+    if not course_number or not period_id:
+        return "0"
+    return (
+        "EXISTS (SELECT 1 FROM courses "
+        f"WHERE period_id = {sql_literal(period_id)} AND number = {sql_literal(course_number)})"
+    )
+
+
 SCRAPE_RUN_COLUMNS = [
     "id",
     "source_url",
@@ -185,7 +225,11 @@ def build_seed_rows(payload: dict[str, Any], run_id: int) -> dict[str, list[dict
                 "evidence_json": json.dumps(match.get("evidence") or {}, ensure_ascii=False),
             }
         )
-        if match.get("status") != "accepted" or match.get("course_id") is None:
+        if (
+            match.get("status") != "accepted"
+            or not match.get("course_number")
+            or not match.get("period_id")
+        ):
             continue
         course = next(
             (item for item in courses if str(item.get("moodle_course_id") or "") == moodle_course_id),
@@ -196,6 +240,8 @@ def build_seed_rows(payload: dict[str, Any], run_id: int) -> dict[str, list[dict
         learning_link_rows.append(
             {
                 "course_id": match["course_id"],
+                "course_number": match.get("course_number"),
+                "period_id": match.get("period_id"),
                 "platform": "moodle",
                 "external_id": moodle_course_id,
                 "url": course.get("course_url") or "",
@@ -234,8 +280,13 @@ def write_seed_sql(out_path: Path, rows: dict[str, Any]) -> None:
             + "\n\n"
         )
         _write_rows(handle, "moodle_courses", MOODLE_COURSE_COLUMNS, rows["courses"])
-        _write_rows(handle, "moodle_course_matches", MOODLE_MATCH_COLUMNS, rows["matches"])
-        _write_rows(
+        _write_rows_with_course_id_expression(
+            handle,
+            "moodle_course_matches",
+            MOODLE_MATCH_COLUMNS,
+            rows["matches"],
+        )
+        _write_rows_with_course_id_expression(
             handle,
             "course_learning_links",
             LEARNING_LINK_COLUMNS,
@@ -260,6 +311,39 @@ def _write_rows(
             insert_statement(table, columns, [row.get(column) for column in columns])
             + "\n"
         )
+    handle.write("\n")
+
+
+def _write_rows_with_course_id_expression(
+    handle: TextIO,
+    table: str,
+    columns: list[str],
+    rows: Iterable[dict[str, Any]],
+) -> None:
+    rows = list(rows)
+    if not rows:
+        handle.write(f"-- (no rows for {table})\n\n")
+        return
+    handle.write(f"-- {table}: {len(rows)} rows\n")
+    for row in rows:
+        values = [
+            course_id_expression(row)
+            if column == "course_id"
+            else sql_literal(row.get(column))
+            for column in columns
+        ]
+        if table == "course_learning_links":
+            handle.write(
+                insert_select_statement_with_expressions(
+                    table,
+                    columns,
+                    values,
+                    course_id_exists_condition(row),
+                )
+                + "\n"
+            )
+        else:
+            handle.write(insert_statement_with_expressions(table, columns, values) + "\n")
     handle.write("\n")
 
 
