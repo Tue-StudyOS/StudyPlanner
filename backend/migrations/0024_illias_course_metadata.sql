@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS illias_scrape_runs (
 );
 
 CREATE TABLE IF NOT EXISTS illias_courses (
-    ref_id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
+    ref_id TEXT NOT NULL UNIQUE,
     run_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -25,22 +26,22 @@ CREATE TABLE IF NOT EXISTS illias_courses (
 );
 
 CREATE TABLE IF NOT EXISTS illias_course_fields (
-    course_ref_id TEXT NOT NULL,
+    course_id INTEGER NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    PRIMARY KEY (course_ref_id, key),
-    FOREIGN KEY (course_ref_id) REFERENCES illias_courses(ref_id) ON DELETE CASCADE
+    PRIMARY KEY (course_id, key),
+    FOREIGN KEY (course_id) REFERENCES illias_courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS illias_alma_matches (
-    illias_course_ref_id TEXT PRIMARY KEY,
+    illias_course_id INTEGER PRIMARY KEY,
     alma_course_id INTEGER,
     confidence REAL NOT NULL,
     match_type TEXT NOT NULL,
     notes TEXT NOT NULL,
     candidate_count INTEGER NOT NULL,
     matched_at_unix INTEGER NOT NULL DEFAULT (unixepoch()),
-    FOREIGN KEY (illias_course_ref_id) REFERENCES illias_courses(ref_id) ON DELETE CASCADE,
+    FOREIGN KEY (illias_course_id) REFERENCES illias_courses(id) ON DELETE CASCADE,
     FOREIGN KEY (alma_course_id) REFERENCES courses(id) ON DELETE SET NULL
 );
 
@@ -49,4 +50,3 @@ CREATE INDEX IF NOT EXISTS idx_illias_courses_title
 
 CREATE INDEX IF NOT EXISTS idx_illias_alma_matches_alma
     ON illias_alma_matches(alma_course_id);
-
