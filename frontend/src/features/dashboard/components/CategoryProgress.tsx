@@ -41,13 +41,13 @@ function ProgressRow({ code, label, earned, required, colorClass }: ProgressRowP
             </span>
           ) : null}
         </div>
-        <span className={`shrink-0 text-[12px] font-semibold ${isComplete ? 'text-success' : 'text-fg'}`}>
+        <span className="shrink-0 text-[12px] font-semibold text-fg">
           {earned}/{required}
         </span>
       </div>
       <div className="h-1.25 overflow-hidden rounded-[3px] bg-border-light">
         <div
-          className={`h-full rounded-[3px] ${isComplete ? 'bg-success' : colorClass}`}
+          className={`h-full rounded-[3px] ${colorClass}`}
           style={{ width: `${pct}%` }}
         />
       </div>

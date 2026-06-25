@@ -41,7 +41,10 @@ export function clampPlannerTimeRange(
 // Greedy interval-graph coloring per overlap cluster: blocks that overlap in
 // time share columns; anything beyond the visible column limit is collapsed
 // into a "+n" overflow indicator instead of shrinking blocks unreadably.
-export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
+export function buildDayLayout(
+  dayBlocks: PlannerBlock[],
+  maxVisibleColumns: number = MAX_VISIBLE_OVERLAP_COLUMNS,
+): PlannerDayLayout {
   if (dayBlocks.length === 0) {
     return { visibleBlocks: [], overflowIndicators: [] }
   }
@@ -86,14 +89,14 @@ export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
       positionedClusterBlocks.push({ ...block, columnIndex })
     })
 
-    const visibleColumnCount = Math.min(columnEndMinutes.length, MAX_VISIBLE_OVERLAP_COLUMNS)
+    const visibleColumnCount = Math.min(columnEndMinutes.length, maxVisibleColumns)
     const hiddenBlocks = positionedClusterBlocks.filter(
-      (block) => block.columnIndex >= MAX_VISIBLE_OVERLAP_COLUMNS,
+      (block) => block.columnIndex >= maxVisibleColumns,
     )
     const overlapGroupKey = `${cluster[0].day}-${cluster[0].startMinutes}-${clusterIndex}`
 
     positionedClusterBlocks
-      .filter((block) => block.columnIndex < MAX_VISIBLE_OVERLAP_COLUMNS)
+      .filter((block) => block.columnIndex < maxVisibleColumns)
       .forEach((block) => {
         visibleBlocks.push({
           ...block,
@@ -118,10 +121,14 @@ export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
   return { visibleBlocks, overflowIndicators }
 }
 
-export function buildBlockWidth(visibleColumnCount: number): string {
-  return `calc(${100 / visibleColumnCount}% - 0.5rem)`
+export function buildBlockWidth(visibleColumnCount: number, gapRem: number = 0.5): string {
+  return `calc(${100 / visibleColumnCount}% - ${gapRem}rem)`
 }
 
-export function buildBlockLeft(columnIndex: number, visibleColumnCount: number): string {
-  return `calc(${(100 / visibleColumnCount) * columnIndex}% + 0.25rem)`
+export function buildBlockLeft(
+  columnIndex: number,
+  visibleColumnCount: number,
+  gapRem: number = 0.5,
+): string {
+  return `calc(${(100 / visibleColumnCount) * columnIndex}% + ${gapRem / 2}rem)`
 }

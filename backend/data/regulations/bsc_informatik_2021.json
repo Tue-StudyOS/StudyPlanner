@@ -12,8 +12,9 @@
     {
       "code": "INF",
       "name": "Informatik Pflichtbereich",
-      "required_ects": 111,
+      "required_ects": 114,
       "modules": [
+        { "code": "INFM1510", "title": "Proseminar", "ects": 3, "type": "mandatory" },
         { "code": "INFM1010", "title": "Mathematik 1", "ects": 9, "type": "mandatory" },
         { "code": "INFM1020", "title": "Mathematik 2", "ects": 9, "type": "mandatory" },
         { "code": "INFM2010", "title": "Mathematik 3", "ects": 9, "type": "mandatory" },
@@ -37,14 +38,6 @@
         { "code": "INFM2420", "title": "Theoretische Informatik I", "ects": 9, "type": "mandatory" },
         { "code": "INFM2410", "title": "Theoretische Informatik II", "ects": 9, "type": "mandatory" },
         { "code": "INFM3151", "title": "Grundlagen des Maschinellen Lernens", "ects": 6, "type": "mandatory" }
-      ]
-    },
-    {
-      "code": "PROSEM",
-      "name": "Proseminar",
-      "required_ects": 3,
-      "modules": [
-        { "code": "INFM1510", "title": "Proseminar", "ects": 3, "type": "mandatory" }
       ]
     },
     {

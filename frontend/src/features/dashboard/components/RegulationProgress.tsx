@@ -154,7 +154,7 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
                 </div>
                 <div className="h-1.25 overflow-hidden rounded-[3px] bg-border-light">
                   <div
-                    className={`h-full rounded-[3px] ${area.isFulfilled ? 'bg-success' : colorClass(area.masterCat)}`}
+                    className={`h-full rounded-[3px] ${colorClass(area.masterCat)}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>

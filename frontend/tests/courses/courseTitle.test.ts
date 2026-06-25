@@ -45,6 +45,15 @@ test('cleanCourseTitle keeps titles that merely contain digits', () => {
   assert.equal(cleanCourseTitle('Programmieren II'), 'Programmieren II')
 })
 
+test('cleanCourseTitle strips degenerate separator-only suffixes', () => {
+  assert.equal(
+    cleanCourseTitle('INF3612 Vorbereitungskurs für Informatik-Tutoren - /////////////////////////', 'INF3612'),
+    'Vorbereitungskurs für Informatik-Tutoren',
+  )
+  assert.equal(cleanCourseTitle('Robotik - ///'), 'Robotik')
+  assert.equal(cleanCourseTitle('Robotik /'), 'Robotik')
+})
+
 test('formatCourseTypeLabel translates, deduplicates, and joins types', () => {
   assert.equal(formatCourseTypeLabel(['Vorlesung', 'Übung']), 'Lecture + Exercise')
   assert.equal(formatCourseTypeLabel(['Vorlesung', 'Lecture']), 'Lecture')
