@@ -152,7 +152,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         endMinutes: visibleTimeRange.endMinutes,
         label: slot.time,
         room: slot.room,
-        slotType: slot.type !== 'Course' ? slot.type : '',
+        slotType: slot.type !== 'Course' && /[\p{L}\p{N}]/u.test(slot.type) ? slot.type : '',
         hasOverlap: false,
       })
     })

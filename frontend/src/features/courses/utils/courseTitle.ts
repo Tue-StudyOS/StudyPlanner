@@ -59,7 +59,11 @@ export function cleanCourseTitle(title: string, courseNumber?: string | null): s
     cleanedTitle = nextTitle
   }
 
-  cleanedTitle = cleanedTitle.replace(/^[-–—:·,\s]+|[-–—:·,\s]+$/gu, '')
+  // ALMA sometimes appends an empty type list as bare separators ("… - /////"
+  // when parallel groups carry no type). Collapse slash runs and strip a
+  // trailing separator-only tail so this junk never reaches the UI.
+  cleanedTitle = cleanedTitle.replace(/\s*\/{2,}\s*/gu, ' ').replace(/\s{2,}/g, ' ').trim()
+  cleanedTitle = cleanedTitle.replace(/^[-–—:·,/\s]+|[-–—:·,/\s]+$/gu, '')
 
   return cleanedTitle.length > 0 ? cleanedTitle : title.trim()
 }

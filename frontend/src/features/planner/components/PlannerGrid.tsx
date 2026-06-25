@@ -4,6 +4,7 @@ import { cleanCourseTitle } from '../../courses'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
 import {
   END_HOUR,
+  MAX_VISIBLE_OVERLAP_COLUMNS,
   MINUTES_PER_HOUR,
   PIXELS_PER_HOUR,
   START_HOUR,
@@ -13,6 +14,13 @@ import {
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
+
+// Narrow phone columns cannot fit three side-by-side blocks legibly, so mobile
+// shows fewer overlap columns (the rest collapse into the "+n" dialog) and uses
+// a tighter gutter to keep each visible block as wide as possible.
+const MOBILE_MAX_OVERLAP_COLUMNS = 2
+const MOBILE_BLOCK_GAP_REM = 0.25
+const DESKTOP_BLOCK_GAP_REM = 0.5
 
 function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
   return (
@@ -57,12 +65,17 @@ export function PlannerGrid({
   }, [blocks, plannedCourses])
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
+  const maxVisibleColumns = isMobilePlanner ? MOBILE_MAX_OVERLAP_COLUMNS : MAX_VISIBLE_OVERLAP_COLUMNS
+  const blockGapRem = isMobilePlanner ? MOBILE_BLOCK_GAP_REM : DESKTOP_BLOCK_GAP_REM
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
-        DAY_ORDER.map((day) => [day, buildDayLayout(blocks.filter((block) => block.day === day))]),
+        DAY_ORDER.map((day) => [
+          day,
+          buildDayLayout(blocks.filter((block) => block.day === day), maxVisibleColumns),
+        ]),
       ) as Record<(typeof DAY_ORDER)[number], ReturnType<typeof buildDayLayout>>,
-    [blocks],
+    [blocks, maxVisibleColumns],
   )
 
   function handleEmptyAreaClick(event: React.MouseEvent<HTMLDivElement>): void {
@@ -149,6 +162,7 @@ export function PlannerGrid({
                       type="button"
                       onClick={() => onOpenCourse(block.courseId)}
                       aria-label={`Show details for ${block.courseTitle}`}
+                      title={block.courseTitle}
                       className={`absolute overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-colors hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
                         block.hasOverlap
                           ? 'border-primary/40 bg-primary/10 text-primary'
@@ -156,13 +170,13 @@ export function PlannerGrid({
                       }`}
                       style={{
                         top: `${top}px`,
-                        left: buildBlockLeft(block.columnIndex, block.visibleColumnCount),
-                        width: buildBlockWidth(block.visibleColumnCount),
+                        left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
+                        width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
                         height: `${height}px`,
                       }}
                     >
                       <div
-                        className="text-[9px] font-semibold leading-[12px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[11px] sm:leading-[14px]"
+                        className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
                         style={{
                           display: '-webkit-box',
                           WebkitBoxOrient: 'vertical',
