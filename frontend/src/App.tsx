@@ -52,6 +52,9 @@ const TestSemesterDetail = lazy(() =>
 const TestSemesterPlan = lazy(() =>
   import('./features/test').then((module) => ({ default: module.TestSemesterPlan })),
 )
+const TestSemesterEditor = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestSemesterEditor })),
+)
 
 function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
@@ -98,6 +101,7 @@ function App() {
                       <Route path="personal/semesters" element={<TestSemesters />} />
                       <Route path="personal/semesters/:label" element={<TestSemesterDetail />} />
                       <Route path="personal/semesters/:label/plan" element={<TestSemesterPlan />} />
+                      <Route path="personal/semesters/:label/editor" element={<TestSemesterEditor />} />
                     </Route>
                   </Routes>
                 </Suspense>

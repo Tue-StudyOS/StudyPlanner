@@ -50,6 +50,7 @@ from services.regulations import (
 )
 from services.user_completed_courses import (
     CompletedCourseUpdateError,
+    get_current_user_anrechnung_optimization,
     get_current_user_completed_courses,
     import_current_user_completed_courses,
     replace_current_user_completed_courses,
@@ -426,6 +427,13 @@ async def route_request(request: Any, env: Any) -> Any:
             progress = await get_current_user_progress(env, request)
             return json_response(progress, request=request, env=env)
 
+        if path == "/api/me/anrechnung/optimize":
+            if method != "POST":
+                return _method_not_allowed_response(request, env)
+
+            optimization = await get_current_user_anrechnung_optimization(env, request)
+            return json_response(optimization, request=request, env=env)
+
         if path == "/api/feedback":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
@@ -454,6 +462,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "semesterPlans": "/api/me/semester-plans",
                         "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",
+                        "anrechnungOptimize": "/api/me/anrechnung/optimize",
                         "feedback": "/api/feedback",
                         "config": "/api/config",
                         "courses": "/api/courses?limit=50",
