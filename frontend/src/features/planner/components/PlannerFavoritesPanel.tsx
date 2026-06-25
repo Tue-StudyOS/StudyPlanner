@@ -9,6 +9,8 @@ import { FavStar } from '../../../shared/components/FavStar'
 import { useTranslation } from '../../i18n'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
+import { assignCourseNumbers, getContrastTextColor, getCourseColor } from '../utils/courseBadge.ts'
+import type { PlannerRenderMode } from './PlannerGrid'
 
 function formatPlannerTypeLabel(types: string[]): string {
   return formatCourseTypeLabel(types).replace(/\s*\/\s*/g, ' + ')
@@ -18,12 +20,16 @@ function CandidateCard({
   candidate,
   studyProgramCode,
   activeSemesterLabel,
+  isBadge,
+  badgeNumber,
   onAddCourse,
   onToggleFavorite,
 }: {
   candidate: PlannerFavoriteCandidate
   studyProgramCode: string | null
   activeSemesterLabel: string
+  isBadge: boolean
+  badgeNumber?: number
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
 }) {
@@ -74,6 +80,14 @@ function CandidateCard({
       <div className="flex items-start justify-between gap-2">
         <div className={`min-w-0 flex-1 ${dimClassName}`}>
           <div className="break-words text-[13px] font-semibold leading-snug text-fg">
+            {isBadge && badgeNumber ? (
+              <span
+                className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-[4px] align-[-2px] text-[10px] font-bold tabular-nums"
+                style={{ backgroundColor: getCourseColor(course.id), color: getContrastTextColor(getCourseColor(course.id)) }}
+              >
+                {badgeNumber}
+              </span>
+            ) : null}
             {cleanCourseTitle(course.title, course.number)}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -124,6 +138,8 @@ interface PlannerFavoritesPanelProps {
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
   maxVisibleCandidates?: number
+  renderMode?: PlannerRenderMode
+  catalogTo?: string
   onSetAssignment: (courseId: string, areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
@@ -142,11 +158,15 @@ export function PlannerFavoritesPanel({
   plannedCourses,
   completedCourses,
   maxVisibleCandidates,
+  renderMode = 'name',
+  catalogTo = ROUTES.catalog,
   onSetAssignment,
   onAddCourse,
   onToggleFavorite,
 }: PlannerFavoritesPanelProps) {
   const { t } = useTranslation()
+  const isBadge = renderMode === 'badge'
+  const courseNumbers = assignCourseNumbers(plannedCourses.map((course) => course.id))
   const { candidates } = usePlannerFavorites({
     favoriteCourses,
     plannedCourseIds,
@@ -184,7 +204,7 @@ export function PlannerFavoritesPanel({
           <div className="grid justify-items-center gap-3 rounded-[10px] border border-dashed border-border bg-surface px-4 py-8 text-center text-[13px] text-fg-muted">
             <span>{t('planner.favorites.empty')}</span>
             <Link
-              to={ROUTES.catalog}
+              to={catalogTo}
               className="rounded-md bg-primary px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
             >
               {t('planner.favorites.openCatalog')}
@@ -198,6 +218,8 @@ export function PlannerFavoritesPanel({
                   candidate={candidate}
                   studyProgramCode={studyProgramCode}
                   activeSemesterLabel={activeSemesterLabel}
+                  isBadge={isBadge}
+                  badgeNumber={courseNumbers.get(candidate.course.id)}
                   onAddCourse={onAddCourse}
                   onToggleFavorite={onToggleFavorite}
                 />

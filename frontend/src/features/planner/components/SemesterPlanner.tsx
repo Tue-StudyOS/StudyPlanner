@@ -15,6 +15,7 @@ import {
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
+import { TEST_ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import {
@@ -32,7 +33,7 @@ import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
 import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
-import { PlannerGrid } from './PlannerGrid'
+import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
 import { PlannerProgressStrip } from './PlannerProgressStrip'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
@@ -44,7 +45,13 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
   return <span className="text-[11.5px] font-medium text-fg-muted">Saving…</span>
 }
 
-export function SemesterPlanner() {
+export function SemesterPlanner({
+  initialSemesterLabel,
+  renderMode = 'name',
+}: {
+  initialSemesterLabel?: string
+  renderMode?: PlannerRenderMode
+} = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
@@ -78,7 +85,7 @@ export function SemesterPlanner() {
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
-  } = useSemesterPlanner()
+  } = useSemesterPlanner(initialSemesterLabel)
 
   // Load the catalog of the semester being planned so the weekly grid uses that
   // semester's appointments. Falls back to the newest period (backend default)
@@ -326,6 +333,8 @@ export function SemesterPlanner() {
       plannedCourses={displayPlannedCourses}
       completedCourses={displayCompletedCourses}
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
+      renderMode={renderMode}
+      catalogTo={renderMode === 'badge' ? TEST_ROUTES.catalog : undefined}
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
       onToggleFavorite={toggleFavorite}
@@ -339,18 +348,24 @@ export function SemesterPlanner() {
           {t('planner.title')}
         </h1>
 
-        <select
-          aria-label="Select semester"
-          value={activeSemesterLabel}
-          onChange={(event) => setActiveSemesterLabel(event.target.value)}
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
-        >
-          {semesterOptions.map((semesterLabel) => (
-            <option key={semesterLabel} value={semesterLabel}>
-              {formatSemesterLabelShort(semesterLabel)}
-            </option>
-          ))}
-        </select>
+        {initialSemesterLabel ? (
+          <span className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg">
+            {formatSemesterLabelShort(activeSemesterLabel)}
+          </span>
+        ) : (
+          <select
+            aria-label="Select semester"
+            value={activeSemesterLabel}
+            onChange={(event) => setActiveSemesterLabel(event.target.value)}
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
+          >
+            {semesterOptions.map((semesterLabel) => (
+              <option key={semesterLabel} value={semesterLabel}>
+                {formatSemesterLabelShort(semesterLabel)}
+              </option>
+            ))}
+          </select>
+        )}
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
@@ -431,6 +446,7 @@ export function SemesterPlanner() {
                 canCompleteSemester={displayPlannedCourses.length > 0}
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
+                renderMode={renderMode}
                 onDropCourse={handleAddCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}

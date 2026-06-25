@@ -13,7 +13,10 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
+import { assignCourseNumbers, getContrastTextColor, getCourseColor } from '../utils/courseBadge.ts'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
+
+export type PlannerRenderMode = 'name' | 'badge'
 
 // Narrow phone columns cannot fit three side-by-side blocks legibly, so mobile
 // shows fewer overlap columns (the rest collapse into the "+n" dialog) and uses
@@ -39,6 +42,7 @@ export function PlannerGrid({
   canCompleteSemester,
   activeSemesterLabel,
   isLoadingSemesterPlan,
+  renderMode = 'name',
   onDropCourse,
   onOpenCourse,
   onRequestAdd,
@@ -50,11 +54,17 @@ export function PlannerGrid({
   canCompleteSemester: boolean
   activeSemesterLabel: string
   isLoadingSemesterPlan: boolean
+  renderMode?: PlannerRenderMode
   onDropCourse: (courseId: string, areaCode: string | null) => void
   onOpenCourse: (courseId: string) => void
   onRequestAdd: () => void
   onOpenCompletionDialog: () => void
 }) {
+  const isBadge = renderMode === 'badge'
+  const courseNumbers = useMemo(
+    () => assignCourseNumbers(plannedCourses.map((course) => course.id)),
+    [plannedCourses],
+  )
   const blocks = useMemo(
     () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
     [hiddenSlotIds, plannedCourses],
@@ -156,6 +166,8 @@ export function PlannerGrid({
                     isMobilePlanner,
                     Boolean(block.slotType),
                   )
+                  const badgeColor = isBadge ? getCourseColor(block.courseId) : null
+                  const courseNumber = courseNumbers.get(block.courseId)
                   return (
                     <button
                       key={block.blockId}
@@ -163,34 +175,52 @@ export function PlannerGrid({
                       onClick={() => onOpenCourse(block.courseId)}
                       aria-label={`Show details for ${block.courseTitle}`}
                       title={block.courseTitle}
-                      className={`absolute overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-colors hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
-                        block.hasOverlap
-                          ? 'border-primary/40 bg-primary/10 text-primary'
-                          : 'border-border bg-surface text-fg dark:bg-surface-hover'
+                      className={`absolute overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
+                        isBadge
+                          ? block.hasOverlap
+                            ? 'border-primary/70'
+                            : 'border-black/10 dark:border-white/15'
+                          : block.hasOverlap
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-surface text-fg dark:bg-surface-hover'
                       }`}
                       style={{
                         top: `${top}px`,
                         left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
                         width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
                         height: `${height}px`,
+                        ...(badgeColor ? { backgroundColor: badgeColor } : {}),
                       }}
                     >
-                      <div
-                        className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
-                        style={{
-                          display: '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: titleLineClamp,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {block.courseTitle}
-                      </div>
-                      {block.slotType ? (
-                        <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
-                          {block.slotType}
+                      {isBadge && badgeColor ? (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <span
+                            className="text-[13px] font-bold tabular-nums sm:text-[15px]"
+                            style={{ color: getContrastTextColor(badgeColor) }}
+                          >
+                            {courseNumber}
+                          </span>
                         </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          <div
+                            className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: titleLineClamp,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {block.courseTitle}
+                          </div>
+                          {block.slotType ? (
+                            <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
+                              {block.slotType}
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </button>
                   )
                 })}
@@ -219,6 +249,32 @@ export function PlannerGrid({
             ))}
           </div>
         </div>
+
+        {isBadge && plannedCourses.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+            {plannedCourses.map((course) => {
+              const legendColor = getCourseColor(course.id)
+              return (
+                <button
+                  key={course.id}
+                  type="button"
+                  onClick={() => onOpenCourse(course.id)}
+                  className="flex min-w-0 items-center gap-2 text-left"
+                >
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[11px] font-bold tabular-nums"
+                    style={{ backgroundColor: legendColor, color: getContrastTextColor(legendColor) }}
+                  >
+                    {courseNumbers.get(course.id)}
+                  </span>
+                  <span className="min-w-0 truncate text-[12px] text-fg">
+                    {cleanCourseTitle(course.title, course.number)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
 
         {unscheduledPlannedCourses.length > 0 ? (
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">

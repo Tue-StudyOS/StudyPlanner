@@ -5,6 +5,7 @@ import { useTheme } from '../../theme'
 import { useTranslation } from '../../i18n'
 import { MoonIcon, SunIcon } from '../../layout/components/icons'
 import { getTestParentPath, isTestRoot } from '../utils/testNavigation'
+import { GptChatBubble } from './GptChatBubble'
 
 function BackArrowIcon() {
   return (
@@ -58,6 +59,8 @@ export function TestLayout() {
       <main className="min-w-0 flex-1 overflow-x-hidden">
         <Outlet />
       </main>
+
+      <GptChatBubble />
     </div>
   )
 }
