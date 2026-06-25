@@ -120,6 +120,28 @@ Useful docs:
 - `docs/mobile-testing.md`
 - `backend/README.md`
 
+## Simulated semester (live onboarding testing)
+
+To test the new-user onboarding flow as if users were planning an upcoming winter
+semester, the live app can pretend the current semester is `SS 2025`. The upcoming
+winter is then `WS 2025/26` — the newest winter catalog we have — so its courses
+show up as confirmed offerings without importing data or changing any tags.
+
+The toggle is a row in the `app_settings` D1 table, served at `GET /api/config` and
+applied by the frontend at boot. Flipping it takes effect live, **without a
+redeploy** (only the one-time deploy that shipped the endpoint + migration `0025`):
+
+```powershell
+npm run sim:on      # switch the live app to SS 2025 (plan the upcoming WS 2025/26)
+npm run sim:status  # show the current setting
+npm run sim:off     # switch back to the real, date-derived semester
+```
+
+`sim:on` / `sim:off` write to the production D1, so the change is visible to all
+visitors; returning users may need one page reload. To simulate a different
+semester, edit the label in the `sim:on` script (any `SS <year>` or `WS <year>/<yy>`).
+Details: `docs/cloudflare-runtime-config.md`.
+
 ## Quick local commands
 
 Local development:

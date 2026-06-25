@@ -36,6 +36,7 @@ from services.course_catalog import (
     list_catalog_periods,
     list_courses,
 )
+from services.app_settings import get_simulated_semester_label
 from services.progress import get_current_user_progress
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
@@ -454,6 +455,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",
                         "feedback": "/api/feedback",
+                        "config": "/api/config",
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogPeriods": "/api/catalog/periods",
@@ -493,6 +495,14 @@ async def route_request(request: Any, env: Any) -> Any:
                     "count": len(courses),
                     "courses": courses,
                 },
+                request=request,
+                env=env,
+            )
+
+        if path == "/api/config":
+            simulated_semester_label = await get_simulated_semester_label(env)
+            return json_response(
+                {"simulatedSemesterLabel": simulated_semester_label},
                 request=request,
                 env=env,
             )

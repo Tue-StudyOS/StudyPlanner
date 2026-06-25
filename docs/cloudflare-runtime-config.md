@@ -80,3 +80,26 @@ curl -X POST https://studyplaner.pages.dev/mcp \
 ```
 
 Expected auth-session response for an invalid token is `{"authenticated": false, "user": null}`. If it returns `AUTH_TOKEN_SECRET must be configured as a Worker secret`, the Worker secret is missing on the API Worker.
+
+## Simulated semester (live onboarding test)
+
+To live-test the new-user onboarding flow as if users were planning an upcoming
+winter semester, the app can pretend the current semester is `SS 2025`. The
+upcoming winter is then `WS 2025/26`, which is the newest winter catalog we have,
+so its courses show as confirmed offerings — no data import or tag changes needed.
+
+The toggle is a row in the `app_settings` D1 table
+(`simulated_current_semester_label`). The API Worker serves it at `GET /api/config`
+and the frontend reads it at boot, overriding `getCurrentSemesterLabel`. Because
+the Worker reads it live from D1, flipping it does **not** require a redeploy
+(only the one-time deploy that ships the endpoint + migration `0025`).
+
+```bash
+npm run sim:on      # pretend it is SS 2025 (plan the upcoming WS 2025/26)
+npm run sim:status  # show the current setting
+npm run sim:off     # restore the real, date-derived semester
+```
+
+To simulate a different semester, edit the label in the `sim:on` script (any
+`SS <year>` / `WS <year>/<yy>` value) or run the `wrangler d1 execute` command
+directly. Returning users may need one page reload to pick up a change.
