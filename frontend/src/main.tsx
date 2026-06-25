@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { clearExpiredSessionCache } from './shared/utils/sessionCache.ts'
+import { fetchJson } from './shared/utils/api.ts'
+import { setSimulatedCurrentSemesterLabel } from './features/planner/utils/semesterLabels.ts'
 
 clearExpiredSessionCache()
 
@@ -19,8 +21,35 @@ window.addEventListener('vite:preloadError', (event) => {
   }
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+interface AppConfigResponse {
+  simulatedSemesterLabel?: string | null
+}
+
+// The simulated-semester toggle must be applied before any semester-dependent
+// screen renders, so the boot waits briefly for /api/config. A failure or
+// timeout simply falls back to the real calendar.
+const APP_CONFIG_TIMEOUT_MS = 1500
+
+async function applyRuntimeConfig(): Promise<void> {
+  try {
+    const config = await Promise.race([
+      fetchJson<AppConfigResponse>('/api/config'),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('config timeout')), APP_CONFIG_TIMEOUT_MS),
+      ),
+    ])
+    setSimulatedCurrentSemesterLabel(config.simulatedSemesterLabel ?? null)
+  } catch {
+    setSimulatedCurrentSemesterLabel(null)
+  }
+}
+
+function renderApp(): void {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+void applyRuntimeConfig().finally(renderApp)

@@ -91,7 +91,22 @@ export function compareSemesterLabels(left: string, right: string): number {
   return leftSemester.term === 'SS' ? -1 : 1
 }
 
+// A deploy-time toggle (served via /api/config, set with the sim:on / sim:off
+// scripts) can pretend the app runs in a different semester so the new-user
+// onboarding flow can be live-tested against an upcoming-winter catalog. When
+// set to a valid label it overrides the date-derived current semester.
+let simulatedCurrentSemesterLabel: string | null = null
+
+export function setSimulatedCurrentSemesterLabel(label: string | null | undefined): void {
+  const normalized = label?.trim() ?? ''
+  simulatedCurrentSemesterLabel = normalized && parseSemesterLabel(normalized) ? normalized : null
+}
+
 export function getCurrentSemesterLabel(now: Date = new Date()): string {
+  if (simulatedCurrentSemesterLabel) {
+    return simulatedCurrentSemesterLabel
+  }
+
   const month = now.getMonth()
   const year = now.getFullYear()
 
