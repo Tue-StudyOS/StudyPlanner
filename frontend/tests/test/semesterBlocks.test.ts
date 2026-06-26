@@ -53,7 +53,10 @@ test('buildSemesterBlocks marks historical semesters from completed courses', ()
     [{ semesterLabel: 'WS 2022/23', courseCount: 3 }],
     null,
     null,
-    ['WS 2021/22', 'SS 2022'],
+    [
+      { semesterLabel: 'WS 2021/22', courseCount: 2 },
+      { semesterLabel: 'SS 2022', courseCount: 1 },
+    ],
   )
   assert.deepEqual(
     blocks.map((b) => b.label),
@@ -63,6 +66,7 @@ test('buildSemesterBlocks marks historical semesters from completed courses', ()
   assert.equal(blocks[1].isHistorical, true)
   assert.equal(blocks[2].isHistorical, false)
   assert.equal(blocks[0].isEmpty, false)
+  assert.equal(blocks[0].courseCount, 2)
 })
 
 test('nextEmptySemesterLabel steps one semester past the latest block', () => {

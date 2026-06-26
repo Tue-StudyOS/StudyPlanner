@@ -17,6 +17,7 @@ import {
 import { useTranscript } from '../../transcript'
 import { TEST_ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
+import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import {
   getCurrentPlannerAssignment,
@@ -49,16 +50,23 @@ export function SemesterPlanner({
   initialSemesterLabel,
   renderMode = 'name',
   readOnly = false,
+  useCompletedCourseFallback = false,
 }: {
   initialSemesterLabel?: string
   renderMode?: PlannerRenderMode
   readOnly?: boolean
+  useCompletedCourseFallback?: boolean
 } = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const { favoriteIds, toggleFavorite } = useFavorites()
-  const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
+  const {
+    completedCourses,
+    isLoadingCompletedCourses,
+    completedCoursesError,
+    clearCompletedCoursesError,
+  } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const hasSidebarSpace = useMediaQuery(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY)
   const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
@@ -113,6 +121,20 @@ export function SemesterPlanner({
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
+  const historicalSemesterPlan = useMemo(
+    () => buildHistoricalSemesterPlan(completedCourses, [...courses, ...allCatalogCourses], activeSemesterLabel),
+    [activeSemesterLabel, allCatalogCourses, completedCourses, courses],
+  )
+  const usesCompletedCourseFallback = readOnly
+    && useCompletedCourseFallback
+    && !isLoadingSemesterPlan
+    && !isLoadingCompletedCourses
+    && plannedCourses.length === 0
+    && historicalSemesterPlan.courses.length > 0
+  const effectivePlannedCourses = usesCompletedCourseFallback ? historicalSemesterPlan.courses : plannedCourses
+  const effectivePlannedCourseIds = effectivePlannedCourses.map((course) => course.id)
+  const effectiveHiddenSlotIds = usesCompletedCourseFallback ? [] : hiddenSlotIds
+  const effectivePlanAssignments = usesCompletedCourseFallback ? historicalSemesterPlan.assignments : planAssignments
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
   const plannerRuleGroups = useMemo(
     () => regulationVersion?.ruleGroups ?? [],
@@ -139,23 +161,22 @@ export function SemesterPlanner({
     }),
     [plannerRuleGroups, plannerStudyProgramCode, activeStepId],
   )
-  const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : plannedCourses
+  const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : effectivePlannedCourses
   const displayPlannedCourseIds = isPlannerTourPreview
     ? plannerTourPreview.plannedCourses.map((course) => course.id)
-    : plannedCourseIds
+    : effectivePlannedCourseIds
   const displayFavoriteCourses = isPlannerTourPreview ? plannerTourPreview.favoriteCourses : favoriteCourses
   const displayCompletedCourses = isPlannerTourPreview ? plannerTourPreview.completedCourses : completedCourses
-  const displayPlanAssignments = isPlannerTourPreview ? plannerTourPreview.assignments : planAssignments
-  const displayHiddenSlotIds = isPlannerTourPreview ? [] : hiddenSlotIds
+  const displayPlanAssignments = isPlannerTourPreview ? plannerTourPreview.assignments : effectivePlanAssignments
+  const displayHiddenSlotIds = isPlannerTourPreview ? [] : effectiveHiddenSlotIds
   const displayRuleGroups = isPlannerTourPreview ? plannerTourPreview.ruleGroups : plannerRuleGroups
   const displayStudyProgramCode = plannerStudyProgramCode
-  const displayCourseById = useMemo(
-    () => new Map(
-      (isPlannerTourPreview ? [...displayPlannedCourses, ...displayFavoriteCourses] : courses)
-        .map((course) => [course.id, course]),
-    ),
-    [courses, displayFavoriteCourses, displayPlannedCourses, isPlannerTourPreview],
-  )
+  const displayCourseById = useMemo(() => {
+    const visibleCourses = isPlannerTourPreview
+      ? [...displayPlannedCourses, ...displayFavoriteCourses]
+      : [...courses, ...displayPlannedCourses, ...displayFavoriteCourses]
+    return new Map(visibleCourses.map((course) => [course.id, course]))
+  }, [courses, displayFavoriteCourses, displayPlannedCourses, isPlannerTourPreview])
 
   function resolveExplicitAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)

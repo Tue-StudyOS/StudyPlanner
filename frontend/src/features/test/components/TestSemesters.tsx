@@ -19,29 +19,37 @@ import {
 
 function BlockCard({ block }: { block: SemesterBlock }) {
   const { t } = useTranslation()
-
-  if (block.isHistorical) {
-    return (
-      <Link
-        to={testSemesterPath(block.label)}
-        className="flex h-full min-h-[5.5rem] w-full min-w-0 flex-col justify-between gap-2 rounded-[12px] border border-dashed border-border bg-surface/60 p-4 text-fg-muted transition-all duration-150 hover:border-primary/40 hover:shadow-sm"
-      >
-        <span className="text-[15px] font-semibold text-fg">{formatSemesterLabelShort(block.label)}</span>
-        <span className="text-[12px] text-fg-muted">{t('test.semesters.historical')}</span>
-      </Link>
-    )
-  }
+  const detailText = block.isHistorical
+    ? `${t('test.semesters.historical')} · ${t('test.semesters.courseCount', { count: block.courseCount })}`
+    : block.isEmpty
+      ? t('test.semesters.emptyBlock')
+      : t('test.semesters.courseCount', { count: block.courseCount })
 
   return (
     <Link
       to={testSemesterPath(block.label)}
-      className="flex h-full min-h-[5.5rem] w-full min-w-0 flex-col justify-between gap-2 rounded-[12px] border border-border bg-surface p-4 transition-all duration-150 hover:border-primary hover:shadow-md"
+      className={`group relative isolate flex h-full min-h-[7.25rem] w-full min-w-0 flex-col justify-between overflow-hidden rounded-[18px] border p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 ${
+        block.isHistorical
+          ? 'border-dashed border-primary/30 bg-primary/5'
+          : block.isEmpty
+            ? 'border-dashed border-border bg-surface/70'
+            : 'border-border bg-surface hover:border-primary/40'
+      }`}
     >
-      <span className="text-[15px] font-semibold text-fg">{formatSemesterLabelShort(block.label)}</span>
-      <span className="text-[12px] text-fg-muted">
-        {block.isEmpty
-          ? t('test.semesters.emptyBlock')
-          : t('test.semesters.courseCount', { count: block.courseCount })}
+      <span className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 transition-transform duration-200 group-hover:scale-110" />
+      <span className="relative z-10 min-w-0">
+        <span className="block text-[17px] font-semibold tracking-[-0.01em] text-fg">
+          {formatSemesterLabelShort(block.label)}
+        </span>
+        <span className="mt-1 block break-words text-[12.5px] leading-5 text-fg-muted">
+          {detailText}
+        </span>
+      </span>
+      <span className="relative z-10 mt-4 flex items-center justify-between gap-3">
+        <span className="h-px min-w-0 flex-1 bg-border" />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface/80 text-primary">
+          →
+        </span>
       </span>
     </Link>
   )
@@ -67,10 +75,17 @@ function SemestersInner() {
     return () => { active = false }
   }, [token])
 
-  const historicalSemesters = useMemo(
-    () => [...new Set(completedCourses.map((c) => c.semester).filter(Boolean))],
-    [completedCourses],
-  )
+  const historicalSemesters = useMemo(() => {
+    const countBySemester = new Map<string, number>()
+    for (const course of completedCourses) {
+      const semesterLabel = course.semester?.trim()
+      if (!semesterLabel) {
+        continue
+      }
+      countBySemester.set(semesterLabel, (countBySemester.get(semesterLabel) ?? 0) + 1)
+    }
+    return [...countBySemester.entries()].map(([semesterLabel, courseCount]) => ({ semesterLabel, courseCount }))
+  }, [completedCourses])
 
   const blocks = useMemo(
     () => buildSemesterBlocks(savedPlans, startLabel, extraEmptyLabel, historicalSemesters),
@@ -84,9 +99,12 @@ function SemestersInner() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[20px] font-semibold text-fg">{t('test.semesters.title')}</h1>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-fg">{t('test.semesters.title')}</h1>
+          <p className="mt-1 text-[13px] text-fg-muted">{t('test.semesters.desc')}</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Link
             to={TEST_ROUTES.catalog}

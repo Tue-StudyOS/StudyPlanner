@@ -4,7 +4,7 @@ import { RequireTestAuth } from './RequireTestAuth'
 
 function SemesterPlanInner() {
   const { label = '' } = useParams<{ label: string }>()
-  return <SemesterPlanner initialSemesterLabel={label} readOnly />
+  return <SemesterPlanner initialSemesterLabel={label} readOnly useCompletedCourseFallback />
 }
 
 export function TestSemesterPlan() {

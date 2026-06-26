@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { TEST_ROUTES } from '../../routes'
+import logo from '../../../assets/logo.png'
+import { ROUTES, TEST_ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 import { useTranslation } from '../../i18n'
 import { useAuth } from '../../auth'
@@ -16,11 +17,13 @@ function BackArrowIcon() {
   )
 }
 
-function GearIcon() {
+function SlidersMenuIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9" cy="7" r="1.7" fill="currentColor" />
+      <circle cx="15" cy="12" r="1.7" fill="currentColor" />
+      <circle cx="11" cy="17" r="1.7" fill="currentColor" />
     </svg>
   )
 }
@@ -37,27 +40,33 @@ function SettingsDropdown({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute right-0 top-full z-[80] mt-1.5 min-w-[180px] rounded-[10px] border border-border bg-surface shadow-lg">
+    <div className="absolute right-0 top-full z-[100] mt-2 w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-[14px] border border-border bg-surface shadow-2xl">
       {user ? (
-        <div className="border-b border-border px-4 py-2.5 text-[12px] font-medium text-fg-muted">
+        <div className="border-b border-border px-4 py-3 text-[12px] font-medium text-fg-muted">
           {user.username}
         </div>
       ) : null}
-      <div className="p-1">
-        <button
-          type="button"
-          className="flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] text-fg transition-colors hover:bg-surface-hover"
-          onClick={() => {
-            navigate(TEST_ROUTES.personal)
-            onClose()
-          }}
+      <div className="grid gap-1 p-1.5">
+        <Link
+          to={ROUTES.account}
+          onClick={onClose}
+          className="flex w-full items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
         >
-          {t('test.transcript.updateTor')}
-        </button>
+          <span>{t('nav.account')}</span>
+          <span className="text-[11px] text-fg-muted">/account</span>
+        </Link>
+        <Link
+          to={ROUTES.transcript}
+          onClick={onClose}
+          className="flex w-full items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover"
+        >
+          <span>{t('nav.transcript')}</span>
+          <span className="text-[11px] text-fg-muted">/transcript</span>
+        </Link>
         {user ? (
           <button
             type="button"
-            className="flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] text-danger transition-colors hover:bg-surface-hover"
+            className="flex w-full items-center rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium text-danger transition-colors hover:bg-surface-hover"
             onClick={handleLogout}
           >
             {t('auth.logout')}
@@ -75,7 +84,7 @@ export function TestLayout() {
   const atRoot = isTestRoot(location.pathname)
   const parentPath = getTestParentPath(location.pathname)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const gearRef = useRef<HTMLDivElement>(null)
+  const settingsRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
@@ -84,7 +93,7 @@ export function TestLayout() {
   useLayoutEffect(() => {
     if (!settingsOpen) return
     function handleOutside(event: MouseEvent) {
-      if (gearRef.current && !gearRef.current.contains(event.target as Node)) {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
         setSettingsOpen(false)
       }
     }
@@ -95,17 +104,23 @@ export function TestLayout() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-sm text-fg font-sans">
       <header
-        className="sticky top-0 z-[70] flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg/95 px-4 backdrop-blur sm:px-6"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.25rem + env(safe-area-inset-top, 0px))' }}
+        data-app-topbar
+        className="sticky top-0 z-[80] flex shrink-0 items-center justify-between gap-3 bg-sidebar px-4 [transform:translateZ(0)] sm:px-6 lg:px-8"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         {atRoot ? (
-          <Link to={TEST_ROUTES.root} className="truncate font-serif text-base font-semibold text-fg">
-            StudyPlanner
+          <Link to={TEST_ROUTES.root} className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">
+              <img src={logo} alt="" className="h-full w-full object-contain p-0.5" />
+            </div>
+            <span className="truncate font-serif text-base font-semibold text-white sm:text-lg">
+              StudyPlanner
+            </span>
           </Link>
         ) : (
           <Link
             to={parentPath}
-            className="flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg"
+            className="flex min-w-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-[13px] font-semibold text-white/75 transition-colors hover:bg-sidebar-hover hover:text-white"
           >
             <BackArrowIcon />
             <span className="truncate">{t('common.back')}</span>
@@ -117,19 +132,20 @@ export function TestLayout() {
             type="button"
             onClick={toggleTheme}
             aria-label={isDark ? t('theme.toLight') : t('theme.toDark')}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/80 transition-colors hover:text-white"
           >
             {isDark ? <SunIcon /> : <MoonIcon />}
           </button>
 
-          <div ref={gearRef} className="relative">
+          <div ref={settingsRef} className="relative">
             <button
               type="button"
               onClick={() => setSettingsOpen((prev) => !prev)}
               aria-label={t('nav.settings')}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg"
+              aria-expanded={settingsOpen}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover text-white/85 transition-colors hover:text-white"
             >
-              <GearIcon />
+              <SlidersMenuIcon />
             </button>
             {settingsOpen ? <SettingsDropdown onClose={() => setSettingsOpen(false)} /> : null}
           </div>
