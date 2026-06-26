@@ -143,3 +143,12 @@ body {
 
   --color-scrollbar: #D14060;
 }
+
+@keyframes testZoomIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.test-zoom-in {
+  animation: testZoomIn 220ms ease-out both;
+}
