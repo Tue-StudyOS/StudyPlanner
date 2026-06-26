@@ -41,6 +41,39 @@ Deliver a prioritized list: file, issue, and why it matters.
   They are intentionally kept (not deleted) for future debugging. Ignore them in user
   counts; remove with an explicit `DELETE ... WHERE username = '<exact>'` only if asked.
 
+## Course catalog data (ALMA scraper → D1)
+
+The catalog is a **snapshot**. Course data flows:
+`data_collection/alma/scraper.py` (scrape ALMA) → `backend/data/Alma_courses.json` →
+`backend/scripts/import_alma_json_to_d1.py` (import into D1) → backend reads D1.
+
+- **A scraper change does NOT affect live data until someone re-scrapes and re-imports.**
+  Editing `scraper.py` alone changes nothing users see; the data in D1 is whatever the
+  last scrape produced. After scraper fixes, a re-scrape + re-import is required.
+- The ALMA course catalog is **public — no auth/login**. The scraper is a plain
+  `requests.Session`. You can fetch any course page yourself.
+- **Testable seam:** `parse_content_page(html)` (and `parse_detail_page`) are pure
+  HTML→dict functions. To capture a real fixture, drive
+  `AlmaScraper().fetch_course_details(detail_url)` /
+  `_submit_detail_tab(html, url, "contentsTab")`. Fixtures + tests live in
+  `data_collection/alma/tests/` (run: `cd data_collection && python -m unittest discover -s alma/tests`).
+- **Contents (Inhalte):** ALMA renders each course-content field as a labelled
+  `boxStandard` (Lernziele, Voraussetzung, Inhalte, ...). The scraper stores them as
+  `content_sections`; `services/course_catalog._build_content_sections()` surfaces them
+  in the catalog detail (de-duped against Description and Prerequisites). Courses with no
+  labelled boxes fall back to one "Inhalte" blob that needs nav-chrome stripping.
+
+## Local dev
+
+- Run backend + frontend from a git worktree when working in parallel. Backend:
+  `cd backend && npx wrangler dev --remote --port 8787` (uses the real D1; needs wrangler
+  auth). Frontend: `npm run dev` (port 5173).
+- At `localhost`, the frontend auto-targets `http://localhost:8787` (see
+  `getApiBaseUrl`). **Do not add a `.env.local` with a misspelled `VITE_API_BASE_URL`** —
+  a typo'd worker host once made the whole app silently hit a stale backend.
+- `wrangler dev --remote` can exit mid-session when a periodic preview-token refresh fails
+  to reach `api.cloudflare.com` (transient network issue) — not a code error; just restart.
+
 ## Design
 
 - The app must visually match `StudyOS.html` exactly — always use its colors, typography, spacing, and component styles as the reference.
