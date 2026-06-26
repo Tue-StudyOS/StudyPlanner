@@ -11,7 +11,7 @@
 
 2. **Run scraper:**
    ```powershell
-   uv run python -m alma_scraper.cli --details
+   uv run python -m alma.cli --details
    ```
 
 ### Option 2: Using `pip`
@@ -29,7 +29,7 @@
 
 3. **Run scraper:**
    ```powershell
-   python -m alma_scraper.cli --details
+   python -m alma.cli --details
    ```
 
 ## Usage
@@ -40,7 +40,7 @@ Scrape the Informatik course catalog (Gesamtverzeichnis Lehrveranstaltungen
 Informatik) with course details:
 
 ```powershell
-uv run python -m alma_scraper.cli --details
+uv run python -m alma.cli --details
 ```
 
 Each course detail includes a `categories` list — the module/study-program
@@ -51,13 +51,20 @@ Output: `output/YYYY-MM-DD_HH-MM-SS/courses.json`
 ### Multiple semesters
 
 Scrape every semester from a given label up to the most recent. Per-period
-the scraper switches via ALMA's Semesterauswahl dropdown and rediscovers the
-Informatik branch by title chain (the deep-path IDs differ between
-semesters):
+the scraper switches via ALMA's Semesterauswahl dropdown and rediscovers each
+branch by title chain (the deep-path IDs differ between semesters):
 
 ```powershell
-uv run python -m alma_scraper.cli --details --from-semester "Sommer 2022"
+uv run python -m alma.cli --details --from-semester "Sommer 2022"
 ```
+
+In multi-period mode the scraper crawls the VVZ "Gesamtverzeichnis
+Lehrveranstaltungen Informatik" branch **and** the degree-program branches
+(M.Sc. Computer Science, B.Sc. Informatik, M.Sc. Machine Learning). The
+program branches surface courses cross-listed from other faculties that count
+toward a study area but are missing from the VVZ branch. Courses shared
+between branches are deduplicated by `unit_id` and their detail pages are
+fetched only once. Pass `--no-programs` to crawl the VVZ branch alone.
 
 Each course in the output gets `period_id` and `period_label` fields so you
 can tell semesters apart. The output file is rewritten after every period,
@@ -66,7 +73,7 @@ so an interrupted run still leaves a usable file.
 If a run was interrupted, resume it without redoing the completed semesters:
 
 ```powershell
-uv run python -m alma_scraper.cli --details --continue output/<timestamp>/courses_multi_semester.json
+uv run python -m alma.cli --details --continue output/<timestamp>/courses_multi_semester.json
 ```
 
 Fully completed periods are kept and skipped; partial or skipped ones are
@@ -75,7 +82,7 @@ redone. Output is written back to the same path.
 ### List available semesters
 
 ```powershell
-uv run python -m alma_scraper.cli --list-periods
+uv run python -m alma.cli --list-periods
 ```
 
 ### Quick Test (2 minutes)
@@ -83,7 +90,7 @@ uv run python -m alma_scraper.cli --list-periods
 Test scraping:
 
 ```powershell
-uv run python -m alma_scraper.cli --details --max-runtime-seconds 120
+uv run python -m alma.cli --details --max-runtime-seconds 120
 ```
 
 ### Full Catalog
@@ -91,7 +98,7 @@ uv run python -m alma_scraper.cli --details --max-runtime-seconds 120
 Scrape entire university:
 
 ```powershell
-uv run python -m alma_scraper.cli --full-catalog
+uv run python -m alma.cli --full-catalog
 ```
 
 ### Watch Progress
@@ -122,4 +129,4 @@ output/
 - `--pretty` - Pretty-print JSON
 - `--list-periods` - Print available period IDs and labels
 
-For full help: `uv run python -m alma_scraper.cli --help`
+For full help: `uv run python -m alma.cli --help`
