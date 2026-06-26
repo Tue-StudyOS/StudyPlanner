@@ -25,9 +25,7 @@ interface CategoryProgressProps {
 }
 
 function ProgressRow({ code, label, earned, required, colorClass }: ProgressRowProps) {
-  const { t } = useTranslation()
   const pct = Math.min(100, Math.round((earned / required) * 100))
-  const isComplete = required > 0 && earned >= required
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -35,11 +33,6 @@ function ProgressRow({ code, label, earned, required, colorClass }: ProgressRowP
           <span className={`inline-block h-2 w-2 shrink-0 rounded-xs ${colorClass}`} />
           <span className="shrink-0 text-[13px] font-semibold text-fg">{code}</span>
           <span className="min-w-0 truncate text-[12px] text-fg-muted">{label}</span>
-          {isComplete ? (
-            <span className="shrink-0 rounded-full border border-success/30 bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-success">
-              {t('progress.completed')}
-            </span>
-          ) : null}
         </div>
         <span className="shrink-0 text-[12px] font-semibold text-fg">
           {earned}/{required}

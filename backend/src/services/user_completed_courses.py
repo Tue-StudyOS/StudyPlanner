@@ -4,6 +4,7 @@ import secrets
 from typing import Any
 
 from db.d1 import fetch_all
+from services.anrechnung_optimizer import optimize_anrechnung
 from services.authentication import require_authenticated_user
 from services.regulation_assignment_options import (
     load_regulation_course_options as _load_course_rule_group_options,
@@ -481,6 +482,68 @@ async def get_current_user_completed_courses(env: Any, request: Any) -> dict[str
         'completedCourses': completed_courses,
         'count': len(completed_courses),
     }
+
+
+async def get_current_user_anrechnung_optimization(env: Any, request: Any) -> dict[str, Any]:
+    """Propose a better credit assignment for the user's completed courses.
+
+    Read-only: it never writes. The editor presents the proposal and, on accept,
+    applies it through the normal completed-course PUT (explicit studyAreaCode).
+    """
+    user = await require_authenticated_user(env, request)
+    regulation_version_id = (
+        int(user['profile']['regulationVersionId'])
+        if user['profile'].get('regulationVersionId') is not None
+        else None
+    )
+    serialized_courses = await _serialize_completed_courses(
+        env,
+        str(user['username']),
+        regulation_version_id,
+    )
+    rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
+
+    area_names: dict[str, str | None] = {
+        code: _safe_text(rule_group.get('name')) for code, rule_group in rule_groups_by_code.items()
+    }
+    optimizer_courses: list[dict[str, Any]] = []
+    title_by_id: dict[str, str] = {}
+    for course in serialized_courses:
+        options = course.get('availableStudyAreaOptions') or []
+        candidate_codes: list[str] = []
+        for option in options:
+            code = _normalize_study_area_code(option.get('studyAreaCode'))
+            if not code:
+                continue
+            candidate_codes.append(code)
+            area_names.setdefault(code, _safe_text(option.get('studyAreaName')))
+        title_by_id[str(course['id'])] = str(course.get('title') or '')
+        optimizer_courses.append(
+            {
+                'id': str(course['id']),
+                'ects': float(course.get('ects') or 0.0),
+                'grade': course.get('grade'),
+                'currentAreaCode': _normalize_study_area_code(course.get('studyAreaCode')),
+                'candidateAreaCodes': candidate_codes,
+            }
+        )
+
+    rule_groups_list = [
+        {'code': code, 'requiredEcts': rule_group.get('requiredEcts')}
+        for code, rule_group in rule_groups_by_code.items()
+    ]
+
+    result = optimize_anrechnung(optimizer_courses, rule_groups_list)
+    result['changes'] = [
+        {
+            **change,
+            'title': title_by_id.get(change['completedCourseId']),
+            'fromAreaName': area_names.get(change['fromAreaCode']) if change.get('fromAreaCode') else None,
+            'toAreaName': area_names.get(change['toAreaCode']) if change.get('toAreaCode') else None,
+        }
+        for change in result['changes']
+    ]
+    return result
 
 
 async def _persist_stored_completed_courses(

@@ -15,6 +15,7 @@ interface CourseCardProps {
   isActive?: boolean
   isCompleted?: boolean
   favoriteDisabled?: boolean
+  showFavorite?: boolean
   offeringStatus?: OfferingStatus
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
@@ -51,6 +52,7 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
     isActive = false,
     isCompleted = false,
     favoriteDisabled = false,
+    showFavorite = true,
     offeringStatus = 'confirmed',
     seasonTermType,
     onSelect,
@@ -109,9 +111,11 @@ export const CourseCard = forwardRef<HTMLDivElement, CourseCardProps>(function C
             </span>
           )}
         </div>
-        <div className={secondaryVisibilityClass} onClick={(event) => event.stopPropagation()}>
-          <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
-        </div>
+        {showFavorite ? (
+          <div className={secondaryVisibilityClass} onClick={(event) => event.stopPropagation()}>
+            <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">

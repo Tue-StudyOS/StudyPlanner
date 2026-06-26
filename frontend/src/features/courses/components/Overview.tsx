@@ -193,7 +193,13 @@ function UnconfirmedOfferingsToggle({
   )
 }
 
-export function CoursesOverview() {
+interface CoursesOverviewProps {
+  // The "/test" surface hides bookmarking for signed-out visitors; the main app
+  // keeps the star always visible (default).
+  favoritesVisibility?: 'always' | 'authenticatedOnly'
+}
+
+export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverviewProps = {}) {
   const [search, setSearch] = useState<string>('')
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
@@ -222,6 +228,7 @@ export function CoursesOverview() {
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
+  const canShowFavorites = favoritesVisibility === 'always' || isAuthenticated
 
   const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
   const offeringStatusByCourseId = useMemo(() => {
@@ -689,6 +696,7 @@ export function CoursesOverview() {
                       isActive={!isTourSampleRow && selectedCourse?.id === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
+                      showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
                       onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
@@ -717,6 +725,7 @@ export function CoursesOverview() {
           course={selectedCourse}
           isFavorite={isFavorite(selectedCourse.id)}
           favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+          showFavorite={canShowFavorites}
           onToggleFavorite={() => toggleFavorite(selectedCourse.id)}
           onClose={() => setSelectedCourse(null)}
         />
