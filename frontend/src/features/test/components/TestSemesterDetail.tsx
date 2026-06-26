@@ -14,22 +14,14 @@ function SemesterDetailInner() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
       <RevealItem index={0}>
-        <h1 className="mb-6 text-center text-[20px] font-semibold text-fg">{shortLabel}</h1>
+        <h1 className="mb-8 text-center text-[20px] font-semibold text-fg">{shortLabel}</h1>
       </RevealItem>
       <BoxGrid>
         <RevealItem index={1}>
-          <BoxCard
-            to={testSemesterPath(label, '/plan')}
-            title={t('test.detail.scheduleTitle')}
-            description={t('test.detail.scheduleDesc')}
-          />
+          <BoxCard to={testSemesterPath(label, '/plan')} title={t('test.detail.scheduleTitle')} />
         </RevealItem>
         <RevealItem index={2}>
-          <BoxCard
-            to={testSemesterPath(label, '/editor')}
-            title={t('test.detail.editorTitle')}
-            description={t('test.detail.editorDesc')}
-          />
+          <BoxCard to={testSemesterPath(label, '/editor')} title={t('test.detail.editorTitle')} />
         </RevealItem>
       </BoxGrid>
     </div>
