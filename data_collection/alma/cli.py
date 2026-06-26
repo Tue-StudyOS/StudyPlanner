@@ -525,52 +525,52 @@ def _run_multi_period_scrape(
             flush=True,
         )
 
-    period_bar = tqdm(
-        remaining, desc="semesters", unit="sem", disable=args.quiet,
-    )
-    for period in period_bar:
-        period_bar.set_postfix_str(period.label)
-        scraped = _scrape_period_branches(scraper, args, period, progress_path)
-        if scraped is None:
-            tqdm.write(
-                f"  ! could not find Informatik branch for {period.label}; skipping",
-                file=sys.stderr,
-            )
+    # Context-managed so the outer bar is always closed, even if a period
+    # scrape raises partway through the run.
+    with tqdm(remaining, desc="semesters", unit="sem", disable=args.quiet) as period_bar:
+        for period in period_bar:
+            period_bar.set_postfix_str(period.label)
+            scraped = _scrape_period_branches(scraper, args, period, progress_path)
+            if scraped is None:
+                tqdm.write(
+                    f"  ! could not find Informatik branch for {period.label}; skipping",
+                    file=sys.stderr,
+                )
+                per_period_summary.append(
+                    {
+                        "period_id": period.period_id,
+                        "period_label": period.label,
+                        "courses": 0,
+                        "catalog_nodes": 0,
+                        "skipped": True,
+                    }
+                )
+                _write_multi_period_checkpoint(
+                    out_path, args, periods, per_period_summary,
+                    all_catalog_nodes, all_courses,
+                )
+                continue
+
+            period_courses, period_nodes, partial = scraped
+            all_courses.extend(period_courses)
+            all_catalog_nodes.extend(period_nodes)
             per_period_summary.append(
                 {
                     "period_id": period.period_id,
                     "period_label": period.label,
-                    "courses": 0,
-                    "catalog_nodes": 0,
-                    "skipped": True,
+                    "courses": len(period_courses),
+                    "catalog_nodes": len(period_nodes),
+                    "partial": partial,
                 }
             )
             _write_multi_period_checkpoint(
-                out_path, args, periods, per_period_summary,
-                all_catalog_nodes, all_courses,
+                out_path,
+                args,
+                periods,
+                per_period_summary,
+                all_catalog_nodes,
+                all_courses,
             )
-            continue
-
-        period_courses, period_nodes, partial = scraped
-        all_courses.extend(period_courses)
-        all_catalog_nodes.extend(period_nodes)
-        per_period_summary.append(
-            {
-                "period_id": period.period_id,
-                "period_label": period.label,
-                "courses": len(period_courses),
-                "catalog_nodes": len(period_nodes),
-                "partial": partial,
-            }
-        )
-        _write_multi_period_checkpoint(
-            out_path,
-            args,
-            periods,
-            per_period_summary,
-            all_catalog_nodes,
-            all_courses,
-        )
 
     return _multi_period_result(
         args, periods, per_period_summary, all_catalog_nodes, all_courses

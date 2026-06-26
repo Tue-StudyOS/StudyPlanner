@@ -54,7 +54,7 @@ class ScrapeOptions:
     # per-course stderr message is suppressed (the bar replaces it); the
     # progress_file is still written every course.
     progress_bar: bool = False
-    # Short label for the detail progress bar (e.g. "SoSe 2026 · M.Sc. CS").
+    # Short label for the detail progress bar (e.g. "SoSe 2026: VVZ").
     progress_label: str | None = None
 
 
@@ -339,42 +339,43 @@ class AlmaScraper:
 
         course_records: list[dict[str, Any]] = []
         total_courses = len(courses)
-        detail_bar = tqdm(
+        # Context-managed so the bar is always closed, even if a detail fetch
+        # raises, instead of leaving a corrupted terminal line behind.
+        with tqdm(
             total=total_courses,
             desc=options.progress_label or "details",
             unit="course",
             leave=False,
             disable=not options.progress_bar,
-        )
-        for index, course in enumerate(courses, start=1):
-            if self._runtime_exceeded(options, started_at):
+        ) as detail_bar:
+            for index, course in enumerate(courses, start=1):
+                if self._runtime_exceeded(options, started_at):
+                    self._progress(
+                        options,
+                        "paused",
+                        f"Runtime limit reached before detail {index}/{total_courses}",
+                        course_index=index,
+                        total_courses=total_courses,
+                    )
+                    break
+                # When the bar is on it replaces the noisy per-course stderr line.
                 self._progress(
                     options,
-                    "paused",
-                    f"Runtime limit reached before detail {index}/{total_courses}",
+                    "details",
+                    f"Fetching detail {index}/{total_courses}: {course.title}",
+                    to_stderr=not options.progress_bar,
                     course_index=index,
                     total_courses=total_courses,
+                    current_course=course.title,
                 )
-                break
-            # When the bar is on it replaces the noisy per-course stderr line.
-            self._progress(
-                options,
-                "details",
-                f"Fetching detail {index}/{total_courses}: {course.title}",
-                to_stderr=not options.progress_bar,
-                course_index=index,
-                total_courses=total_courses,
-                current_course=course.title,
-            )
-            record = asdict(course)
-            if options.fetch_details and course.detail_url:
-                record["details"] = self.fetch_course_details(course.detail_url)
-                time.sleep(self.polite_delay)
-            course_records.append(record)
-            detail_bar.update(1)
-            if options.checkpoint_path and index % max(options.checkpoint_every, 1) == 0:
-                self._write_checkpoint(options, started_at, course_records)
-        detail_bar.close()
+                record = asdict(course)
+                if options.fetch_details and course.detail_url:
+                    record["details"] = self.fetch_course_details(course.detail_url)
+                    time.sleep(self.polite_delay)
+                course_records.append(record)
+                detail_bar.update(1)
+                if options.checkpoint_path and index % max(options.checkpoint_every, 1) == 0:
+                    self._write_checkpoint(options, started_at, course_records)
 
         result = {
             "source": {
@@ -382,7 +383,10 @@ class AlmaScraper:
                 "branch_title": branch_title,
                 "latest_versions_only": options.latest_versions_only,
                 "skipped_old_version_nodes": sorted(self.skipped_old_version_node_ids),
-                "partial": self._runtime_exceeded(options, started_at),
+                # timed_out covers both the runtime and max-expansions crawl
+                # limits; the runtime check also catches the detail-fetch loop
+                # breaking early. Either means the period is incomplete.
+                "partial": timed_out or self._runtime_exceeded(options, started_at),
                 "fetched_at_unix": started_at,
                 "finished_at_unix": int(time.time()),
             },
