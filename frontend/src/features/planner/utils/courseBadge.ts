@@ -29,17 +29,6 @@ export function getCourseColor(courseId: string): string {
   return COURSE_COLOR_PALETTE[hashCourseId(courseId) % COURSE_COLOR_PALETTE.length]
 }
 
-// Picks black or white for legibility on the given fill, using perceived
-// luminance so the number stays readable regardless of palette entry or theme.
-export function getContrastTextColor(hexColor: string): string {
-  const normalized = hexColor.replace('#', '')
-  const red = parseInt(normalized.slice(0, 2), 16)
-  const green = parseInt(normalized.slice(2, 4), 16)
-  const blue = parseInt(normalized.slice(4, 6), 16)
-  const perceivedLuminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-  return perceivedLuminance > 0.6 ? '#111111' : '#ffffff'
-}
-
 // Numbers planned courses 1..n in plan order; the same id always keeps its first
 // number so the grid badge and the legend agree.
 export function assignCourseNumbers(courseIds: string[]): Map<string, number> {

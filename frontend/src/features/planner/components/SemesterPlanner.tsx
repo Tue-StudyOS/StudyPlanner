@@ -48,9 +48,11 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
 export function SemesterPlanner({
   initialSemesterLabel,
   renderMode = 'name',
+  readOnly = false,
 }: {
   initialSemesterLabel?: string
   renderMode?: PlannerRenderMode
+  readOnly?: boolean
 } = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
@@ -369,7 +371,7 @@ export function SemesterPlanner({
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
-        {isSmallViewport ? (
+        {isSmallViewport && !readOnly ? (
           <button
             type="button"
             data-tour="planner-add"
@@ -380,17 +382,18 @@ export function SemesterPlanner({
           </button>
         ) : null}
 
-        {/* Export stays flush right, separated from Add courses. */}
-        <button
-          type="button"
-          data-tour="planner-export"
-          onClick={handleExportIcs}
-          disabled={displayPlannedCourses.length === 0}
-          title={t('planner.exportCalendarTitle')}
-          className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {t('planner.exportCalendar')}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            data-tour="planner-export"
+            onClick={handleExportIcs}
+            disabled={displayPlannedCourses.length === 0}
+            title={t('planner.exportCalendarTitle')}
+            className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t('planner.exportCalendar')}
+          </button>
+        ) : null}
       </div>
 
       {!isPlannerTourPreview && plannerError ? (
@@ -447,6 +450,7 @@ export function SemesterPlanner({
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
                 renderMode={renderMode}
+                readOnly={readOnly}
                 onDropCourse={handleAddCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}
@@ -459,25 +463,27 @@ export function SemesterPlanner({
             )}
           </div>
 
-          {!isSmallViewport ? plannerFavoritesPanel : null}
+          {!isSmallViewport && !readOnly ? plannerFavoritesPanel : null}
         </div>
 
-        <PlannerFeedback
-          plannedCourses={displayPlannedCourses}
-          completedCourses={displayCompletedCourses}
-          studyProgramCode={displayStudyProgramCode}
-          planAssignments={displayPlanAssignments}
-          regulationRuleGroups={displayRuleGroups}
-          isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
-          isBalancing={isBalancingAssignments}
-          balanceMessage={balanceMessage}
-          onSetAssignments={setAssignments}
-          onRemoveCourse={handleRemoveCourse}
-          onAutoBalance={handleAutoBalanceAssignments}
-        />
+        {!readOnly ? (
+          <PlannerFeedback
+            plannedCourses={displayPlannedCourses}
+            completedCourses={displayCompletedCourses}
+            studyProgramCode={displayStudyProgramCode}
+            planAssignments={displayPlanAssignments}
+            regulationRuleGroups={displayRuleGroups}
+            isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
+            isBalancing={isBalancingAssignments}
+            balanceMessage={balanceMessage}
+            onSetAssignments={setAssignments}
+            onRemoveCourse={handleRemoveCourse}
+            onAutoBalance={handleAutoBalanceAssignments}
+          />
+        ) : null}
       </div>
 
-      {isSmallViewport ? (
+      {isSmallViewport && !readOnly ? (
         <MobilePlannerFavoritesDrawer
           isOpen={isAddDrawerOpen || shouldShowTourAddDrawer}
           onClose={() => setIsAddDrawerOpen(false)}

@@ -13,7 +13,8 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
-import { assignCourseNumbers, getContrastTextColor, getCourseColor } from '../utils/courseBadge.ts'
+import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
+import { useTheme } from '../../theme'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
 
 export type PlannerRenderMode = 'name' | 'badge'
@@ -43,10 +44,11 @@ export function PlannerGrid({
   activeSemesterLabel,
   isLoadingSemesterPlan,
   renderMode = 'name',
-  onDropCourse,
+  readOnly = false,
+  onDropCourse = () => {},
   onOpenCourse,
-  onRequestAdd,
-  onOpenCompletionDialog,
+  onRequestAdd = () => {},
+  onOpenCompletionDialog = () => {},
 }: {
   plannedCourses: Course[]
   hiddenSlotIds: string[]
@@ -55,12 +57,15 @@ export function PlannerGrid({
   activeSemesterLabel: string
   isLoadingSemesterPlan: boolean
   renderMode?: PlannerRenderMode
-  onDropCourse: (courseId: string, areaCode: string | null) => void
+  readOnly?: boolean
+  onDropCourse?: (courseId: string, areaCode: string | null) => void
   onOpenCourse: (courseId: string) => void
-  onRequestAdd: () => void
-  onOpenCompletionDialog: () => void
+  onRequestAdd?: () => void
+  onOpenCompletionDialog?: () => void
 }) {
   const isBadge = renderMode === 'badge'
+  const { isDark } = useTheme()
+  const badgeTextColor = isDark ? '#1a1a1a' : '#ffffff'
   const courseNumbers = useMemo(
     () => assignCourseNumbers(plannedCourses.map((course) => course.id)),
     [plannedCourses],
@@ -100,8 +105,8 @@ export function PlannerGrid({
     <>
       <div
         className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-4 sm:py-5.5"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
+        onDragOver={readOnly ? undefined : (event) => event.preventDefault()}
+        onDrop={readOnly ? undefined : (event) => {
           event.preventDefault()
           const courseId = event.dataTransfer.getData('text/planner-course-id')
           const areaCode = event.dataTransfer.getData('text/planner-area-code') || null
@@ -140,7 +145,7 @@ export function PlannerGrid({
             {DAY_ORDER.map((day) => (
               <div
                 key={day}
-                onClick={isMobilePlanner ? handleEmptyAreaClick : undefined}
+                onClick={isMobilePlanner && !readOnly ? handleEmptyAreaClick : undefined}
                 className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
                 style={{ height: `${totalHeight}px` }}
               >
@@ -196,7 +201,7 @@ export function PlannerGrid({
                         <div className="flex h-full w-full items-center justify-center">
                           <span
                             className="text-[13px] font-bold tabular-nums sm:text-[15px]"
-                            style={{ color: getContrastTextColor(badgeColor) }}
+                            style={{ color: badgeTextColor }}
                           >
                             {courseNumber}
                           </span>
@@ -242,7 +247,7 @@ export function PlannerGrid({
                   </button>
                 ))}
 
-                {plannedCourses.length === 0 && !isLoadingSemesterPlan ? (
+                {plannedCourses.length === 0 && !isLoadingSemesterPlan && !readOnly ? (
                   <EmptyDayHint isMobilePlanner={isMobilePlanner} />
                 ) : null}
               </div>
@@ -263,7 +268,7 @@ export function PlannerGrid({
                 >
                   <span
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[11px] font-bold tabular-nums"
-                    style={{ backgroundColor: legendColor, color: getContrastTextColor(legendColor) }}
+                    style={{ backgroundColor: legendColor, color: badgeTextColor }}
                   >
                     {courseNumbers.get(course.id)}
                   </span>
@@ -299,7 +304,7 @@ export function PlannerGrid({
           </div>
         ) : null}
 
-        {canCompleteSemester ? (
+        {canCompleteSemester && !readOnly ? (
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/20 px-4 py-3.5">
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">

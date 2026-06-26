@@ -9,7 +9,8 @@ import { FavStar } from '../../../shared/components/FavStar'
 import { useTranslation } from '../../i18n'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
-import { assignCourseNumbers, getContrastTextColor, getCourseColor } from '../utils/courseBadge.ts'
+import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
+import { useTheme } from '../../theme'
 import type { PlannerRenderMode } from './PlannerGrid'
 
 function formatPlannerTypeLabel(types: string[]): string {
@@ -34,6 +35,8 @@ function CandidateCard({
   onToggleFavorite: (courseId: string) => void
 }) {
   const { t } = useTranslation()
+  const { isDark } = useTheme()
+  const badgeTextColor = isDark ? '#1a1a1a' : '#ffffff'
   const { course, isPlanned, isOfferedInActiveSemester, completedCourse, options, explicitAreaCode } = candidate
   const isAssignable = options.length > 0
   const canAdd = isAssignable && isOfferedInActiveSemester
@@ -83,7 +86,7 @@ function CandidateCard({
             {isBadge && badgeNumber ? (
               <span
                 className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-[4px] align-[-2px] text-[10px] font-bold tabular-nums"
-                style={{ backgroundColor: getCourseColor(course.id), color: getContrastTextColor(getCourseColor(course.id)) }}
+                style={{ backgroundColor: getCourseColor(course.id), color: badgeTextColor }}
               >
                 {badgeNumber}
               </span>
