@@ -497,6 +497,28 @@ JOIN json_each(f.value) AS je
 JOIN study_areas AS sa ON sa.code = je.value
 WHERE f."key" = '_categories_json';
 
+-- Some programs expose study-area membership under codes that differ from the
+-- seeded study_areas.code: M.Sc. Machine Learning detail pages use MACH-*
+-- (seeded as ML-*), and B.Sc. Informatik Wahlpflicht modules appear as their
+-- INFM module numbers. Map those aliases so cross-listed courses still link to
+-- the right study area. The original scraped code is kept as source_code.
+INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
+SELECT f.course_id, sa.id, je.value
+FROM course_fields AS f
+JOIN json_each(f.value) AS je
+JOIN (
+    SELECT 'MACH-FML' AS src, 'ML-FOUND' AS dst
+    UNION ALL SELECT 'MACH-DTML', 'ML-DIVERSE'
+    UNION ALL SELECT 'MACH-GCS', 'ML-CS'
+    UNION ALL SELECT 'MACH-EP', 'ML-EXP'
+    UNION ALL SELECT 'INFM3110', 'PRAK'
+    UNION ALL SELECT 'INFM3410', 'THEO'
+    UNION ALL SELECT 'INFM3310', 'TECH'
+    UNION ALL SELECT 'INFM2510', 'INFO'
+) AS alias ON alias.src = je.value
+JOIN study_areas AS sa ON sa.code = alias.dst
+WHERE f."key" = '_categories_json';
+
 INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
 SELECT f.course_id, cm.id, 'category_code', 0.9
 FROM course_fields AS f

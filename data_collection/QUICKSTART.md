@@ -51,13 +51,20 @@ Output: `output/YYYY-MM-DD_HH-MM-SS/courses.json`
 ### Multiple semesters
 
 Scrape every semester from a given label up to the most recent. Per-period
-the scraper switches via ALMA's Semesterauswahl dropdown and rediscovers the
-Informatik branch by title chain (the deep-path IDs differ between
-semesters):
+the scraper switches via ALMA's Semesterauswahl dropdown and rediscovers each
+branch by title chain (the deep-path IDs differ between semesters):
 
 ```powershell
 uv run python -m alma_scraper.cli --details --from-semester "Sommer 2022"
 ```
+
+In multi-period mode the scraper crawls the VVZ "Gesamtverzeichnis
+Lehrveranstaltungen Informatik" branch **and** the degree-program branches
+(M.Sc. Computer Science, B.Sc. Informatik, M.Sc. Machine Learning). The
+program branches surface courses cross-listed from other faculties that count
+toward a study area but are missing from the VVZ branch. Courses shared
+between branches are deduplicated by `unit_id` and their detail pages are
+fetched only once. Pass `--no-programs` to crawl the VVZ branch alone.
 
 Each course in the output gets `period_id` and `period_label` fields so you
 can tell semesters apart. The output file is rewritten after every period,
