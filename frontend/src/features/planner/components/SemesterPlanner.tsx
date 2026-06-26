@@ -15,7 +15,9 @@ import {
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
+import { TEST_ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
+import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import {
   getCurrentPlannerAssignment,
@@ -32,7 +34,7 @@ import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
 import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
-import { PlannerGrid } from './PlannerGrid'
+import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
 import { PlannerProgressStrip } from './PlannerProgressStrip'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
@@ -44,12 +46,27 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
   return <span className="text-[11.5px] font-medium text-fg-muted">Saving…</span>
 }
 
-export function SemesterPlanner() {
+export function SemesterPlanner({
+  initialSemesterLabel,
+  renderMode = 'name',
+  readOnly = false,
+  useCompletedCourseFallback = false,
+}: {
+  initialSemesterLabel?: string
+  renderMode?: PlannerRenderMode
+  readOnly?: boolean
+  useCompletedCourseFallback?: boolean
+} = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const { favoriteIds, toggleFavorite } = useFavorites()
-  const { completedCourses, completedCoursesError, clearCompletedCoursesError } = useTranscript()
+  const {
+    completedCourses,
+    isLoadingCompletedCourses,
+    completedCoursesError,
+    clearCompletedCoursesError,
+  } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const hasSidebarSpace = useMediaQuery(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY)
   const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
@@ -78,7 +95,7 @@ export function SemesterPlanner() {
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
-  } = useSemesterPlanner()
+  } = useSemesterPlanner(initialSemesterLabel)
 
   // Load the catalog of the semester being planned so the weekly grid uses that
   // semester's appointments. Falls back to the newest period (backend default)
@@ -104,6 +121,20 @@ export function SemesterPlanner() {
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
+  const historicalSemesterPlan = useMemo(
+    () => buildHistoricalSemesterPlan(completedCourses, [...courses, ...allCatalogCourses], activeSemesterLabel),
+    [activeSemesterLabel, allCatalogCourses, completedCourses, courses],
+  )
+  const usesCompletedCourseFallback = readOnly
+    && useCompletedCourseFallback
+    && !isLoadingSemesterPlan
+    && !isLoadingCompletedCourses
+    && plannedCourses.length === 0
+    && historicalSemesterPlan.courses.length > 0
+  const effectivePlannedCourses = usesCompletedCourseFallback ? historicalSemesterPlan.courses : plannedCourses
+  const effectivePlannedCourseIds = effectivePlannedCourses.map((course) => course.id)
+  const effectiveHiddenSlotIds = usesCompletedCourseFallback ? [] : hiddenSlotIds
+  const effectivePlanAssignments = usesCompletedCourseFallback ? historicalSemesterPlan.assignments : planAssignments
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
   const plannerRuleGroups = useMemo(
     () => regulationVersion?.ruleGroups ?? [],
@@ -130,23 +161,22 @@ export function SemesterPlanner() {
     }),
     [plannerRuleGroups, plannerStudyProgramCode, activeStepId],
   )
-  const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : plannedCourses
+  const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : effectivePlannedCourses
   const displayPlannedCourseIds = isPlannerTourPreview
     ? plannerTourPreview.plannedCourses.map((course) => course.id)
-    : plannedCourseIds
+    : effectivePlannedCourseIds
   const displayFavoriteCourses = isPlannerTourPreview ? plannerTourPreview.favoriteCourses : favoriteCourses
   const displayCompletedCourses = isPlannerTourPreview ? plannerTourPreview.completedCourses : completedCourses
-  const displayPlanAssignments = isPlannerTourPreview ? plannerTourPreview.assignments : planAssignments
-  const displayHiddenSlotIds = isPlannerTourPreview ? [] : hiddenSlotIds
+  const displayPlanAssignments = isPlannerTourPreview ? plannerTourPreview.assignments : effectivePlanAssignments
+  const displayHiddenSlotIds = isPlannerTourPreview ? [] : effectiveHiddenSlotIds
   const displayRuleGroups = isPlannerTourPreview ? plannerTourPreview.ruleGroups : plannerRuleGroups
   const displayStudyProgramCode = plannerStudyProgramCode
-  const displayCourseById = useMemo(
-    () => new Map(
-      (isPlannerTourPreview ? [...displayPlannedCourses, ...displayFavoriteCourses] : courses)
-        .map((course) => [course.id, course]),
-    ),
-    [courses, displayFavoriteCourses, displayPlannedCourses, isPlannerTourPreview],
-  )
+  const displayCourseById = useMemo(() => {
+    const visibleCourses = isPlannerTourPreview
+      ? [...displayPlannedCourses, ...displayFavoriteCourses]
+      : [...courses, ...displayPlannedCourses, ...displayFavoriteCourses]
+    return new Map(visibleCourses.map((course) => [course.id, course]))
+  }, [courses, displayFavoriteCourses, displayPlannedCourses, isPlannerTourPreview])
 
   function resolveExplicitAddAssignment(courseId: string, preferredAreaCode: string | null): string | null {
     const course = courseById.get(courseId)
@@ -326,6 +356,8 @@ export function SemesterPlanner() {
       plannedCourses={displayPlannedCourses}
       completedCourses={displayCompletedCourses}
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
+      renderMode={renderMode}
+      catalogTo={renderMode === 'badge' ? TEST_ROUTES.catalog : undefined}
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
       onToggleFavorite={toggleFavorite}
@@ -339,22 +371,28 @@ export function SemesterPlanner() {
           {t('planner.title')}
         </h1>
 
-        <select
-          aria-label="Select semester"
-          value={activeSemesterLabel}
-          onChange={(event) => setActiveSemesterLabel(event.target.value)}
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
-        >
-          {semesterOptions.map((semesterLabel) => (
-            <option key={semesterLabel} value={semesterLabel}>
-              {formatSemesterLabelShort(semesterLabel)}
-            </option>
-          ))}
-        </select>
+        {initialSemesterLabel ? (
+          <span className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg">
+            {formatSemesterLabelShort(activeSemesterLabel)}
+          </span>
+        ) : (
+          <select
+            aria-label="Select semester"
+            value={activeSemesterLabel}
+            onChange={(event) => setActiveSemesterLabel(event.target.value)}
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
+          >
+            {semesterOptions.map((semesterLabel) => (
+              <option key={semesterLabel} value={semesterLabel}>
+                {formatSemesterLabelShort(semesterLabel)}
+              </option>
+            ))}
+          </select>
+        )}
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
-        {isSmallViewport ? (
+        {isSmallViewport && !readOnly ? (
           <button
             type="button"
             data-tour="planner-add"
@@ -365,17 +403,18 @@ export function SemesterPlanner() {
           </button>
         ) : null}
 
-        {/* Export stays flush right, separated from Add courses. */}
-        <button
-          type="button"
-          data-tour="planner-export"
-          onClick={handleExportIcs}
-          disabled={displayPlannedCourses.length === 0}
-          title={t('planner.exportCalendarTitle')}
-          className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {t('planner.exportCalendar')}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            data-tour="planner-export"
+            onClick={handleExportIcs}
+            disabled={displayPlannedCourses.length === 0}
+            title={t('planner.exportCalendarTitle')}
+            className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t('planner.exportCalendar')}
+          </button>
+        ) : null}
       </div>
 
       {!isPlannerTourPreview && plannerError ? (
@@ -431,6 +470,8 @@ export function SemesterPlanner() {
                 canCompleteSemester={displayPlannedCourses.length > 0}
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
+                renderMode={renderMode}
+                readOnly={readOnly}
                 onDropCourse={handleAddCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}
@@ -443,25 +484,27 @@ export function SemesterPlanner() {
             )}
           </div>
 
-          {!isSmallViewport ? plannerFavoritesPanel : null}
+          {!isSmallViewport && !readOnly ? plannerFavoritesPanel : null}
         </div>
 
-        <PlannerFeedback
-          plannedCourses={displayPlannedCourses}
-          completedCourses={displayCompletedCourses}
-          studyProgramCode={displayStudyProgramCode}
-          planAssignments={displayPlanAssignments}
-          regulationRuleGroups={displayRuleGroups}
-          isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
-          isBalancing={isBalancingAssignments}
-          balanceMessage={balanceMessage}
-          onSetAssignments={setAssignments}
-          onRemoveCourse={handleRemoveCourse}
-          onAutoBalance={handleAutoBalanceAssignments}
-        />
+        {!readOnly ? (
+          <PlannerFeedback
+            plannedCourses={displayPlannedCourses}
+            completedCourses={displayCompletedCourses}
+            studyProgramCode={displayStudyProgramCode}
+            planAssignments={displayPlanAssignments}
+            regulationRuleGroups={displayRuleGroups}
+            isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
+            isBalancing={isBalancingAssignments}
+            balanceMessage={balanceMessage}
+            onSetAssignments={setAssignments}
+            onRemoveCourse={handleRemoveCourse}
+            onAutoBalance={handleAutoBalanceAssignments}
+          />
+        ) : null}
       </div>
 
-      {isSmallViewport ? (
+      {isSmallViewport && !readOnly ? (
         <MobilePlannerFavoritesDrawer
           isOpen={isAddDrawerOpen || shouldShowTourAddDrawer}
           onClose={() => setIsAddDrawerOpen(false)}

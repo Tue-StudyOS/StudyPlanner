@@ -8,7 +8,7 @@ import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { HelpButton } from '../../onboarding'
-import { ROUTES } from '../../routes'
+import { ROUTES, TEST_ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 
 const STUDYOS_BOT_URL = 'https://chatgpt.com/g/g-6a2de082a0b88191b833f7307d0c9429-studyos-bot'
@@ -31,6 +31,16 @@ export function TopBar() {
       <span className="hidden sm:inline">{t('askGpt.button')}</span>
       <span className="sm:hidden">GPT</span>
     </a>
+  )
+
+  const testEntryButton = (
+    <Link
+      to={TEST_ROUTES.root}
+      aria-label={t('test.entry')}
+      className="flex h-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover px-2.5 text-[12px] font-semibold text-white/85 transition-colors hover:text-white sm:px-3"
+    >
+      Test
+    </Link>
   )
 
   const themeToggleButton = (
@@ -65,6 +75,7 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
+            {testEntryButton}
             {askGptButton}
             {isAuthenticated ? <HelpButton /> : null}
             {themeToggleButton}
@@ -106,6 +117,7 @@ export function TopBar() {
             </nav>
 
             <div className="flex items-center gap-2">
+              {testEntryButton}
               {askGptButton}
               {isAuthenticated ? <HelpButton /> : null}
               {themeToggleButton}

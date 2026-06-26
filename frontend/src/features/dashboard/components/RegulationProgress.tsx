@@ -142,11 +142,6 @@ export function RegulationProgress({ areas }: RegulationProgressProps) {
                     <span className={`inline-block h-2 w-2 rounded-xs ${colorClass(area.masterCat)}`} />
                     <span className="text-[13px] font-semibold text-fg">{area.code}</span>
                     <span className="truncate text-[12px] text-fg-muted">{area.name}</span>
-                    {area.isFulfilled ? (
-                      <span className="shrink-0 rounded-full border border-success/30 bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success">
-                        {t('progress.regulationFulfilled')}
-                      </span>
-                    ) : null}
                   </div>
                   <span className="shrink-0 text-[12px] font-semibold text-fg">
                     {area.earnedEcts}/{area.requiredEcts}

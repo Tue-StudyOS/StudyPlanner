@@ -1,12 +1,12 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider, StudySetupGate } from './features/auth'
 import { ThemeProvider } from './features/theme'
 import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
-import { LEGACY_PLANNER_ROUTE, ROUTES } from './features/routes'
+import { LEGACY_PLANNER_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
 // shell and providers; each page becomes its own chunk.
@@ -28,9 +28,46 @@ const SemesterPlanner = lazy(() =>
 const AccountPage = lazy(() =>
   import('./features/auth/components/AccountPage').then((module) => ({ default: module.AccountPage })),
 )
+const TestLayout = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestLayout })),
+)
+const TestLanding = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestLanding })),
+)
+const TestCatalog = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestCatalog })),
+)
+const TestPersonal = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestPersonal })),
+)
+const TestProgress = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestProgress })),
+)
+const TestSemesters = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestSemesters })),
+)
+const TestSemesterDetail = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestSemesterDetail })),
+)
+const TestSemesterPlan = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestSemesterPlan })),
+)
+const TestSemesterEditor = lazy(() =>
+  import('./features/test').then((module) => ({ default: module.TestSemesterEditor })),
+)
 
 function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
+}
+
+// The "/test" surface drives onboarding inline, so the global blocking setup
+// dialog must not overlay it.
+function GlobalStudySetupGate() {
+  const location = useLocation()
+  if (location.pathname.startsWith(TEST_ROUTES.root)) {
+    return null
+  }
+  return <StudySetupGate />
 }
 
 function App() {
@@ -41,7 +78,7 @@ function App() {
           <TranscriptProvider>
             <BrowserRouter>
               <OnboardingProvider>
-                <StudySetupGate />
+                <GlobalStudySetupGate />
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
@@ -55,6 +92,16 @@ function App() {
                         path={LEGACY_PLANNER_ROUTE}
                         element={<Navigate to={ROUTES.planner} replace />}
                       />
+                    </Route>
+                    <Route path={TEST_ROUTES.root} element={<TestLayout />}>
+                      <Route index element={<TestLanding />} />
+                      <Route path="catalog" element={<TestCatalog />} />
+                      <Route path="personal" element={<TestPersonal />} />
+                      <Route path="personal/progress" element={<TestProgress />} />
+                      <Route path="personal/semesters" element={<TestSemesters />} />
+                      <Route path="personal/semesters/:label" element={<TestSemesterDetail />} />
+                      <Route path="personal/semesters/:label/plan" element={<TestSemesterPlan />} />
+                      <Route path="personal/semesters/:label/editor" element={<TestSemesterEditor />} />
                     </Route>
                   </Routes>
                 </Suspense>
