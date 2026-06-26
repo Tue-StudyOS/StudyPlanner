@@ -39,13 +39,30 @@ test('buildSemesterBlocks includes the freshly added empty block once', () => {
 
 test('canAddEmptySemester is false while any empty block exists', () => {
   assert.equal(
-    canAddEmptySemester([{ label: 'WS 2021/22', courseCount: 2, isEmpty: false }]),
+    canAddEmptySemester([{ label: 'WS 2021/22', courseCount: 2, isEmpty: false, isHistorical: false }]),
     true,
   )
   assert.equal(
-    canAddEmptySemester([{ label: 'SS 2022', courseCount: 0, isEmpty: true }]),
+    canAddEmptySemester([{ label: 'SS 2022', courseCount: 0, isEmpty: true, isHistorical: false }]),
     false,
   )
+})
+
+test('buildSemesterBlocks marks historical semesters from completed courses', () => {
+  const blocks = buildSemesterBlocks(
+    [{ semesterLabel: 'WS 2022/23', courseCount: 3 }],
+    null,
+    null,
+    ['WS 2021/22', 'SS 2022'],
+  )
+  assert.deepEqual(
+    blocks.map((b) => b.label),
+    ['WS 2021/22', 'SS 2022', 'WS 2022/23'],
+  )
+  assert.equal(blocks[0].isHistorical, true)
+  assert.equal(blocks[1].isHistorical, true)
+  assert.equal(blocks[2].isHistorical, false)
+  assert.equal(blocks[0].isEmpty, false)
 })
 
 test('nextEmptySemesterLabel steps one semester past the latest block', () => {
