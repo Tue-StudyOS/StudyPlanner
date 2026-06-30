@@ -67,7 +67,7 @@ interface UseSemesterPlannerResult {
  * debounce-saved to the account — there is no edit mode, no drafts, and no
  * explicit save or delete action.
  */
-export function useSemesterPlanner(): UseSemesterPlannerResult {
+export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPlannerResult {
   const { token, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const profileSemesterLabel = user?.profile.currentSemesterLabel ?? null
@@ -82,9 +82,12 @@ export function useSemesterPlanner(): UseSemesterPlannerResult {
   const [plannerError, setPlannerError] = useState<string | null>(null)
   const currentSemesterLabel = getCurrentSemesterLabel()
   const latestSelectableSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
-  // The current semester is always the default; older plans stay reachable
-  // through the minimal switcher.
-  const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(currentSemesterLabel)
+  // The current semester is the default; an explicit initial label (e.g. the
+  // "/test" semester route) opens that semester instead. Older plans stay
+  // reachable through the minimal switcher.
+  const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
+    initialSemesterLabel?.trim() || currentSemesterLabel,
+  )
 
   const semesterOptions = useMemo(
     () =>

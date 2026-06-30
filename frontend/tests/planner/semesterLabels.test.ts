@@ -7,6 +7,7 @@ import {
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
   parseSemesterLabel,
+  setSimulatedCurrentSemesterLabel,
 } from '../../src/features/planner/utils/semesterLabels.ts'
 
 test('parseSemesterLabel parses summer and winter labels', () => {
@@ -50,4 +51,16 @@ test('buildSemesterOptions builds a sorted range around the fallback label', () 
 test('buildSemesterOptions keeps extra labels inside the range and drops outliers', () => {
   const options = buildSemesterOptions(['WS 2024/25', 'SS 2010'], 'SS 2025')
   assert.deepEqual(options, ['SS 2024', 'WS 2024/25', 'SS 2025', 'WS 2025/26'])
+})
+
+test('setSimulatedCurrentSemesterLabel overrides the date-derived current semester', () => {
+  try {
+    setSimulatedCurrentSemesterLabel('SS 2025')
+    assert.equal(getCurrentSemesterLabel(new Date(2026, 5, 10)), 'SS 2025')
+    // An invalid label is ignored and clears the override.
+    setSimulatedCurrentSemesterLabel('not a semester')
+    assert.equal(getCurrentSemesterLabel(new Date(2026, 5, 10)), 'SS 2026')
+  } finally {
+    setSimulatedCurrentSemesterLabel(null)
+  }
 })

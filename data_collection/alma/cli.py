@@ -6,6 +6,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from tqdm import tqdm
+
 from .scraper import (
     AlmaScraper,
     PeriodOption,
@@ -55,6 +57,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-old-versions",
         action="store_true",
         help="Do not skip older '(Version YYYY)' catalog branches.",
+    )
+    parser.add_argument(
+        "--no-programs",
+        action="store_true",
+        help=(
+            "Multi-period only: scrape just the VVZ 'Gesamtverzeichnis' branch "
+            "and skip the degree-program branches (M.Sc. CS, B.Sc. Informatik, "
+            "M.Sc. ML). By default those program branches are also scraped so "
+            "courses cross-listed from other faculties are included."
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -170,8 +182,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     def progress(message: str) -> None:
+        # tqdm.write keeps log lines from corrupting any active progress bar.
         if not args.quiet:
-            print(message, file=sys.stderr, flush=True)
+            tqdm.write(message, file=sys.stderr)
 
     scraper = AlmaScraper(timeout=args.timeout, progress=progress)
 
@@ -349,8 +362,97 @@ def _run_single_period_scrape(
         checkpoint_every=args.checkpoint_every,
         max_runtime_seconds=args.max_runtime_seconds,
         max_expansions=args.max_expansions,
+        progress_bar=not args.quiet,
+        progress_label="courses",
     )
     return scraper.scrape(options)
+
+
+def _scrape_period_branches(
+    scraper: AlmaScraper,
+    args: argparse.Namespace,
+    period: PeriodOption,
+    progress_path: str,
+) -> tuple[list[dict], list[dict], bool] | None:
+    """Scrape the VVZ Informatik branch and, unless ``--no-programs``, the
+    degree-program branches for one period, then merge the results.
+
+    The VVZ "Gesamtverzeichnis" branch is the base: if it cannot be located
+    the whole period is skipped (``None`` is returned). Program branches that
+    cannot be located are skipped individually with a warning, since not every
+    program necessarily exists for every archived semester.
+
+    Courses are deduplicated by ``unit_id`` (first branch wins), and the
+    ``skip_unit_ids`` option keeps later branches from re-fetching detail pages
+    for courses an earlier branch already collected. Catalog nodes are
+    deduplicated by ``node_id`` (they share absolute, root-relative ids across
+    branches). Every kept course/node is tagged with the period.
+
+    Returns ``(courses, catalog_nodes, partial)`` where ``partial`` is true if
+    any branch crawl hit a runtime/expansion limit.
+    """
+    chains: list[tuple[str, ...]] = [AlmaScraper.INFORMATICS_BRANCH_CHAIN]
+    if not args.no_programs:
+        chains.extend(AlmaScraper.PROGRAM_BRANCH_CHAINS)
+
+    merged_courses: dict[str, dict] = {}
+    merged_nodes: dict[str, dict] = {}
+    seen_unit_ids: set[str] = set()
+    partial = False
+
+    for chain in chains:
+        is_base = chain is AlmaScraper.INFORMATICS_BRANCH_CHAIN
+        permalink = scraper.find_branch_permalink(period.period_id, chain)
+        if not permalink:
+            if is_base:
+                return None
+            tqdm.write(
+                f"  ! branch {chain[-1]!r} not found for {period.label}; "
+                "skipping this branch",
+                file=sys.stderr,
+            )
+            continue
+
+        branch_label = "VVZ" if is_base else chain[-1].split(" (")[0]
+        options = ScrapeOptions(
+            start_url=permalink,
+            branch_title=None,
+            max_depth=args.max_depth,
+            max_courses=args.max_courses,
+            fetch_details=args.details or args.full_catalog,
+            latest_versions_only=not args.include_old_versions,
+            progress_file=progress_path,
+            checkpoint_path=None,
+            checkpoint_every=args.checkpoint_every,
+            max_runtime_seconds=args.max_runtime_seconds,
+            max_expansions=args.max_expansions,
+            restrict_to_start_path=True,
+            skip_unit_ids=frozenset(seen_unit_ids) or None,
+            progress_bar=not args.quiet,
+            progress_label=f"{period.label}: {branch_label}",
+        )
+        result = scraper.scrape(options)
+        partial = partial or bool(result["source"].get("partial"))
+
+        for course in result["courses"]:
+            key = course.get("unit_id") or course.get("detail_url")
+            if not key or key in merged_courses:
+                continue
+            merged_courses[key] = course
+            if course.get("unit_id"):
+                seen_unit_ids.add(course["unit_id"])
+        for node in result["catalog_nodes"]:
+            merged_nodes.setdefault(node["node_id"], node)
+
+    courses = list(merged_courses.values())
+    nodes = list(merged_nodes.values())
+    for course in courses:
+        course["period_id"] = period.period_id
+        course["period_label"] = period.label
+    for node in nodes:
+        node["period_id"] = period.period_id
+        node["period_label"] = period.label
+    return courses, nodes, partial
 
 
 def _run_multi_period_scrape(
@@ -362,14 +464,12 @@ def _run_multi_period_scrape(
 ) -> dict:
     """Run the scraper once per discovered period and merge results.
 
-    For each period:
-      1. Switch to that period via the Semesterauswahl dropdown
-         (:meth:`AlmaScraper.find_branch_permalink`), discovering the
-         period-specific Informatik permalink because the deep-path title
-         IDs are not stable across semesters.
-      2. Scrape using that permalink as ``start_url`` so the existing
-         start-path scoping just works.
-      3. Tag every course with ``period_id`` and ``period_label``.
+    For each period, :func:`_scrape_period_branches` discovers the
+    period-specific permalink for the VVZ Informatik branch and (unless
+    ``--no-programs``) the degree-program branches, scrapes each, and merges
+    them. Branch permalinks are rediscovered per period because the deep-path
+    title IDs are not stable across semesters. Every kept course is tagged
+    with ``period_id`` and ``period_label``.
 
     A checkpoint is written after every period so an interrupted run still
     leaves a usable output file.
@@ -425,77 +525,52 @@ def _run_multi_period_scrape(
             flush=True,
         )
 
-    for index, period in enumerate(remaining, start=1):
-        print(
-            f"=== [{index}/{len(remaining)}] period {period.period_id} "
-            f"({period.label}) ===",
-            file=sys.stderr,
-            flush=True,
-        )
-        permalink = scraper.find_branch_permalink(
-            period.period_id, AlmaScraper.INFORMATICS_BRANCH_CHAIN
-        )
-        if not permalink:
-            print(
-                f"  ! could not find Informatik branch for {period.label}; skipping",
-                file=sys.stderr,
-                flush=True,
-            )
+    # Context-managed so the outer bar is always closed, even if a period
+    # scrape raises partway through the run.
+    with tqdm(remaining, desc="semesters", unit="sem", disable=args.quiet) as period_bar:
+        for period in period_bar:
+            period_bar.set_postfix_str(period.label)
+            scraped = _scrape_period_branches(scraper, args, period, progress_path)
+            if scraped is None:
+                tqdm.write(
+                    f"  ! could not find Informatik branch for {period.label}; skipping",
+                    file=sys.stderr,
+                )
+                per_period_summary.append(
+                    {
+                        "period_id": period.period_id,
+                        "period_label": period.label,
+                        "courses": 0,
+                        "catalog_nodes": 0,
+                        "skipped": True,
+                    }
+                )
+                _write_multi_period_checkpoint(
+                    out_path, args, periods, per_period_summary,
+                    all_catalog_nodes, all_courses,
+                )
+                continue
+
+            period_courses, period_nodes, partial = scraped
+            all_courses.extend(period_courses)
+            all_catalog_nodes.extend(period_nodes)
             per_period_summary.append(
                 {
                     "period_id": period.period_id,
                     "period_label": period.label,
-                    "courses": 0,
-                    "catalog_nodes": 0,
-                    "skipped": True,
+                    "courses": len(period_courses),
+                    "catalog_nodes": len(period_nodes),
+                    "partial": partial,
                 }
             )
             _write_multi_period_checkpoint(
-                out_path, args, periods, per_period_summary,
-                all_catalog_nodes, all_courses,
+                out_path,
+                args,
+                periods,
+                per_period_summary,
+                all_catalog_nodes,
+                all_courses,
             )
-            continue
-
-        period_options = ScrapeOptions(
-            start_url=permalink,
-            branch_title=None,
-            max_depth=args.max_depth,
-            max_courses=args.max_courses,
-            fetch_details=args.details or args.full_catalog,
-            latest_versions_only=not args.include_old_versions,
-            progress_file=progress_path,
-            checkpoint_path=None,
-            checkpoint_every=args.checkpoint_every,
-            max_runtime_seconds=args.max_runtime_seconds,
-            max_expansions=args.max_expansions,
-            restrict_to_start_path=True,
-        )
-        result = scraper.scrape(period_options)
-        for course in result["courses"]:
-            course["period_id"] = period.period_id
-            course["period_label"] = period.label
-        for node in result["catalog_nodes"]:
-            node["period_id"] = period.period_id
-            node["period_label"] = period.label
-        all_courses.extend(result["courses"])
-        all_catalog_nodes.extend(result["catalog_nodes"])
-        per_period_summary.append(
-            {
-                "period_id": period.period_id,
-                "period_label": period.label,
-                "courses": len(result["courses"]),
-                "catalog_nodes": len(result["catalog_nodes"]),
-                "partial": bool(result["source"].get("partial")),
-            }
-        )
-        _write_multi_period_checkpoint(
-            out_path,
-            args,
-            periods,
-            per_period_summary,
-            all_catalog_nodes,
-            all_courses,
-        )
 
     return _multi_period_result(
         args, periods, per_period_summary, all_catalog_nodes, all_courses

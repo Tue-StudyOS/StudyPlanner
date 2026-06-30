@@ -1,6 +1,6 @@
 // Approximate rendered line heights of the block title (font size * line-height).
-const MOBILE_LINE_HEIGHT_PX = 12
-const DESKTOP_LINE_HEIGHT_PX = 14
+const MOBILE_LINE_HEIGHT_PX = 13
+const DESKTOP_LINE_HEIGHT_PX = 15
 const MOBILE_VERTICAL_PADDING_PX = 4
 const DESKTOP_VERTICAL_PADDING_PX = 10
 // Space the type line occupies on desktop when present.

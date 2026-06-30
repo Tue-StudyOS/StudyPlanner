@@ -9,7 +9,7 @@
 
 2. **Run scraper:**
    ```powershell
-   uv run python -m alma_scraper.cli --details
+   uv run python -m alma.cli --details
    ```
 
 ## Option 2: Using `pip` (Virtual Environment)
@@ -27,7 +27,7 @@
 
 3. **Run scraper:**
    ```powershell
-   python -m alma_scraper.cli --details
+   python -m alma.cli --details
    ```
 
 ## Output

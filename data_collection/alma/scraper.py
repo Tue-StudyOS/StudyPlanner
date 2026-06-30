@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
+from tqdm import tqdm
 
 
 CATALOG_PREFIX = "hierarchy:content-container:courseCatalogFieldset:courseCatalog:"
@@ -45,6 +46,16 @@ class ScrapeOptions:
     restrict_to_start_path: bool = True
     max_runtime_seconds: int | None = None
     max_expansions: int | None = None
+    # unit_ids already collected by an earlier branch in the same period.
+    # Courses with these ids are dropped before detail fetching so the
+    # multi-branch crawl does not re-download shared courses.
+    skip_unit_ids: frozenset[str] | None = None
+    # Show a tqdm progress bar over the detail-fetch loop. When on, the noisy
+    # per-course stderr message is suppressed (the bar replaces it); the
+    # progress_file is still written every course.
+    progress_bar: bool = False
+    # Short label for the detail progress bar (e.g. "SoSe 2026: VVZ").
+    progress_label: str | None = None
 
 
 @dataclass(slots=True)
@@ -104,6 +115,29 @@ class AlmaScraper:
         "Mathematisch-Naturwissenschaftliche",
         "Informatik",
         "Gesamtverzeichnis Lehrveranstaltungen Informatik",
+    )
+    # Degree-program branches under studiesOffered. Their module trees list
+    # courses (incl. ones cross-listed from other faculties) that count toward
+    # a study area but are absent from the VVZ "Gesamtverzeichnis" branch. The
+    # last chain entry is matched as a case-insensitive substring against
+    # catalog row titles, so the "(Version 2021)" suffix keeps it on the
+    # current examination regulation.
+    PROGRAM_BRANCH_CHAINS: tuple[tuple[str, ...], ...] = (
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "M.Sc. Informatik / Computer Science (Version 2021)",
+        ),
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "B.Sc. Informatik (Version 2021)",
+        ),
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "M.Sc. Machine Learning (Version 2021)",
+        ),
     )
 
     def __init__(
@@ -295,37 +329,53 @@ class AlmaScraper:
                 if any(needle in title.casefold() for title in node.path_titles)
             ]
         courses = unique_courses(courses)
+        if options.skip_unit_ids:
+            courses = [
+                node for node in courses if node.unit_id not in options.skip_unit_ids
+            ]
         courses.sort(key=lambda item: item.node_id)
         if options.max_courses is not None:
             courses = courses[: options.max_courses]
 
         course_records: list[dict[str, Any]] = []
         total_courses = len(courses)
-        for index, course in enumerate(courses, start=1):
-            if self._runtime_exceeded(options, started_at):
+        # Context-managed so the bar is always closed, even if a detail fetch
+        # raises, instead of leaving a corrupted terminal line behind.
+        with tqdm(
+            total=total_courses,
+            desc=options.progress_label or "details",
+            unit="course",
+            leave=False,
+            disable=not options.progress_bar,
+        ) as detail_bar:
+            for index, course in enumerate(courses, start=1):
+                if self._runtime_exceeded(options, started_at):
+                    self._progress(
+                        options,
+                        "paused",
+                        f"Runtime limit reached before detail {index}/{total_courses}",
+                        course_index=index,
+                        total_courses=total_courses,
+                    )
+                    break
+                # When the bar is on it replaces the noisy per-course stderr line.
                 self._progress(
                     options,
-                    "paused",
-                    f"Runtime limit reached before detail {index}/{total_courses}",
+                    "details",
+                    f"Fetching detail {index}/{total_courses}: {course.title}",
+                    to_stderr=not options.progress_bar,
                     course_index=index,
                     total_courses=total_courses,
+                    current_course=course.title,
                 )
-                break
-            self._progress(
-                options,
-                "details",
-                f"Fetching detail {index}/{total_courses}: {course.title}",
-                course_index=index,
-                total_courses=total_courses,
-                current_course=course.title,
-            )
-            record = asdict(course)
-            if options.fetch_details and course.detail_url:
-                record["details"] = self.fetch_course_details(course.detail_url)
-                time.sleep(self.polite_delay)
-            course_records.append(record)
-            if options.checkpoint_path and index % max(options.checkpoint_every, 1) == 0:
-                self._write_checkpoint(options, started_at, course_records)
+                record = asdict(course)
+                if options.fetch_details and course.detail_url:
+                    record["details"] = self.fetch_course_details(course.detail_url)
+                    time.sleep(self.polite_delay)
+                course_records.append(record)
+                detail_bar.update(1)
+                if options.checkpoint_path and index % max(options.checkpoint_every, 1) == 0:
+                    self._write_checkpoint(options, started_at, course_records)
 
         result = {
             "source": {
@@ -333,7 +383,10 @@ class AlmaScraper:
                 "branch_title": branch_title,
                 "latest_versions_only": options.latest_versions_only,
                 "skipped_old_version_nodes": sorted(self.skipped_old_version_node_ids),
-                "partial": self._runtime_exceeded(options, started_at),
+                # timed_out covers both the runtime and max-expansions crawl
+                # limits; the runtime check also catches the detail-fetch loop
+                # breaking early. Either means the period is incomplete.
+                "partial": timed_out or self._runtime_exceeded(options, started_at),
                 "fetched_at_unix": started_at,
                 "finished_at_unix": int(time.time()),
             },
@@ -706,7 +759,15 @@ class AlmaScraper:
             return False
         return time.time() - started_at >= options.max_runtime_seconds
 
-    def _progress(self, options: ScrapeOptions, stage: str, message: str, **extra: Any) -> None:
+    def _progress(
+        self,
+        options: ScrapeOptions,
+        stage: str,
+        message: str,
+        *,
+        to_stderr: bool = True,
+        **extra: Any,
+    ) -> None:
         payload = {
             "stage": stage,
             "message": message,
@@ -715,7 +776,7 @@ class AlmaScraper:
             "skipped_old_version_nodes": len(self.skipped_old_version_node_ids),
             **extra,
         }
-        if self.progress:
+        if self.progress and to_stderr:
             self.progress(message)
         if options.progress_file:
             self._write_json(Path(options.progress_file), payload)

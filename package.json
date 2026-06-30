@@ -13,6 +13,9 @@
     "db:verify-config": "python backend/scripts/verify_cloudflare_config.py",
     "db:migrate:local": "cd backend && npx wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "cd backend && npx wrangler d1 migrations apply DB --remote",
-    "db:export:d1": "python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql"
+    "db:export:d1": "python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql",
+    "sim:on": "cd backend && npx wrangler d1 execute studyplanner-db --remote --command \"INSERT INTO app_settings (key, value, updated_at_unix) VALUES ('simulated_current_semester_label', 'SS 2025', unixepoch()) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_unix = excluded.updated_at_unix;\"",
+    "sim:off": "cd backend && npx wrangler d1 execute studyplanner-db --remote --command \"DELETE FROM app_settings WHERE key = 'simulated_current_semester_label';\"",
+    "sim:status": "cd backend && npx wrangler d1 execute studyplanner-db --remote --command \"SELECT key, value, datetime(updated_at_unix, 'unixepoch') AS updated_at FROM app_settings WHERE key = 'simulated_current_semester_label';\""
   }
 }
