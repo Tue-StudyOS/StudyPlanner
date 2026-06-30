@@ -1,3 +1,8 @@
+# Node / frontend
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -103,7 +108,7 @@ ipython_config.py
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
-# uv.lock
+uv.lock
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
@@ -172,6 +177,7 @@ backend/data/seed_alma_catalog.sql
 
 # Scraper run outputs
 data_collection/output/
+backend/data/seed_illias.sql
 
 # Local agent notes and fixtures
 .pi/

@@ -261,6 +261,10 @@ def _emit_course(
     course_lecturer_keys: set[tuple[int, str]] = set()
 
     fields = details.get("fields") or {}
+    field_links = _merge_field_links(
+        details.get("field_links"),
+        (details.get("content") or {}).get("field_links"),
+    )
     catalog_title = course.get("title") or ""
 
     plan.courses.append({
@@ -297,6 +301,7 @@ def _emit_course(
             "course_id": course_id,
             "key": str(key),
             "value": str(value),
+            "links_json": _links_json(field_links.get(str(key))),
         })
 
     categories = details.get("categories") or []
@@ -305,6 +310,7 @@ def _emit_course(
             "course_id": course_id,
             "key": "_categories_json",
             "value": json.dumps(categories, ensure_ascii=False),
+            "links_json": "[]",
         })
 
     for position, section in enumerate(details.get("content", {}).get("sections", []) or [], start=1):
@@ -317,6 +323,7 @@ def _emit_course(
             "position": position,
             "title": title,
             "text": text,
+            "links_json": _links_json(section.get("links")),
         })
 
     for group_position, group in enumerate(details.get("parallel_groups") or [], start=1):
@@ -443,6 +450,45 @@ def _get_or_create_lecturer(lecturer_id_by_name: dict[str, int], name: str) -> i
     return new_id
 
 
+def _normalize_links(raw_links: object) -> list[dict[str, str]]:
+    if not isinstance(raw_links, list):
+        return []
+
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw_link in raw_links:
+        if not isinstance(raw_link, dict):
+            continue
+        url = str(raw_link.get("url") or "").strip()
+        if not url:
+            continue
+        label = str(raw_link.get("label") or url).strip() or url
+        key = (label.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append({"label": label, "url": url})
+    return links
+
+
+def _links_json(raw_links: object) -> str:
+    return json.dumps(_normalize_links(raw_links), ensure_ascii=False)
+
+
+def _merge_field_links(*sources: object) -> dict[str, list[dict[str, str]]]:
+    merged: dict[str, list[dict[str, str]]] = {}
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        for raw_key, raw_links in source.items():
+            key = str(raw_key)
+            links = _normalize_links(raw_links)
+            if not links:
+                continue
+            merged[key] = _normalize_links([*merged.get(key, []), *links])
+    return merged
+
+
 # ----------------------------- SQL writer -----------------------------------
 
 CATALOG_NODE_COLUMNS = [
@@ -459,8 +505,8 @@ SCRAPE_RUN_COLUMNS = [
     "id", "source_url", "branch_title", "latest_versions_only", "partial",
     "fetched_at_unix", "finished_at_unix", "raw_source_json", "imported_at_unix",
 ]
-COURSE_FIELD_COLUMNS = ["course_id", "key", "value"]
-CONTENT_SECTION_COLUMNS = ["course_id", "position", "title", "text"]
+COURSE_FIELD_COLUMNS = ["course_id", "key", "value", "links_json"]
+CONTENT_SECTION_COLUMNS = ["course_id", "position", "title", "text", "links_json"]
 COURSE_PLACEMENT_COLUMNS = ["course_id", "run_id", "node_id"]
 LECTURER_COLUMNS = ["id", "display_name", "title", "name", "email", "department", "raw_text"]
 COURSE_LECTURER_COLUMNS = ["course_id", "lecturer_id", "source", "source_text"]

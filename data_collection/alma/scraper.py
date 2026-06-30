@@ -536,7 +536,7 @@ class AlmaScraper:
         details = parse_detail_page(response.text, response.url)
         content_html = self._submit_detail_tab(response.text, response.url, "contentsTab")
         if content_html:
-            details["content"] = parse_content_page(content_html)
+            details["content"] = parse_content_page(content_html, response.url)
         details["categories"] = self.fetch_course_categories(response.text, response.url)
         return details
 
@@ -890,7 +890,8 @@ def parse_detail_page(html_text: str, final_url: str | None = None) -> dict[str,
     soup = BeautifulSoup(html_text, "html.parser")
     title = clean_text(soup.find("h1"))
     base = soup.find(id="detailViewData:tabContainer:term-planning-container:basicDataTabfieldsetId")
-    base_fields = parse_label_items(base if isinstance(base, Tag) else soup)
+    base_scope = base if isinstance(base, Tag) else soup
+    base_fields = parse_label_items(base_scope)
 
     parallel_groups = []
     for group in soup.find_all(id=re.compile(r"parallelGroupSchedule_\d+$")):
@@ -908,15 +909,16 @@ def parse_detail_page(html_text: str, final_url: str | None = None) -> dict[str,
         "url": final_url,
         "page_title": title,
         "fields": base_fields,
+        "field_links": parse_label_item_links(base_scope, final_url),
         "parallel_groups": parallel_groups,
     }
 
 
-def parse_content_page(html_text: str) -> dict[str, Any]:
+def parse_content_page(html_text: str, final_url: str | None = None) -> dict[str, Any]:
     soup = BeautifulSoup(html_text, "html.parser")
     headline = soup.find("h2", class_="menutab_headline")
     content_root = headline.find_parent("div") if isinstance(headline, Tag) else soup
-    sections: list[dict[str, str]] = []
+    sections: list[dict[str, Any]] = []
     fields = parse_label_items(soup)
 
     if isinstance(headline, Tag):
@@ -931,7 +933,7 @@ def parse_content_page(html_text: str) -> dict[str, Any]:
             if title and text.startswith(title):
                 text = clean_whitespace(text[len(title) :])
             if text:
-                sections.append({"title": title, "text": text})
+                sections.append({"title": title, "text": text, "links": extract_links(box, final_url)})
 
     if not sections and isinstance(content_root, Tag):
         full_text = clean_text(soup)
@@ -940,14 +942,15 @@ def parse_content_page(html_text: str) -> dict[str, Any]:
                 {
                     "title": "Inhalte",
                     "text": "Es wurden noch keine Inhalte hinterlegt.",
+                    "links": [],
                 }
             )
         else:
             text = clean_text(content_root)
             if text:
-                sections.append({"title": "Inhalte", "text": text})
+                sections.append({"title": "Inhalte", "text": text, "links": extract_links(content_root, final_url)})
 
-    unique_sections: list[dict[str, str]] = []
+    unique_sections: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for section in sections:
         key = (section["title"], section["text"])
@@ -957,8 +960,42 @@ def parse_content_page(html_text: str) -> dict[str, Any]:
 
     return {
         "fields": fields,
+        "field_links": parse_label_item_links(soup, final_url),
         "sections": unique_sections,
     }
+
+
+def extract_links(scope: Tag, base_url: str | None = None) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for anchor in scope.find_all("a", href=True):
+        if not isinstance(anchor, Tag):
+            continue
+        raw_href = html.unescape(str(anchor.get("href") or "")).strip()
+        if not raw_href or raw_href.startswith("#") or raw_href.lower().startswith("javascript:"):
+            continue
+        url = urljoin(base_url or ALMA_BASE, raw_href)
+        label = clean_text(anchor) or url
+        key = (label.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append({"label": label, "url": url})
+    return links
+
+
+def parse_label_item_links(scope: Tag, base_url: str | None = None) -> dict[str, list[dict[str, str]]]:
+    links_by_key: dict[str, list[dict[str, str]]] = {}
+    for line in scope.find_all("div", class_="labelItemLine"):
+        label = line.find("label")
+        answer = line.find("div", class_="answer")
+        if not isinstance(label, Tag) or not isinstance(answer, Tag):
+            continue
+        key = clean_text(label).rstrip(":")
+        links = extract_links(answer, base_url)
+        if key and links:
+            links_by_key[key] = links
+    return links_by_key
 
 
 def parse_label_items(scope: Tag) -> dict[str, str]:

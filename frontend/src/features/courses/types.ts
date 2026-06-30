@@ -63,6 +63,44 @@ export interface CourseExternalLink {
   label: string
 }
 
+export interface CourseTextLink {
+  label: string
+  url: string
+}
+
+export interface CourseContentSection {
+  position: number
+  title: string
+  text: string
+  links?: CourseTextLink[]
+}
+
+export interface CourseParticipantLimit {
+  parallelGroupId: string
+  title: string | null
+  groupType: string | null
+  minParticipants: number | null
+  maxParticipants: number | null
+}
+
+export interface CourseIliasMetadata {
+  refId: string
+  title: string
+  url: string
+  description?: string | null
+  availability?: string | null
+  registration?: string | null
+  deadline?: string | null
+  maxParticipants?: number | null
+  instructors?: string[]
+  tags?: string[]
+  match?: {
+    confidence: number
+    type: string
+    notes: string
+  }
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -84,7 +122,10 @@ export interface Course {
   language: string
   prerequisites: string[]
   description: string
+  descriptionLinks?: CourseTextLink[]
   contents?: string
+  contentsLinks?: CourseTextLink[]
+  contentSections?: CourseContentSection[]
   exams: CourseExam[]
   registrationPeriod?: string
   detailUrl?: string
@@ -98,4 +139,6 @@ export interface Course {
   offeredPeriods?: string[]
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]
+  participantLimits?: CourseParticipantLimit[]
+  illias?: CourseIliasMetadata | null
 }

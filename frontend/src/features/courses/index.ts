@@ -25,6 +25,7 @@ export type {
   CompletedCourse,
   CourseExam,
   CourseExternalLink,
+  CourseParticipantLimit,
   CourseTermType,
   MasterCat,
   MasterCategoryMeta,

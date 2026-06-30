@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -40,6 +41,8 @@ INHALTE_EMPTY_PLACEHOLDER = "es wurden noch keine inhalte hinterlegt"
 ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', re.IGNORECASE)
 # ALMA period labels look like "Sommer 2026" or "Winter 2025/26".
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
+EXAM_SLOT_PATTERN = re.compile(r"\b(klausur|nachklausur|pruefung|prüfung|exam|resit)\b", re.IGNORECASE)
+RESIT_SLOT_PATTERN = re.compile(r"\b(nachklausur|resit)\b", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.
 PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
 # Course numbers are unique and stable across ALMA periods, so they identify the
@@ -68,6 +71,15 @@ def _normalize_ects(value: Any) -> float | None:
         return None
 
 
+def _normalize_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _unique_preserve_order(values: list[str]) -> list[str]:
     unique_values: list[str] = []
     seen_values: set[str] = set()
@@ -89,6 +101,63 @@ def _extract_ects_from_text(value: str | None) -> float | None:
         return None
 
     return _normalize_ects(match.group(1).replace(',', '.'))
+
+
+def _is_ects_only_text(value: str | None) -> bool:
+    if not value:
+        return False
+
+    remainder = ECTS_TEXT_PATTERN.sub("", value).strip(" \t\r\n.,;:-()/")
+    return not remainder
+
+
+def _strip_repeated_section_title(section_title: str, section_text: str) -> str:
+    normalized_title = section_title.strip()
+    normalized_text = section_text.strip()
+    if not normalized_title:
+        return normalized_text
+
+    if normalized_text.casefold().startswith(normalized_title.casefold()):
+        return normalized_text[len(normalized_title):].lstrip(" \t\r\n.,;:-")
+    return normalized_text
+
+
+def _decode_text_links(value: Any) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    else:
+        parsed = value
+    if not isinstance(parsed, list):
+        return []
+
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        url = _safe_text(item.get("url"))
+        if not url:
+            continue
+        label = _safe_text(item.get("label")) or url
+        key = (label.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append({"label": label, "url": url})
+    return links
+
+
+def _normalize_content_section(row: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(row)
+    normalized["links"] = _decode_text_links(row.get("linksJson") or row.get("links_json"))
+    normalized.pop("linksJson", None)
+    normalized.pop("links_json", None)
+    return normalized
 
 
 def _escape_like_search_term(value: str) -> str:
@@ -144,20 +213,37 @@ def _normalize_master_cats(option_rows: list[dict[str, Any]]) -> list[str]:
     return sorted(unique_categories, key=lambda category: MASTER_CAT_ORDER.index(category))
 
 
+def _appointment_context(row: dict[str, Any]) -> str:
+    return " ".join(
+        value
+        for value in [
+            _safe_text(row.get("groupTitle")),
+            _safe_text(row.get("groupType")),
+            _safe_text(row.get("timeNote")),
+            _safe_text(row.get("note")),
+        ]
+        if value
+    )
+
+
+def _appointment_slot_type(row: dict[str, Any]) -> str:
+    context = _appointment_context(row)
+    if RESIT_SLOT_PATTERN.search(context):
+        return "Nachklausur"
+    if EXAM_SLOT_PATTERN.search(context):
+        return "Klausur"
+    return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
+
+
 def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     schedule: list[dict[str, str]] = []
-    seen_slots: set[tuple[str, str, str, str]] = set()
 
     for row in appointment_rows:
         day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
-        slot_type = _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
+        slot_type = _appointment_slot_type(row)
 
-        slot_key = (day, time_text, room_text, slot_type)
-        if slot_key in seen_slots:
-            continue
-        seen_slots.add(slot_key)
         schedule.append(
             {
                 "day": day,
@@ -223,24 +309,39 @@ def _extract_prerequisites(content_sections: list[dict[str, Any]]) -> list[str]:
     return _unique_preserve_order(extracted_prerequisites)
 
 
-def _pick_description(short_comment: str | None, content_sections: list[dict[str, Any]]) -> str:
-    if short_comment:
-        return short_comment
+def _pick_description_entry(
+    short_comment: str | None,
+    content_sections: list[dict[str, Any]],
+) -> dict[str, Any]:
+    normalized_short_comment = _safe_text(short_comment)
+    if normalized_short_comment and not _is_ects_only_text(normalized_short_comment):
+        return {"text": normalized_short_comment, "links": []}
 
     for section in content_sections:
-        section_title = (_safe_text(section.get("title")) or "").lower()
-        if not any(keyword in section_title for keyword in DESCRIPTION_SECTION_KEYWORDS):
+        section_title = _safe_text(section.get("title")) or ""
+        if not any(keyword in section_title.lower() for keyword in DESCRIPTION_SECTION_KEYWORDS):
             continue
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return section_text
+            return {
+                "text": _strip_repeated_section_title(section_title, section_text),
+                "links": _decode_text_links(section.get("links")),
+            }
 
     for section in content_sections:
+        section_title = _safe_text(section.get("title")) or ""
         section_text = _safe_text(section.get("text"))
         if section_text:
-            return section_text
+            return {
+                "text": _strip_repeated_section_title(section_title, section_text),
+                "links": _decode_text_links(section.get("links")),
+            }
 
-    return ""
+    return {"text": normalized_short_comment or "", "links": []}
+
+
+def _pick_description(short_comment: str | None, content_sections: list[dict[str, Any]]) -> str:
+    return str(_pick_description_entry(short_comment, content_sections)["text"])
 
 
 def _clean_inhalte_text(text: str) -> str | None:
@@ -272,6 +373,18 @@ def _extract_contents(content_sections: list[dict[str, Any]]) -> str:
         if cleaned:
             return cleaned
     return ""
+
+
+def _extract_contents_links(content_sections: list[dict[str, Any]]) -> list[dict[str, str]]:
+    for section in content_sections:
+        section_title = (_safe_text(section.get("title")) or "").strip().lower()
+        if section_title != INHALTE_SECTION_TITLE:
+            continue
+        section_text = _safe_text(section.get("text"))
+        if not section_text or not _clean_inhalte_text(section_text):
+            continue
+        return _decode_text_links(section.get("links"))
+    return []
 
 
 def _period_sort_key(period_label: str) -> tuple[int, int, str]:
@@ -448,6 +561,7 @@ async def _load_catalog_related_chunk(
         f"""
         SELECT
             pg.course_id AS courseId,
+            pg.title AS groupTitle,
             pg.group_type AS groupType,
             c.course_type AS courseType,
             a.weekday,
@@ -456,6 +570,8 @@ async def _load_catalog_related_chunk(
             a.date_text AS dateText,
             a.start_time AS startTime,
             a.room_text AS roomText,
+            a.time_note AS timeNote,
+            a.note,
             a.position
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
@@ -850,33 +966,168 @@ async def _load_offering_history(env: Any, course_key: str | None) -> list[str]:
     return labels
 
 
-async def _load_external_links(env: Any, course_number: str | None) -> list[dict[str, str]]:
-    if not course_number:
-        return []
+def _dedupe_external_links(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        platform = _safe_text(row.get("platform"))
+        url = _safe_text(row.get("url"))
+        if not platform or not url:
+            continue
+        key = (platform.casefold(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append(
+            {
+                "platform": platform,
+                "url": url,
+                "label": _safe_text(row.get("label")) or "",
+            }
+        )
+    return links
+
+
+async def _load_external_links(
+    env: Any,
+    course_id: int,
+    course_number: str | None,
+) -> list[dict[str, str]]:
+    link_rows: list[dict[str, Any]] = []
     try:
-        rows = await fetch_all(
-            env,
-            """
-            SELECT platform, url, label
-            FROM course_external_links
-            WHERE course_number = ?
-            ORDER BY platform ASC
-            """,
-            [course_number],
+        link_rows.extend(
+            await fetch_all(
+                env,
+                """
+                SELECT platform, url, label
+                FROM course_learning_links
+                WHERE course_id = ?
+                ORDER BY platform ASC, COALESCE(confidence, 0) DESC, id ASC
+                """,
+                [course_id],
+            )
         )
     except D1ExecutionError:
-        # The links table ships ahead of its data; treat a missing table as empty.
-        return []
+        # Newer link table may not exist in older local D1 snapshots.
+        pass
 
+    if not course_number:
+        return _dedupe_external_links(link_rows)
+
+    try:
+        link_rows.extend(
+            await fetch_all(
+                env,
+                """
+                SELECT platform, url, label
+                FROM course_external_links
+                WHERE course_number = ?
+                ORDER BY platform ASC
+                """,
+                [course_number],
+            )
+        )
+    except D1ExecutionError:
+        # The legacy links table ships ahead of its data; treat missing as empty.
+        pass
+
+    return _dedupe_external_links(link_rows)
+
+
+def _build_participant_limits(parallel_groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    limits: list[dict[str, Any]] = []
+    for group in parallel_groups:
+        min_participants = _normalize_int(group.get("minParticipants"))
+        max_participants = _normalize_int(group.get("maxParticipants"))
+        if min_participants is None and max_participants is None:
+            continue
+        limits.append(
+            {
+                "parallelGroupId": str(group.get("id") or ""),
+                "title": _safe_text(group.get("title")),
+                "groupType": _safe_text(group.get("groupType")),
+                "minParticipants": min_participants,
+                "maxParticipants": max_participants,
+            },
+        )
+    return limits
+
+
+def _json_list(value: Any) -> list[str]:
+    if not value:
+        return []
+    try:
+        import json
+
+        decoded = json.loads(str(value))
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(decoded, list):
+        return []
     return [
-        {
-            "platform": platform,
-            "url": url,
-            "label": _safe_text(row.get("label")) or "",
-        }
-        for row in rows
-        if (platform := _safe_text(row.get("platform"))) and (url := _safe_text(row.get("url")))
+        text
+        for item in decoded
+        if (text := _safe_text(item))
     ]
+
+
+async def _load_illias_metadata(env: Any, course_id: int) -> dict[str, Any] | None:
+    try:
+        row = await fetch_one(
+            env,
+            """
+            SELECT
+                ic.ref_id AS refId,
+                ic.title,
+                ic.url,
+                ic.description,
+                ic.availability,
+                ic.registration,
+                ic.deadline,
+                ic.max_participants AS maxParticipants,
+                ic.tags_json AS tagsJson,
+                ic.instructors_json AS instructorsJson,
+                m.confidence,
+                m.match_type AS matchType,
+                m.notes
+            FROM illias_alma_matches AS m
+            JOIN illias_courses AS ic ON ic.ref_id = m.illias_course_ref_id
+            WHERE m.alma_course_id = ?
+            ORDER BY m.confidence DESC, ic.title ASC
+            LIMIT 1
+            """,
+            [course_id],
+        )
+    except D1ExecutionError as exc:
+        message = str(exc).lower()
+        if "no such table" not in message or "illias_" not in message:
+            raise
+        return None
+
+    if row is None:
+        return None
+
+    url = _safe_text(row.get("url"))
+    if not url:
+        return None
+
+    return {
+        "refId": _safe_text(row.get("refId")) or "",
+        "title": _safe_text(row.get("title")) or "",
+        "url": url,
+        "description": _safe_text(row.get("description")),
+        "availability": _safe_text(row.get("availability")),
+        "registration": _safe_text(row.get("registration")),
+        "deadline": _safe_text(row.get("deadline")),
+        "maxParticipants": row.get("maxParticipants"),
+        "instructors": _json_list(row.get("instructorsJson")),
+        "tags": _json_list(row.get("tagsJson")),
+        "match": {
+            "confidence": _normalize_ects(row.get("confidence")) or 0,
+            "type": _safe_text(row.get("matchType")) or "",
+            "notes": _safe_text(row.get("notes")) or "",
+        },
+    }
 
 
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
@@ -899,13 +1150,36 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
     )
 
     offered_periods = await _load_offering_history(env, summary.get("number") or None)
+    description_entry = _pick_description_entry(summary.get("shortComment"), content_sections)
+    contents = _extract_contents(content_sections)
+    external_links = await _load_external_links(
+        env,
+        course_id_value,
+        _safe_text(course.get("number")),
+    )
+    illias_metadata = await _load_illias_metadata(env, course_id_value)
+    if illias_metadata and not any(
+        (_safe_text(link.get("platform")) or "").lower() == "ilias"
+        for link in external_links
+    ):
+        external_links.append(
+            {
+                "platform": "ilias",
+                "url": illias_metadata["url"],
+                "label": "Open ILIAS course",
+            }
+        )
     summary.update(
         {
             "offeredPeriods": offered_periods,
             "termType": _derive_term_type(offered_periods),
-            "externalLinks": await _load_external_links(env, _safe_text(course.get("number"))),
-            "description": _pick_description(summary.get("shortComment"), content_sections),
-            "contents": _extract_contents(content_sections),
+            "externalLinks": external_links,
+            "illias": illias_metadata,
+            "participantLimits": _build_participant_limits(raw_detail["parallelGroups"]),
+            "description": description_entry["text"],
+            "descriptionLinks": description_entry["links"],
+            "contents": contents,
+            "contentsLinks": _extract_contents_links(content_sections) if contents else [],
             "prerequisites": _extract_prerequisites(content_sections),
             "exams": [
                 {
@@ -1021,6 +1295,9 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         SELECT
             a.id,
             a.parallel_group_id AS parallelGroupId,
+            pg.title AS groupTitle,
+            pg.group_type AS groupType,
+            c.course_type AS courseType,
             a.position,
             a.rhythm,
             a.weekday,
@@ -1039,6 +1316,7 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             a.cancellation_text AS cancellationText
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
+        JOIN courses AS c ON c.id = pg.course_id
         WHERE pg.course_id = ?
         ORDER BY a.weekday_index ASC, a.start_time ASC, a.position ASC
     """
@@ -1059,7 +1337,8 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         SELECT
             position,
             title,
-            text
+            text,
+            links_json AS linksJson
         FROM content_sections
         WHERE course_id = ?
         ORDER BY position ASC
@@ -1067,7 +1346,8 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     course_fields_sql = """
         SELECT
             key,
-            value
+            value,
+            links_json AS linksJson
         FROM course_fields
         WHERE course_id = ?
         ORDER BY key ASC
@@ -1077,8 +1357,18 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
     parallel_groups = await fetch_all(env, parallel_groups_sql, [course_id])
     appointments = await fetch_all(env, appointments_sql, [course_id])
     assessment_dates = await fetch_all(env, assessment_dates_sql, [course_id])
-    content_sections = await fetch_all(env, content_sections_sql, [course_id])
+    content_sections = [
+        _normalize_content_section(row)
+        for row in await fetch_all(env, content_sections_sql, [course_id])
+    ]
     course_fields = await fetch_all(env, course_fields_sql, [course_id])
+    course_field_links: dict[str, list[dict[str, str]]] = {}
+    for row in course_fields:
+        if "key" not in row:
+            continue
+        links = _decode_text_links(row.get("linksJson"))
+        if links:
+            course_field_links[str(row["key"])] = links
 
     return {
         "course": course,
@@ -1092,4 +1382,5 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             for row in course_fields
             if "key" in row and "value" in row
         },
+        "courseFieldLinks": course_field_links,
     }

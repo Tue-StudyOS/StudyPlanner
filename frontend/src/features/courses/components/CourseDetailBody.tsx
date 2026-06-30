@@ -3,12 +3,15 @@ import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { SeasonTags } from '../../../shared/components/SeasonTag'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
-import type { Course } from '../types'
+import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
+import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
+import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
+import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
 import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
 
 const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration period published'])
@@ -20,6 +23,28 @@ function hasValue(value: string | null | undefined): value is string {
 function formatEcts(ects: number | null): string | null {
   if (ects === null) return null
   return Number.isInteger(ects) ? String(ects) : ects.toFixed(1)
+}
+
+function formatParticipantLimit(limit: CourseParticipantLimit): string | null {
+  const label = hasValue(limit.title) ? limit.title : limit.groupType
+  const prefix = hasValue(label) ? `${label}: ` : ''
+  if (limit.minParticipants !== null && limit.maxParticipants !== null) {
+    return `${prefix}${limit.minParticipants}-${limit.maxParticipants}`
+  }
+  if (limit.maxParticipants !== null) {
+    return `${prefix}max. ${limit.maxParticipants}`
+  }
+  if (limit.minParticipants !== null) {
+    return `${prefix}min. ${limit.minParticipants}`
+  }
+  return null
+}
+
+function formatParticipantLimits(limits: CourseParticipantLimit[] | undefined): string | null {
+  const values = (limits ?? [])
+    .map((limit) => formatParticipantLimit(limit))
+    .filter((value): value is string => Boolean(value))
+  return values.length > 0 ? values.join('; ') : null
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -42,6 +67,38 @@ function TypePill({ label }: { label: string }) {
   )
 }
 
+function LinkedText({ text, links }: { text: string; links?: TextLink[] }) {
+  return (
+    <>
+      {buildLinkedTextSegments(text, links).map((segment, index) =>
+        segment.kind === 'link' ? (
+          <a
+            key={`${segment.url}-${index}`}
+            href={segment.url}
+            target="_blank"
+            rel="noreferrer"
+            className="break-all text-primary hover:underline"
+          >
+            {segment.text}
+          </a>
+        ) : (
+          <span key={`${segment.text}-${index}`}>{segment.text}</span>
+        ),
+      )}
+    </>
+  )
+}
+
+function learningPlatformLabel(
+  platform: string,
+  labels: { moodle: string; ilias: string },
+): string {
+  const normalized = platform.trim().toLowerCase()
+  if (normalized === 'moodle') return labels.moodle
+  if (normalized === 'ilias') return labels.ilias
+  return `Open ${platform}`
+}
+
 interface CourseDetailBodyProps {
   course: Course
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
@@ -51,7 +108,7 @@ interface CourseDetailBodyProps {
 /**
  * Shared course detail content for the catalog drawer, the detail route, and
  * the planner's centered detail modal. Only renders information that exists —
- * with the deliberate exception of the Moodle/Ilias slot, which shows an
+ * with the deliberate exception of the Moodle/ILIAS slot, which shows an
  * explicit empty state.
  */
 export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
@@ -59,11 +116,25 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const { user } = useAuth()
   const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
   const title = cleanCourseTitle(course.title, course.number)
-  const learningPlatformLinks = (course.externalLinks ?? []).filter((link) =>
-    ['moodle', 'ilias'].includes(link.platform.trim().toLowerCase()),
-  )
+  const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
   const seasonTermType = getRecentSeasonTermType(course)
+  const illiasRows = buildIliasMetadataRows(course.illias, {
+    availability: t('courseDetail.illiasAvailability'),
+    deadline: t('courseDetail.illiasDeadline'),
+    instructors: t('courseDetail.illiasInstructors'),
+    maxParticipants: t('courseDetail.illiasMaxParticipants'),
+    registration: t('courseDetail.illiasRegistration'),
+  })
+  const hasIliasTitle =
+    hasValue(course.illias?.title) && course.illias.title.trim() !== course.title.trim()
+  const hasIliasDetails =
+    Boolean(course.illias) &&
+    (hasIliasTitle || illiasRows.length > 0 || hasValue(course.illias?.description))
+  const learningPlatformLabels = {
+    ilias: t('courseDetail.openIlias'),
+    moodle: t('courseDetail.openMoodle'),
+  }
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
@@ -71,6 +142,8 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const ectsText = formatEcts(course.ects)
   if (ectsText) factRows.push(['ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
+  const participantLimitText = formatParticipantLimits(course.participantLimits)
+  if (participantLimitText) factRows.push([t('courseDetail.participants'), participantLimitText])
   if (hasValue(course.language)) factRows.push([t('courseDetail.language'), course.language])
   if (hasValue(course.frequency)) factRows.push([t('courseDetail.frequency'), course.frequency])
   if (hasValue(course.registrationPeriod)) factRows.push([t('courseDetail.registration'), course.registrationPeriod!])
@@ -112,7 +185,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
       {hasValue(course.description) ? (
         <Section title={t('courseDetail.description')}>
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
-            {course.description}
+            <LinkedText text={course.description} links={course.descriptionLinks} />
           </p>
         </Section>
       ) : null}
@@ -120,8 +193,70 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
       {hasValue(course.contents) ? (
         <Section title={t('courseDetail.contents')}>
           <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
-            {course.contents}
+            <LinkedText text={course.contents!} links={course.contentsLinks} />
           </p>
+        </Section>
+      ) : null}
+
+      <Section title={t('courseDetail.learningPlatforms')}>
+        <div className="grid gap-2.5">
+          {learningPlatformLinks.length > 0 ? (
+            learningPlatformLinks.map((link) => (
+              <div key={`${link.platform}-${link.url}`} className="flex min-w-0 flex-wrap items-center gap-2">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-w-0 items-center rounded-full border border-primary/30 bg-primary-soft px-3 py-1.5 text-[12.5px] font-semibold text-primary hover:underline"
+                >
+                  <span className="truncate">
+                    {learningPlatformLabel(link.platform, learningPlatformLabels)}
+                  </span>
+                </a>
+                {hasValue(link.label) ? (
+                  <span className="min-w-0 break-words text-[12px] text-fg-muted">
+                    {link.label}
+                  </span>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="text-[13px] text-fg-muted">{t('courseDetail.noLearningLink')}</div>
+          )}
+        </div>
+      </Section>
+
+      {hasIliasDetails && course.illias ? (
+        <Section title={t('courseDetail.illias')}>
+          <div className="grid gap-3">
+            {hasIliasTitle ? (
+              <div className="min-w-0 break-words text-[12.5px] text-fg-muted">
+                {course.illias.title}
+              </div>
+            ) : null}
+
+            {illiasRows.length > 0 ? (
+              <div className="grid min-w-0 overflow-hidden rounded-lg border border-border-light bg-surface">
+                {illiasRows.map((row, index) => (
+                  <div
+                    key={row.key}
+                    className={`grid min-w-0 grid-cols-[minmax(6.5rem,8rem)_minmax(0,1fr)] gap-3 px-3.5 py-2.5 text-[12.5px] ${
+                      index < illiasRows.length - 1 ? 'border-b border-border-light' : ''
+                    }`}
+                  >
+                    <span className="font-medium text-fg-muted">{row.label}</span>
+                    <span className="min-w-0 break-words text-fg">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {hasValue(course.illias.description) ? (
+              <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
+                {course.illias.description}
+              </p>
+            ) : null}
+          </div>
         </Section>
       ) : null}
 
@@ -159,7 +294,9 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
                 className="flex items-baseline gap-2.5 text-[13.5px] text-fg-mid"
               >
                 <span className="mt-1.5 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />
-                <span>{prerequisite}</span>
+                <span>
+                  <LinkedText text={prerequisite} />
+                </span>
               </li>
             ))}
           </ul>
@@ -187,30 +324,15 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
-      <Section title={t('courseDetail.links')}>
-        <div className="grid gap-2 text-[13px]">
-          {learningPlatformLinks.length > 0 ? (
-            learningPlatformLinks.map((link) => (
-              <a
-                key={`${link.platform}-${link.url}`}
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                {link.label || `Open ${link.platform}`}
-              </a>
-            ))
-          ) : (
-            <div className="text-fg-muted">{t('courseDetail.noLearningLink')}</div>
-          )}
-          {almaUrl ? (
+      {almaUrl ? (
+        <Section title={t('courseDetail.links')}>
+          <div className="grid gap-2 text-[13px]">
             <a href={almaUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
               {t('courseDetail.openAlma')}
             </a>
-          ) : null}
-        </div>
-      </Section>
+          </div>
+        </Section>
+      ) : null}
 
       {factRows.length > 0 ? (
         <div className="min-w-0 overflow-hidden rounded-[12px] border border-border bg-surface">
