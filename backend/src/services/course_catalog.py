@@ -226,10 +226,6 @@ def _appointment_context(row: dict[str, Any]) -> str:
     )
 
 
-def _is_exam_appointment(row: dict[str, Any]) -> bool:
-    return bool(EXAM_SLOT_PATTERN.search(_appointment_context(row)))
-
-
 def _appointment_slot_type(row: dict[str, Any]) -> str:
     context = _appointment_context(row)
     if RESIT_SLOT_PATTERN.search(context):
@@ -241,7 +237,6 @@ def _appointment_slot_type(row: dict[str, Any]) -> str:
 
 def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     schedule: list[dict[str, str]] = []
-    seen_slots: set[tuple[str, str, str, str]] = set()
 
     for row in appointment_rows:
         day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
@@ -249,10 +244,6 @@ def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, st
         room_text = _safe_text(row.get("roomText")) or "TBA"
         slot_type = _appointment_slot_type(row)
 
-        slot_key = (day, time_text, "" if _is_exam_appointment(row) else room_text, slot_type)
-        if slot_key in seen_slots:
-            continue
-        seen_slots.add(slot_key)
         schedule.append(
             {
                 "day": day,

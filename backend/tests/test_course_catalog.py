@@ -122,35 +122,35 @@ class PickDescriptionTest(unittest.TestCase):
 
 
 class BuildScheduleTest(unittest.TestCase):
-    def test_deduplicates_multi_room_exam_appointments(self) -> None:
+    def test_keeps_multi_room_exam_appointments(self) -> None:
         rows = [
             {
                 "dateText": "27.07.2026",
                 "timeText": "08:00 - 11:00",
-                "roomText": "Hörsaal N02",
-                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "roomText": "Hall N02",
+                "groupTitle": "Klausur Mathematik fuer Informatik 2",
                 "courseType": "Vorlesung",
             },
             {
                 "dateText": "27.07.2026",
                 "timeText": "08:00 - 11:00",
-                "roomText": "Hörsaal N03",
-                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "roomText": "Hall N03",
+                "groupTitle": "Klausur Mathematik fuer Informatik 2",
                 "courseType": "Vorlesung",
             },
             {
                 "dateText": "29.09.2026",
                 "timeText": "09:00 - 12:00",
-                "roomText": "Hörsaal 25",
-                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "roomText": "Hall 25",
+                "groupTitle": "Klausur Mathematik fuer Informatik 2",
                 "note": "Nachklausur",
                 "courseType": "Vorlesung",
             },
             {
                 "dateText": "29.09.2026",
                 "timeText": "09:00 - 12:00",
-                "roomText": "Hörsaal 24",
-                "groupTitle": "Klausur Mathematik für Informatik 2",
+                "roomText": "Hall 24",
+                "groupTitle": "Klausur Mathematik fuer Informatik 2",
                 "note": "Nachklausur",
                 "courseType": "Vorlesung",
             },
@@ -162,25 +162,57 @@ class BuildScheduleTest(unittest.TestCase):
                 {
                     "day": "27.07.2026",
                     "time": "08:00 - 11:00",
-                    "room": "Hörsaal N02",
+                    "room": "Hall N02",
+                    "type": "Klausur",
+                },
+                {
+                    "day": "27.07.2026",
+                    "time": "08:00 - 11:00",
+                    "room": "Hall N03",
                     "type": "Klausur",
                 },
                 {
                     "day": "29.09.2026",
                     "time": "09:00 - 12:00",
-                    "room": "Hörsaal 25",
+                    "room": "Hall 25",
+                    "type": "Nachklausur",
+                },
+                {
+                    "day": "29.09.2026",
+                    "time": "09:00 - 12:00",
+                    "room": "Hall 24",
                     "type": "Nachklausur",
                 },
             ],
         )
+
+    def test_keeps_same_time_tutorial_appointments(self) -> None:
+        rows = [
+            {
+                "weekday": "Tuesday",
+                "timeText": "12:00 - 14:00",
+                "roomText": "C 110",
+                "groupTitle": "Tutorial A",
+                "groupType": "Tutorial",
+            },
+            {
+                "weekday": "Tuesday",
+                "timeText": "12:00 - 14:00",
+                "roomText": "C 110",
+                "groupTitle": "Tutorial B",
+                "groupType": "Tutorial",
+            },
+        ]
+
+        self.assertEqual(len(_build_schedule(rows)), 2)
 
     def test_keeps_weekly_date_range_slots(self) -> None:
         rows = [
             {
                 "dateText": "13.04.2026 - 20.07.2026",
                 "timeText": "10:00 - 12:00",
-                "roomText": "Hörsaal N06",
-                "groupTitle": "Mathematik für Informatik 2",
+                "roomText": "Hall N06",
+                "groupTitle": "Mathematik fuer Informatik 2",
                 "courseType": "Vorlesung",
             },
         ]

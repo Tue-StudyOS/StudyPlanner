@@ -1,26 +1,19 @@
 import { useMemo } from 'react'
-import {
-  DAY_LABELS,
-  DAY_ORDER,
-  normalizeWeekday,
-  parseTimeRange,
-  type PlannerBlock,
-} from '../../planner/utils/plannerFeedback'
+import { DAY_LABELS, DAY_ORDER } from '../../planner/utils/plannerFeedback'
 import { buildDayLayout } from '../../planner/utils/plannerDayLayout'
 import { useTranslation } from '../../i18n'
 import { getDateOrdinal, parseDateSortValue } from '../utils/examLabels.ts'
-import { getScheduleSlotKind, type ScheduleSlotKind } from '../utils/scheduleSlotKind.ts'
+import type { ScheduleSlotKind } from '../utils/scheduleSlotKind.ts'
+import {
+  buildMiniGridBlocks,
+  collapseMiniGridBlocksForCalendar,
+  MINI_GRID_LABEL_SEPARATOR,
+} from '../utils/weeklyScheduleMiniGrid.ts'
 import type { ScheduleSlot } from '../types'
 
 const GRID_START_MINUTES = 8 * 60
 const GRID_END_MINUTES = 18 * 60
 const GRID_HEIGHT_PX = 108
-
-interface MiniGridBlock extends PlannerBlock {
-  kind: ScheduleSlotKind
-  /** Concrete date string for one-off exam slots, null for weekly slots. */
-  examDate: string | null
-}
 
 function toPercent(minutes: number): number {
   const clamped = Math.min(Math.max(minutes, GRID_START_MINUTES), GRID_END_MINUTES)
@@ -51,41 +44,13 @@ function getDotClasses(kind: ScheduleSlotKind): string {
 
 /**
  * Compact Mon-Fri grid marking weekly slots as primary-colored blocks and
- * one-off exam/resit dates in distinct colors; overlapping blocks share the
- * column side by side. Always renders, even without time data.
+ * one-off exam/resit dates in distinct colors. The list keeps every published
+ * appointment, while the calendar collapses same-time duplicates into one block.
  */
 export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] }) {
   const { t } = useTranslation()
-  const blocks = useMemo(() => {
-    const parsedBlocks: MiniGridBlock[] = []
-    schedule.forEach((slot, index) => {
-      const day = normalizeWeekday(slot.day)
-      const timeRange = parseTimeRange(slot.time)
-      if (!day || !timeRange || timeRange.endMinutes <= GRID_START_MINUTES) {
-        return
-      }
-      const kind = getScheduleSlotKind(slot)
-      const isExam = kind !== 'weekly'
-      // Exams keep their concrete date in the label; weekly slots show the day.
-      const dayLabel = isExam ? slot.day.trim() : DAY_LABELS[day]
-      parsedBlocks.push({
-        blockId: `${slot.day}-${slot.time}-${index}`,
-        slotId: `${index}`,
-        courseId: '',
-        courseTitle: '',
-        day,
-        startMinutes: timeRange.startMinutes,
-        endMinutes: timeRange.endMinutes,
-        label: `${dayLabel} ${slot.time}${slot.room && slot.room !== 'TBA' ? ` · ${slot.room}` : ''}`,
-        room: slot.room,
-        slotType: slot.type,
-        hasOverlap: false,
-        kind,
-        examDate: isExam ? slot.day.trim() : null,
-      })
-    })
-    return parsedBlocks
-  }, [schedule])
+  const blocks = useMemo(() => buildMiniGridBlocks(schedule), [schedule])
+  const calendarBlocks = useMemo(() => collapseMiniGridBlocksForCalendar(blocks), [blocks])
 
   // The list below the grid shows weekly course times first, then the exam
   // dates in chronological order labelled Exam / Resit exam.
@@ -114,13 +79,16 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
-        DAY_ORDER.map((day) => [day, buildDayLayout(blocks.filter((block) => block.day === day))]),
+        DAY_ORDER.map((day) => [
+          day,
+          buildDayLayout(calendarBlocks.filter((block) => block.day === day)),
+        ]),
       ) as Record<(typeof DAY_ORDER)[number], ReturnType<typeof buildDayLayout>>,
-    [blocks],
+    [calendarBlocks],
   )
   const blockById = useMemo(
-    () => new Map(blocks.map((block) => [block.blockId, block])),
-    [blocks],
+    () => new Map(calendarBlocks.map((block) => [block.blockId, block])),
+    [calendarBlocks],
   )
   const hasExam = blocks.some((block) => block.kind === 'exam')
   const hasResit = blocks.some((block) => block.kind === 'resit')
@@ -217,13 +185,16 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
               }`}
             >
               <span className={`inline-block h-2 w-2 self-center rounded-full ${getDotClasses(block.kind)}`} />
-              <span className="font-medium text-fg">{block.label.split(' · ')[0]}</span>
+              <span className="font-medium text-fg">{block.label.split(MINI_GRID_LABEL_SEPARATOR)[0]}</span>
               {block.room && block.room !== 'TBA' ? (
                 <span className="text-fg-muted">{block.room}</span>
               ) : null}
               {examOrdinal !== null ? (
                 <span className="text-fg-muted">
-                  · {block.kind === 'resit' || examOrdinal > 0 ? t('courseDetail.resitExam') : t('courseDetail.exam')}
+                  {MINI_GRID_LABEL_SEPARATOR}
+                  {block.kind === 'resit' || examOrdinal > 0
+                    ? t('courseDetail.resitExam')
+                    : t('courseDetail.exam')}
                 </span>
               ) : null}
             </li>
