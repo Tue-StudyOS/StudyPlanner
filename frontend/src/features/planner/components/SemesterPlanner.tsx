@@ -23,6 +23,7 @@ import {
   getCurrentPlannerAssignment,
   getPlannerCourseAreaOptions,
   getSuggestedPlannerAssignment,
+  resolveChosenInfoAlternativeAreaCode,
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
 import { formatSemesterLabelShort, parseSemesterLabel } from '../utils/semesterLabels'
@@ -171,6 +172,19 @@ export function SemesterPlanner({
   const displayHiddenSlotIds = isPlannerTourPreview ? [] : effectiveHiddenSlotIds
   const displayRuleGroups = isPlannerTourPreview ? plannerTourPreview.ruleGroups : plannerRuleGroups
   const displayStudyProgramCode = plannerStudyProgramCode
+  // INFO-FOKUS and INFO-BASIS are alternatives — resolve the single one this plan
+  // uses so every assignment surface routes courses into it and never offers the
+  // deselected area.
+  const chosenInfoAlternativeCode = useMemo(
+    () =>
+      resolveChosenInfoAlternativeAreaCode({
+        plannedCourses: displayPlannedCourses,
+        completedCourses: displayCompletedCourses,
+        studyProgramCode: displayStudyProgramCode,
+        regulationRuleGroups: displayRuleGroups,
+      }),
+    [displayPlannedCourses, displayCompletedCourses, displayStudyProgramCode, displayRuleGroups],
+  )
   const displayCourseById = useMemo(() => {
     const visibleCourses = isPlannerTourPreview
       ? [...displayPlannedCourses, ...displayFavoriteCourses]
@@ -184,7 +198,12 @@ export function SemesterPlanner({
       return null
     }
 
-    const options = getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups)
+    const options = getPlannerCourseAreaOptions(
+      course,
+      plannerStudyProgramCode,
+      plannerRuleGroups,
+      chosenInfoAlternativeCode,
+    )
     if (preferredAreaCode && options.some((option) => option.code === preferredAreaCode)) {
       return preferredAreaCode
     }
@@ -278,7 +297,12 @@ export function SemesterPlanner({
     }
 
     plannedCourses.forEach((course) => {
-      const options = getPlannerCourseAreaOptions(course, plannerStudyProgramCode, plannerRuleGroups)
+      const options = getPlannerCourseAreaOptions(
+        course,
+        plannerStudyProgramCode,
+        plannerRuleGroups,
+        chosenInfoAlternativeCode,
+      )
       const currentAssignment = planAssignments[course.id] ?? null
       if (!currentAssignment) {
         return
@@ -291,6 +315,7 @@ export function SemesterPlanner({
       }
     })
   }, [
+    chosenInfoAlternativeCode,
     planAssignments,
     plannedCourses,
     plannerRuleGroups,
@@ -322,7 +347,7 @@ export function SemesterPlanner({
     ? displayCourseById.get(openCourseId) ?? null
     : null
   const openCourseOptions = openCourse
-    ? getPlannerCourseAreaOptions(openCourse, displayStudyProgramCode, displayRuleGroups)
+    ? getPlannerCourseAreaOptions(openCourse, displayStudyProgramCode, displayRuleGroups, chosenInfoAlternativeCode)
     : []
   const isOpenCoursePlanned = openCourse ? displayPlannedCourseIds.includes(openCourse.id) : false
   const openCourseAssignment = openCourse && isOpenCoursePlanned
@@ -330,6 +355,7 @@ export function SemesterPlanner({
         studyProgramCode: displayStudyProgramCode,
         regulationRuleGroups: displayRuleGroups,
         planAssignments: displayPlanAssignments,
+        chosenInfoAlternativeCode,
       })
     : null
   const openCourseSuggestion = openCourse
@@ -339,6 +365,7 @@ export function SemesterPlanner({
         planAssignments: displayPlanAssignments,
         plannedCourses: displayPlannedCourses,
         completedCourses: displayCompletedCourses,
+        chosenInfoAlternativeCode,
       })
     : null
 
@@ -355,6 +382,7 @@ export function SemesterPlanner({
       planAssignments={displayPlanAssignments}
       plannedCourses={displayPlannedCourses}
       completedCourses={displayCompletedCourses}
+      chosenInfoAlternativeCode={chosenInfoAlternativeCode}
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
       renderMode={renderMode}
       catalogTo={renderMode === 'badge' ? TEST_ROUTES.catalog : undefined}
@@ -537,6 +565,7 @@ export function SemesterPlanner({
           planAssignments={planAssignments}
           studyProgramCode={plannerStudyProgramCode}
           regulationRuleGroups={plannerRuleGroups}
+          chosenInfoAlternativeCode={chosenInfoAlternativeCode}
           onClose={() => setIsCompletionDialogOpen(false)}
           onSuccess={(message) => {
             setCompletionNotice(message)

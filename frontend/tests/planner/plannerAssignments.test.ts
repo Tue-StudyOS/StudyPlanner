@@ -4,8 +4,10 @@ import type { CompletedCourse, Course } from '../../src/features/courses/index.t
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../src/shared/utils/regulation.ts'
 import {
   getCurrentPlannerAssignment,
+  getPlannerCourseAreaOptions,
   getSuggestedPlannerAssignment,
   resolveAutomaticPlannerAssignments,
+  resolveChosenInfoAlternativeAreaCode,
   type PlannerAssignmentAreaState,
   type PlannerAutomaticAssignmentCandidate,
 } from '../../src/features/planner/utils/plannerAssignments.ts'
@@ -241,6 +243,108 @@ test('resolveAutomaticPlannerAssignments accounts for already credited ECTS', ()
   })
 
   assert.equal(assignments.get('course')?.areaCode, 'B-THEO')
+})
+
+const INFO_ALTERNATIVE_RULE_GROUPS: RegulationRuleGroup[] = [
+  { code: 'INFO-FOKUS', name: 'Fokusbereich', groupType: 'elective_area', requiredEcts: 18, sortOrder: 5 },
+  { code: 'INFO-BASIS', name: 'Basisbereich', groupType: 'elective_area', requiredEcts: 18, sortOrder: 6 },
+]
+
+test('resolveChosenInfoAlternativeAreaCode chooses BASIS when a planned course can only count there', () => {
+  const basisOnlyCourse = createCourse({
+    id: 'makeup',
+    masterCats: ['BASIS'],
+    studyAreaOptions: [createStudyAreaOption('INFO-BASIS')],
+  })
+
+  const chosen = resolveChosenInfoAlternativeAreaCode({
+    plannedCourses: [basisOnlyCourse],
+    completedCourses: [],
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
+  })
+
+  assert.equal(chosen, 'INFO-BASIS')
+})
+
+test('resolveChosenInfoAlternativeAreaCode prefers FOKUS when every course is FOKUS-eligible', () => {
+  const fokusCourse = createCourse({
+    id: 'focus',
+    masterCats: ['BASIS'],
+    studyAreaOptions: [createStudyAreaOption('INFO-FOKUS'), createStudyAreaOption('INFO-BASIS')],
+  })
+
+  const chosen = resolveChosenInfoAlternativeAreaCode({
+    plannedCourses: [fokusCourse],
+    completedCourses: [],
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
+  })
+
+  assert.equal(chosen, 'INFO-FOKUS')
+})
+
+test('resolveChosenInfoAlternativeAreaCode returns null when the regulation lacks both alternatives', () => {
+  const course = createCourse({
+    id: 'focus',
+    masterCats: ['BASIS'],
+    studyAreaOptions: [createStudyAreaOption('INFO-FOKUS')],
+  })
+
+  const chosen = resolveChosenInfoAlternativeAreaCode({
+    plannedCourses: [course],
+    completedCourses: [],
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: [INFO_ALTERNATIVE_RULE_GROUPS[0]],
+  })
+
+  assert.equal(chosen, null)
+})
+
+test('resolveChosenInfoAlternativeAreaCode chooses BASIS from a BASIS-only completed course', () => {
+  const completed = createCompletedCourse({
+    id: 'done',
+    masterCat: 'BASIS',
+    availableStudyAreaOptions: [{ studyAreaCode: 'INFO-BASIS', studyAreaName: null, groupType: 'elective_area' }],
+  })
+
+  const chosen = resolveChosenInfoAlternativeAreaCode({
+    plannedCourses: [],
+    completedCourses: [completed],
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
+  })
+
+  assert.equal(chosen, 'INFO-BASIS')
+})
+
+test('getPlannerCourseAreaOptions drops the deselected INFO alternative only when a choice is given', () => {
+  const course = createCourse({
+    id: 'flexible-info',
+    masterCats: ['BASIS'],
+    studyAreaOptions: [createStudyAreaOption('INFO-FOKUS'), createStudyAreaOption('INFO-BASIS')],
+  })
+
+  const bothCodes = getPlannerCourseAreaOptions(course, STUDY_PROGRAM_CODE, INFO_ALTERNATIVE_RULE_GROUPS)
+    .map((option) => option.code)
+    .sort()
+  assert.deepEqual(bothCodes, ['INFO-BASIS', 'INFO-FOKUS'])
+
+  const basisChosen = getPlannerCourseAreaOptions(
+    course,
+    STUDY_PROGRAM_CODE,
+    INFO_ALTERNATIVE_RULE_GROUPS,
+    'INFO-BASIS',
+  ).map((option) => option.code)
+  assert.deepEqual(basisChosen, ['INFO-BASIS'])
+
+  const fokusChosen = getPlannerCourseAreaOptions(
+    course,
+    STUDY_PROGRAM_CODE,
+    INFO_ALTERNATIVE_RULE_GROUPS,
+    'INFO-FOKUS',
+  ).map((option) => option.code)
+  assert.deepEqual(fokusChosen, ['INFO-FOKUS'])
 })
 
 test('resolveAutomaticPlannerAssignments handles many flexible courses', () => {

@@ -29,6 +29,7 @@ interface UsePlannerFavoritesParams {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+  chosenInfoAlternativeCode: string | null
   activeTerm: 'SS' | 'WS' | null
   onSetAssignment: (courseId: string, areaCode: string | null) => void
 }
@@ -50,6 +51,7 @@ export function usePlannerFavorites({
   planAssignments,
   plannedCourses,
   completedCourses,
+  chosenInfoAlternativeCode,
   activeTerm,
   onSetAssignment,
 }: UsePlannerFavoritesParams): UsePlannerFavoritesResult {
@@ -74,7 +76,8 @@ export function usePlannerFavorites({
 
   const candidates = useMemo<PlannerFavoriteCandidate[]>(() => {
     const isAssignable = (course: Course): boolean =>
-      getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups).length > 0
+      getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups, chosenInfoAlternativeCode)
+        .length > 0
 
     const sorted = [...favoriteCourses].sort((leftCourse, rightCourse) => {
       // Courses that can't be added to the plan sort to the bottom.
@@ -99,13 +102,19 @@ export function usePlannerFavorites({
 
     return sorted.map((course) => {
       const isPlanned = plannedCourseIds.includes(course.id)
-      const options = getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups)
+      const options = getPlannerCourseAreaOptions(
+        course,
+        studyProgramCode,
+        regulationRuleGroups,
+        chosenInfoAlternativeCode,
+      )
       const suggestedAreaCode = getSuggestedPlannerAssignment(course, {
         studyProgramCode,
         regulationRuleGroups,
         planAssignments,
         plannedCourses,
         completedCourses,
+        chosenInfoAlternativeCode,
       })
       const draftValue = assignmentDrafts[course.id]
       const currentAssignment = isPlanned
@@ -113,6 +122,7 @@ export function usePlannerFavorites({
             studyProgramCode,
             regulationRuleGroups,
             planAssignments,
+            chosenInfoAlternativeCode,
           })
         : null
       const selectedAreaCode = draftValue
@@ -124,6 +134,7 @@ export function usePlannerFavorites({
               planAssignments,
               plannedCourses,
               completedCourses,
+              chosenInfoAlternativeCode,
             })
           : suggestedAreaCode
       const explicitAreaCode = draftValue ?? currentAssignment
@@ -147,6 +158,7 @@ export function usePlannerFavorites({
     planAssignments,
     plannedCourses,
     completedCourses,
+    chosenInfoAlternativeCode,
     activeTerm,
     completedCourseByCatalogKey,
     assignmentDrafts,

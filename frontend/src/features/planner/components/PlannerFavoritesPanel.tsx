@@ -140,6 +140,7 @@ interface PlannerFavoritesPanelProps {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+  chosenInfoAlternativeCode: string | null
   maxVisibleCandidates?: number
   renderMode?: PlannerRenderMode
   catalogTo?: string
@@ -160,6 +161,7 @@ export function PlannerFavoritesPanel({
   planAssignments,
   plannedCourses,
   completedCourses,
+  chosenInfoAlternativeCode,
   maxVisibleCandidates,
   renderMode = 'name',
   catalogTo = ROUTES.catalog,
@@ -178,6 +180,7 @@ export function PlannerFavoritesPanel({
     planAssignments,
     plannedCourses,
     completedCourses,
+    chosenInfoAlternativeCode,
     activeTerm,
     onSetAssignment,
   })

@@ -1,9 +1,16 @@
-import type { CompletedCourse, Course } from '../../courses'
+import type { CompletedCourse, Course, StudyAreaOption } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
+  buildRelevantCourseAreaOptions,
   getEffectiveRuleGroupCapacity,
 } from '../../../shared/utils/regulation.ts'
+
+// In M.Sc. Informatik, INFO-FOKUS and INFO-BASIS are alternatives: exactly one of
+// them counts toward the degree. Per the PO the BASIS eligibility is a superset of
+// FOKUS, so a course is "BASIS-only" when it can be credited to BASIS but not FOKUS.
+export const INFO_FOKUS_AREA_CODE = 'INFO-FOKUS'
+export const INFO_BASIS_AREA_CODE = 'INFO-BASIS'
 
 interface PlannerAssignmentContext {
   studyProgramCode: string | null
@@ -11,6 +18,7 @@ interface PlannerAssignmentContext {
   planAssignments: Record<string, string>
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
+  chosenInfoAlternativeCode?: string | null
 }
 
 export interface PlannerAutomaticAssignmentCandidate {
@@ -82,17 +90,97 @@ export function getPlannerCourseAreaOptions(
   course: Course,
   studyProgramCode: string | null,
   regulationRuleGroups: RegulationRuleGroup[],
+  chosenInfoAlternativeCode?: string | null,
 ): RegulationAreaOption[] {
   const hasAnyCategory = (course.studyAreaOptions?.length ?? 0) > 0 || course.masterCats.length > 0
   if (!hasAnyCategory) {
     return []
   }
-  return buildAssignableRegulationAreaOptions(
+  const options = buildAssignableRegulationAreaOptions(
     course.studyAreaOptions,
     studyProgramCode,
     regulationRuleGroups,
     course.masterCats,
   )
+  return dropDeselectedInfoAlternative(options, chosenInfoAlternativeCode)
+}
+
+// Once one of the two alternatives is chosen for the degree, the other must not
+// be offered as an assignment target. Any course eligible for one alternative is
+// also eligible for the chosen one (they share the BASIS category), so dropping
+// the deselected code never leaves a course without its INFO alternative option.
+function dropDeselectedInfoAlternative(
+  options: RegulationAreaOption[],
+  chosenInfoAlternativeCode?: string | null,
+): RegulationAreaOption[] {
+  if (!chosenInfoAlternativeCode) {
+    return options
+  }
+  const deselectedCode =
+    chosenInfoAlternativeCode.toUpperCase() === INFO_BASIS_AREA_CODE
+      ? INFO_FOKUS_AREA_CODE
+      : INFO_BASIS_AREA_CODE
+  return options.filter((option) => option.code.trim().toUpperCase() !== deselectedCode)
+}
+
+// Whether a course can be credited to the two alternatives, based on its explicit
+// study-area mapping only. The flexible masterCat expansion would add both to every
+// BASIS-category course, so it cannot be used to detect BASIS-only courses.
+function getStudyAreaCodeSet(
+  studyAreaOptions: StudyAreaOption[] | undefined,
+  studyProgramCode: string | null,
+): Set<string> {
+  return new Set(
+    buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode).map((option) =>
+      option.code.trim().toUpperCase(),
+    ),
+  )
+}
+
+function isBasisOnlyCodeSet(codes: Set<string>): boolean {
+  return codes.has(INFO_BASIS_AREA_CODE) && !codes.has(INFO_FOKUS_AREA_CODE)
+}
+
+/**
+ * Picks the single INFO alternative (FOKUS or BASIS) that the planner should use.
+ * Returns null when the regulation does not offer both, so callers leave the plan
+ * untouched. BASIS wins only when a planned or completed course can be credited
+ * there but not to FOKUS; otherwise FOKUS is preferred.
+ */
+export function resolveChosenInfoAlternativeAreaCode({
+  plannedCourses,
+  completedCourses,
+  studyProgramCode,
+  regulationRuleGroups,
+}: {
+  plannedCourses: Course[]
+  completedCourses: CompletedCourse[]
+  studyProgramCode: string | null
+  regulationRuleGroups: RegulationRuleGroup[]
+}): string | null {
+  const ruleGroupCodes = new Set(
+    regulationRuleGroups.map((ruleGroup) => ruleGroup.code.trim().toUpperCase()),
+  )
+  if (!ruleGroupCodes.has(INFO_FOKUS_AREA_CODE) || !ruleGroupCodes.has(INFO_BASIS_AREA_CODE)) {
+    return null
+  }
+
+  const plannedForcesBasis = plannedCourses.some((course) =>
+    isBasisOnlyCodeSet(getStudyAreaCodeSet(course.studyAreaOptions, studyProgramCode)),
+  )
+  const completedForcesBasis = completedCourses.some((course) => {
+    const codes = new Set(
+      (course.availableStudyAreaOptions ?? []).map((option) =>
+        option.studyAreaCode.trim().toUpperCase(),
+      ),
+    )
+    if (course.studyAreaCode) {
+      codes.add(course.studyAreaCode.trim().toUpperCase())
+    }
+    return isBasisOnlyCodeSet(codes)
+  })
+
+  return plannedForcesBasis || completedForcesBasis ? INFO_BASIS_AREA_CODE : INFO_FOKUS_AREA_CODE
 }
 
 export function getPlannerCourseEctsForArea(
@@ -114,12 +202,14 @@ export function getCurrentPlannerAssignment(
     studyProgramCode: string | null
     regulationRuleGroups: RegulationRuleGroup[]
     planAssignments: Record<string, string>
+    chosenInfoAlternativeCode?: string | null
   },
 ): string | null {
   const options = getPlannerCourseAreaOptions(
     course,
     params.studyProgramCode,
     params.regulationRuleGroups,
+    params.chosenInfoAlternativeCode,
   )
   const manualAssignment = params.planAssignments[course.id]
   if (manualAssignment && options.some((option) => option.code === manualAssignment)) {
@@ -139,6 +229,7 @@ export function getSuggestedPlannerAssignment(
     course,
     context.studyProgramCode,
     context.regulationRuleGroups,
+    context.chosenInfoAlternativeCode,
   )
   if (options.length === 0) {
     return null
@@ -205,6 +296,7 @@ export function getResolvedPlannerAssignment(
     studyProgramCode: context.studyProgramCode,
     regulationRuleGroups: context.regulationRuleGroups,
     planAssignments: context.planAssignments,
+    chosenInfoAlternativeCode: context.chosenInfoAlternativeCode,
   }) ?? getSuggestedPlannerAssignment(course, context)
 }
 
