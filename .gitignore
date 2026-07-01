@@ -237,3 +237,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated D1 seed chunk files (backend/scripts/import_alma_json_to_d1.py)
+backend/data/seed_chunks/
