@@ -1,14 +1,39 @@
-"""Push a scraped ALMA `courses_multi_semester.json` into a fresh Cloudflare D1.
+"""Push a scraped ALMA `courses_multi_semester.json` into a Cloudflare D1.
 
-Pipeline (each step is opt-in via --apply or skippable individually):
+Two ways to run it:
 
-  1. Generate a single seed SQL file from the JSON (always).
-  2. `wrangler d1 create <db-name>` -> new database id.
-  3. `wrangler d1 migrations apply <db-name> --remote` -> all 17 migrations.
-  4. `wrangler d1 execute <db-name> --remote --file <seed.sql>` -> catalog rows.
-  5. Update backend/wrangler.toml binding to the new database id.
+  * Fresh DB (default): --apply creates a new D1, migrates it, seeds it, and
+    swaps backend/wrangler.toml to the new id. The old D1 is left intact; delete
+    it manually after verifying.
 
-The old D1 is left intact. Delete it manually after verifying the new one.
+  * In-place re-seed (what production uses): re-seed the *existing*
+    `studyplanner-db` without creating or swapping anything. The seed's leading
+    DELETEs make it idempotent, so this fully rebuilds the catalog in place:
+
+        py backend/scripts/import_alma_json_to_d1.py \
+          --input <courses_multi_semester.json> \
+          --apply --skip-create --skip-swap --skip-migrate
+
+    (Per AGENTS.md, the active runtime D1 must NOT be recreated/swapped without
+    approval, so re-seeding uses these skip flags. It DELETEs every catalog row
+    for all periods and reinserts only what's in the JSON, so a period missing
+    from the JSON is dropped from prod.)
+
+Seeding goes through D1's remote import, which has two sharp edges this script
+works around (see build_seed_plan / write_seed_chunks / BALLAST_* below):
+
+  * It coalesces every same-table INSERT in one file into a single compound
+    statement and rejects it past SQLite's 500-term limit ("too many terms in
+    compound SELECT"). Neither multi-row batching nor no-op breaker statements
+    stop it — the coalescing spans the whole file. So the seed is split into
+    many small per-table chunk files (<=--chunk-rows rows each), executed as
+    independent import calls; D1 cannot coalesce across separate imports.
+  * A large import (~64MB) resets the D1 Durable Object mid-run
+    ({"D1_RESET_DO":true}). The worker never reads the raw_* debug-blob columns,
+    so the seed writes minimal placeholders for them, cutting it to ~11MB.
+
+The single-file seed_alma_catalog.sql is still written for inspection; pass
+--single-file-seed to execute it directly (only viable for --local).
 """
 
 from __future__ import annotations
@@ -67,6 +92,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-migrate", action="store_true", help="With --apply, skip migrations apply.")
     parser.add_argument("--skip-seed", action="store_true", help="With --apply, skip the seed SQL execution.")
     parser.add_argument("--skip-swap", action="store_true", help="With --apply, skip the wrangler.toml binding update.")
+    parser.add_argument("--chunk-rows", type=int, default=300,
+                        help="Rows per table per import chunk (default: 300). Kept under SQLite's "
+                             "500-term compound limit that D1's remote import otherwise hits.")
+    parser.add_argument("--single-file-seed", action="store_true",
+                        help="Seed via one d1 execute --file call instead of chunked imports. "
+                             "Fails for large catalogs on remote D1; use only for --local.")
     return parser.parse_args()
 
 
@@ -82,6 +113,36 @@ def sql_literal(value: object) -> str:
         return repr(value)
     text = str(value)
     return "'" + text.replace("'", "''") + "'"
+
+
+# Rows per multi-row INSERT. D1's remote import (`wrangler d1 execute --file`)
+# coalesces consecutive same-table INSERTs into one compound statement, which
+# overflows SQLite's 500-term compound-SELECT limit for large tables
+# (catalog_nodes has ~15k rows). Row-batching alone does not help — the import
+# re-coalesces the batches — so a no-op breaker statement is emitted between
+# batches (see BATCH_BREAKER) to interrupt the coalescing run, and each batch
+# stays a modest size to keep the import off D1's per-statement size limit.
+INSERT_BATCH_SIZE = 100
+
+# Emitted between INSERT batches so D1's import cannot merge them into one
+# over-limit compound statement. A bare SELECT is a no-op the import ignores.
+BATCH_BREAKER = "SELECT 1;"
+
+# These NOT NULL (table, column) cells store the unmodified scrape payload for
+# debugging. The worker never reads them, and shipping the full blobs bloats the
+# seed to ~64MB — large enough that D1's remote import resets the Durable Object
+# mid-run. The seed writes each as its schema default placeholder instead,
+# cutting the file several-fold while keeping the constraints satisfied.
+# NOTE: courses.raw_json is deliberately absent — the worker reads period_label
+# from it (see _emit_course), so it keeps a minimal {period_id, period_label}.
+BALLAST_CELLS = {
+    ("catalog_nodes", "raw_json"): "{}",
+    ("catalog_nodes", "raw_schedule_json"): "[]",
+    ("courses", "raw_fields_json"): "{}",
+    ("parallel_groups", "raw_json"): "{}",
+    ("parallel_groups", "raw_fields_json"): "{}",
+    ("appointments", "raw_json"): "{}",
+}
 
 
 def insert_statement(table: str, columns: list[str], values: list[object]) -> str:
@@ -285,7 +346,13 @@ def _emit_course(
         "detail_url": course.get("detail_url"),
         "detail_page_url": details.get("url"),
         "raw_fields_json": json.dumps(details.get("fields") or {}, ensure_ascii=False),
-        "raw_json": json.dumps(course, ensure_ascii=False),
+        # The worker reads only period_label from courses.raw_json
+        # (course_catalog.PERIOD_LABEL_SQL). Keep just that instead of the full
+        # course payload so the column stays tiny but period labels still show.
+        "raw_json": json.dumps(
+            {"period_id": period_id, "period_label": course.get("period_label")},
+            ensure_ascii=False,
+        ),
     })
 
     plan.course_placements.append({
@@ -534,59 +601,69 @@ SEEDED_TABLES_DELETE_ORDER = [
 # Rebuild course -> curriculum links from the scraped 'Module / Studiengaenge'
 # category codes (the _categories_json course field). Set-based so the seed
 # links against whatever study_areas / curriculum_modules the target DB holds.
-CURRICULUM_LINK_REBUILD_SQL = """\
--- Rebuild curriculum links from the scraped category codes.
-INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
+#
+# Kept as separate statements (not one blob) because D1's remote import
+# coalesces same-table INSERTs into one compound statement that overflows
+# SQLite's 500-term limit; write_seed_chunks emits one import call per statement.
+CURRICULUM_LINK_REBUILD_STATEMENTS = [
+    # Base study-area links: match each scraped category code to a study area.
+    """INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
 SELECT f.course_id, sa.id, je.value
 FROM course_fields AS f
 JOIN json_each(f.value) AS je
 JOIN study_areas AS sa ON sa.code = je.value
-WHERE f."key" = '_categories_json';
-
--- Some programs expose study-area membership under codes that differ from the
--- seeded study_areas.code: M.Sc. Machine Learning detail pages use MACH-*
--- (seeded as ML-*), and B.Sc. Informatik Wahlpflicht modules appear as their
--- INFM module numbers. Map those aliases so cross-listed courses still link to
--- the right study area. The alias destination is scoped to its program
--- (study_areas.code is only unique per program; the B.Sc. codes PRAK/THEO/
--- TECH/INFO are deliberately generic), and the original scraped code is kept
--- as source_code.
-INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
-SELECT f.course_id, sa.id, je.value
-FROM course_fields AS f
-JOIN json_each(f.value) AS je
-JOIN (
-    SELECT 'MACH-FML' AS src, 'MSC_ML_2021' AS prog, 'ML-FOUND' AS dst
-    UNION ALL SELECT 'MACH-DTML', 'MSC_ML_2021', 'ML-DIVERSE'
-    UNION ALL SELECT 'MACH-GCS', 'MSC_ML_2021', 'ML-CS'
-    UNION ALL SELECT 'MACH-EP', 'MSC_ML_2021', 'ML-EXP'
-    UNION ALL SELECT 'INFM3110', 'BSC_INFO_2021', 'PRAK'
-    UNION ALL SELECT 'INFM3410', 'BSC_INFO_2021', 'THEO'
-    UNION ALL SELECT 'INFM3310', 'BSC_INFO_2021', 'TECH'
-    UNION ALL SELECT 'INFM2510', 'BSC_INFO_2021', 'INFO'
-) AS alias ON alias.src = je.value
-JOIN study_programs AS sp ON sp.code = alias.prog
-JOIN study_areas AS sa ON sa.program_id = sp.id AND sa.code = alias.dst
-WHERE f."key" = '_categories_json';
-
-INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+WHERE f."key" = '_categories_json';""",
+    # (alias study-area links are inserted below, one statement per mapping)
+    """INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
 SELECT f.course_id, cm.id, 'category_code', 0.9
 FROM course_fields AS f
 JOIN json_each(f.value) AS je
 JOIN curriculum_modules AS cm ON cm.module_code = je.value
-WHERE f."key" = '_categories_json';
-
-INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+WHERE f."key" = '_categories_json';""",
+    """INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
 SELECT c.id, cm.id, 'exact_number', 1.0
 FROM courses AS c
-JOIN curriculum_modules AS cm ON cm.module_code = c.number;
-
--- Course numbers like 'INF1020-V' belong to module 'INF1020'.
-INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
+JOIN curriculum_modules AS cm ON cm.module_code = c.number;""",
+    # Course numbers like 'INF1020-V' belong to module 'INF1020'.
+    """INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
 SELECT c.id, cm.id, 'number_variant', 0.8
 FROM courses AS c
-JOIN curriculum_modules AS cm ON c.number LIKE cm.module_code || '-%';
-"""
+JOIN curriculum_modules AS cm ON c.number LIKE cm.module_code || '-%';""",
+]
+
+# Some programs expose study-area membership under codes that differ from the
+# seeded study_areas.code: M.Sc. Machine Learning detail pages use MACH-*
+# (seeded as ML-*), and B.Sc. Informatik Wahlpflicht modules appear as their
+# INFM module numbers. Map those aliases so cross-listed courses still link to
+# the right study area. The alias destination is scoped to its program
+# (study_areas.code is only unique per program; the B.Sc. codes PRAK/THEO/TECH/
+# INFO are deliberately generic), and the original scraped code is kept as
+# source_code. Each mapping is its own statement: a single UNION-ALL alias table
+# (even ~8 rows) trips D1's import "too many terms in compound SELECT".
+STUDY_AREA_CODE_ALIASES = [
+    ("MACH-FML", "MSC_ML_2021", "ML-FOUND"),
+    ("MACH-DTML", "MSC_ML_2021", "ML-DIVERSE"),
+    ("MACH-GCS", "MSC_ML_2021", "ML-CS"),
+    ("MACH-EP", "MSC_ML_2021", "ML-EXP"),
+    ("INFM3110", "BSC_INFO_2021", "PRAK"),
+    ("INFM3410", "BSC_INFO_2021", "THEO"),
+    ("INFM3310", "BSC_INFO_2021", "TECH"),
+    ("INFM2510", "BSC_INFO_2021", "INFO"),
+]
+
+CURRICULUM_LINK_REBUILD_STATEMENTS[1:1] = [
+    f"""INSERT OR IGNORE INTO course_study_area_links (course_id, study_area_id, source_code)
+SELECT f.course_id, sa.id, je.value
+FROM course_fields AS f
+JOIN json_each(f.value) AS je
+JOIN study_programs AS sp ON sp.code = '{prog}'
+JOIN study_areas AS sa ON sa.program_id = sp.id AND sa.code = '{dst}'
+WHERE f."key" = '_categories_json' AND je.value = '{src}';"""
+    for src, prog, dst in STUDY_AREA_CODE_ALIASES
+]
+
+# Single-file form (write_seed_sql / --single-file-seed) keeps them together.
+CURRICULUM_LINK_REBUILD_SQL = "\n\n".join(CURRICULUM_LINK_REBUILD_STATEMENTS)
 
 
 def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
@@ -625,14 +702,95 @@ def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
         handle.write("PRAGMA foreign_keys = ON;\n")
 
 
+def _seed_table_plan(plan: SeedPlan) -> list[tuple[str, list[str], list[dict[str, Any]]]]:
+    """Ordered (table, columns, rows) triples, parents before children."""
+    return [
+        ("catalog_nodes", CATALOG_NODE_COLUMNS, plan.catalog_nodes),
+        ("lecturers", LECTURER_COLUMNS, plan.lecturers),
+        ("courses", COURSE_COLUMNS, plan.courses),
+        ("course_placements", COURSE_PLACEMENT_COLUMNS, plan.course_placements),
+        ("course_fields", COURSE_FIELD_COLUMNS, plan.course_fields),
+        ("content_sections", CONTENT_SECTION_COLUMNS, plan.content_sections),
+        ("course_lecturers", COURSE_LECTURER_COLUMNS, plan.course_lecturers),
+        ("parallel_groups", PARALLEL_GROUP_COLUMNS, plan.parallel_groups),
+        ("parallel_group_fields", PARALLEL_GROUP_FIELD_COLUMNS, plan.parallel_group_fields),
+        ("parallel_group_lecturers", PARALLEL_GROUP_LECTURER_COLUMNS, plan.parallel_group_lecturers),
+        ("appointments", APPOINTMENT_COLUMNS, plan.appointments),
+    ]
+
+
+def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> list[Path]:
+    """Write the seed as many small SQL files, one import call each.
+
+    D1's remote import coalesces every same-table INSERT in a *single* file
+    into one compound statement, overflowing SQLite's 500-term limit. Splitting
+    the seed across independent import calls caps each file at
+    ``rows_per_chunk`` rows per table, so the coalesced statement stays small.
+    Every chunk disables foreign keys itself because each import runs on its own
+    connection and the rows are not in parent-before-child order.
+
+    Returns the ordered list of chunk paths to execute.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in out_dir.glob("chunk_*.sql"):
+        stale.unlink()
+
+    chunks: list[Path] = []
+
+    def new_chunk(name: str) -> Path:
+        path = out_dir / f"chunk_{len(chunks):04d}_{name}.sql"
+        chunks.append(path)
+        return path
+
+    # 1. Clear existing rows + insert the single scrape_runs row.
+    with new_chunk("reset").open("w", encoding="utf-8") as handle:
+        handle.write("PRAGMA foreign_keys = OFF;\n")
+        for table in SEEDED_TABLES_DELETE_ORDER:
+            handle.write(f'DELETE FROM "{table}";\n')
+        handle.write(insert_statement("scrape_runs", SCRAPE_RUN_COLUMNS,
+                                      [plan.scrape_run[c] for c in SCRAPE_RUN_COLUMNS]) + "\n")
+
+    # 2. One or more chunks per table, capped at rows_per_chunk rows each.
+    for table, columns, rows in _seed_table_plan(plan):
+        for start in range(0, len(rows), rows_per_chunk):
+            slice_rows = rows[start : start + rows_per_chunk]
+            with new_chunk(table).open("w", encoding="utf-8") as handle:
+                handle.write("PRAGMA foreign_keys = OFF;\n")
+                _write_rows(handle, table, columns, slice_rows)
+
+    # 3. Rebuild the curriculum links once every course/field row exists. One
+    #    chunk per statement so D1's import cannot coalesce the same-table
+    #    INSERTs into an over-limit compound statement.
+    for statement in CURRICULUM_LINK_REBUILD_STATEMENTS:
+        with new_chunk("links").open("w", encoding="utf-8") as handle:
+            handle.write("PRAGMA foreign_keys = OFF;\n")
+            handle.write(statement + "\n")
+
+    return chunks
+
+
 def _write_rows(handle, table: str, columns: list[str], rows: Iterable[dict[str, Any]]) -> None:
     rows = list(rows)
     if not rows:
         handle.write(f"-- (no rows for {table})\n\n")
         return
     handle.write(f"-- {table}: {len(rows)} rows\n")
-    for row in rows:
-        handle.write(insert_statement(table, columns, [row.get(column) for column in columns]) + "\n")
+    column_list = ", ".join(f'"{column}"' for column in columns)
+
+    def cell(column: str, row: dict[str, Any]) -> str:
+        placeholder = BALLAST_CELLS.get((table, column))
+        if placeholder is not None:
+            return sql_literal(placeholder)
+        return sql_literal(row.get(column))
+
+    for start in range(0, len(rows), INSERT_BATCH_SIZE):
+        batch = rows[start : start + INSERT_BATCH_SIZE]
+        tuples = ",\n".join(
+            "(" + ", ".join(cell(column, row) for column in columns) + ")"
+            for row in batch
+        )
+        handle.write(f'INSERT INTO "{table}" ({column_list}) VALUES\n{tuples};\n')
+        handle.write(BATCH_BREAKER + "\n")
     handle.write("\n")
 
 
@@ -696,16 +854,25 @@ def wrangler_d1_migrate(db_name: str, *, remote: bool) -> None:
         raise SystemExit(f"wrangler d1 migrations apply failed (exit {result.returncode})")
 
 
-def wrangler_d1_execute_file(db_name: str, sql_path: Path, *, remote: bool) -> None:
+def wrangler_d1_execute_file(db_name: str, sql_path: Path, *, remote: bool, attempts: int = 3) -> None:
     target = "--remote" if remote else "--local"
     print(f"[wrangler] executing seed SQL on '{db_name}' {target}: {sql_path}")
-    result = subprocess.run(
-        ["wrangler", "d1", "execute", db_name, target, "--file", str(sql_path)],
-        cwd=ROOT_DIR, text=True, shell=True,
-        stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
-    )
-    if result.returncode != 0:
-        raise SystemExit(f"wrangler d1 execute failed (exit {result.returncode})")
+    # A failed D1 import rolls back to its prior state, so retrying is safe. The
+    # chunked seed makes many import calls; a single transient network blip
+    # ("fetch failed") should not abort the whole re-seed.
+    for attempt in range(1, attempts + 1):
+        result = subprocess.run(
+            ["wrangler", "d1", "execute", db_name, target, "--file", str(sql_path)],
+            cwd=ROOT_DIR, text=True, shell=True,
+            stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
+        )
+        if result.returncode == 0:
+            return
+        if attempt < attempts:
+            print(f"[wrangler] execute failed (exit {result.returncode}), "
+                  f"retry {attempt + 1}/{attempts} in 5s ...")
+            time.sleep(5)
+    raise SystemExit(f"wrangler d1 execute failed after {attempts} attempts")
 
 
 def update_wrangler_toml(toml_path: Path, db_name: str, db_id: str) -> None:
@@ -755,7 +922,15 @@ def main() -> None:
     if not args.skip_migrate:
         wrangler_d1_migrate(args.db_name, remote=not args.local)
     if not args.skip_seed:
-        wrangler_d1_execute_file(args.db_name, args.out_sql, remote=not args.local)
+        if args.single_file_seed:
+            wrangler_d1_execute_file(args.db_name, args.out_sql, remote=not args.local)
+        else:
+            chunk_dir = args.out_sql.parent / "seed_chunks"
+            chunks = write_seed_chunks(chunk_dir, plan, args.chunk_rows)
+            print(f"[seed] executing {len(chunks)} chunk files from {chunk_dir} ...")
+            for index, chunk in enumerate(chunks, start=1):
+                print(f"[seed] chunk {index}/{len(chunks)}: {chunk.name}")
+                wrangler_d1_execute_file(args.db_name, chunk, remote=not args.local)
 
     print("\nDone. Next steps:")
     print(f"  - Verify counts: wrangler d1 execute {args.db_name} {'--local' if args.local else '--remote'} "

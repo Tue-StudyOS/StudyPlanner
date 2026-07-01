@@ -50,6 +50,7 @@ Every new frontend feature must work on both phone and desktop.
 - `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`) is the previous test database; do not switch the active runtime DB again without explicit human approval.
 - The D1 database name and UUID are public Cloudflare binding config and may be committed; never commit `AUTH_TOKEN_SECRET` or any generated secret value.
 - Run `npm run db:verify-config` before deploys or after touching Cloudflare/Pages config. The GitHub workflow with the same check should be required on `main` branch protection.
+- To refresh the ALMA catalog, re-seed the existing D1 **in place** — do not create/swap a DB: `py backend/scripts/import_alma_json_to_d1.py --input <courses_multi_semester.json> --apply --skip-create --skip-swap --skip-migrate`. The seed DELETEs all catalog rows and reinserts only the periods present in the JSON, so keep every period you want to retain in the input. See that script's docstring for the D1 remote-import limits (compound-SELECT coalescing, Durable-Object reset) it works around.
 
 ## Workflow
 
