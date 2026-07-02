@@ -25,7 +25,7 @@ That means login, register, favorites, planner, transcript, and other personal f
 Create `frontend/.env.local` (gitignored):
 
 ```bash
-VITE_API_BASE_URL=https://studyplaner.pages.dev
+VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
 ```
 
 Then restart Vite:
@@ -34,7 +34,14 @@ Then restart Vite:
 npm run dev
 ```
 
-Now `http://localhost:5173` talks through the same public Pages gateway as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
+Now `http://localhost:5173` talks to the same production API Worker as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
+
+Production builds call the Worker's public URL directly instead of the Pages
+`/api` proxy: Cloudflare-internal invocation paths (service bindings) can crash
+Python Workers during isolate initialization
+([workerd#6624](https://github.com/cloudflare/workerd/issues/6624)), while
+external HTTP ingress is unaffected. The Pages Functions proxy remains in place
+as a fallback path.
 
 ## Full local auth testing
 

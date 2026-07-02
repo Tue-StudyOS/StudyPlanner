@@ -4,11 +4,14 @@ name = "studyplaner"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-05-21"
 
+# The browser calls the Worker's public URL directly (external ingress) instead of
+# the Pages service-binding proxy, which triggers a Python Workers isolate-init crash
+# (https://github.com/cloudflare/workerd/issues/6624). The /api proxy stays as fallback.
 [vars]
-VITE_API_BASE_URL = "https://studyplaner.pages.dev"
+VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 
 [env.production.vars]
-VITE_API_BASE_URL = "https://studyplaner.pages.dev"
+VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 
 [[services]]
 binding = "STUDYPLANNER_API"
