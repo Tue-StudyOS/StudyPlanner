@@ -10,7 +10,11 @@ export class ApiError extends Error {
   }
 }
 
-const PRODUCTION_API_BASE_URL = 'https://studyplaner.pages.dev'
+// Calls go directly to the Worker's public URL instead of the Pages Function
+// proxy: Cloudflare-internal invocation paths (service bindings) intermittently
+// crash Python Workers during isolate init, while external HTTP ingress does not.
+// See https://github.com/cloudflare/workerd/issues/6624.
+const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
 const PRODUCTION_PAGES_HOST = 'studyplaner.pages.dev'
 const PRODUCTION_PAGES_PREVIEW_SUFFIX = '.studyplaner.pages.dev'
 
@@ -35,6 +39,31 @@ function getApiBaseUrl(): string {
   }
 
   return ''
+}
+
+// The body must be consumed exactly once: non-JSON error bodies (e.g. Cloudflare's
+// plain-text "error code: 1101" pages) previously triggered a second read via
+// response.text() after response.json() failed, which threw "body stream already read".
+export function parseApiErrorBody(
+  bodyText: string,
+  status: number,
+): { message: string; code?: string } {
+  const fallbackMessage = `Request failed with status ${status}`
+  if (!bodyText) {
+    return { message: fallbackMessage }
+  }
+
+  try {
+    const errorPayload = JSON.parse(bodyText) as unknown
+    if (typeof errorPayload === 'object' && errorPayload !== null) {
+      const { message, error } = errorPayload as { error?: string; message?: string }
+      return { message: message || fallbackMessage, code: error }
+    }
+  } catch {
+    // Not JSON; fall through to the raw body text.
+  }
+
+  return { message: bodyText }
 }
 
 export function createAuthHeaders(token: string | null | undefined): HeadersInit {
@@ -62,20 +91,14 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   }
 
   if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
-    let code: string | undefined
-
+    let bodyText = ''
     try {
-      const errorPayload = (await response.json()) as { error?: string; message?: string }
-      message = errorPayload.message || message
-      code = errorPayload.error
+      bodyText = await response.text()
     } catch {
-      const errorText = await response.text()
-      if (errorText) {
-        message = errorText
-      }
+      // Ignore unreadable bodies; the status-based fallback message is used.
     }
 
+    const { message, code } = parseApiErrorBody(bodyText, response.status)
     throw new ApiError(message, response.status, code)
   }
 
