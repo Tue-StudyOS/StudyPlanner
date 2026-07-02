@@ -22,6 +22,7 @@ interface SemesterCompletionDialogProps {
   planAssignments: Record<string, string>
   studyProgramCode: string | null
   regulationRuleGroups: RegulationRuleGroup[]
+  chosenInfoAlternativeCode: string | null
   onClose: () => void
   onSuccess: (message: string) => void
 }
@@ -220,6 +221,7 @@ export function SemesterCompletionDialog({
   planAssignments,
   studyProgramCode,
   regulationRuleGroups,
+  chosenInfoAlternativeCode,
   onClose,
   onSuccess,
 }: SemesterCompletionDialogProps) {
@@ -245,7 +247,12 @@ export function SemesterCompletionDialog({
   )
   const courseRows = useMemo<CompletionCourseRow[]>(() =>
     plannedCourses.map((course) => {
-      const areaOptions = getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups)
+      const areaOptions = getPlannerCourseAreaOptions(
+        course,
+        studyProgramCode,
+        regulationRuleGroups,
+        chosenInfoAlternativeCode,
+      )
       const selectedAreaCode = resolveSelectedAreaCode(
         course,
         areaOptions,
@@ -266,7 +273,7 @@ export function SemesterCompletionDialog({
         needsAreaChoice: areaOptions.length > 1 && !selectedAreaCode,
       }
     }),
-  [assignmentDrafts, completedCourseLookup, duplicateKeys, planAssignments, plannedCourses, regulationRuleGroups, semesterLabel, studyProgramCode])
+  [assignmentDrafts, chosenInfoAlternativeCode, completedCourseLookup, duplicateKeys, planAssignments, plannedCourses, regulationRuleGroups, semesterLabel, studyProgramCode])
   const selectableCourseIds = useMemo(
     () => courseRows.filter((row) => !row.isDuplicate).map((row) => row.course.id),
     [courseRows],

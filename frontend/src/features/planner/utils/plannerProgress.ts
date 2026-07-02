@@ -8,9 +8,16 @@ import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import {
   getPlannerCourseAreaOptions,
   getPlannerCourseEctsForArea,
+  INFO_BASIS_AREA_CODE,
+  INFO_FOKUS_AREA_CODE,
   resolveAutomaticPlannerAssignments,
+  resolveChosenInfoAlternativeAreaCode,
   type PlannerAutomaticAssignmentCandidate,
 } from './plannerAssignments'
+
+// One of INFO-FOKUS / INFO-BASIS is chosen for the degree; the other is shown but
+// marked deselected so the planner bar can explain the alternative.
+export type InfoAlternativeState = 'selected' | 'deselected'
 
 export interface PlannerProgressArea {
   code: string
@@ -22,6 +29,7 @@ export interface PlannerProgressArea {
   masterCat: MasterCat | null
   plannedCourses: PlannerProgressCourse[]
   creditedCourses: PlannerCreditedCourse[]
+  infoAlternativeState?: InfoAlternativeState
 }
 
 interface PlannerCreditedCourse {
@@ -53,6 +61,22 @@ export function roundEcts(value: number): number {
 
 function isVisiblePlannerRuleGroup(ruleGroup: RegulationRuleGroup): boolean {
   return ruleGroup.code.trim().toUpperCase() !== 'THESIS'
+}
+
+// Flags the two INFO alternatives so the planner bar can mark the chosen one and
+// dim the other. Areas outside the FOKUS/BASIS pair stay unannotated.
+function getInfoAlternativeState(
+  code: string,
+  chosenInfoAlternativeCode: string | null,
+): InfoAlternativeState | undefined {
+  if (!chosenInfoAlternativeCode) {
+    return undefined
+  }
+  const normalizedCode = code.trim().toUpperCase()
+  if (normalizedCode !== INFO_FOKUS_AREA_CODE && normalizedCode !== INFO_BASIS_AREA_CODE) {
+    return undefined
+  }
+  return normalizedCode === chosenInfoAlternativeCode.toUpperCase() ? 'selected' : 'deselected'
 }
 
 function getRuleGroupRequiredEcts(ruleGroup: RegulationRuleGroup): number | null {
@@ -88,7 +112,14 @@ export function buildPlannerProgressAreas({
 }): {
   areas: PlannerProgressArea[]
   unassignedCourses: UnassignedPlannerCourse[]
+  chosenInfoAlternativeCode: string | null
 } {
+  const chosenInfoAlternativeCode = resolveChosenInfoAlternativeAreaCode({
+    plannedCourses,
+    completedCourses,
+    studyProgramCode,
+    regulationRuleGroups,
+  })
   const areas: PlannerProgressArea[] = regulationRuleGroups
     .filter(isVisiblePlannerRuleGroup)
     .map((ruleGroup) => ({
@@ -101,6 +132,7 @@ export function buildPlannerProgressAreas({
       masterCat: studyAreaCodeToMasterCat(ruleGroup.code),
       plannedCourses: [],
       creditedCourses: [],
+      infoAlternativeState: getInfoAlternativeState(ruleGroup.code, chosenInfoAlternativeCode),
     }))
   const areaByCode = new Map(areas.map((area) => [area.code, area]))
   const unassignedCourses: UnassignedPlannerCourse[] = []
@@ -108,7 +140,12 @@ export function buildPlannerProgressAreas({
 
   if (areas.length === 0) {
     plannedCourses.forEach((course) => {
-      getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups).forEach((option) => {
+      getPlannerCourseAreaOptions(
+        course,
+        studyProgramCode,
+        regulationRuleGroups,
+        chosenInfoAlternativeCode,
+      ).forEach((option) => {
         if (!areaByCode.has(option.code)) {
           const area = buildFallbackArea(option)
           areas.push(area)
@@ -162,7 +199,12 @@ export function buildPlannerProgressAreas({
       return
     }
 
-    const options = getPlannerCourseAreaOptions(course, studyProgramCode, regulationRuleGroups)
+    const options = getPlannerCourseAreaOptions(
+      course,
+      studyProgramCode,
+      regulationRuleGroups,
+      chosenInfoAlternativeCode,
+    )
     const preferredAreaCode = planAssignments[course.id]
     const manualOption = preferredAreaCode
       ? options.find((option) => option.code === preferredAreaCode)
@@ -251,5 +293,6 @@ export function buildPlannerProgressAreas({
   return {
     areas,
     unassignedCourses,
+    chosenInfoAlternativeCode,
   }
 }

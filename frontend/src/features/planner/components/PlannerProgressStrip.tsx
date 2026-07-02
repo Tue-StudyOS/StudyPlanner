@@ -76,51 +76,74 @@ export function PlannerProgressStrip({
     SM_GRID_COLS[Math.min(columns, 3)],
     LG_GRID_COLS[columns],
   ].join(' ')
+  const hasInfoAlternative = areas.some((area) => area.infoAlternativeState !== undefined)
 
   return (
     <div
       data-tour="planner-progress"
-      className={`grid ${gridColsClass} gap-x-4 gap-y-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5`}
+      className="rounded-[10px] border border-border bg-surface px-3.5 py-2.5"
     >
-      {areas.map((area) => {
-        const targetEcts = area.capacityEcts ?? area.requiredEcts
-        const hasTarget = targetEcts !== null && targetEcts > 0
-        const credited = roundEcts(area.creditedEcts)
-        const afterPlanning = roundEcts(area.creditedEcts + area.plannedEcts)
-        const creditedWidth = hasTarget ? Math.min((area.creditedEcts / targetEcts) * 100, 100) : 0
-        const plannedWidth = hasTarget
-          ? Math.min((area.plannedEcts / targetEcts) * 100, Math.max(0, 100 - creditedWidth))
-          : 0
-        const barClass = (area.masterCat ? CAT_BAR_CLASS[area.masterCat] : undefined) ?? DEFAULT_BAR_CLASS
+      <div className={`grid ${gridColsClass} gap-x-4 gap-y-2`}>
+        {areas.map((area) => {
+          const targetEcts = area.capacityEcts ?? area.requiredEcts
+          const hasTarget = targetEcts !== null && targetEcts > 0
+          const credited = roundEcts(area.creditedEcts)
+          const afterPlanning = roundEcts(area.creditedEcts + area.plannedEcts)
+          const creditedWidth = hasTarget ? Math.min((area.creditedEcts / targetEcts) * 100, 100) : 0
+          const plannedWidth = hasTarget
+            ? Math.min((area.plannedEcts / targetEcts) * 100, Math.max(0, 100 - creditedWidth))
+            : 0
+          const barClass = (area.masterCat ? CAT_BAR_CLASS[area.masterCat] : undefined) ?? DEFAULT_BAR_CLASS
+          const isDeselected = area.infoAlternativeState === 'deselected'
+          const isSelected = area.infoAlternativeState === 'selected'
 
-        return (
-          <div key={area.code} className="min-w-0" title={area.name}>
-            <div className="flex items-baseline justify-between gap-2 text-[10.5px]">
-              <span className="truncate font-semibold uppercase tracking-[0.06em] text-fg-mid">
-                {formatRegulationAreaShortLabel(area.code)}
-              </span>
-              <span className="shrink-0 tabular-nums text-fg-muted">
-                {area.plannedEcts > 0 ? (
-                  <>
-                    {credited}
-                    <span aria-hidden="true" className="px-0.5">→</span>
-                    <span className="font-semibold text-fg">{afterPlanning}</span>
-                  </>
-                ) : (
-                  credited
-                )}
-                {hasTarget ? `/${roundEcts(targetEcts)}` : ''}
-              </span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border-light">
-              <div className="flex h-full">
-                <div className={barClass.credited} style={{ width: `${creditedWidth}%` }} />
-                <div className={barClass.planned} style={{ width: `${plannedWidth}%` }} />
+          return (
+            <div
+              key={area.code}
+              className={`min-w-0 ${isDeselected ? 'opacity-45' : ''}`}
+              title={isDeselected ? `${area.name} — not selected (only one of FOKUS / BASIS counts)` : area.name}
+            >
+              <div className="flex items-baseline justify-between gap-2 text-[10.5px]">
+                <span className="flex min-w-0 items-baseline gap-1">
+                  <span className="truncate font-semibold uppercase tracking-[0.06em] text-fg-mid">
+                    {formatRegulationAreaShortLabel(area.code)}
+                  </span>
+                  {isSelected ? (
+                    <span className="shrink-0 font-semibold uppercase tracking-[0.04em] text-primary">
+                      ✓
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 tabular-nums text-fg-muted">
+                  {area.plannedEcts > 0 ? (
+                    <>
+                      {credited}
+                      <span aria-hidden="true" className="px-0.5">→</span>
+                      <span className="font-semibold text-fg">{afterPlanning}</span>
+                    </>
+                  ) : (
+                    credited
+                  )}
+                  {hasTarget ? `/${roundEcts(targetEcts)}` : ''}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border-light">
+                <div className="flex h-full">
+                  <div className={barClass.credited} style={{ width: `${creditedWidth}%` }} />
+                  <div className={barClass.planned} style={{ width: `${plannedWidth}%` }} />
+                </div>
               </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+
+      {hasInfoAlternative ? (
+        <p className="mt-2 break-words text-[10.5px] leading-4 text-fg-muted">
+          FOKUS / BASIS: only one counts toward your degree (selected one marked ✓). FOKUS is
+          chosen automatically unless a course can only count toward BASIS.
+        </p>
+      ) : null}
     </div>
   )
 }
