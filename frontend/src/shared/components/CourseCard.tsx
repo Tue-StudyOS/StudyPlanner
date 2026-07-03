@@ -4,7 +4,7 @@ import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
-import { cleanLecturerName } from '../../features/courses/utils/lecturerName.ts'
+import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { FavStar } from './FavStar'
@@ -30,6 +30,7 @@ interface CourseCardProps {
   regulationRuleGroups?: RegulationRuleGroup[]
   selectedStudyAreaCodes?: string[]
   onAreaTagClick?: (areaCode: string) => void
+  lecturerLabel?: string
   onSelect?: () => void
   onToggleFavorite: () => void
 }
@@ -60,12 +61,14 @@ export function CourseCard({
   regulationRuleGroups = [],
   selectedStudyAreaCodes = [],
   onAreaTagClick,
+  lecturerLabel,
   onSelect,
   onToggleFavorite,
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null, regulationRuleGroups)
+  const resolvedLecturerLabel = lecturerLabel ?? formatCourseLecturerName(course)
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
@@ -93,12 +96,15 @@ export function CourseCard({
             {title}
           </h3>
           {visibility.showCompletedLabel ? (
-            <div className="mt-1 text-[13px] font-medium text-accent">
-              {t('catalog.completed')}
+            <div className="mt-1 min-w-0">
+              <div className="text-[13px] font-medium text-accent">{t('catalog.completed')}</div>
+              <span className="mt-0.5 block min-w-0 truncate text-[12px] text-fg-muted">
+                {resolvedLecturerLabel}
+              </span>
             </div>
           ) : (
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
-              {course.lecturer ? cleanLecturerName(course.lecturer) : 'TBA'}
+              {resolvedLecturerLabel}
             </span>
           )}
         </div>

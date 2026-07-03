@@ -53,3 +53,34 @@ export function cleanLecturerName(raw: string): string {
     .map((part) => cleanSingleName(part))
   return cleanedNames.length > 0 ? cleanedNames.join(', ') : trimmed
 }
+
+function uniqueNonEmpty(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed || seen.has(trimmed)) {
+      continue
+    }
+    seen.add(trimmed)
+    result.push(trimmed)
+  }
+  return result
+}
+
+/**
+ * Prefers the structured lecturers array from the catalog API and falls back
+ * to the joined lecturer string. Multiple names are always comma-separated.
+ */
+export function formatCourseLecturerName(
+  course: Pick<{ lecturer: string; lecturers?: string[] }, 'lecturer' | 'lecturers'>,
+): string {
+  const fromArray = uniqueNonEmpty(
+    (course.lecturers ?? []).map((name) => cleanLecturerName(name)).filter(Boolean),
+  )
+  if (fromArray.length > 0) {
+    return fromArray.join(', ')
+  }
+  const fromString = cleanLecturerName(course.lecturer)
+  return fromString.length > 0 ? fromString : 'TBA'
+}

@@ -6,7 +6,7 @@ import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { cleanCourseTitle, formatCourseTypeLabel, isGenericContentTitle } from '../utils/courseTitle.ts'
-import { cleanLecturerName } from '../utils/lecturerName.ts'
+import { formatCourseLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
 import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
@@ -134,7 +134,9 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
-  if (hasValue(course.lecturer)) factRows.push([t('courseDetail.lecturer'), cleanLecturerName(course.lecturer)])
+  if (hasValue(course.lecturer) || (course.lecturers?.length ?? 0) > 0) {
+    factRows.push([t('courseDetail.lecturer'), formatCourseLecturerName(course)])
+  }
   const ectsText = formatEcts(course.ects)
   if (ectsText) factRows.push(['ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])

@@ -18,6 +18,8 @@ import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
+import { useHistoricalLecturerLookup } from '../hooks/useHistoricalLecturerLookup.ts'
+import { resolveCourseCardLecturerLabel } from '../utils/completedCourseLecturer.ts'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
 import {
   encodeCatalogDetailSegment,
@@ -240,6 +242,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
+  const historicalLecturerLookup = useHistoricalLecturerLookup(completedCourses, periods)
   const canShowFavorites = favoritesVisibility === 'always' || isAuthenticated
 
   const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
@@ -728,6 +731,16 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
                       isActive={!isTourSampleRow && openCourseId === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
+                      lecturerLabel={
+                        isTourSampleRow
+                          ? undefined
+                          : resolveCourseCardLecturerLabel(
+                              course,
+                              getCompletedFor(course),
+                              periods,
+                              historicalLecturerLookup,
+                            )
+                      }
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}

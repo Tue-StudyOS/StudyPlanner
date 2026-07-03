@@ -1,48 +1,24 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState } from 'react'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
+import {
+  CAT_PROGRESS_CREDITED_CLASSES,
+  catProgressPlannedStyle,
+} from '../../../shared/components/catClasses'
 import {
   buildPlannerProgressAreas,
   roundEcts,
   type PlannerProgressArea,
 } from '../utils/plannerProgress'
 
-const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
-  TECH: 'bg-cat-tech',
-  THEO: 'bg-cat-theo',
-  PRAK: 'bg-cat-prak',
-  INFO: 'bg-cat-info',
-  BASIS: 'bg-cat-basis',
-  default: 'bg-border',
-}
 const ASSIGNMENT_CONTROL_GROUP_CLASS =
   'flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-[9.5rem] sm:shrink-0 sm:flex-nowrap'
 const ASSIGNMENT_SELECT_CLASS =
   'min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-fg outline-none focus:border-primary'
 
-function colorClass(masterCat: MasterCat | null): string {
-  return (masterCat ? CAT_COLOR_CLASS[masterCat] : undefined) ?? CAT_COLOR_CLASS.default
-}
-
-function plannedProgressStyle(masterCat: MasterCat | null): CSSProperties {
-  const baseColor = masterCat === 'TECH'
-    ? 'var(--color-cat-tech)'
-    : masterCat === 'THEO'
-      ? 'var(--color-cat-theo)'
-      : masterCat === 'PRAK'
-        ? 'var(--color-cat-prak)'
-        : masterCat === 'INFO'
-          ? 'var(--color-cat-info)'
-          : masterCat === 'BASIS'
-            ? 'var(--color-cat-basis)'
-            : 'var(--color-border)'
-  return {
-    backgroundColor: baseColor,
-    backgroundImage:
-      'repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.38) 3px, rgba(255,255,255,0.38) 6px)',
-    opacity: 0.85,
-  }
+function creditedProgressClass(masterCat: MasterCat | null): string {
+  return masterCat ? CAT_PROGRESS_CREDITED_CLASSES[masterCat] : 'bg-border'
 }
 
 function RemovePlannerCourseButton({
@@ -192,13 +168,13 @@ export function PlannerFeedback({
             </button>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-fg-muted">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-primary/80" />
+                <span className={`h-2.5 w-2.5 rounded-full ${creditedProgressClass('TECH')}`} />
                 Done
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={plannedProgressStyle('TECH')}
+                  style={catProgressPlannedStyle('TECH')}
                 />
                 This plan
               </span>
@@ -264,7 +240,7 @@ export function PlannerFeedback({
                   >
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className={`inline-block h-2.5 w-2.5 rounded-xs ${colorClass(area.masterCat)}`} />
+                        <span className={`inline-block h-2.5 w-2.5 rounded-xs ${creditedProgressClass(area.masterCat)}`} />
                         <div className="text-[12.5px] font-semibold text-fg">{area.code}</div>
                         <div className="min-w-0 truncate text-[11.5px] text-fg-muted">{area.name}</div>
                       </div>
@@ -329,11 +305,11 @@ export function PlannerFeedback({
                   <div className="mt-2 h-2 overflow-hidden rounded-[3px] bg-border-light">
                     <div className="flex h-full w-full overflow-hidden rounded-[3px]">
                       <div
-                        className={`${colorClass(area.masterCat)} opacity-90`}
+                        className={`${creditedProgressClass(area.masterCat)}`}
                         style={{ width: `${creditedWidth}%` }}
                       />
                       <div
-                        style={{ width: `${plannedWidth}%`, ...plannedProgressStyle(area.masterCat) }}
+                        style={{ width: `${plannedWidth}%`, ...catProgressPlannedStyle(area.masterCat) }}
                       />
                     </div>
                   </div>
