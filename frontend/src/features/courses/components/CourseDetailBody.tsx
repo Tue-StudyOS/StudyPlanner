@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
+import { SEASON_WATERMARK_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
@@ -150,8 +151,14 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
 
   return (
     <div className="min-w-0">
-      <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex min-w-0 items-start gap-4">
+      <div className="relative mb-6 min-w-0 overflow-hidden rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]"
+        >
+          <SeasonSymbol termType={seasonTermType} className={SEASON_WATERMARK_CLASS} />
+        </div>
+        <div className="relative flex min-w-0 items-start gap-4">
           <div className="min-w-0 flex-1">
             <div className="mb-3 flex flex-wrap items-center gap-1.5">
               <TypePill label={formatCourseTypeLabel(course.types)} />
@@ -174,11 +181,6 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
               </div>
             ) : null}
           </div>
-
-          <SeasonSymbol
-            termType={seasonTermType}
-            className="h-14 w-14 shrink-0 sm:h-16 sm:w-16"
-          />
         </div>
       </div>
 

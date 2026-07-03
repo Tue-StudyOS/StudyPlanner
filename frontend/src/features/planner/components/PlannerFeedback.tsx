@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
-import { RegulationAreasInfo } from '../../../shared/components/RegulationAreasInfo'
 import {
   buildPlannerProgressAreas,
   roundEcts,
@@ -24,6 +23,26 @@ const ASSIGNMENT_SELECT_CLASS =
 
 function colorClass(masterCat: MasterCat | null): string {
   return (masterCat ? CAT_COLOR_CLASS[masterCat] : undefined) ?? CAT_COLOR_CLASS.default
+}
+
+function plannedProgressStyle(masterCat: MasterCat | null): CSSProperties {
+  const baseColor = masterCat === 'TECH'
+    ? 'var(--color-cat-tech)'
+    : masterCat === 'THEO'
+      ? 'var(--color-cat-theo)'
+      : masterCat === 'PRAK'
+        ? 'var(--color-cat-prak)'
+        : masterCat === 'INFO'
+          ? 'var(--color-cat-info)'
+          : masterCat === 'BASIS'
+            ? 'var(--color-cat-basis)'
+            : 'var(--color-border)'
+  return {
+    backgroundColor: baseColor,
+    backgroundImage:
+      'repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(255,255,255,0.38) 3px, rgba(255,255,255,0.38) 6px)',
+    opacity: 0.85,
+  }
 }
 
 function RemovePlannerCourseButton({
@@ -148,22 +167,17 @@ export function PlannerFeedback({
   }
 
   return (
-    <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5">
+    <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5" data-tour="planner-progress">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[14px] font-semibold text-fg">What this plan counts toward</div>
-              <RegulationAreasInfo />
-            </div>
+            <div className="text-[14px] font-semibold text-fg">Study progress for this semester</div>
             <p className="mt-1 text-[12px] text-fg-muted">
-              Every course fills one area of your degree — solid is done, light is what this
-              semester adds.
+              Solid is already done; striped is what this plan adds.
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-fg-muted">
+            <div className="mt-2 text-[12px] text-fg-muted">
               <span className="font-semibold text-fg">{roundEcts(totalEcts)} ECTS planned</span>
-              <span>
-                {plannedCourses.length} course{plannedCourses.length !== 1 ? 's' : ''} in this plan
-              </span>
+              {' · '}
+              {plannedCourses.length} course{plannedCourses.length !== 1 ? 's' : ''}
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
@@ -182,7 +196,10 @@ export function PlannerFeedback({
                 Done
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-primary/35" />
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={plannedProgressStyle('TECH')}
+                />
                 This plan
               </span>
             </div>
@@ -316,8 +333,7 @@ export function PlannerFeedback({
                         style={{ width: `${creditedWidth}%` }}
                       />
                       <div
-                        className={`${colorClass(area.masterCat)} opacity-35`}
-                        style={{ width: `${plannedWidth}%` }}
+                        style={{ width: `${plannedWidth}%`, ...plannedProgressStyle(area.masterCat) }}
                       />
                     </div>
                   </div>

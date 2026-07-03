@@ -26,6 +26,28 @@ const MOBILE_MAX_OVERLAP_COLUMNS = 2
 const MOBILE_BLOCK_GAP_REM = 0.25
 const DESKTOP_BLOCK_GAP_REM = 0.5
 
+function ExportCalendarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4">
+      <path
+        d="M3 13h10"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8 11V4.5M5.5 7L8 4.5 10.5 7"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  )
+}
+
 function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-2 text-center">
@@ -46,9 +68,12 @@ export function PlannerGrid({
   renderMode = 'name',
   readOnly = false,
   onDropCourse = () => {},
+  onRemoveCourse,
   onOpenCourse,
   onRequestAdd = () => {},
   onOpenCompletionDialog = () => {},
+  onExportCalendar,
+  exportCalendarTitle = 'Export calendar',
 }: {
   plannedCourses: Course[]
   hiddenSlotIds: string[]
@@ -59,9 +84,12 @@ export function PlannerGrid({
   renderMode?: PlannerRenderMode
   readOnly?: boolean
   onDropCourse?: (courseId: string, areaCode: string | null) => void
+  onRemoveCourse?: (courseId: string) => void
   onOpenCourse: (courseId: string) => void
   onRequestAdd?: () => void
   onOpenCompletionDialog?: () => void
+  onExportCalendar?: () => void
+  exportCalendarTitle?: string
 }) {
   const isBadge = renderMode === 'badge'
   const { isDark } = useTheme()
@@ -115,6 +143,21 @@ export function PlannerGrid({
           }
         }}
       >
+        {!readOnly && onExportCalendar ? (
+          <div className="mb-2 flex justify-end px-0.5 sm:px-0">
+            <button
+              type="button"
+              data-tour="planner-export"
+              onClick={onExportCalendar}
+              disabled={plannedCourses.length === 0}
+              title={exportCalendarTitle}
+              aria-label={exportCalendarTitle}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ExportCalendarIcon />
+            </button>
+          </div>
+        ) : null}
         <div
           data-tour="planner-grid"
           className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2'}`}
@@ -174,59 +217,79 @@ export function PlannerGrid({
                   const badgeColor = isBadge ? getCourseColor(block.courseId) : null
                   const courseNumber = courseNumbers.get(block.courseId)
                   return (
-                    <button
+                    <div
                       key={block.blockId}
-                      type="button"
-                      onClick={() => onOpenCourse(block.courseId)}
-                      aria-label={`Show details for ${block.courseTitle}`}
-                      title={block.courseTitle}
-                      className={`absolute overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
-                        isBadge
-                          ? block.hasOverlap
-                            ? 'border-primary/70'
-                            : 'border-black/10 dark:border-white/15'
-                          : block.hasOverlap
-                            ? 'border-primary/40 bg-primary/10 text-primary'
-                            : 'border-border bg-surface text-fg dark:bg-surface-hover'
-                      }`}
+                      className="absolute"
                       style={{
                         top: `${top}px`,
                         left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
                         width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
                         height: `${height}px`,
-                        ...(badgeColor ? { backgroundColor: badgeColor } : {}),
                       }}
                     >
-                      {isBadge && badgeColor ? (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <span
-                            className="text-[13px] font-bold tabular-nums sm:text-[15px]"
-                            style={{ color: badgeTextColor }}
-                          >
-                            {courseNumber}
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <div
-                            className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: titleLineClamp,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {block.courseTitle}
+                      <button
+                        type="button"
+                        onClick={() => onOpenCourse(block.courseId)}
+                        aria-label={`Show details for ${block.courseTitle}`}
+                        title={block.courseTitle}
+                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
+                          isBadge
+                            ? block.hasOverlap
+                              ? 'border-primary/70'
+                              : 'border-black/10 dark:border-white/15'
+                            : block.hasOverlap
+                              ? 'border-primary/40 bg-primary/10 text-primary'
+                              : 'border-border bg-surface text-fg dark:bg-surface-hover'
+                        }`}
+                        style={{
+                          ...(badgeColor ? { backgroundColor: badgeColor } : {}),
+                        }}
+                      >
+                        {isBadge && badgeColor ? (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <span
+                              className="text-[13px] font-bold tabular-nums sm:text-[15px]"
+                              style={{ color: badgeTextColor }}
+                            >
+                              {courseNumber}
+                            </span>
                           </div>
-                          {block.slotType ? (
-                            <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
-                              {block.slotType}
+                        ) : (
+                          <>
+                            <div
+                              className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: titleLineClamp,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {block.courseTitle}
                             </div>
-                          ) : null}
-                        </>
-                      )}
-                    </button>
+                            {block.slotType ? (
+                              <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
+                                {block.slotType}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </button>
+                      {onRemoveCourse && !readOnly ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onRemoveCourse(block.courseId)
+                          }}
+                          aria-label={`Remove ${block.courseTitle} from semester plan`}
+                          title="Remove from plan"
+                          className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-surface/95 text-[9px] text-fg-muted shadow-sm hover:text-primary sm:h-5 sm:w-5"
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
                   )
                 })}
 

@@ -9,6 +9,7 @@ import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { FavStar } from './FavStar'
 import { SeasonSymbol } from './SeasonSymbol'
+import { SEASON_WATERMARK_CLASS } from './seasonSymbolStyles.ts'
 
 interface CourseCardProps {
   course: Course
@@ -72,7 +73,7 @@ export function CourseCard({
   const visibility = getCompletedCourseCardVisibility(isCompleted)
   const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
 
-  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-3 rounded-[10px] border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
+  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-2 rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
   }`
   const accessibleLabel = `Open course details: ${title}`
@@ -87,13 +88,13 @@ export function CourseCard({
       >
         <SeasonSymbol
           termType={seasonTermType ?? course.termType}
-          className="absolute -right-2 top-1/2 aspect-square h-[85%] w-auto -translate-y-1/2 opacity-40 dark:opacity-30"
+          className={SEASON_WATERMARK_CLASS}
         />
       </div>
 
       <div className="relative flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] min-h-[2.45rem] sm:overflow-visible sm:[display:block]">
+          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
             {title}
           </h3>
           {visibility.showCompletedLabel ? (

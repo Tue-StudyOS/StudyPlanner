@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
@@ -15,7 +16,7 @@ import {
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
-import { TEST_ROUTES } from '../../routes'
+import { TEST_ROUTES, ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
 import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
@@ -46,11 +47,8 @@ import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
 import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
-import { SemesterCard } from './SemesterCard'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
-import { StatItem } from '../../../shared/components/StatItem'
-import { RegulationProgress } from '../../dashboard/components/RegulationProgress'
-import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
+import { markSemesterBadge } from '../utils/semesterTabBadge.ts'
 
 // Auto-save is silent; only the brief in-flight state is surfaced.
 function SaveIndicator({ isSaving }: { isSaving: boolean }) {
@@ -96,8 +94,6 @@ export function SemesterPlanner({
   } = useRegulationVersion(user?.profile.regulationVersionCode)
   const {
     activeSemesterLabel,
-    semesterOptions,
-    savedPlans,
     plannedCourseIds,
     hiddenSlotIds,
     planAssignments,
@@ -105,13 +101,11 @@ export function SemesterPlanner({
     isLoadingSemesterPlan,
     isSavingSemesterPlan,
     plannerError,
-    setActiveSemesterLabel,
     setPlannedCourseIds,
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
   } = useSemesterPlanner(initialSemesterLabel)
-  const { progressSnapshot } = useProgressSnapshot()
 
   // Load the catalog of the semester being planned so the weekly grid uses that
   // semester's appointments. Falls back to the newest period (backend default)
@@ -142,8 +136,8 @@ export function SemesterPlanner({
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
   const historicalSemesterPlan = useMemo(
-    () => buildHistoricalSemesterPlan(completedCourses, [...courses, ...allCatalogCourses], activeSemesterLabel),
-    [activeSemesterLabel, allCatalogCourses, completedCourses, courses],
+    () => buildHistoricalSemesterPlan(completedCourses, allCatalogCourses, activeSemesterLabel),
+    [activeSemesterLabel, allCatalogCourses, completedCourses],
   )
   // Past semesters that have no saved plan fall back to the transcript so old
   // courses still appear on their card and weekly grid, even without exact times.
@@ -175,32 +169,6 @@ export function SemesterPlanner({
     return [...favoriteById.values()]
   }, [allCatalogCourses, favoriteIds])
 
-  // Per-semester course counts drive the semester cards. Saved plans expose a
-  // count directly; past semesters without a plan fall back to transcript rows.
-  const completedCountBySemester = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const course of completedCourses) {
-      const label = course.semester?.trim()
-      if (!label) {
-        continue
-      }
-      counts.set(label, (counts.get(label) ?? 0) + 1)
-    }
-    return counts
-  }, [completedCourses])
-  const savedCountBySemester = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const plan of savedPlans) {
-      counts.set(plan.semesterLabel, plan.courseCount)
-    }
-    return counts
-  }, [savedPlans])
-  function courseCountForSemester(semesterLabel: string): number {
-    if (semesterLabel === activeSemesterLabel) {
-      return effectivePlannedCourses.length
-    }
-    return savedCountBySemester.get(semesterLabel) ?? completedCountBySemester.get(semesterLabel) ?? 0
-  }
   const isPlannerTourPreview = isOnboardingOpen && isPlannerTourStep(activeStepId)
   const shouldShowTourAddDrawer = isSmallViewport && isOnboardingOpen && activeStepId === 'planner-add-mobile'
   const isPlannerMobileInterestedTour = shouldShowTourAddDrawer && isPlannerTourPreview
@@ -267,6 +235,7 @@ export function SemesterPlanner({
   function handleAddCourse(courseId: string, preferredAreaCode: string | null = null): void {
     if (!plannedCourseIds.includes(courseId)) {
       setPlannedCourseIds([...plannedCourseIds, courseId])
+      markSemesterBadge(activeSemesterLabel)
     }
     const course = courseById.get(courseId) ?? allCourseById.get(courseId) ?? null
     const defaultHiddenTutorialSlots = course
@@ -471,15 +440,18 @@ export function SemesterPlanner({
   return (
     <PageShell>
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
-          {t('planner.title')}
-        </h1>
-
-        {initialSemesterLabel ? (
-          <span className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg">
-            {formatSemesterLabelShort(activeSemesterLabel)}
-          </span>
+        {initialSemesterLabel && !readOnly ? (
+          <Link
+            to={ROUTES.planner}
+            className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
+          >
+            ← All semesters
+          </Link>
         ) : null}
+
+        <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">
+          {initialSemesterLabel ? formatSemesterLabelShort(activeSemesterLabel) : t('planner.title')}
+        </h1>
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
@@ -494,18 +466,6 @@ export function SemesterPlanner({
           </button>
         ) : null}
 
-        {!readOnly ? (
-          <button
-            type="button"
-            data-tour="planner-export"
-            onClick={handleExportIcs}
-            disabled={displayPlannedCourses.length === 0}
-            title={t('planner.exportCalendarTitle')}
-            className="ml-auto rounded-md border border-border px-3.5 py-2 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t('planner.exportCalendar')}
-          </button>
-        ) : null}
       </div>
 
       {!isPlannerTourPreview && plannerError ? (
@@ -533,61 +493,6 @@ export function SemesterPlanner({
       ) : null}
 
       <div className="grid min-w-0 gap-4.5">
-        {!initialSemesterLabel && !readOnly ? (
-          <>
-            {progressSnapshot ? (
-              <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
-                <div className="min-w-0 overflow-hidden">
-                  <StatItem
-                    label={t('progress.totalEcts')}
-                    value={String(progressSnapshot.summary.totalEcts)}
-                    sub={`/ ${progressSnapshot.summary.requiredEcts} ECTS`}
-                  />
-                </div>
-                <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
-                  <StatItem
-                    label={t('progress.progress')}
-                    value={`${progressSnapshot.summary.progressPercentage} %`}
-                    sub={t('progress.ofDegree')}
-                  />
-                </div>
-                <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
-                  <StatItem
-                    label={t('progress.averageGrade')}
-                    value={
-                      progressSnapshot.summary.averageGrade !== null
-                        ? progressSnapshot.summary.averageGrade.toFixed(2)
-                        : '–'
-                    }
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            <div className="min-w-0">
-              <div className="mb-2 text-[13px] font-semibold text-fg">
-                {t('planner.semestersTitle')}
-              </div>
-              <div className="flex min-w-0 gap-2.5 overflow-x-auto pb-1">
-                {semesterOptions.map((semesterLabel) => (
-                  <SemesterCard
-                    key={semesterLabel}
-                    semesterLabel={semesterLabel}
-                    courseCount={courseCountForSemester(semesterLabel)}
-                    isActive={semesterLabel === activeSemesterLabel}
-                    countLabel={(count) => t('planner.semesterCourseCount', { count })}
-                    onSelect={setActiveSemesterLabel}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {progressSnapshot && progressSnapshot.regulationProgress.length > 0 ? (
-              <RegulationProgress areas={progressSnapshot.regulationProgress} />
-            ) : null}
-          </>
-        ) : null}
-
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
             favoritesLayout === 'sidebar'
@@ -611,6 +516,7 @@ export function SemesterPlanner({
                 renderMode={renderMode}
                 readOnly={readOnly}
                 onDropCourse={handleAddCourse}
+                onRemoveCourse={readOnly ? undefined : handleRemoveCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}
                 onOpenCompletionDialog={() => {
@@ -618,6 +524,8 @@ export function SemesterPlanner({
                   setCompletionNotice(null)
                   setIsCompletionDialogOpen(true)
                 }}
+                onExportCalendar={readOnly ? undefined : handleExportIcs}
+                exportCalendarTitle={t('planner.exportCalendarTitle')}
               />
             )}
           </div>

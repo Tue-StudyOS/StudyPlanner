@@ -33,6 +33,7 @@ from services.course_catalog import (  # noqa: E402
     _pick_description,
     _pick_description_entry,
     _period_sort_key,
+    _build_search_where,
 )
 
 
@@ -434,6 +435,16 @@ class ExternalLinksTest(unittest.IsolatedAsyncioTestCase):
             links = await _load_external_links({}, 42, "INF42")
 
         self.assertEqual(links[0]["label"], "Legacy Moodle")
+
+
+class SearchWhereTest(unittest.TestCase):
+    def test_includes_lecturer_names_in_search_clause(self) -> None:
+        where_clause, params = _build_search_where(['müller'])
+
+        self.assertIn('course_lecturers', where_clause)
+        self.assertIn('display_name', where_clause)
+        self.assertEqual(len(params), 5)
+        self.assertTrue(all('%müller%' in param for param in params))
 
 
 class IliasMetadataTest(unittest.TestCase):

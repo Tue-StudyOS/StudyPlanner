@@ -19,8 +19,11 @@ const CoursesOverview = lazy(() =>
 const Transcript = lazy(() =>
   import('./features/transcript/components/Transcript').then((module) => ({ default: module.Transcript })),
 )
-const SemesterPlanner = lazy(() =>
-  import('./features/planner/components/SemesterPlanner').then((module) => ({ default: module.SemesterPlanner })),
+const SemesterHub = lazy(() =>
+  import('./features/planner/components/SemesterHub').then((module) => ({ default: module.SemesterHub })),
+)
+const SemesterPlanPage = lazy(() =>
+  import('./features/planner/components/SemesterPlanPage').then((module) => ({ default: module.SemesterPlanPage })),
 )
 const AccountPage = lazy(() =>
   import('./features/auth/components/AccountPage').then((module) => ({ default: module.AccountPage })),
@@ -79,7 +82,8 @@ function App() {
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
-                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
+                      <Route path={ROUTES.planner} element={<SemesterHub />} />
+                      <Route path={ROUTES.semesterDetail} element={<SemesterPlanPage />} />
                       {/* The course detail renders as a URL-driven drawer inside
                           the catalog; the child route only makes
                           '/catalog/:courseId' a valid deep link. */}

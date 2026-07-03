@@ -6,6 +6,7 @@ export const ROUTES = {
   overview: '/overview',
   transcript: '/transcript',
   account: '/account',
+  semesterDetail: '/semester/:label',
 } as const
 
 // The planner used to live here; old links keep working via a redirect.
@@ -28,4 +29,8 @@ export const TEST_ROUTES = {
 
 export function testSemesterPath(label: string, suffix: '' | '/plan' | '/editor' = ''): string {
   return `${TEST_ROUTES.semesters}/${encodeURIComponent(label)}${suffix}`
+}
+
+export function semesterPath(label: string): string {
+  return `/semester/${encodeURIComponent(label)}`
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { CompletedCourse } from '../../courses'
 import { useTranslation } from '../../i18n'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
@@ -11,6 +11,7 @@ import { TranscriptImportRow } from './TranscriptImportRow'
 // preferred layout instead of re-collapsing long lists every visit.
 const CREDITED_COLLAPSE_KEY = 'studyplaner.transcript.collapse.credited'
 const SAVED_ISSUES_COLLAPSE_KEY = 'studyplaner.transcript.collapse.savedIssues'
+const CURRENT_REVIEW_COLLAPSE_KEY = 'studyplaner.transcript.collapse.currentReview'
 
 function CollapseToggle({
   label,
@@ -42,6 +43,43 @@ function CollapseToggle({
     </button>
   )
 }
+
+function CollapsibleSection({
+  label,
+  count,
+  hint,
+  isCollapsed,
+  onToggle,
+  actions,
+  children,
+}: {
+  label: string
+  count: number
+  hint?: string
+  isCollapsed: boolean
+  onToggle: () => void
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-[10px] border border-border bg-surface-hover/15 px-3.5 py-3.5 sm:px-4">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
+        <div className="min-w-0">
+          <CollapseToggle
+            label={label}
+            count={count}
+            isCollapsed={isCollapsed}
+            onToggle={onToggle}
+          />
+          {hint ? <p className="mt-1 text-[11.5px] text-fg-muted">{hint}</p> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+      {!isCollapsed ? <div className="mt-3 grid min-w-0 gap-2.5">{children}</div> : null}
+    </div>
+  )
+}
+
 
 function formatCompletedSubtitle(course: CompletedCourse): string {
   const parts = [
@@ -121,6 +159,7 @@ export function PersonalCourseCollection({
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [isCreditedCollapsed, setIsCreditedCollapsed] = usePersistedToggle(CREDITED_COLLAPSE_KEY, false)
   const [isSavedIssuesCollapsed, setIsSavedIssuesCollapsed] = usePersistedToggle(SAVED_ISSUES_COLLAPSE_KEY, false)
+  const [isCurrentReviewCollapsed, setIsCurrentReviewCollapsed] = usePersistedToggle(CURRENT_REVIEW_COLLAPSE_KEY, false)
   const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
 
   return (
@@ -161,17 +200,14 @@ export function PersonalCourseCollection({
       ) : (
         <div className="grid min-w-0 gap-3.5">
           {currentReviewCandidates.length > 0 ? (
-            <div className="grid min-w-0 gap-2.5">
-              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
-                    {t('transcript.currentReview')}
-                  </div>
-                  <p className="mt-1 text-[11.5px] text-fg-muted">
-                    {t('transcript.currentReviewHint', { ready: currentReviewImportableCount, total: currentReviewCandidates.length })}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            <CollapsibleSection
+              label={t('transcript.currentReview')}
+              count={currentReviewCandidates.length}
+              hint={t('transcript.currentReviewHint', { ready: currentReviewImportableCount, total: currentReviewCandidates.length })}
+              isCollapsed={isCurrentReviewCollapsed}
+              onToggle={() => setIsCurrentReviewCollapsed(!isCurrentReviewCollapsed)}
+              actions={(
+                <>
                   <button
                     type="button"
                     onClick={onImportCurrentReview}
@@ -188,9 +224,9 @@ export function PersonalCourseCollection({
                   >
                     {t('transcript.resetReview')}
                   </button>
-                </div>
-              </div>
-
+                </>
+              )}
+            >
               {currentReviewCandidates.map((candidate) => (
                 <TranscriptImportRow
                   key={candidate.id}
@@ -201,9 +237,6 @@ export function PersonalCourseCollection({
                   onChange={onCurrentReviewCandidateChange}
                 />
               ))}
-
-              {/* The primary import also sits at the bottom of the list, where
-                  users look for it after editing the rows above. */}
               <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-2.5">
                 <button
                   type="button"
@@ -214,24 +247,18 @@ export function PersonalCourseCollection({
                   {t('transcript.importReady')}{currentReviewImportableCount > 0 ? ` (${currentReviewImportableCount})` : ''}
                 </button>
               </div>
-            </div>
+            </CollapsibleSection>
           ) : null}
 
           {savedIssueCandidates.length > 0 ? (
-            <div className="grid min-w-0 gap-2.5">
-              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
-                <div className="min-w-0">
-                  <CollapseToggle
-                    label={t('transcript.savedForLater')}
-                    count={savedIssueCandidates.length}
-                    isCollapsed={isSavedIssuesCollapsed}
-                    onToggle={() => setIsSavedIssuesCollapsed(!isSavedIssuesCollapsed)}
-                  />
-                  <p className="mt-1 text-[11.5px] text-fg-muted">
-                    {t('transcript.savedForLaterHint', { ready: savedIssueImportableCount, total: savedIssueCandidates.length })}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            <CollapsibleSection
+              label={t('transcript.savedForLater')}
+              count={savedIssueCandidates.length}
+              hint={t('transcript.savedForLaterHint', { ready: savedIssueImportableCount, total: savedIssueCandidates.length })}
+              isCollapsed={isSavedIssuesCollapsed}
+              onToggle={() => setIsSavedIssuesCollapsed(!isSavedIssuesCollapsed)}
+              actions={(
+                <>
                   <button
                     type="button"
                     onClick={onImportSavedIssues}
@@ -248,42 +275,37 @@ export function PersonalCourseCollection({
                   >
                     {t('transcript.clearSaved')}
                   </button>
-                </div>
-              </div>
-
-              {!isSavedIssuesCollapsed
-                ? savedIssueCandidates.map((candidate) => (
-                    <TranscriptImportRow
-                      key={candidate.id}
-                      candidate={candidate}
-                      studyProgramCode={studyProgramCode}
-                      regulationRuleGroups={regulationRuleGroups}
-                      onDiscard={() => onDiscardSavedIssueCandidate(candidate.id)}
-                      onChange={onSavedIssueCandidateChange}
-                    />
-                  ))
-                : null}
-            </div>
+                </>
+              )}
+            >
+              {savedIssueCandidates.map((candidate) => (
+                <TranscriptImportRow
+                  key={candidate.id}
+                  candidate={candidate}
+                  studyProgramCode={studyProgramCode}
+                  regulationRuleGroups={regulationRuleGroups}
+                  onDiscard={() => onDiscardSavedIssueCandidate(candidate.id)}
+                  onChange={onSavedIssueCandidateChange}
+                />
+              ))}
+            </CollapsibleSection>
           ) : null}
 
           {completedCourses.length > 0 ? (
-            <div className="grid min-w-0 gap-2">
-              <CollapseToggle
-                label={t('transcript.credited')}
-                count={completedCourses.length}
-                isCollapsed={isCreditedCollapsed}
-                onToggle={() => setIsCreditedCollapsed(!isCreditedCollapsed)}
-              />
-              {!isCreditedCollapsed
-                ? completedCourses.map((course) => (
-                    <CompletedCourseRow
-                      key={course.id}
-                      course={course}
-                      onDelete={() => onDeleteCompleted(course.id)}
-                    />
-                  ))
-                : null}
-            </div>
+            <CollapsibleSection
+              label={t('transcript.credited')}
+              count={completedCourses.length}
+              isCollapsed={isCreditedCollapsed}
+              onToggle={() => setIsCreditedCollapsed(!isCreditedCollapsed)}
+            >
+              {completedCourses.map((course) => (
+                <CompletedCourseRow
+                  key={course.id}
+                  course={course}
+                  onDelete={() => onDeleteCompleted(course.id)}
+                />
+              ))}
+            </CollapsibleSection>
           ) : null}
         </div>
       )}
