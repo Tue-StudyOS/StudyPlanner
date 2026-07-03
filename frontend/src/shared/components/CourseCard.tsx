@@ -7,9 +7,8 @@ import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
+import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
 import { FavStar } from './FavStar'
-import { SeasonSymbol } from './SeasonSymbol'
-import { SEASON_CARD_WATERMARK_CLASS } from './seasonSymbolStyles.ts'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
 interface CourseCardProps {
@@ -90,9 +89,20 @@ export function CourseCard({
 
   const cardContent = (
     <>
-      <SeasonSymbol
+      <SeasonGlyphWatermark
         termType={seasonTermType ?? course.termType}
-        className={SEASON_CARD_WATERMARK_CLASS}
+        overlay={
+          showFavorite ? (
+            <div
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+            </div>
+          ) : undefined
+        }
       />
       <div className="relative flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
@@ -112,18 +122,6 @@ export function CourseCard({
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
               {resolvedLecturerLabel}
             </span>
-          ) : null}
-        </div>
-        <div className={`flex shrink-0 items-center ${secondaryVisibilityClass}`}>
-          {showFavorite ? (
-            <div
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-            >
-              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
-            </div>
           ) : null}
         </div>
       </div>

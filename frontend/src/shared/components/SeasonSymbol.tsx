@@ -1,10 +1,10 @@
 import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 
-// Watercolor hues — identical in light/dark; overall softness comes from one SVG opacity layer.
-const SUMMER_COLOR_CLASSES = 'text-[#F2D998]'
-const WINTER_COLOR_CLASSES = 'text-[#B3D9F2]'
-const GLYPH_OPACITY_CLASS = 'opacity-[0.72]'
+// Base watercolor + mode boost: light ~15% richer, dark ~5% richer; both stay translucent.
+const SUMMER_COLOR_CLASSES = 'text-[#EBC872] dark:text-[#F0D49A]'
+const WINTER_COLOR_CLASSES = 'text-[#9FCFEE] dark:text-[#AED8F4]'
+const GLYPH_OPACITY_CLASS = 'opacity-[0.68] dark:opacity-[0.78]'
 
 interface Point {
   x: number
@@ -29,20 +29,20 @@ const SUN_RAYS: LineSegment[] = [0, 45, 90, 135, 180, 225, 270, 315].map((angle)
   to: polarPoint(9.4, angle),
 }))
 
-// V-branches sit on the outer arm only; spokes skip the hub so strokes never stack at the center.
+// Six spokes, each with a small outward V-branch, form a minimalist snowflake.
 const SNOWFLAKE_LINES: LineSegment[] = [90, 150, 210, 270, 330, 30].flatMap((angle) => {
-  const branchBase = polarPoint(6.8, angle)
+  const branchBase = polarPoint(5.4, angle)
   const branchTip = (offset: number): Point => {
     const radians = ((angle + offset) * Math.PI) / 180
     return {
-      x: Math.round((branchBase.x + 2.2 * Math.cos(radians)) * 100) / 100,
-      y: Math.round((branchBase.y + 2.2 * Math.sin(radians)) * 100) / 100,
+      x: Math.round((branchBase.x + 2.6 * Math.cos(radians)) * 100) / 100,
+      y: Math.round((branchBase.y + 2.6 * Math.sin(radians)) * 100) / 100,
     }
   }
   return [
-    { from: polarPoint(2.6, angle), to: polarPoint(9.3, angle) },
-    { from: branchBase, to: branchTip(-48) },
-    { from: branchBase, to: branchTip(48) },
+    { from: polarPoint(0, angle), to: polarPoint(9.3, angle) },
+    { from: branchBase, to: branchTip(-45) },
+    { from: branchBase, to: branchTip(45) },
   ]
 })
 
@@ -82,9 +82,8 @@ function SnowflakeGlyph() {
     <g
       className={WINTER_COLOR_CLASSES}
       stroke="currentColor"
-      strokeWidth={1.35}
-      strokeLinecap="butt"
-      strokeLinejoin="round"
+      strokeWidth={1.4}
+      strokeLinecap="round"
       fill="none"
     >
       <Lines segments={SNOWFLAKE_LINES} />
@@ -122,11 +121,12 @@ export function SeasonSymbol({ termType, className }: SeasonSymbolProps) {
       {termType === 'both' ? (
         <>
           <defs>
+            {/* Inset triangles leave a gap along the diagonal so glyphs never overlap. */}
             <clipPath id={`${clipId}-summer`}>
-              <path d="M0 0H22.8L0 22.8Z" />
+              <path d="M0 0H21.5L0 21.5Z" />
             </clipPath>
             <clipPath id={`${clipId}-winter`}>
-              <path d="M24 1.2V24H1.2Z" />
+              <path d="M24 24V2.5L2.5 24Z" />
             </clipPath>
           </defs>
           <g clipPath={`url(#${clipId}-summer)`}>

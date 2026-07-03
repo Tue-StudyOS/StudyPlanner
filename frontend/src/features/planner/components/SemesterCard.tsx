@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import type { CourseTermType } from '../../courses'
-import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
-import { SEASON_SEMESTER_CARD_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
+import { SeasonGlyphWatermark } from '../../../shared/components/SeasonGlyphWatermark.tsx'
+import {
+  SEASON_SEMESTER_BADGE_DOT_CLASS,
+  SEASON_SEMESTER_BADGE_GLOW_CLASS,
+} from '../../../shared/components/seasonSymbolStyles.ts'
 import {
   formatSemesterLabelDisplay,
   parseSemesterLabel,
@@ -35,17 +38,18 @@ export function SemesterCard({ semesterLabel, to, showBadge = false }: SemesterC
           : 'border-border bg-surface hover:border-primary/30'
       }`}
     >
-      <SeasonSymbol
+      <SeasonGlyphWatermark
         termType={seasonForLabel(semesterLabel)}
-        className={SEASON_SEMESTER_CARD_CLASS}
+        variant="semester"
+        overlay={
+          showBadge ? (
+            <span aria-hidden="true" className="relative flex h-3 w-3 items-center justify-center pointer-events-none">
+              <span className={SEASON_SEMESTER_BADGE_GLOW_CLASS} />
+              <span className={SEASON_SEMESTER_BADGE_DOT_CLASS} />
+            </span>
+          ) : undefined
+        }
       />
-
-      {showBadge ? (
-        <span
-          aria-hidden="true"
-          className="absolute right-5 top-5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_2px_var(--color-surface),0_0_8px_rgba(239,68,68,0.55)]"
-        />
-      ) : null}
 
       <span className="relative z-10 text-[15px] font-semibold tracking-[-0.01em] text-fg sm:text-[16px]">
         {formatSemesterLabelDisplay(semesterLabel)}
