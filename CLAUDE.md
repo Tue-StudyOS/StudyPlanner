@@ -62,6 +62,16 @@ The catalog is a **snapshot**. Course data flows:
   `content_sections`; `services/course_catalog._build_content_sections()` surfaces them
   in the catalog detail (de-duped against Description and Prerequisites). Courses with no
   labelled boxes fall back to one "Inhalte" blob that needs nav-chrome stripping.
+- **Parallel groups & teaching role:** a course splits into parallel groups (lecture,
+  a tutorial slot, exam, ...). ALMA has **no structured lecture/tutorial field** — the
+  role lives in the group *title* (e.g. `Stochastik (Übung)`), so the importer derives it
+  (`derive_parallel_group_role`) into `parallel_groups.group_type` (previously empty),
+  falling back to the course `Veranstaltungsart`. The catalog API stamps each schedule
+  slot with `groupPosition` (1-based, reseed-stable) and exposes a `parallelGroups`
+  summary. The planner persists the chosen group per course in the `semester_plans_json`
+  blob (`courseParallelGroups`, keyed by position) and the calendar shows only that group,
+  colored by role. **Populating `group_type` in prod needs a re-import** — a scraper/importer
+  change alone doesn't touch live data (see above).
 
 ## Local dev
 
