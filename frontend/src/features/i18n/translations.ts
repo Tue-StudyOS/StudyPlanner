@@ -2,7 +2,7 @@ import type { SupportedLanguage } from './types'
 
 export const TRANSLATIONS = {
   en: {
-    'nav.planner': 'Planner',
+    'nav.semester': 'Semester',
     'nav.catalog': 'Catalog',
     'nav.progress': 'Progress',
     'nav.transcript': 'Transcript',
@@ -301,7 +301,7 @@ export const TRANSLATIONS = {
   de: {
     'courseDetail.learningPlatforms': 'Lernplattformen',
     'courseDetail.openMoodle': 'Moodle-Kurs öffnen',
-    'nav.planner': 'Planer',
+    'nav.semester': 'Semester',
     'nav.catalog': 'Katalog',
     'nav.progress': 'Fortschritt',
     'nav.transcript': 'Transcript',

@@ -1,12 +1,6 @@
 import { buildRelevantCourseAreaOptions } from '../../../shared/utils/regulation.ts'
 import type { Course, MasterCat } from '../types'
 
-interface CourseCardTagOrder {
-  seasonFirst: true
-  typeLabels: string[]
-  categoryLabels: MasterCat[]
-}
-
 interface CourseAreaTag {
   key: string
   label: string
@@ -47,14 +41,6 @@ interface CompletedCourseCardVisibility {
   showEcts: true
   showCompletedLabel: boolean
   showSecondaryDetails: boolean
-}
-
-export function buildCourseCardTagOrder(course: Pick<Course, 'types' | 'masterCats'>): CourseCardTagOrder {
-  return {
-    seasonFirst: true,
-    typeLabels: course.types,
-    categoryLabels: course.masterCats,
-  }
 }
 
 export function getCompletedCourseCardVisibility(isCompleted: boolean): CompletedCourseCardVisibility {

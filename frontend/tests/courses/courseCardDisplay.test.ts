@@ -3,7 +3,6 @@ import test from 'node:test'
 import type { MasterCat, StudyAreaOption } from '../../src/features/courses/types.ts'
 import {
   buildCourseAreaTags,
-  buildCourseCardTagOrder,
   getCompletedCourseCardVisibility,
 } from '../../src/features/courses/utils/courseCardDisplay.ts'
 
@@ -20,14 +19,6 @@ function option(programCode: string, studyAreaCode: string): StudyAreaOption {
     moduleTitle: null,
   }
 }
-
-test('buildCourseCardTagOrder keeps the season slot first and all other tags after it', () => {
-  const order = buildCourseCardTagOrder({ types: ['Lecture'], masterCats: ['TECH', 'INFO'] })
-
-  assert.equal(order.seasonFirst, true)
-  assert.deepEqual(order.typeLabels, ['Lecture'])
-  assert.deepEqual(order.categoryLabels, ['TECH', 'INFO'])
-})
 
 test('getCompletedCourseCardVisibility hides secondary details for completed cards', () => {
   assert.deepEqual(getCompletedCourseCardVisibility(true), {
