@@ -29,6 +29,7 @@ export function AreaBadge({ label, masterCat, active = false, onClick }: AreaBad
           event.stopPropagation()
           onClick()
         }}
+        onMouseDown={(event) => event.preventDefault()}
         className={className}
       >
         {label}

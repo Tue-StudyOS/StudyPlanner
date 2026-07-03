@@ -274,7 +274,8 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const resultsAnchorRef = useRef<HTMLDivElement>(null)
+  const catalogScrollRef = useRef<HTMLDivElement>(null)
+  const preservedScrollTopRef = useRef(0)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
@@ -498,6 +499,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   }
 
   function handleAreaFilterSelect(code: string): void {
+    preservedScrollTopRef.current = catalogScrollRef.current?.scrollTop ?? 0
     setAreFiltersOpen(false)
     if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
       setShowOnlyOpenMandatory((current) => !current)
@@ -508,8 +510,13 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
       setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
     }
-    resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+
+  useEffect(() => {
+    const root = catalogScrollRef.current
+    if (!root) return
+    root.scrollTop = preservedScrollTopRef.current
+  }, [filterSignature])
 
   function resetAllFilters(): void {
     setSelectedEctsValues([])
@@ -542,7 +549,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
 
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
+      <div ref={catalogScrollRef} data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
       <CatalogProgressHint
         isAreaActive={isAreaFilterActive}
         onSelectArea={handleAreaFilterSelect}
@@ -752,10 +759,6 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
           onChange={setShowUnconfirmedOfferings}
         />
       </div>
-
-      {/* Scroll target for the "still missing" chips; the top margin clears
-          the fixed mobile hint bar and the sticky desktop one. */}
-      <div ref={resultsAnchorRef} aria-hidden="true" className="scroll-mt-[8.75rem] md:scroll-mt-[5rem]" />
 
       {isLoading && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">

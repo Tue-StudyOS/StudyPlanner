@@ -1,5 +1,6 @@
 import {
   DAY_LABELS,
+  isSingleDateSlot,
   normalizeWeekday,
   parseTimeRange,
   type PlannerBlock,
@@ -25,8 +26,7 @@ export function buildMiniGridBlocks(schedule: ScheduleSlot[]): MiniGridBlock[] {
       return
     }
     const slotKind = getScheduleSlotKind(slot)
-    const isExam = slotKind !== 'weekly'
-    const dayLabel = isExam ? slot.day.trim() : DAY_LABELS[day]
+    const dayLabel = isSingleDateSlot(slot.day) ? slot.day.trim() : DAY_LABELS[day]
     parsedBlocks.push({
       blockId: `${slot.day}-${slot.time}-${index}`,
       slotId: `${index}`,
@@ -40,7 +40,7 @@ export function buildMiniGridBlocks(schedule: ScheduleSlot[]): MiniGridBlock[] {
       slotType: getScheduleSlotTypeLabel(slot),
       slotKind,
       hasOverlap: false,
-      examDate: isExam ? slot.day.trim() : null,
+      examDate: slotKind !== 'weekly' ? slot.day.trim() : null,
     })
   })
   return parsedBlocks

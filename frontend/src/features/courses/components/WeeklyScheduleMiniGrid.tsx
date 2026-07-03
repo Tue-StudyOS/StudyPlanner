@@ -11,6 +11,7 @@ import {
 import {
   scheduleSlotDotClasses,
   scheduleSlotGridBlockClasses,
+  scheduleSlotListLabelClasses,
 } from '../utils/scheduleSlotKind.ts'
 import type { ScheduleSlot } from '../types'
 
@@ -110,28 +111,29 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
       {blocks.length === 0 ? (
         <div className="mt-2 text-[12px] text-fg-muted">No weekly times published yet.</div>
       ) : (
-        <ul className="mt-2.5 flex flex-col gap-1">
-          {listEntries.map((block) => (
-            <li
-              key={block.blockId}
-              className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-fg-mid"
-            >
-              <span className={`inline-block h-2 w-2 self-center rounded-full ${scheduleSlotDotClasses(block.slotKind)}`} />
-              <span className="font-medium text-fg">{block.label.split(MINI_GRID_LABEL_SEPARATOR)[0]}</span>
-              {block.room && block.room !== 'TBA' ? (
-                <span className="text-fg-muted">{block.room}</span>
-              ) : null}
-              {block.slotType ? (
-                <span className={`text-[11px] ${
-                  block.slotKind === 'exam'
-                    ? 'font-medium text-amber-800 dark:text-amber-200'
-                    : block.slotKind === 'resit'
-                      ? 'font-medium text-rose-800 dark:text-rose-200'
-                      : 'text-fg-muted'
-                }`}>{block.slotType}</span>
-              ) : null}
-            </li>
-          ))}
+        <ul className="mt-2.5 flex flex-col gap-1.5">
+          {listEntries.map((block) => {
+            const isExamSlot = block.slotKind === 'exam' || block.slotKind === 'resit'
+            const primaryLabel = block.label.split(MINI_GRID_LABEL_SEPARATOR)[0]
+            return (
+              <li key={block.blockId} className="flex items-start gap-2 text-[12px]">
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${scheduleSlotDotClasses(block.slotKind)}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-fg">{primaryLabel}</div>
+                  {block.room && block.room !== 'TBA' ? (
+                    <div className="text-fg-muted">{block.room}</div>
+                  ) : null}
+                  {isExamSlot ? (
+                    <div className={`text-[11px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
+                      {block.slotType}
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

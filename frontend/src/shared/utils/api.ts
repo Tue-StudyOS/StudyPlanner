@@ -81,10 +81,9 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
 
   try {
     response = await fetch(requestUrl, init)
-  } catch (error) {
-    const fallbackMessage = `Network error while requesting ${requestUrl}. The API may be unreachable or blocked by CORS.`
+  } catch {
     throw new ApiError(
-      error instanceof Error && error.message ? `${fallbackMessage} ${error.message}` : fallbackMessage,
+      'Could not reach the server. Check your connection and try again.',
       0,
       'network_error',
     )

@@ -65,7 +65,11 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
                 type="button"
                 title={area.name}
                 aria-pressed={isActive}
-                onClick={() => onSelectArea?.(area.code)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.preventDefault()
+                  onSelectArea?.(area.code)
+                }}
                 className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-[10.5px] font-medium tabular-nums transition-colors ${colorClass} ${
                   isActive ? 'border-current font-semibold' : 'hover:opacity-90'
                 }`}

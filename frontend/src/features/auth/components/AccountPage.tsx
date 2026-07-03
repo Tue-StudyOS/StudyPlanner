@@ -268,14 +268,14 @@ export function AccountPage() {
           <div
             role="alert"
             aria-live="assertive"
-            className="pointer-events-auto w-full max-w-xl rounded-[10px] border border-primary/30 bg-surface px-4 py-3 text-[13px] text-primary shadow-lg"
+            className="pointer-events-auto w-full max-w-xl rounded-[10px] border border-danger/35 bg-surface px-4 py-3 text-[13px] text-fg shadow-lg dark:border-danger/45 dark:bg-surface-hover"
           >
             <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1 break-words">{error}</div>
+              <div className="min-w-0 flex-1 break-words leading-relaxed text-fg">{error}</div>
               <button
                 type="button"
                 onClick={() => setError(null)}
-                className="shrink-0 rounded-md border border-primary/20 px-2.5 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
+                className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
               >
                 {t('common.close')}
               </button>

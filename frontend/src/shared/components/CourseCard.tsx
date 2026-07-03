@@ -83,7 +83,7 @@ export function CourseCard({
   const visibility = getCompletedCourseCardVisibility(isCompleted)
   const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
 
-  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-2 rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
+  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
   }`
   const accessibleLabel = `Open course details: ${title}`

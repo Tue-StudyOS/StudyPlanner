@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
-import { scheduleSlotBlockClasses } from '../../courses/utils/scheduleSlotKind.ts'
+import { scheduleSlotBlockClasses, scheduleSlotListLabelClasses } from '../../courses/utils/scheduleSlotKind.ts'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
 import {
   END_HOUR,
@@ -215,7 +215,8 @@ export function PlannerGrid({
                     isMobilePlanner,
                     Boolean(block.slotType),
                   )
-                  const badgeColor = isBadge ? getCourseColor(block.courseId) : null
+                  const badgeColor = isBadge && block.slotKind === 'weekly' ? getCourseColor(block.courseId) : null
+                  const showBadgeNumber = isBadge && (badgeColor || block.slotKind !== 'weekly')
                   const courseNumber = courseNumbers.get(block.courseId)
                   return (
                     <div
@@ -234,25 +235,23 @@ export function PlannerGrid({
                         aria-label={`Show details for ${block.courseTitle}`}
                         title={block.courseTitle}
                         className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
-                          isBadge
-                            ? block.slotKind === 'exam'
-                              ? 'border-amber-500/80 ring-1 ring-amber-500/35'
-                              : block.slotKind === 'resit'
-                                ? 'border-rose-500/80 ring-1 ring-rose-500/35'
-                                : block.hasOverlap
-                                  ? 'border-primary/70'
-                                  : 'border-black/10 dark:border-white/15'
+                          isBadge && block.slotKind === 'weekly'
+                            ? block.hasOverlap
+                              ? 'border-primary/70'
+                              : 'border-black/10 dark:border-white/15'
                             : scheduleSlotBlockClasses(block.slotKind, block.hasOverlap)
                         }`}
                         style={{
                           ...(badgeColor ? { backgroundColor: badgeColor } : {}),
                         }}
                       >
-                        {isBadge && badgeColor ? (
+                        {showBadgeNumber ? (
                           <div className="flex h-full w-full items-center justify-center">
                             <span
                               className="text-[13px] font-bold tabular-nums sm:text-[15px]"
-                              style={{ color: badgeTextColor }}
+                              style={{
+                                color: block.slotKind === 'weekly' ? badgeTextColor : undefined,
+                              }}
                             >
                               {courseNumber}
                             </span>
@@ -270,14 +269,8 @@ export function PlannerGrid({
                             >
                               {block.courseTitle}
                             </div>
-                          {block.slotType ? (
-                            <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${
-                              block.slotKind === 'exam'
-                                ? 'font-medium text-amber-800 dark:text-amber-200'
-                                : block.slotKind === 'resit'
-                                  ? 'font-medium text-rose-800 dark:text-rose-200'
-                                  : 'opacity-80'
-                            }`}>
+                          {block.slotType && (block.slotKind === 'exam' || block.slotKind === 'resit') ? (
+                            <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
                               {block.slotType}
                             </div>
                           ) : null}
