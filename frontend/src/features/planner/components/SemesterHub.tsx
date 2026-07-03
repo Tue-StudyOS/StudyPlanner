@@ -7,18 +7,6 @@ import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { semesterPath } from '../../routes'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { SemesterCard } from './SemesterCard'
-import { useSemesterCardBadge } from '../utils/semesterTabBadge.ts'
-
-function SemesterHubCard({ semesterLabel }: { semesterLabel: string }) {
-  const showBadge = useSemesterCardBadge(semesterLabel)
-  return (
-    <SemesterCard
-      semesterLabel={semesterLabel}
-      to={semesterPath(semesterLabel)}
-      showBadge={showBadge}
-    />
-  )
-}
 
 export function SemesterHub() {
   const { isAuthenticated, user } = useAuth()
@@ -85,7 +73,11 @@ export function SemesterHub() {
         <div className="mb-3 text-[13px] font-semibold text-fg">{t('planner.semestersTitle')}</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {semesterOptions.map((semesterLabel) => (
-            <SemesterHubCard key={semesterLabel} semesterLabel={semesterLabel} />
+            <SemesterCard
+              key={semesterLabel}
+              semesterLabel={semesterLabel}
+              to={semesterPath(semesterLabel)}
+            />
           ))}
         </div>
       </div>

@@ -9,18 +9,12 @@ class RequestBodyError(ValueError):
 
 
 async def read_json_object(request: Any) -> dict[str, Any]:
-    json_method = getattr(request, 'json', None)
-    if callable(json_method):
-        try:
-            payload = await json_method()
-        except Exception:
-            payload = None
-        else:
-            if isinstance(payload, dict):
-                return {str(key): value for key, value in payload.items()}
-            if payload is not None:
-                raise RequestBodyError('Expected a JSON object body.')
+    """Read the request body once, then parse JSON.
 
+    Python Workers may expose both ``json()`` and ``text()`` on the same
+    stream; calling ``json()`` first and falling back to ``text()`` triggers
+    "Body already used" on POST routes such as login.
+    """
     text_method = getattr(request, 'text', None)
     if not callable(text_method):
         raise RequestBodyError('The runtime does not expose a readable request body.')

@@ -28,6 +28,11 @@ const SemesterPlanPage = lazy(() =>
 const AccountPage = lazy(() =>
   import('./features/auth/components/AccountPage').then((module) => ({ default: module.AccountPage })),
 )
+const RequestLogPage = lazy(() =>
+  import('./features/diagnostics/components/RequestLogPage').then((module) => ({
+    default: module.RequestLogPage,
+  })),
+)
 const TestLayout = lazy(() =>
   import('./features/test').then((module) => ({ default: module.TestLayout })),
 )
@@ -95,6 +100,7 @@ function App() {
                       <Route path={ROUTES.overview} element={<Dashboard />} />
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
+                      <Route path={ROUTES.log} element={<RequestLogPage />} />
                       <Route
                         path={LEGACY_PLANNER_ROUTE}
                         element={<Navigate to={ROUTES.planner} replace />}

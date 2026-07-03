@@ -18,6 +18,7 @@ EXPECTED_D1_BINDING = 'DB'
 EXPECTED_WORKER_NAME = 'studyplanner-api'
 LEGACY_WORKER_NAME = 'studyplaner-api'
 EXPECTED_API_BASE_URL = 'https://studyplaner.pages.dev'
+EXPECTED_LOCAL_DEV_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
 EXPECTED_PAGES_PROJECT = 'studyplaner'
 EXPECTED_PAGES_OUTPUT_DIR = 'dist'
 EXPECTED_API_GATEWAY_BINDING = 'STUDYPLANNER_API'
@@ -91,8 +92,8 @@ def _verify_frontend_wrangler(errors: list[str]) -> None:
 
     _record_check(errors, config.get('name') == EXPECTED_PAGES_PROJECT, f'{path}: Pages project name must stay {EXPECTED_PAGES_PROJECT!r}.')
     _record_check(errors, config.get('pages_build_output_dir') == EXPECTED_PAGES_OUTPUT_DIR, f'{path}: pages_build_output_dir must stay {EXPECTED_PAGES_OUTPUT_DIR!r}.')
-    _record_check(errors, vars_config.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, f'{path}: preview VITE_API_BASE_URL must be {EXPECTED_API_BASE_URL!r}.')
-    _record_check(errors, production_vars.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, f'{path}: production VITE_API_BASE_URL must be {EXPECTED_API_BASE_URL!r}.')
+    _record_check(errors, vars_config.get('VITE_API_BASE_URL') == EXPECTED_LOCAL_DEV_API_BASE_URL, f'{path}: preview VITE_API_BASE_URL must be {EXPECTED_LOCAL_DEV_API_BASE_URL!r} for local Pages dev overrides.')
+    _record_check(errors, 'VITE_API_BASE_URL' not in production_vars, f'{path}: production must not set VITE_API_BASE_URL; deployed builds use same-origin /api/*.')
 
     services = config.get('services')
     service_by_binding = _service_by_binding(services)
@@ -109,7 +110,7 @@ def _verify_env_examples(errors: list[str]) -> None:
 
     _record_check(errors, root_env.get('D1_DATABASE_NAME') == EXPECTED_ACTIVE_D1_NAME, '.env.example: D1_DATABASE_NAME must document the current active test database.')
     _record_check(errors, root_env.get('D1_DATABASE_ID') == EXPECTED_ACTIVE_D1_ID, '.env.example: D1_DATABASE_ID must document the current active test database id.')
-    _record_check(errors, frontend_env.get('VITE_API_BASE_URL') == EXPECTED_API_BASE_URL, 'frontend/.env.production: VITE_API_BASE_URL must point at the public Pages API gateway.')
+    _record_check(errors, 'VITE_API_BASE_URL' not in frontend_env, 'frontend/.env.production: must not bake in VITE_API_BASE_URL; deployed builds use same-origin /api/*.')
 
 
 def _verify_package_scripts(errors: list[str]) -> None:

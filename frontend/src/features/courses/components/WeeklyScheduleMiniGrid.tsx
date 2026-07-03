@@ -4,6 +4,7 @@ import { buildDayLayout } from '../../planner/utils/plannerDayLayout'
 import {
   buildMiniGridBlocks,
   collapseMiniGridBlocksForCalendar,
+  compareMiniGridListEntries,
   MINI_GRID_END_MINUTES,
   MINI_GRID_LABEL_SEPARATOR,
   MINI_GRID_START_MINUTES,
@@ -30,12 +31,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
   const calendarBlocks = useMemo(() => collapseMiniGridBlocksForCalendar(blocks), [blocks])
 
   const listEntries = useMemo(
-    () =>
-      [...blocks].sort((left, right) => {
-        if (left.slotKind === 'weekly' && right.slotKind !== 'weekly') return -1
-        if (left.slotKind !== 'weekly' && right.slotKind === 'weekly') return 1
-        return left.label.localeCompare(right.label)
-      }),
+    () => [...blocks].sort(compareMiniGridListEntries),
     [blocks],
   )
 

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BookmarkIcon } from './icons'
 
 interface FavStarProps {
@@ -7,6 +8,9 @@ interface FavStarProps {
 }
 
 export function FavStar({ active, disabled = false, onToggle }: FavStarProps) {
+  const [isHovered, setIsHovered] = useState<boolean>(false)
+  const showFilled = isHovered ? !active : active
+
   return (
     <button
       type="button"
@@ -14,9 +18,13 @@ export function FavStar({ active, disabled = false, onToggle }: FavStarProps) {
       disabled={disabled}
       aria-label={active ? 'Remove from interested' : 'Mark as interested'}
       aria-pressed={active}
-      className="flex shrink-0 items-center justify-center rounded-md p-1 text-primary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      className="flex shrink-0 items-center justify-center p-1 text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <BookmarkIcon filled={active} />
+      <BookmarkIcon filled={showFilled} />
     </button>
   )
 }

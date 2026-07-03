@@ -613,6 +613,9 @@ export function Transcript() {
         <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
           {t('transcript.title')}
         </h1>
+        {!isAuthenticated ? (
+          <p className="text-[13.5px] text-fg-muted">{t('transcript.guestSubtitle')}</p>
+        ) : null}
       </div>
 
       {isAuthenticated ? (

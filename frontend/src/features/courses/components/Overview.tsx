@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
+import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import {
@@ -561,12 +562,6 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
       <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
       {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}
 
-      {!isAuthenticated ? (
-        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          {t('catalog.publicNotice')}
-        </div>
-      ) : null}
-
       {!isOnboardingOpen && favoritesError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
           {favoritesError}
@@ -766,7 +761,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         </div>
       ) : error && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          {t('catalog.failed')} {error}
+          <p>{toUserFacingApiMessage(error)}</p>
         </div>
       ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">

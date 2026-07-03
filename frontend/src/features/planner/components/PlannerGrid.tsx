@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RemoveIcon } from '../../../shared/components/icons'
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
 import { scheduleSlotBlockClasses, scheduleSlotListLabelClasses } from '../../courses/utils/scheduleSlotKind.ts'
@@ -286,9 +287,9 @@ export function PlannerGrid({
                           }}
                           aria-label={`Remove ${block.courseTitle} from semester plan`}
                           title="Remove from plan"
-                          className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-surface/95 text-[9px] text-fg-muted shadow-sm hover:text-primary sm:h-5 sm:w-5"
+                          className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center text-fg-muted opacity-75 transition-opacity hover:opacity-100 hover:text-primary sm:h-5 sm:w-5"
                         >
-                          ×
+                          <RemoveIcon size={10} />
                         </button>
                       ) : null}
                     </div>

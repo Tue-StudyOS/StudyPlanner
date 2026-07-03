@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RemoveIcon } from '../../../shared/components/icons'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
@@ -34,17 +35,9 @@ function RemovePlannerCourseButton({
       onClick={onRemove}
       aria-label={`Remove ${courseTitle} from semester plan`}
       title="Remove from semester plan"
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-fg-muted transition-colors hover:border-primary/40 hover:text-primary"
+      className="inline-flex shrink-0 items-center justify-center p-0.5 text-fg-muted transition-colors hover:text-primary"
     >
-      <svg aria-hidden="true" viewBox="0 0 12 12" className="h-2.5 w-2.5">
-        <path
-          d="M3 3l6 6M9 3L3 9"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.7"
-        />
-      </svg>
+      <RemoveIcon size={11} />
     </button>
   )
 }

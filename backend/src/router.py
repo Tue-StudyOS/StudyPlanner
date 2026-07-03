@@ -38,6 +38,7 @@ from services.course_catalog import (
 )
 from services.app_settings import get_simulated_semester_label
 from services.progress import get_current_user_progress
+from services.client_error_log import ClientErrorLogError, list_client_errors, report_client_error
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
     PlannerAssignmentError,
@@ -434,6 +435,17 @@ async def route_request(request: Any, env: Any) -> Any:
             optimization = await get_current_user_anrechnung_optimization(env, request)
             return json_response(optimization, request=request, env=env)
 
+        if path == "/api/client-errors":
+            if method == "POST":
+                result = await report_client_error(env, request, await read_json_object(request))
+                return json_response(result, request=request, env=env, status=201)
+
+            if method == "GET":
+                errors = await list_client_errors(env)
+                return json_response(errors, request=request, env=env)
+
+            return _method_not_allowed_response(request, env)
+
         if path == "/api/feedback":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
@@ -752,6 +764,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except FeedbackSubmissionError as exc:
         return error_response(
             code="feedback_submission_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except ClientErrorLogError as exc:
+        return error_response(
+            code="client_error_log_error",
             message=str(exc),
             request=request,
             env=env,

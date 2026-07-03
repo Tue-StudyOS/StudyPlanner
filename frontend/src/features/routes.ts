@@ -6,6 +6,7 @@ export const ROUTES = {
   overview: '/overview',
   transcript: '/transcript',
   account: '/account',
+  log: '/log',
   semesterDetail: '/semester/:label',
 } as const
 

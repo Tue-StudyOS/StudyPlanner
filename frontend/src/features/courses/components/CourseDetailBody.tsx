@@ -4,7 +4,7 @@ import { SEASON_HEADER_ICON_CLASS } from '../../../shared/components/seasonSymbo
 import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
-import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
+import { getDetailSeasonTermType } from '../utils/catalogOffering.ts'
 import { cleanCourseTitle, formatCourseTypeLabel, isGenericContentTitle } from '../utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
@@ -114,7 +114,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
-  const seasonTermType = getRecentSeasonTermType(course)
+  const seasonTermType = getDetailSeasonTermType(course)
   const illiasRows = buildIliasMetadataRows(course.illias, {
     availability: t('courseDetail.illiasAvailability'),
     deadline: t('courseDetail.illiasDeadline'),

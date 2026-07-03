@@ -264,7 +264,7 @@ export function AccountPage() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 pb-6 sm:p-8 sm:pt-6">
       {error ? (
-        <div className="pointer-events-none fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top,0px))] z-50 flex justify-center sm:justify-end">
+        <div className="pointer-events-none fixed inset-x-4 top-[calc(3.75rem+env(safe-area-inset-top,0px)+0.5rem)] z-[90] flex justify-center sm:justify-end">
           <div
             role="alert"
             aria-live="assertive"
@@ -509,7 +509,6 @@ export function AccountPage() {
           {message}
         </div>
       ) : null}
-
 
     </div>
   )
