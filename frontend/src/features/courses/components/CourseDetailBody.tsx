@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
-import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
+import { cleanCourseTitle, formatCourseTypeLabel, isGenericContentTitle } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
 import { cleanLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
@@ -190,11 +190,20 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
-      {hasValue(course.contents) ? (
+      {course.contents && course.contents.length > 0 ? (
         <Section title={t('courseDetail.contents')}>
-          <p className="whitespace-pre-wrap text-[13.5px] leading-7 text-fg-mid">
-            <LinkedText text={course.contents!} links={course.contentsLinks} />
-          </p>
+          <div className="flex min-w-0 flex-col gap-4">
+            {course.contents.map((section, index) => (
+              <div key={`${section.title}-${index}`} className="min-w-0">
+                {isGenericContentTitle(section.title) ? null : (
+                  <div className="mb-1 text-[12.5px] font-semibold text-fg">{section.title}</div>
+                )}
+                <p className="whitespace-pre-wrap break-words text-[13.5px] leading-7 text-fg-mid">
+                  <LinkedText text={section.text} links={section.links} />
+                </p>
+              </div>
+            ))}
+          </div>
         </Section>
       ) : null}
 
