@@ -10,5 +10,7 @@ export interface SemesterPlanSummary {
 export interface SemesterPlan extends SemesterPlanSummary {
   courseIds: string[]
   courseAssignments: Record<string, string>
+  /** courseId -> chosen 1-based parallel-group position for the calendar. */
+  courseParallelGroups: Record<string, number>
   hiddenSlotIds: string[]
 }

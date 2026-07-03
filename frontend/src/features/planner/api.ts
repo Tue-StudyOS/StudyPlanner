@@ -15,6 +15,7 @@ interface SaveSemesterPlanInput {
   courseIds: string[]
   hiddenSlotIds?: string[]
   courseAssignments?: Record<string, string>
+  courseParallelGroups?: Record<string, number>
 }
 
 interface PlannerBalanceWarning {

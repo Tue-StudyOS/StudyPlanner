@@ -42,6 +42,18 @@ function areAssignmentsEqual(
   return leftKeys.every((key) => left[key] === right[key])
 }
 
+function areParallelGroupsEqual(
+  left: Record<string, number>,
+  right: Record<string, number>,
+): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+  return leftKeys.every((key) => left[key] === right[key])
+}
+
 interface UseSemesterPlannerResult {
   activeSemesterLabel: string
   semesterOptions: string[]
@@ -49,6 +61,7 @@ interface UseSemesterPlannerResult {
   plannedCourseIds: string[]
   hiddenSlotIds: string[]
   planAssignments: Record<string, string>
+  planParallelGroups: Record<string, number>
   savedPlan: SemesterPlan | null
   isLoadingPlanIndex: boolean
   isLoadingSemesterPlan: boolean
@@ -60,6 +73,7 @@ interface UseSemesterPlannerResult {
   setHiddenSlotIds: (slotIds: string[]) => void
   setAssignment: (courseId: string, areaCode: string | null) => void
   setAssignments: (assignments: Record<string, string>) => void
+  setParallelGroup: (courseId: string, groupPosition: number | null) => void
 }
 
 /**
@@ -76,6 +90,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   const [plannedCourseIds, setPlannedCourseIds] = useState<string[]>([])
   const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
   const [planAssignments, setPlanAssignments] = useState<Record<string, string>>({})
+  const [planParallelGroups, setPlanParallelGroups] = useState<Record<string, number>>({})
   const [isLoadingPlanIndex, setIsLoadingPlanIndex] = useState<boolean>(false)
   const [isLoadingSemesterPlan, setIsLoadingSemesterPlan] = useState<boolean>(false)
   const [isSavingSemesterPlan, setIsSavingSemesterPlan] = useState<boolean>(false)
@@ -125,6 +140,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
           setPlannedCourseIds([])
           setHiddenSlotIds([])
           setPlanAssignments({})
+          setPlanParallelGroups({})
           setPlannerError(null)
           setIsLoadingPlanIndex(false)
           setIsLoadingSemesterPlan(false)
@@ -177,6 +193,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setPlannedCourseIds(cachedSemesterPlan.courseIds)
         setHiddenSlotIds(cachedSemesterPlan.hiddenSlotIds)
         setPlanAssignments(cachedSemesterPlan.courseAssignments)
+        setPlanParallelGroups(cachedSemesterPlan.courseParallelGroups ?? {})
       }
       setIsLoadingSemesterPlan(cachedSemesterPlan === null)
       setPlannerError(null)
@@ -190,12 +207,14 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
         setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
         setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
+        setPlanParallelGroups(nextSavedPlan?.courseParallelGroups ?? {})
       } catch (error) {
         if (isActive) {
           setSavedPlan(null)
           setPlannedCourseIds([])
           setHiddenSlotIds([])
           setPlanAssignments({})
+          setPlanParallelGroups({})
           setPlannerError(normalizeErrorMessage(error))
         }
       } finally {
@@ -216,12 +235,15 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     () =>
       !areStringArraysEqual(plannedCourseIds, savedPlan?.courseIds ?? []) ||
       !areStringArraysEqual(hiddenSlotIds, savedPlan?.hiddenSlotIds ?? []) ||
-      !areAssignmentsEqual(planAssignments, savedPlan?.courseAssignments ?? {}),
+      !areAssignmentsEqual(planAssignments, savedPlan?.courseAssignments ?? {}) ||
+      !areParallelGroupsEqual(planParallelGroups, savedPlan?.courseParallelGroups ?? {}),
     [
       hiddenSlotIds,
       planAssignments,
+      planParallelGroups,
       plannedCourseIds,
       savedPlan?.courseAssignments,
+      savedPlan?.courseParallelGroups,
       savedPlan?.courseIds,
       savedPlan?.hiddenSlotIds,
     ],
@@ -241,6 +263,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         courseIds: plannedCourseIds,
         hiddenSlotIds,
         courseAssignments: planAssignments,
+        courseParallelGroups: planParallelGroups,
       })
       setSavedPlan((currentSavedPlan) =>
         // A semester switch can race the save response; only adopt the result
@@ -286,6 +309,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     isLoadingSemesterPlan,
     normalizedActiveSemesterLabel,
     planAssignments,
+    planParallelGroups,
     plannedCourseIds,
     token,
   ])
@@ -330,6 +354,17 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     setPlanAssignments(assignments)
   }
 
+  function setParallelGroup(courseId: string, groupPosition: number | null): void {
+    setPlanParallelGroups((prev) => {
+      if (groupPosition === null) {
+        const next = { ...prev }
+        delete next[courseId]
+        return next
+      }
+      return { ...prev, [courseId]: groupPosition }
+    })
+  }
+
   return {
     activeSemesterLabel: normalizedActiveSemesterLabel,
     semesterOptions,
@@ -337,6 +372,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     plannedCourseIds,
     hiddenSlotIds,
     planAssignments,
+    planParallelGroups,
     savedPlan,
     isLoadingPlanIndex,
     isLoadingSemesterPlan,
@@ -348,5 +384,6 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
+    setParallelGroup,
   }
 }

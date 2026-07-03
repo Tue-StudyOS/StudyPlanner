@@ -25,6 +25,7 @@ export type {
   CompletedCourse,
   CourseExam,
   CourseExternalLink,
+  CourseParallelGroup,
   CourseParticipantLimit,
   CourseTermType,
   MasterCat,

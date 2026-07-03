@@ -125,12 +125,48 @@ export function parseTimeRange(timeText: string): { startMinutes: number; endMin
   }
 }
 
-export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
+/**
+ * The parallel-group position whose slots should appear on the calendar for a
+ * course: the user's explicit choice when it is still a real group, otherwise
+ * the first group. Returns null when the course carries no group information, in
+ * which case every slot is kept (single-group / legacy courses).
+ */
+export function resolveSelectedGroupPosition(
+  course: Course,
+  selectedGroups: Record<string, number>,
+): number | null {
+  const positions = course.schedule
+    .map((slot) => slot.groupPosition)
+    .filter((position): position is number => typeof position === 'number')
+  if (positions.length === 0) {
+    return null
+  }
+  const explicit = selectedGroups[course.id]
+  if (typeof explicit === 'number' && positions.includes(explicit)) {
+    return explicit
+  }
+  return Math.min(...positions)
+}
+
+export function buildPlannerBlocks(
+  courses: Course[],
+  selectedGroups: Record<string, number> = {},
+): PlannerBlock[] {
   const blocks: PlannerBlock[] = []
 
   courses.forEach((course) => {
+    const selectedPosition = resolveSelectedGroupPosition(course, selectedGroups)
     course.schedule.forEach((slot, index) => {
       if (isSingleDateSlot(slot.day)) {
+        return
+      }
+      // Show only the chosen parallel group; slots without a group position are
+      // course-level and always kept.
+      if (
+        selectedPosition !== null &&
+        typeof slot.groupPosition === 'number' &&
+        slot.groupPosition !== selectedPosition
+      ) {
         return
       }
       const normalizedDay = normalizeWeekday(slot.day)

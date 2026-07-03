@@ -7,6 +7,10 @@ export interface ScheduleSlot {
   time: string
   room: string
   type: string
+  /** Catalog row id of the parallel group this slot belongs to (unstable across re-imports). */
+  parallelGroupId?: number | null
+  /** 1-based position of the parallel group within the course (stable across re-imports). */
+  groupPosition?: number | null
 }
 
 export interface CourseExam {
@@ -75,6 +79,18 @@ export interface CourseContentSection {
   links?: CourseTextLink[]
 }
 
+export interface CourseParallelGroup {
+  /** 1-based position within the course; the stable key for a user's group choice. */
+  position: number
+  parallelGroupId?: number | null
+  title: string | null
+  /** Derived teaching role (Vorlesung, Übung, Klausur, ...). */
+  role: string | null
+  maxParticipants: number | null
+  minParticipants: number | null
+  schedule: ScheduleSlot[]
+}
+
 export interface CourseParticipantLimit {
   parallelGroupId: string
   title: string | null
@@ -140,5 +156,6 @@ export interface Course {
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]
   participantLimits?: CourseParticipantLimit[]
+  parallelGroups?: CourseParallelGroup[]
   illias?: CourseIliasMetadata | null
 }

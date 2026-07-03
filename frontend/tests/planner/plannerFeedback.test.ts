@@ -168,3 +168,62 @@ test('buildPlannerBlocks sorts by weekday then start time', () => {
     ],
   )
 })
+
+test('buildPlannerBlocks shows only the selected parallel group', () => {
+  const course = createCourse('stochastik', [
+    { day: 'Mo', time: '14:00 - 16:00', room: 'N02', type: 'Vorlesung', groupPosition: 1 },
+    { day: 'Mo', time: '16:00 - 18:00', room: 'C110', type: 'Übung', groupPosition: 2 },
+  ])
+
+  const lectureBlocks = buildPlannerBlocks([course], { stochastik: 1 })
+  assert.deepEqual(
+    lectureBlocks.map((block) => [block.startMinutes, block.room]),
+    [[840, 'N02']],
+  )
+
+  const exerciseBlocks = buildPlannerBlocks([course], { stochastik: 2 })
+  assert.deepEqual(
+    exerciseBlocks.map((block) => [block.startMinutes, block.room]),
+    [[960, 'C110']],
+  )
+})
+
+test('buildPlannerBlocks defaults to the first group when no selection', () => {
+  const course = createCourse('stochastik', [
+    { day: 'Mo', time: '14:00 - 16:00', room: 'N02', type: 'Vorlesung', groupPosition: 1 },
+    { day: 'Mo', time: '16:00 - 18:00', room: 'C110', type: 'Übung', groupPosition: 2 },
+  ])
+
+  const blocks = buildPlannerBlocks([course])
+
+  assert.deepEqual(
+    blocks.map((block) => block.room),
+    ['N02'],
+  )
+})
+
+test('buildPlannerBlocks falls back to first group for a stale selection', () => {
+  const course = createCourse('stochastik', [
+    { day: 'Mo', time: '14:00 - 16:00', room: 'N02', type: 'Vorlesung', groupPosition: 1 },
+    { day: 'Mo', time: '16:00 - 18:00', room: 'C110', type: 'Übung', groupPosition: 2 },
+  ])
+
+  // Position 9 no longer exists (e.g. after a re-import); keep the course visible.
+  const blocks = buildPlannerBlocks([course], { stochastik: 9 })
+
+  assert.deepEqual(
+    blocks.map((block) => block.room),
+    ['N02'],
+  )
+})
+
+test('buildPlannerBlocks keeps all slots when a course has no group positions', () => {
+  const course = createCourse('legacy', [
+    { day: 'Mo', time: '10:00 - 12:00', room: 'A', type: 'Vorlesung' },
+    { day: 'Di', time: '10:00 - 12:00', room: 'B', type: 'Vorlesung' },
+  ])
+
+  const blocks = buildPlannerBlocks([course], { legacy: 1 })
+
+  assert.equal(blocks.length, 2)
+})
