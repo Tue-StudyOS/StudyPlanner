@@ -40,6 +40,7 @@ import {
   toSavedIssue,
 } from '../utils/transcriptReview'
 import { parseTranscriptPdf } from '../utils/parseTranscriptPdf'
+import { AlmaImportGuide } from './AlmaImportGuide'
 import { ManualCompletedCourseForm } from './ManualCompletedCourseForm'
 import { PersonalCourseCollection } from './PersonalCourseCollection'
 import { TranscriptUploadCard } from './TranscriptUploadCard'
@@ -144,9 +145,10 @@ function AuthenticatedTranscript() {
     : importableReviewCandidateCount
   const displayImportableSavedIssueCount = isTranscriptTourPreview ? 0 : importableSavedIssueCount
 
+  // Same order as the progress tab (ECTS, progress, grade) so the two headers match.
   const stats = [
-    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
     { label: t('transcript.ectsEarned'), value: `${displayStats.totalEcts} / ${displayStats.requiredEcts}` },
+    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
     { label: t('transcript.averageGrade'), value: displayStats.averageGrade !== null ? displayStats.averageGrade.toFixed(2) : '–' },
   ]
 
@@ -518,6 +520,11 @@ function AuthenticatedTranscript() {
             <StatItem label={stat.label} value={stat.value} />
           </div>
         ))}
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 text-[12.5px] text-fg-muted">{t('transcript.almaGuideLead')}</p>
+        <AlmaImportGuide onChooseFile={openFilePicker} />
       </div>
 
       {/* Upload card and manual form share one row and stretch to the same

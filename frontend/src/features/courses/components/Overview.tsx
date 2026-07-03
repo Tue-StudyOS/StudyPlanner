@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -17,6 +18,10 @@ import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
+import {
+  encodeCatalogDetailSegment,
+  extractCatalogDetailCourseId,
+} from '../utils/catalogDetailRoute.ts'
 import {
   getLatestKnownSeasonTermType,
   getOfferingStatus,
@@ -215,10 +220,16 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation()
+  // The catalog mounts at '/catalog' and '/test/catalog'; resolving '.'
+  // against the active route keeps the drawer URL scheme working on both.
+  const catalogBasePath = useResolvedPath('.').pathname
+  const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const resultsAnchorRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
@@ -389,6 +400,17 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
+  // Clicking a "still missing" area chip focuses the catalog on that single
+  // area; clicking it again while it is the only active area clears it.
+  function handleOpenAreaChipSelect(code: string): void {
+    const isAlreadyOnlySelection =
+      selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
+    setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
+    if (!isAlreadyOnlySelection) {
+      resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   function resetAllFilters(): void {
     setSelectedEctsValues([])
     setSelectedStudyAreaCodes([])
@@ -421,7 +443,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
       <div data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
-      <CatalogProgressHint />
+      <CatalogProgressHint
+        selectedAreaCodes={selectedStudyAreaCodes}
+        onSelectArea={handleOpenAreaChipSelect}
+      />
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
       <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
@@ -637,6 +662,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         />
       </div>
 
+      {/* Scroll target for the "still missing" chips; the top margin clears
+          the fixed mobile hint bar and the sticky desktop one. */}
+      <div ref={resultsAnchorRef} aria-hidden="true" className="scroll-mt-[8.75rem] md:scroll-mt-[5rem]" />
+
       {isLoading && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.loading')}
@@ -692,14 +721,14 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                   >
                     <CourseCard
                       course={course}
+                      detailTo={isTourSampleRow ? undefined : encodeCatalogDetailSegment(course.id)}
                       isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
-                      isActive={!isTourSampleRow && selectedCourse?.id === course.id}
+                      isActive={!isTourSampleRow && openCourseId === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
-                      onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
                   </div>
@@ -720,14 +749,15 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
       )}
       </div>
       </div>
-      {selectedCourse ? (
+      {openCourseId ? (
         <CourseDetailDrawer
-          course={selectedCourse}
-          isFavorite={isFavorite(selectedCourse.id)}
+          courseId={openCourseId}
+          listCourse={courses.find((course) => course.id === openCourseId) ?? null}
+          isFavorite={isFavorite(openCourseId)}
           favoriteDisabled={isLoadingFavorites || isSavingFavorites}
           showFavorite={canShowFavorites}
-          onToggleFavorite={() => toggleFavorite(selectedCourse.id)}
-          onClose={() => setSelectedCourse(null)}
+          onToggleFavorite={() => toggleFavorite(openCourseId)}
+          onClose={() => navigate(catalogBasePath)}
         />
       ) : null}
     </div>

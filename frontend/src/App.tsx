@@ -16,9 +16,6 @@ const Dashboard = lazy(() =>
 const CoursesOverview = lazy(() =>
   import('./features/courses/components/Overview').then((module) => ({ default: module.CoursesOverview })),
 )
-const CourseDetail = lazy(() =>
-  import('./features/courses/components/CourseDetail').then((module) => ({ default: module.CourseDetail })),
-)
 const Transcript = lazy(() =>
   import('./features/transcript/components/Transcript').then((module) => ({ default: module.Transcript })),
 )
@@ -83,8 +80,12 @@ function App() {
                   <Routes>
                     <Route element={<Layout />}>
                       <Route path={ROUTES.planner} element={<SemesterPlanner />} />
-                      <Route path={ROUTES.catalog} element={<CoursesOverview />} />
-                      <Route path={ROUTES.catalogDetail} element={<CourseDetail />} />
+                      {/* The course detail renders as a URL-driven drawer inside
+                          the catalog; the child route only makes
+                          '/catalog/:courseId' a valid deep link. */}
+                      <Route path={ROUTES.catalog} element={<CoursesOverview />}>
+                        <Route path=":courseId" element={null} />
+                      </Route>
                       <Route path={ROUTES.overview} element={<Dashboard />} />
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
@@ -95,7 +96,9 @@ function App() {
                     </Route>
                     <Route path={TEST_ROUTES.root} element={<TestLayout />}>
                       <Route index element={<TestLanding />} />
-                      <Route path="catalog" element={<TestCatalog />} />
+                      <Route path="catalog" element={<TestCatalog />}>
+                        <Route path=":courseId" element={null} />
+                      </Route>
                       <Route path="personal" element={<TestPersonal />} />
                       <Route path="personal/progress" element={<TestProgress />} />
                       <Route path="personal/semesters" element={<TestSemesters />} />

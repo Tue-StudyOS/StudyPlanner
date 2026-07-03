@@ -9,7 +9,11 @@ import type { Course } from '../types'
 import { CourseDetailBody } from './CourseDetailBody'
 
 interface CourseDetailDrawerProps {
-  course: Course
+  courseId: string
+  // Summary row from the already-loaded catalog list; paints instantly while
+  // the full record loads and stays as fallback if that request fails. Deep
+  // links open the drawer before the list row exists, so it may be null.
+  listCourse?: Course | null
   isFavorite: boolean
   favoriteDisabled?: boolean
   showFavorite?: boolean
@@ -18,7 +22,8 @@ interface CourseDetailDrawerProps {
 }
 
 export function CourseDetailDrawer({
-  course,
+  courseId,
+  listCourse = null,
   isFavorite,
   favoriteDisabled = false,
   showFavorite = true,
@@ -32,12 +37,12 @@ export function CourseDetailDrawer({
   useBodyScrollLock()
   // The catalog list only carries summary data; the full record adds the
   // description, exam dates, prerequisites, and learning platform links.
-  const { course: detailCourse } = useCatalogCourseDetail(course.id)
-  const displayCourse = detailCourse ?? course
+  const { course: detailCourse, isLoading, error } = useCatalogCourseDetail(courseId)
+  const displayCourse = detailCourse ?? listCourse
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [course.id, displayCourse.id])
+  }, [courseId, displayCourse?.id])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -87,7 +92,13 @@ export function CourseDetailDrawer({
           ref={scrollRef}
           className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
         >
-          <CourseDetailBody course={displayCourse} />
+          {displayCourse ? (
+            <CourseDetailBody course={displayCourse} />
+          ) : (
+            <div className="px-4 py-10 text-center text-[13.5px] text-fg-muted">
+              {isLoading ? t('courseDetail.loading') : `${t('courseDetail.failed')}${error ? ` ${error}` : ''}`}
+            </div>
+          )}
         </div>
       </div>
     </div>

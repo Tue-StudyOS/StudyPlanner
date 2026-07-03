@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
 import { useAuth } from '../../auth'
+import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
+import { markSemesterTabBadge } from '../../planner/utils/semesterTabBadge.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
 import { FavoritesContext } from '../FavoritesContext'
 
@@ -20,7 +22,8 @@ function normalizeErrorMessage(error: unknown): string {
 }
 
 export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Element {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const userCacheKey = user?.username ?? 'anonymous'
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
   const [isLoadingFavorites, setIsLoadingFavorites] = useState<boolean>(false)
   const [isSavingFavorites, setIsSavingFavorites] = useState<boolean>(false)
@@ -83,9 +86,20 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
     setFavoritesError(null)
     setIsSavingFavorites(true)
 
+    const isAddingFavorite = nextFavoriteIds.length > previousFavoriteIds.length
+
     void saveFavoriteCourseIds(token, nextFavoriteIds)
-      .then((savedFavoriteIds) => {
+      .then(async (savedFavoriteIds) => {
         setFavoriteIds(savedFavoriteIds)
+        if (isAddingFavorite) {
+          const addedCourseId = nextFavoriteIds.find((id) => !previousFavoriteIds.includes(id))
+          if (addedCourseId) {
+            const addedToPlan = await addCourseToCurrentSemesterPlan(token, userCacheKey, addedCourseId)
+            if (addedToPlan) {
+              markSemesterTabBadge()
+            }
+          }
+        }
       })
       .catch((error) => {
         setFavoriteIds(previousFavoriteIds)

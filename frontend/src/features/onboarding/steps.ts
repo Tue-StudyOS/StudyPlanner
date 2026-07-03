@@ -172,7 +172,7 @@ function getRouteTitleKey(route: string | undefined): TranslationKey | null {
     case ROUTES.catalog:
       return 'nav.catalog'
     case ROUTES.planner:
-      return 'nav.planner'
+      return 'nav.semester'
     case ROUTES.overview:
       return 'nav.progress'
     default:

@@ -8,11 +8,18 @@ function formatEctsValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+interface CatalogProgressHintProps {
+  /** Area codes currently active in the catalog's study-area filter. */
+  selectedAreaCodes?: string[]
+  onSelectArea?: (code: string) => void
+}
+
 /**
  * Slim sticky reminder of the regulation areas that are still open, so the
  * missing parts of the degree stay visible while scrolling the catalog.
+ * Each chip doubles as a shortcut that filters the catalog to its area.
  */
-export function CatalogProgressHint() {
+export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: CatalogProgressHintProps = {}) {
   const { isAuthenticated } = useAuth()
   const { isOpen: isOnboardingOpen } = useOnboarding()
   const { progressSnapshot } = useProgressSnapshot()
@@ -49,16 +56,26 @@ export function CatalogProgressHint() {
         className="fixed inset-x-0 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] min-h-[4.25rem] border-b border-border bg-bg px-4 py-2 md:sticky md:top-0 md:z-30 md:min-h-0"
       >
         <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
-          {openAreas.map((area) => (
-            <span
-              key={area.code}
-              title={area.name}
-              className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-fg-mid"
-            >
-              {formatRegulationAreaShortLabel(area.code)} {formatEctsValue(area.earnedEcts)}/
-              {formatEctsValue(area.requiredEcts)}
-            </span>
-          ))}
+          {openAreas.map((area) => {
+            const isActive = selectedAreaCodes?.includes(area.code) ?? false
+            return (
+              <button
+                key={area.code}
+                type="button"
+                title={area.name}
+                aria-pressed={isActive}
+                onClick={() => onSelectArea?.(area.code)}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10.5px] font-medium tabular-nums transition-colors ${
+                  isActive
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface text-fg-mid hover:border-primary/40 hover:bg-surface-hover hover:text-fg'
+                }`}
+              >
+                {formatRegulationAreaShortLabel(area.code)} {formatEctsValue(area.earnedEcts)}/
+                {formatEctsValue(area.requiredEcts)}
+              </button>
+            )
+          })}
         </div>
       </div>
     </>

@@ -4,6 +4,7 @@ import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { SemesterPlan, SemesterPlanSummary } from '../types'
+import { SEMESTER_PLAN_CHANGED_EVENT } from '../utils/semesterTabBadge.ts'
 import {
   buildSemesterOptions,
   getCurrentSemesterLabel,
@@ -88,6 +89,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
     initialSemesterLabel?.trim() || currentSemesterLabel,
   )
+  const [planReloadToken, setPlanReloadToken] = useState<number>(0)
 
   const semesterOptions = useMemo(
     () =>
@@ -210,7 +212,21 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     return () => {
       isActive = false
     }
-  }, [normalizedActiveSemesterLabel, token, userCacheKey])
+  }, [normalizedActiveSemesterLabel, planReloadToken, token, userCacheKey])
+
+  useEffect(() => {
+    function handleSemesterPlanChanged(event: Event): void {
+      const semesterLabel = (event as CustomEvent<{ semesterLabel: string }>).detail?.semesterLabel
+      if (semesterLabel === normalizedActiveSemesterLabel) {
+        setPlanReloadToken((currentValue) => currentValue + 1)
+      }
+    }
+
+    window.addEventListener(SEMESTER_PLAN_CHANGED_EVENT, handleSemesterPlanChanged)
+    return () => {
+      window.removeEventListener(SEMESTER_PLAN_CHANGED_EVENT, handleSemesterPlanChanged)
+    }
+  }, [normalizedActiveSemesterLabel])
 
   const hasUnsavedChanges = useMemo(
     () =>

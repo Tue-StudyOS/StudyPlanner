@@ -482,6 +482,24 @@ async def _evaluate_intermediate_exam(
     }
 
 
+def _compute_average_grade(completed_courses: list[dict[str, Any]]) -> float | None:
+    """Overall grade using the German convention: the ECTS-weighted mean of graded
+    modules. Ungraded overarching-competence (UEBK) modules are excluded. Falls back
+    to an unweighted mean when the graded modules carry no ECTS value."""
+    graded_pairs = [
+        (grade, _normalize_float(course.get('ects')) or 0.0)
+        for course in completed_courses
+        if (grade := _normalize_float(course.get('grade'))) is not None
+        and _normalize_study_area_code(course.get('studyAreaCode')) != 'UEBK'
+    ]
+    graded_weight = sum(weight for _, weight in graded_pairs)
+    if graded_weight > 0:
+        return sum(grade * weight for grade, weight in graded_pairs) / graded_weight
+    if graded_pairs:
+        return sum(grade for grade, _ in graded_pairs) / len(graded_pairs)
+    return None
+
+
 async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     user = await require_authenticated_user(env, request)
     username = str(user['username'])
@@ -528,13 +546,7 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         completed_course['masterCat'] = _normalize_master_cat(completed_course.get('masterCat'))
 
     total_ects = sum(_normalize_float(course.get('ects')) or 0 for course in completed_courses)
-    graded_courses = [
-        _normalize_float(course.get('grade'))
-        for course in completed_courses
-        if _normalize_float(course.get('grade')) is not None
-        and _normalize_study_area_code(course.get('studyAreaCode')) != 'UEBK'
-    ]
-    average_grade = sum(graded_courses) / len(graded_courses) if graded_courses else None
+    average_grade = _compute_average_grade(completed_courses)
     progress_percentage = round((total_ects / required_ects) * 100) if required_ects > 0 else 0
 
     master_category_progress = []
