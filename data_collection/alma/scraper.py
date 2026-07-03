@@ -927,7 +927,11 @@ def parse_content_page(html_text: str, final_url: str | None = None) -> dict[str
             if not isinstance(title_node, Tag):
                 continue
             title = clean_text(title_node)
-            if not title or title in {"Inhalte", "Semesterplanung", "Weitere Funktionen"}:
+            # "Inhalte" is the real syllabus box (same shape as Lernziele,
+            # Voraussetzung, ...) and must be kept; only the sibling tab panes
+            # are chrome. Previously dropping every "Inhalte" box lost the
+            # course contents for every structured course.
+            if not title or title in {"Semesterplanung", "Weitere Funktionen"}:
                 continue
             text = clean_text(box)
             if title and text.startswith(title):
