@@ -3,6 +3,7 @@ import type { SupportedLanguage } from './types'
 export const TRANSLATIONS = {
   en: {
     'nav.semester': 'Semester',
+    'nav.semesterNewCourses': 'New courses added to your semester plan',
     'nav.catalog': 'Catalog',
     'nav.progress': 'Progress',
     'nav.transcript': 'Transcript',
@@ -87,6 +88,7 @@ export const TRANSLATIONS = {
     'planner.favorites.empty': 'Bookmark some courses in the catalog first, then plan with them here.',
     'planner.favorites.openCatalog': 'Open catalog',
     'planner.favorites.inPlan': 'In plan',
+    'planner.favorites.chooseTutorialSlot': 'Tutorial slot',
     'planner.favorites.done': 'done',
     'planner.favorites.notOffered': 'Not offered',
     'planner.favorites.notOfferedHint': 'Not offered in {semester} — kept here for another semester.',
@@ -316,6 +318,7 @@ export const TRANSLATIONS = {
     'courseDetail.learningPlatforms': 'Lernplattformen',
     'courseDetail.openMoodle': 'Moodle-Kurs öffnen',
     'nav.semester': 'Semester',
+    'nav.semesterNewCourses': 'New courses added to your semester plan',
     'nav.catalog': 'Katalog',
     'nav.progress': 'Fortschritt',
     'nav.transcript': 'Transcript',
@@ -400,6 +403,7 @@ export const TRANSLATIONS = {
     'planner.favorites.empty': 'Merke dir zuerst Kurse im Katalog, dann kannst du sie hier einplanen.',
     'planner.favorites.openCatalog': 'Katalog öffnen',
     'planner.favorites.inPlan': 'Im Plan',
+    'planner.favorites.chooseTutorialSlot': 'Tutoriumstermin',
     'planner.favorites.done': 'erledigt',
     'planner.favorites.notOffered': 'Nicht angeboten',
     'planner.favorites.notOfferedHint': 'Wird in {semester} nicht angeboten – bleibt für ein anderes Semester gemerkt.',

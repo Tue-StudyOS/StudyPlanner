@@ -10,6 +10,7 @@ import { useTranslation } from '../../i18n'
 import { HelpButton } from '../../onboarding'
 import { ROUTES, TEST_ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
+import { useSemesterTabBadge } from '../../planner/utils/semesterTabBadge.ts'
 
 const STUDYOS_BOT_URL = 'https://chatgpt.com/g/g-6a2de082a0b88191b833f7307d0c9429-studyos-bot'
 
@@ -20,6 +21,7 @@ export function TopBar() {
   const { isDark, toggleTheme } = useTheme()
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
+  const showSemesterTabBadge = useSemesterTabBadge()
 
   const askGptButton = (
     <a
@@ -97,7 +99,7 @@ export function TopBar() {
                   to={path}
                   end={path === ROUTES.planner}
                   className={({ isActive }) =>
-                    `group flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
+                    `group relative flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
                       isActive
                         ? 'bg-sidebar-active font-semibold text-white'
                         : 'bg-transparent font-medium text-white/65 hover:bg-sidebar-hover hover:text-white'
@@ -110,6 +112,12 @@ export function TopBar() {
                         <Icon />
                       </span>
                       {t(labelKey)}
+                      {path === ROUTES.planner && showSemesterTabBadge ? (
+                        <span
+                          aria-label={t('nav.semesterNewCourses')}
+                          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500"
+                        />
+                      ) : null}
                     </>
                   )}
                 </NavLink>
@@ -166,7 +174,7 @@ export function TopBar() {
                   end={path === ROUTES.planner}
                   onClick={() => setIsMenuOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
+                    `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
                       isActive
                         ? 'bg-primary text-white'
                         : 'text-fg hover:bg-surface-hover'
@@ -175,6 +183,12 @@ export function TopBar() {
                 >
                   <Icon />
                   <span>{t(labelKey)}</span>
+                  {path === ROUTES.planner && showSemesterTabBadge ? (
+                    <span
+                      aria-label={t('nav.semesterNewCourses')}
+                      className="ml-auto h-2 w-2 rounded-full bg-red-500"
+                    />
+                  ) : null}
                 </NavLink>
               ))}
               <NavLink

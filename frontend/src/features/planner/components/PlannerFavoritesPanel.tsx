@@ -10,6 +10,10 @@ import { useTranslation } from '../../i18n'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
 import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
+import {
+  getTutorialSlotOptions,
+  resolveVisibleTutorialSlotId,
+} from '../utils/plannerSlotSelection.ts'
 import { useTheme } from '../../theme'
 import type { PlannerRenderMode } from './PlannerGrid'
 
@@ -23,16 +27,20 @@ function CandidateCard({
   activeSemesterLabel,
   isBadge,
   badgeNumber,
+  hiddenSlotIds,
   onAddCourse,
   onToggleFavorite,
+  onSelectTutorialSlot,
 }: {
   candidate: PlannerFavoriteCandidate
   studyProgramCode: string | null
   activeSemesterLabel: string
   isBadge: boolean
   badgeNumber?: number
+  hiddenSlotIds: string[]
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
+  onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }) {
   const { t } = useTranslation()
   const { isDark } = useTheme()
@@ -42,6 +50,8 @@ function CandidateCard({
   const canAdd = isAssignable && isOfferedInActiveSemester
   const dimClassName = !canAdd ? 'opacity-50' : completedCourse ? 'opacity-75' : ''
   const areaTags = buildCourseAreaTags(course, studyProgramCode)
+  const tutorialSlotOptions = isPlanned ? getTutorialSlotOptions(course) : []
+  const selectedTutorialSlotId = resolveVisibleTutorialSlotId(tutorialSlotOptions, hiddenSlotIds)
   const blockedHint = !isAssignable
     ? t('planner.favorites.notAssignable')
     : !isOfferedInActiveSemester
@@ -118,6 +128,28 @@ function CandidateCard({
               ))}
             </div>
           ) : null}
+          {tutorialSlotOptions.length > 1 && selectedTutorialSlotId ? (
+            <label
+              className="mt-2 grid gap-1"
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                {t('planner.favorites.chooseTutorialSlot')}
+              </span>
+              <select
+                value={selectedTutorialSlotId}
+                onChange={(event) => onSelectTutorialSlot(course.id, event.target.value)}
+                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-[11.5px] text-fg outline-none focus:border-primary"
+              >
+                {tutorialSlotOptions.map((option) => (
+                  <option key={option.slotId} value={option.slotId}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
 
         <div onClick={(event) => event.stopPropagation()}>
@@ -147,6 +179,8 @@ interface PlannerFavoritesPanelProps {
   onSetAssignment: (courseId: string, areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
+  hiddenSlotIds: string[]
+  onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }
 
 export function PlannerFavoritesPanel({
@@ -168,6 +202,8 @@ export function PlannerFavoritesPanel({
   onSetAssignment,
   onAddCourse,
   onToggleFavorite,
+  hiddenSlotIds,
+  onSelectTutorialSlot,
 }: PlannerFavoritesPanelProps) {
   const { t } = useTranslation()
   const isBadge = renderMode === 'badge'
@@ -226,8 +262,10 @@ export function PlannerFavoritesPanel({
                   activeSemesterLabel={activeSemesterLabel}
                   isBadge={isBadge}
                   badgeNumber={courseNumbers.get(candidate.course.id)}
+                  hiddenSlotIds={hiddenSlotIds}
                   onAddCourse={onAddCourse}
                   onToggleFavorite={onToggleFavorite}
+                  onSelectTutorialSlot={onSelectTutorialSlot}
                 />
               </div>
             ))}

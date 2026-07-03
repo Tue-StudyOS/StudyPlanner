@@ -27,6 +27,11 @@ import {
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
 import {
+  defaultHiddenTutorialSlotIds,
+  getTutorialSlotOptions,
+  hiddenSlotIdsForTutorialSelection,
+} from '../utils/plannerSlotSelection.ts'
+import {
   compareSemesterLabels,
   formatSemesterLabelShort,
   getCurrentSemesterLabel,
@@ -129,6 +134,10 @@ export function SemesterPlanner({
 
   const favoritesLayout = getPlannerFavoritesLayout(hasSidebarSpace)
   const courseById = useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses])
+  const allCourseById = useMemo(
+    () => new Map(allCatalogCourses.map((course) => [course.id, course])),
+    [allCatalogCourses],
+  )
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
@@ -259,7 +268,14 @@ export function SemesterPlanner({
     if (!plannedCourseIds.includes(courseId)) {
       setPlannedCourseIds([...plannedCourseIds, courseId])
     }
-    clearHiddenSlotsForCourse(courseId)
+    const course = courseById.get(courseId) ?? allCourseById.get(courseId) ?? null
+    const defaultHiddenTutorialSlots = course
+      ? defaultHiddenTutorialSlotIds(getTutorialSlotOptions(course))
+      : []
+    setHiddenSlotIds([
+      ...hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+      ...defaultHiddenTutorialSlots,
+    ])
     setAssignment(courseId, resolveExplicitAddAssignment(courseId, preferredAreaCode))
   }
 
@@ -269,6 +285,19 @@ export function SemesterPlanner({
     )
     clearHiddenSlotsForCourse(courseId)
     setAssignment(courseId, null)
+  }
+
+  function handleTutorialSlotSelect(courseId: string, selectedSlotId: string): void {
+    const course = courseById.get(courseId) ?? allCourseById.get(courseId) ?? null
+    if (!course) {
+      return
+    }
+    const tutorialSlotIds = getTutorialSlotOptions(course).map((option) => option.slotId)
+    const nextHiddenForCourse = hiddenSlotIdsForTutorialSelection(tutorialSlotIds, selectedSlotId)
+    setHiddenSlotIds([
+      ...hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+      ...nextHiddenForCourse,
+    ])
   }
 
   // Clicking an interested course toggles it in the weekly plan: add if it is
@@ -434,6 +463,8 @@ export function SemesterPlanner({
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
       onToggleFavorite={toggleFavorite}
+      hiddenSlotIds={displayHiddenSlotIds}
+      onSelectTutorialSlot={handleTutorialSlotSelect}
     />
   )
 
