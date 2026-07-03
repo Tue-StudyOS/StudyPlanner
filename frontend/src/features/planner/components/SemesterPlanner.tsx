@@ -26,7 +26,12 @@ import {
   resolveChosenInfoAlternativeAreaCode,
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
-import { formatSemesterLabelShort, parseSemesterLabel } from '../utils/semesterLabels'
+import {
+  compareSemesterLabels,
+  formatSemesterLabelShort,
+  getCurrentSemesterLabel,
+  parseSemesterLabel,
+} from '../utils/semesterLabels'
 import {
   getPlannerFavoritesLayout,
   PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY,
@@ -36,8 +41,11 @@ import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
 import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
-import { PlannerProgressStrip } from './PlannerProgressStrip'
+import { SemesterCard } from './SemesterCard'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
+import { StatItem } from '../../../shared/components/StatItem'
+import { RegulationProgress } from '../../dashboard/components/RegulationProgress'
+import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 
 // Auto-save is silent; only the brief in-flight state is surfaced.
 function SaveIndicator({ isSaving }: { isSaving: boolean }) {
@@ -84,6 +92,7 @@ export function SemesterPlanner({
   const {
     activeSemesterLabel,
     semesterOptions,
+    savedPlans,
     plannedCourseIds,
     hiddenSlotIds,
     planAssignments,
@@ -97,6 +106,7 @@ export function SemesterPlanner({
     setAssignment,
     setAssignments,
   } = useSemesterPlanner(initialSemesterLabel)
+  const { progressSnapshot } = useProgressSnapshot()
 
   // Load the catalog of the semester being planned so the weekly grid uses that
   // semester's appointments. Falls back to the newest period (backend default)
@@ -126,8 +136,10 @@ export function SemesterPlanner({
     () => buildHistoricalSemesterPlan(completedCourses, [...courses, ...allCatalogCourses], activeSemesterLabel),
     [activeSemesterLabel, allCatalogCourses, completedCourses, courses],
   )
-  const usesCompletedCourseFallback = readOnly
-    && useCompletedCourseFallback
+  // Past semesters that have no saved plan fall back to the transcript so old
+  // courses still appear on their card and weekly grid, even without exact times.
+  const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
+  const usesCompletedCourseFallback = ((readOnly && useCompletedCourseFallback) || isPastSemester)
     && !isLoadingSemesterPlan
     && !isLoadingCompletedCourses
     && plannedCourses.length === 0
@@ -153,6 +165,33 @@ export function SemesterPlanner({
     }
     return [...favoriteById.values()]
   }, [allCatalogCourses, favoriteIds])
+
+  // Per-semester course counts drive the semester cards. Saved plans expose a
+  // count directly; past semesters without a plan fall back to transcript rows.
+  const completedCountBySemester = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const course of completedCourses) {
+      const label = course.semester?.trim()
+      if (!label) {
+        continue
+      }
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return counts
+  }, [completedCourses])
+  const savedCountBySemester = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const plan of savedPlans) {
+      counts.set(plan.semesterLabel, plan.courseCount)
+    }
+    return counts
+  }, [savedPlans])
+  function courseCountForSemester(semesterLabel: string): number {
+    if (semesterLabel === activeSemesterLabel) {
+      return effectivePlannedCourses.length
+    }
+    return savedCountBySemester.get(semesterLabel) ?? completedCountBySemester.get(semesterLabel) ?? 0
+  }
   const isPlannerTourPreview = isOnboardingOpen && isPlannerTourStep(activeStepId)
   const shouldShowTourAddDrawer = isSmallViewport && isOnboardingOpen && activeStepId === 'planner-add-mobile'
   const isPlannerMobileInterestedTour = shouldShowTourAddDrawer && isPlannerTourPreview
@@ -232,11 +271,17 @@ export function SemesterPlanner({
     setAssignment(courseId, null)
   }
 
+  // Clicking an interested course toggles it in the weekly plan: add if it is
+  // not planned yet, remove it if it already is.
   function handleInterestedCourseAdd(courseId: string, areaCode: string | null): void {
     if (isPlannerTourPreview) {
       return
     }
-    handleAddCourse(courseId, areaCode)
+    if (plannedCourseIds.includes(courseId)) {
+      handleRemoveCourse(courseId)
+    } else {
+      handleAddCourse(courseId, areaCode)
+    }
     if (isSmallViewport) {
       setIsAddDrawerOpen(false)
     }
@@ -403,20 +448,7 @@ export function SemesterPlanner({
           <span className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg">
             {formatSemesterLabelShort(activeSemesterLabel)}
           </span>
-        ) : (
-          <select
-            aria-label="Select semester"
-            value={activeSemesterLabel}
-            onChange={(event) => setActiveSemesterLabel(event.target.value)}
-            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] font-medium text-fg outline-none transition-colors focus:border-primary"
-          >
-            {semesterOptions.map((semesterLabel) => (
-              <option key={semesterLabel} value={semesterLabel}>
-                {formatSemesterLabelShort(semesterLabel)}
-              </option>
-            ))}
-          </select>
-        )}
+        ) : null}
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
@@ -470,13 +502,60 @@ export function SemesterPlanner({
       ) : null}
 
       <div className="grid min-w-0 gap-4.5">
-        <PlannerProgressStrip
-          plannedCourses={displayPlannedCourses}
-          completedCourses={displayCompletedCourses}
-          studyProgramCode={displayStudyProgramCode}
-          planAssignments={displayPlanAssignments}
-          regulationRuleGroups={displayRuleGroups}
-        />
+        {!initialSemesterLabel && !readOnly ? (
+          <>
+            {progressSnapshot ? (
+              <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
+                <div className="min-w-0 overflow-hidden">
+                  <StatItem
+                    label={t('progress.totalEcts')}
+                    value={String(progressSnapshot.summary.totalEcts)}
+                    sub={`/ ${progressSnapshot.summary.requiredEcts} ECTS`}
+                  />
+                </div>
+                <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
+                  <StatItem
+                    label={t('progress.progress')}
+                    value={`${progressSnapshot.summary.progressPercentage} %`}
+                    sub={t('progress.ofDegree')}
+                  />
+                </div>
+                <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
+                  <StatItem
+                    label={t('progress.averageGrade')}
+                    value={
+                      progressSnapshot.summary.averageGrade !== null
+                        ? progressSnapshot.summary.averageGrade.toFixed(2)
+                        : '–'
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="min-w-0">
+              <div className="mb-2 text-[13px] font-semibold text-fg">
+                {t('planner.semestersTitle')}
+              </div>
+              <div className="flex min-w-0 gap-2.5 overflow-x-auto pb-1">
+                {semesterOptions.map((semesterLabel) => (
+                  <SemesterCard
+                    key={semesterLabel}
+                    semesterLabel={semesterLabel}
+                    courseCount={courseCountForSemester(semesterLabel)}
+                    isActive={semesterLabel === activeSemesterLabel}
+                    countLabel={(count) => t('planner.semesterCourseCount', { count })}
+                    onSelect={setActiveSemesterLabel}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {progressSnapshot && progressSnapshot.regulationProgress.length > 0 ? (
+              <RegulationProgress areas={progressSnapshot.regulationProgress} />
+            ) : null}
+          </>
+        ) : null}
 
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
