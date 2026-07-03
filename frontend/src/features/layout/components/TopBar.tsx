@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, useMatch } from 'react-router-dom'
+import { Link, NavLink, useLocation, useMatch } from 'react-router-dom'
 import logo from '../../../assets/logo.png'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
@@ -8,13 +8,18 @@ import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { HelpButton } from '../../onboarding'
-import { ROUTES, TEST_ROUTES } from '../../routes'
+import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 import { useSemesterTabBadge } from '../../planner/utils/semesterTabBadge.ts'
 
 const STUDYOS_BOT_URL = 'https://chatgpt.com/g/g-6a2de082a0b88191b833f7307d0c9429-studyos-bot'
 
+function isSemesterNavActive(pathname: string): boolean {
+  return pathname === ROUTES.planner || pathname.startsWith('/semester/')
+}
+
 export function TopBar() {
+  const location = useLocation()
   const isOnAccountPage = Boolean(useMatch(ROUTES.account))
   const isMobileNavigation = useMediaQuery('(max-width: 960px)')
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
@@ -35,16 +40,6 @@ export function TopBar() {
     </a>
   )
 
-  const testEntryButton = (
-    <Link
-      to={TEST_ROUTES.root}
-      aria-label={t('test.entry')}
-      className="flex h-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover px-2.5 text-[12px] font-semibold text-white/85 transition-colors hover:text-white sm:px-3"
-    >
-      Test
-    </Link>
-  )
-
   const themeToggleButton = (
     <button
       type="button"
@@ -56,6 +51,21 @@ export function TopBar() {
     </button>
   )
 
+  function navLinkClass(isActive: boolean): string {
+    return `group relative flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
+      isActive
+        ? 'bg-sidebar-active font-semibold text-white'
+        : 'bg-transparent font-medium text-white/65 hover:bg-sidebar-hover hover:text-white'
+    }`
+  }
+
+  function resolveNavActive(path: string, isActive: boolean): boolean {
+    if (path === ROUTES.planner) {
+      return isSemesterNavActive(location.pathname)
+    }
+    return isActive
+  }
+
   return (
     <>
       <header
@@ -64,7 +74,7 @@ export function TopBar() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)', minHeight: 'calc(3.75rem + env(safe-area-inset-top, 0px))' }}
       >
         <Link
-          to={ROUTES.planner}
+          to={ROUTES.catalog}
           className="flex min-w-0 items-center gap-2 rounded-md transition-opacity hover:opacity-90"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-7.5 sm:w-7.5">
@@ -77,7 +87,6 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex items-center gap-2">
-            {testEntryButton}
             {askGptButton}
             {isAuthenticated ? <HelpButton /> : null}
             {themeToggleButton}
@@ -97,35 +106,31 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.planner}
-                  className={({ isActive }) =>
-                    `group relative flex items-center gap-2 rounded-md px-3.5 py-2 text-[13.5px] transition-all duration-150 ${
-                      isActive
-                        ? 'bg-sidebar-active font-semibold text-white'
-                        : 'bg-transparent font-medium text-white/65 hover:bg-sidebar-hover hover:text-white'
-                    }`
-                  }
+                  end={path === ROUTES.planner ? false : path === ROUTES.catalog}
+                  className={({ isActive }) => navLinkClass(resolveNavActive(path, isActive))}
                 >
-                  {({ isActive }) => (
-                    <>
-                      <span className={`flex ${isActive ? 'text-white' : 'text-white/55 group-hover:text-white'}`}>
-                        <Icon />
-                      </span>
-                      {t(labelKey)}
-                      {path === ROUTES.planner && showSemesterTabBadge ? (
-                        <span
-                          aria-label={t('nav.semesterNewCourses')}
-                          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500"
-                        />
-                      ) : null}
-                    </>
-                  )}
+                  {({ isActive }) => {
+                    const active = resolveNavActive(path, isActive)
+                    return (
+                      <>
+                        <span className={`flex ${active ? 'text-white' : 'text-white/55 group-hover:text-white'}`}>
+                          <Icon />
+                        </span>
+                        {t(labelKey)}
+                        {path === ROUTES.planner && showSemesterTabBadge ? (
+                          <span
+                            aria-label={t('nav.semesterNewCourses')}
+                            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500"
+                          />
+                        ) : null}
+                      </>
+                    )
+                  }}
                 </NavLink>
               ))}
             </nav>
 
             <div className="flex items-center gap-2">
-              {testEntryButton}
               {askGptButton}
               {isAuthenticated ? <HelpButton /> : null}
               {themeToggleButton}
@@ -171,15 +176,14 @@ export function TopBar() {
                 <NavLink
                   key={path}
                   to={path}
-                  end={path === ROUTES.planner}
+                  end={path === ROUTES.planner ? false : path === ROUTES.catalog}
                   onClick={() => setIsMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-fg hover:bg-surface-hover'
+                  className={({ isActive }) => {
+                    const active = resolveNavActive(path, isActive)
+                    return `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
+                      active ? 'bg-primary text-white' : 'text-fg hover:bg-surface-hover'
                     }`
-                  }
+                  }}
                 >
                   <Icon />
                   <span>{t(labelKey)}</span>
@@ -196,9 +200,7 @@ export function TopBar() {
                 onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
-                    isActive
-                      ? 'bg-primary text-white'
-                      : 'text-fg hover:bg-surface-hover'
+                    isActive ? 'bg-primary text-white' : 'text-fg hover:bg-surface-hover'
                   }`
                 }
               >

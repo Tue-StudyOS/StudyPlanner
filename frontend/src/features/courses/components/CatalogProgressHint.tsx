@@ -1,15 +1,16 @@
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
+import { CAT_BADGE_CLASSES } from '../../../shared/components/catClasses'
+import type { MasterCat } from '../../courses'
 import { useAuth } from '../../auth'
-import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { useOnboarding } from '../../onboarding'
-import { TOUR_CATALOG_OPEN_AREAS, type TourCatalogOpenArea } from '../../onboarding/utils/tourPreviewData.ts'
+import { TOUR_CATALOG_OPEN_AREAS } from '../../onboarding/utils/tourPreviewData.ts'
+import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 
 function formatEctsValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
 interface CatalogProgressHintProps {
-  /** Area codes currently active in the catalog's study-area filter. */
   selectedAreaCodes?: string[]
   onSelectArea?: (code: string) => void
 }
@@ -17,14 +18,13 @@ interface CatalogProgressHintProps {
 /**
  * Slim sticky reminder of the regulation areas that are still open, so the
  * missing parts of the degree stay visible while scrolling the catalog.
- * Each chip doubles as a shortcut that filters the catalog to its area.
  */
 export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: CatalogProgressHintProps = {}) {
   const { isAuthenticated } = useAuth()
   const { isOpen: isOnboardingOpen } = useOnboarding()
   const { progressSnapshot } = useProgressSnapshot()
 
-  const realOpenAreas: TourCatalogOpenArea[] = (progressSnapshot?.regulationProgress ?? [])
+  const realOpenAreas = (progressSnapshot?.regulationProgress ?? [])
     .filter(
       (area) =>
         area.code.trim().toUpperCase() !== 'THESIS'
@@ -36,13 +36,12 @@ export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: Catalog
       name: area.name,
       earnedEcts: area.earnedEcts,
       requiredEcts: area.requiredEcts,
+      masterCat: area.masterCat,
     }))
 
-  // During the tour the opening catalog step highlights this bar, so fall back
-  // to preview chips when the signed-in user has no real open areas yet.
   const openAreas = realOpenAreas.length > 0
     ? realOpenAreas
-    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS : []
+    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS.map((area) => ({ ...area, masterCat: null as MasterCat | null })) : []
 
   if (!isAuthenticated || openAreas.length === 0) {
     return null
@@ -58,6 +57,8 @@ export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: Catalog
         <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
           {openAreas.map((area) => {
             const isActive = selectedAreaCodes?.includes(area.code) ?? false
+            const shortLabel = formatRegulationAreaShortLabel(area.code)
+            const colorClass = area.masterCat ? CAT_BADGE_CLASSES[area.masterCat] : 'text-fg-mid border-border bg-surface-hover'
             return (
               <button
                 key={area.code}
@@ -65,14 +66,11 @@ export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: Catalog
                 title={area.name}
                 aria-pressed={isActive}
                 onClick={() => onSelectArea?.(area.code)}
-                className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10.5px] font-medium tabular-nums transition-colors ${
-                  isActive
-                    ? 'border-primary bg-primary text-white'
-                    : 'border-border bg-surface text-fg-mid hover:border-primary/40 hover:bg-surface-hover hover:text-fg'
+                className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-[10.5px] font-medium tabular-nums transition-colors ${colorClass} ${
+                  isActive ? 'ring-1 ring-primary/50' : 'hover:opacity-90'
                 }`}
               >
-                {formatRegulationAreaShortLabel(area.code)} {formatEctsValue(area.earnedEcts)}/
-                {formatEctsValue(area.requiredEcts)}
+                {shortLabel} {formatEctsValue(area.earnedEcts)}/{formatEctsValue(area.requiredEcts)}
               </button>
             )
           })}

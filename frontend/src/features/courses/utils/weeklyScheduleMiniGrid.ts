@@ -8,6 +8,7 @@ import { getScheduleSlotKind, type ScheduleSlotKind } from './scheduleSlotKind.t
 import type { ScheduleSlot } from '../types.ts'
 
 export const MINI_GRID_START_MINUTES = 8 * 60
+export const MINI_GRID_END_MINUTES = 20 * 60
 export const MINI_GRID_LABEL_SEPARATOR = ' \u00b7 '
 
 export interface MiniGridBlock extends PlannerBlock {
@@ -21,7 +22,7 @@ export function buildMiniGridBlocks(schedule: ScheduleSlot[]): MiniGridBlock[] {
   schedule.forEach((slot, index) => {
     const day = normalizeWeekday(slot.day)
     const timeRange = parseTimeRange(slot.time)
-    if (!day || !timeRange || timeRange.endMinutes <= MINI_GRID_START_MINUTES) {
+    if (!day || !timeRange || timeRange.endMinutes <= MINI_GRID_START_MINUTES || timeRange.startMinutes >= MINI_GRID_END_MINUTES) {
       return
     }
     const kind = getScheduleSlotKind(slot)

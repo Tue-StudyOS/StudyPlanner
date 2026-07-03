@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
-import { SEASON_WATERMARK_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
+import { SEASON_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
 import { cleanCourseTitle, formatCourseTypeLabel, isGenericContentTitle } from '../utils/courseTitle.ts'
-import { getExamDisplayLabel } from '../utils/examLabels.ts'
 import { cleanLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
 import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
@@ -111,7 +110,7 @@ interface CourseDetailBodyProps {
  * explicit empty state.
  */
 export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
-  const { language, t } = useTranslation()
+  const { t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
@@ -151,14 +150,8 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
 
   return (
     <div className="min-w-0">
-      <div className="relative mb-6 min-w-0 overflow-hidden rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]"
-        >
-          <SeasonSymbol termType={seasonTermType} className={SEASON_WATERMARK_CLASS} />
-        </div>
-        <div className="relative flex min-w-0 items-start gap-4">
+      <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="mb-3 flex flex-wrap items-center gap-1.5">
               <TypePill label={formatCourseTypeLabel(course.types)} />
@@ -181,8 +174,13 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
               </div>
             ) : null}
           </div>
+          <SeasonSymbol termType={seasonTermType} className={SEASON_ICON_CLASS} />
         </div>
       </div>
+
+      <Section title={t('courseDetail.weeklySchedule')}>
+        <WeeklyScheduleMiniGrid schedule={course.schedule} />
+      </Section>
 
       {hasValue(course.description) ? (
         <Section title={t('courseDetail.description')}>
@@ -267,31 +265,6 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
                 {course.illias.description}
               </p>
             ) : null}
-          </div>
-        </Section>
-      ) : null}
-
-      <Section title={t('courseDetail.weeklySchedule')}>
-        <WeeklyScheduleMiniGrid schedule={course.schedule} />
-      </Section>
-
-      {course.exams.length > 0 ? (
-        <Section title={t('courseDetail.examDates')}>
-          <div className="flex flex-col gap-2">
-            {course.exams.map((exam, index) => (
-              <div
-                key={`${exam.type}-${exam.date}-${index}`}
-                className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border border-l-[3px] border-l-primary bg-surface px-4 py-3"
-              >
-                <span className="min-w-0 flex-1 break-words text-[13.5px] font-medium text-fg">
-                  {getExamDisplayLabel(course.exams, index, language)}
-                </span>
-                <div className="flex shrink-0 items-center gap-3 text-[12.5px] text-fg-muted">
-                  {hasValue(exam.date) ? <span>{exam.date}</span> : null}
-                  {hasValue(exam.duration) ? <span>{exam.duration}</span> : null}
-                </div>
-              </div>
-            ))}
           </div>
         </Section>
       ) : null}

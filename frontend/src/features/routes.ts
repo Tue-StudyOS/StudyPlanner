@@ -31,6 +31,8 @@ export function testSemesterPath(label: string, suffix: '' | '/plan' | '/editor'
   return `${TEST_ROUTES.semesters}/${encodeURIComponent(label)}${suffix}`
 }
 
+export const LEGACY_CATALOG_ROUTE = '/katalog'
+
 export function semesterPath(label: string): string {
   return `/semester/${encodeURIComponent(label)}`
 }

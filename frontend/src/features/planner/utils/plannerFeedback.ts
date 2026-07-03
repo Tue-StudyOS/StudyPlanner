@@ -130,9 +130,6 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
 
   courses.forEach((course) => {
     course.schedule.forEach((slot, index) => {
-      if (isSingleDateSlot(slot.day)) {
-        return
-      }
       const normalizedDay = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
       if (!normalizedDay || !timeRange) {
@@ -142,6 +139,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
       if (!visibleTimeRange) {
         return
       }
+      const slotTypeLabel = slot.type !== 'Course' && /[\p{L}\p{N}]/u.test(slot.type) ? slot.type : ''
       blocks.push({
         blockId: `${course.id}-${index}`,
         slotId: `${course.id}:${index}`,
@@ -152,7 +150,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         endMinutes: visibleTimeRange.endMinutes,
         label: slot.time,
         room: slot.room,
-        slotType: slot.type !== 'Course' && /[\p{L}\p{N}]/u.test(slot.type) ? slot.type : '',
+        slotType: slotTypeLabel,
         hasOverlap: false,
       })
     })

@@ -9,7 +9,8 @@ import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { FavStar } from './FavStar'
 import { SeasonSymbol } from './SeasonSymbol'
-import { SEASON_WATERMARK_CLASS } from './seasonSymbolStyles.ts'
+import { SEASON_ICON_CLASS } from './seasonSymbolStyles.ts'
+import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
 interface CourseCardProps {
   course: Course
@@ -26,6 +27,9 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
+  regulationRuleGroups?: RegulationRuleGroup[]
+  selectedStudyAreaCodes?: string[]
+  onAreaTagClick?: (areaCode: string) => void
   onSelect?: () => void
   onToggleFavorite: () => void
 }
@@ -53,12 +57,15 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
+  regulationRuleGroups = [],
+  selectedStudyAreaCodes = [],
+  onAreaTagClick,
   onSelect,
   onToggleFavorite,
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
+  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null, regulationRuleGroups)
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
@@ -80,18 +87,6 @@ export function CourseCard({
 
   const cardContent = (
     <>
-      {/* Rendered behind the card content: clipped to the rounded card shape
-          and non-interactive so it never affects layout or clicks. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[10px]"
-      >
-        <SeasonSymbol
-          termType={seasonTermType ?? course.termType}
-          className={SEASON_WATERMARK_CLASS}
-        />
-      </div>
-
       <div className="relative flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
@@ -107,19 +102,22 @@ export function CourseCard({
             </span>
           )}
         </div>
-        {showFavorite ? (
-          <div
-            className={secondaryVisibilityClass}
-            // preventDefault keeps the surrounding link from navigating when
-            // bookmarking; stopPropagation shields the plain-button variant.
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-          >
-            <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
-          </div>
-        ) : null}
+        <div className={`flex shrink-0 items-center gap-1.5 ${secondaryVisibilityClass}`}>
+          <SeasonSymbol
+            termType={seasonTermType ?? course.termType}
+            className={SEASON_ICON_CLASS}
+          />
+          {showFavorite ? (
+            <div
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="relative mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
@@ -127,7 +125,13 @@ export function CourseCard({
             ECTS value can stay right-aligned next to the season/type tags. */}
         <span className={`order-last flex w-full flex-wrap items-center gap-0.75 sm:order-none sm:w-auto ${secondaryVisibilityClass}`}>
           {areaTags.map((tag) => (
-            <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
+            <AreaBadge
+              key={tag.key}
+              label={tag.label}
+              masterCat={tag.masterCat}
+              active={selectedStudyAreaCodes.includes(tag.key)}
+              onClick={onAreaTagClick ? () => onAreaTagClick(tag.key) : undefined}
+            />
           ))}
           <OfferingStatusTag status={offeringStatus} />
         </span>

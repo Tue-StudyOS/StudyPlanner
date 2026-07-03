@@ -1,7 +1,7 @@
 import type { PlannerBlock } from './plannerFeedback.ts'
 
 export const START_HOUR = 8
-export const END_HOUR = 18
+export const END_HOUR = 20
 export const MINUTES_PER_HOUR = 60
 const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
 const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR

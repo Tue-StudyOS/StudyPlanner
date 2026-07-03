@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
+import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { buildFlexibleRegulationAreaOptions } from '../../../shared/utils/regulation'
@@ -300,6 +301,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     () => buildFlexibleRegulationAreaOptions(regulationVersion?.ruleGroups ?? []),
     [regulationVersion?.ruleGroups],
   )
+  const regulationRuleGroups = regulationVersion?.ruleGroups ?? []
 
   const timeWindow = useMemo(
     () => ({
@@ -561,9 +563,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                 ) : topicAreaOptions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {topicAreaOptions.map((option) => (
-                      <FilterChip
+                      <AreaBadge
                         key={option.code}
-                        label={option.code}
+                        label={option.shortLabel}
+                        masterCat={option.masterCat}
                         active={selectedStudyAreaCodes.includes(option.code)}
                         onClick={() =>
                           setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, option.code))
@@ -729,6 +732,12 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      regulationRuleGroups={regulationRuleGroups}
+                      selectedStudyAreaCodes={selectedStudyAreaCodes}
+                      onAreaTagClick={(areaCode) => {
+                        setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, areaCode))
+                        setAreFiltersOpen(true)
+                      }}
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
                   </div>

@@ -38,6 +38,8 @@ test('buildCourseAreaTags shows the active regulation areas instead of global ca
   const course = {
     masterCats: ['BASIS', 'INFO'] as MasterCat[],
     studyAreaOptions: [option('ML', 'ML-DIVERSE'), option('INF-BSC', 'TECH')],
+    types: ['Lecture'],
+    title: 'Sample Course',
   }
   assert.deepEqual(buildCourseAreaTags(course, 'ML'), [
     { key: 'ML-DIVERSE', label: 'DIVERSE', masterCat: 'BASIS' },
@@ -45,7 +47,7 @@ test('buildCourseAreaTags shows the active regulation areas instead of global ca
 })
 
 test('buildCourseAreaTags falls back to master categories without a selected program', () => {
-  const course = { masterCats: ['TECH', 'INFO'] as MasterCat[], studyAreaOptions: [] }
+  const course = { masterCats: ['TECH', 'INFO'] as MasterCat[], studyAreaOptions: [], types: ['Lecture'], title: 'Sample' }
   assert.deepEqual(buildCourseAreaTags(course, null), [
     { key: 'TECH', label: 'TECH', masterCat: 'TECH' },
     { key: 'INFO', label: 'INFO', masterCat: 'INFO' },
@@ -53,7 +55,7 @@ test('buildCourseAreaTags falls back to master categories without a selected pro
 })
 
 test('buildCourseAreaTags falls back when the course has no options for the program', () => {
-  const course = { masterCats: ['THEO'] as MasterCat[], studyAreaOptions: [option('ML', 'ML-CS')] }
+  const course = { masterCats: ['THEO'] as MasterCat[], studyAreaOptions: [option('ML', 'ML-CS')], types: ['Lecture'], title: 'Sample' }
   assert.deepEqual(buildCourseAreaTags(course, 'INF-BSC'), [
     { key: 'THEO', label: 'THEO', masterCat: 'THEO' },
   ])

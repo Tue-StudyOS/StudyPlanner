@@ -267,11 +267,11 @@ export function PlannerGrid({
                             >
                               {block.courseTitle}
                             </div>
-                            {block.slotType ? (
-                              <div className="hidden truncate text-[10px] leading-[12px] opacity-75 sm:block">
-                                {block.slotType}
-                              </div>
-                            ) : null}
+                          {block.slotType && block.slotType !== 'Course' ? (
+                            <div className="truncate text-[9px] leading-[11px] opacity-80 sm:text-[10px]">
+                              {block.slotType}
+                            </div>
+                          ) : null}
                           </>
                         )}
                       </button>

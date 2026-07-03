@@ -1,9 +1,9 @@
 import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 
-// Same palette the old SeasonTags dots used, so season colors stay consistent.
-const SUMMER_COLOR_CLASSES = 'text-amber-500 dark:text-amber-300'
-const WINTER_COLOR_CLASSES = 'text-sky-500 dark:text-sky-300'
+// Almost neutral tints — barely colored, mostly gray.
+const SUMMER_COLOR_CLASSES = 'text-amber-700/20 dark:text-amber-200/15'
+const WINTER_COLOR_CLASSES = 'text-sky-700/20 dark:text-sky-200/15'
 
 interface Point {
   x: number
