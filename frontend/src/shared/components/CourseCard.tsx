@@ -83,7 +83,7 @@ export function CourseCard({
   const visibility = getCompletedCourseCardVisibility(isCompleted)
   const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
 
-  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
+  const cardClassName = `group relative flex h-full min-h-[7rem] cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
   }`
   const accessibleLabel = `Open course details: ${title}`
@@ -102,15 +102,17 @@ export function CourseCard({
           {visibility.showCompletedLabel ? (
             <div className="mt-1 min-w-0">
               <div className="text-[13px] font-medium text-accent">{t('catalog.completed')}</div>
-              <span className="mt-0.5 block min-w-0 truncate text-[12px] text-fg-muted">
-                {resolvedLecturerLabel}
-              </span>
+              {resolvedLecturerLabel ? (
+                <span className="mt-0.5 block min-w-0 truncate text-[12px] text-fg-muted">
+                  {resolvedLecturerLabel}
+                </span>
+              ) : null}
             </div>
-          ) : (
+          ) : resolvedLecturerLabel ? (
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
               {resolvedLecturerLabel}
             </span>
-          )}
+          ) : null}
         </div>
         <div className={`flex shrink-0 items-center ${secondaryVisibilityClass}`}>
           {showFavorite ? (

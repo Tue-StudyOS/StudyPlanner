@@ -1,6 +1,6 @@
 export const ROUTES = {
-  planner: '/',
   catalog: '/catalog',
+  planner: '/semester',
   // '/catalog/:courseId' also exists as a deep link; it is wired as a child
   // route in App.tsx and opens the detail drawer over the catalog.
   overview: '/overview',
@@ -9,7 +9,7 @@ export const ROUTES = {
   semesterDetail: '/semester/:label',
 } as const
 
-// The planner used to live here; old links keep working via a redirect.
+// The planner hub used to live at '/'; '/' now opens the catalog instead.
 export const LEGACY_PLANNER_ROUTE = '/planner'
 
 export type RoutePath = typeof ROUTES[keyof typeof ROUTES]

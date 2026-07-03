@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom'
 import type { CourseTermType } from '../../courses'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
 import { SEASON_SEMESTER_CARD_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
-import { formatSemesterLabelShort, parseSemesterLabel, compareSemesterLabels, getCurrentSemesterLabel } from '../utils/semesterLabels'
+import {
+  formatSemesterLabelDisplay,
+  parseSemesterLabel,
+  compareSemesterLabels,
+  getCurrentSemesterLabel,
+} from '../utils/semesterLabels'
 
 interface SemesterCardProps {
   semesterLabel: string
@@ -32,18 +37,18 @@ export function SemesterCard({ semesterLabel, to, showBadge = false }: SemesterC
     >
       <SeasonSymbol
         termType={seasonForLabel(semesterLabel)}
-        className={`absolute right-3 top-3 z-0 ${SEASON_SEMESTER_CARD_CLASS}`}
+        className={SEASON_SEMESTER_CARD_CLASS}
       />
 
       {showBadge ? (
         <span
           aria-hidden="true"
-          className="absolute right-4 top-4 z-10 h-2.5 w-2.5 translate-x-3 -translate-y-0.5 rounded-full bg-danger shadow-[0_0_0_2px_var(--color-surface)]"
+          className="absolute right-5 top-5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_2px_var(--color-surface),0_0_8px_rgba(239,68,68,0.55)]"
         />
       ) : null}
 
-      <span className="relative z-10 text-[16px] font-semibold tracking-[-0.01em] text-fg">
-        {formatSemesterLabelShort(semesterLabel)}
+      <span className="relative z-10 text-[15px] font-semibold tracking-[-0.01em] text-fg sm:text-[16px]">
+        {formatSemesterLabelDisplay(semesterLabel)}
       </span>
       {isCurrentSemester ? (
         <span className="relative z-10 mt-1 text-[11.5px] font-medium text-primary">Current semester</span>

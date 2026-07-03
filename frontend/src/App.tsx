@@ -6,7 +6,7 @@ import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
-import { LEGACY_PLANNER_ROUTE, LEGACY_CATALOG_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
+import { LEGACY_CATALOG_ROUTE, LEGACY_PLANNER_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
 // shell and providers; each page becomes its own chunk.
@@ -82,6 +82,7 @@ function App() {
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
+                      <Route path="/" element={<Navigate to={LEGACY_CATALOG_ROUTE} replace />} />
                       <Route path={ROUTES.planner} element={<SemesterHub />} />
                       <Route path={ROUTES.semesterDetail} element={<SemesterPlanPage />} />
                       <Route path={LEGACY_CATALOG_ROUTE} element={<Navigate to={ROUTES.catalog} replace />} />

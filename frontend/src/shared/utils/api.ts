@@ -10,10 +10,8 @@ export class ApiError extends Error {
   }
 }
 
-// Calls go directly to the Worker's public URL instead of the Pages Function
-// proxy: Cloudflare-internal invocation paths (service bindings) intermittently
-// crash Python Workers during isolate init, while external HTTP ingress does not.
-// See https://github.com/cloudflare/workerd/issues/6624.
+// Direct workers.dev ingress: the Pages /api service-binding proxy crashes the
+// Python API worker (Cloudflare error 1101). See workerd#6624.
 const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
 const PRODUCTION_PAGES_HOST = 'studyplaner.pages.dev'
 const PRODUCTION_PAGES_PREVIEW_SUFFIX = '.studyplaner.pages.dev'

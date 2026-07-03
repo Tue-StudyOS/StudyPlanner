@@ -49,6 +49,11 @@ test('formatCourseLecturerName deduplicates structured lecturer names', () => {
   )
 })
 
+test('formatCourseLecturerName returns empty when no lecturer is known', () => {
+  assert.equal(formatCourseLecturerName({ lecturer: '', lecturers: [] }), '')
+  assert.equal(formatCourseLecturerName({ lecturer: 'TBA', lecturers: [] }), '')
+})
+
 test('cleanLecturerName handles empty, whitespace, and placeholder input gracefully', () => {
   assert.equal(cleanLecturerName(''), '')
   assert.equal(cleanLecturerName('   '), '')

@@ -40,15 +40,10 @@ export function scheduleSlotBlockClasses(
   slotKind: ScheduleSlotKind,
   hasOverlap: boolean,
 ): string {
-  if (slotKind === 'exam') {
+  if (slotKind === 'exam' || slotKind === 'resit') {
     return hasOverlap
-      ? 'border-amber-700 bg-amber-600/55 text-amber-950 dark:border-amber-500 dark:bg-amber-600/40 dark:text-amber-100'
-      : 'border-amber-700/90 bg-amber-600/45 text-amber-950 dark:border-amber-500/80 dark:bg-amber-600/35 dark:text-amber-100'
-  }
-  if (slotKind === 'resit') {
-    return hasOverlap
-      ? 'border-amber-900 bg-amber-800/55 text-amber-50 dark:border-amber-700 dark:bg-amber-800/45 dark:text-amber-100'
-      : 'border-amber-900/90 bg-amber-800/45 text-amber-50 dark:border-amber-700/80 dark:bg-amber-800/35 dark:text-amber-100'
+      ? 'border-amber-500/70 bg-amber-500/25 text-amber-950 dark:text-amber-50'
+      : 'border-amber-500/55 bg-amber-500/20 text-amber-950 dark:text-amber-50'
   }
   return hasOverlap
     ? 'border-primary/40 bg-primary/10 text-primary'
@@ -56,19 +51,16 @@ export function scheduleSlotBlockClasses(
 }
 
 export function scheduleSlotDotClasses(slotKind: ScheduleSlotKind): string {
-  if (slotKind === 'exam') return 'bg-amber-600'
-  if (slotKind === 'resit') return 'bg-amber-800 dark:bg-amber-700'
+  if (slotKind === 'exam' || slotKind === 'resit') return 'bg-amber-500'
   return 'bg-primary'
 }
 
 export function scheduleSlotGridBlockClasses(slotKind: ScheduleSlotKind): string {
-  if (slotKind === 'exam') return 'border-amber-700/80 bg-amber-600/40 dark:bg-amber-600/30'
-  if (slotKind === 'resit') return 'border-amber-900/85 bg-amber-800/45 dark:bg-amber-800/35'
+  if (slotKind === 'exam' || slotKind === 'resit') return 'border-amber-500/60 bg-amber-500/30'
   return 'border-primary/70 bg-primary/35'
 }
 
 export function scheduleSlotListLabelClasses(slotKind: ScheduleSlotKind): string {
-  if (slotKind === 'exam') return 'font-medium text-amber-900 dark:text-amber-300'
-  if (slotKind === 'resit') return 'font-medium text-amber-950 dark:text-amber-400'
+  if (slotKind === 'exam' || slotKind === 'resit') return 'text-amber-600 dark:text-amber-400'
   return 'text-fg-muted'
 }

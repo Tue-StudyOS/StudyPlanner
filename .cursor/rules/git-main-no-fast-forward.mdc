@@ -1,0 +1,37 @@
+---
+description: Never fast-forward merge into main — always use --no-ff
+alwaysApply: true
+---
+
+# main: always merge, never fast-forward
+
+**Never** bring work into `main` with a fast-forward. No exceptions.
+
+## Required
+
+```bash
+git checkout main
+git merge <branch> --no-ff -m "Merge branch <branch> into main."
+```
+
+## Forbidden on main
+
+- `git merge <branch>` without `--no-ff` (fast-forward)
+- `git merge <branch> --ff-only`
+- `git pull` on `main` when it would fast-forward a feature branch tip onto `main`
+- Cherry-picking feature commits directly onto `main` instead of merging the branch
+- Rebasing a feature branch onto `main` and then fast-forwarding `main` to match
+
+## If main was fast-forwarded by mistake
+
+Reset `main` to the pre-merge tip, then redo with `--no-ff`:
+
+```bash
+git checkout main
+git reset --hard <main-before-merge>
+git merge <branch> --no-ff -m "Merge branch <branch> into main."
+```
+
+## History shape on main
+
+One merge commit per integrated branch; feature commits stay on the branch side of the merge graph.

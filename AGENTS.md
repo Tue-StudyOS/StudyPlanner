@@ -61,7 +61,7 @@ Before changing code:
 4. For each feature, bug fix or change has to be one single commit with a clear message. Prefer reasonably broad, cohesive feature commits over many tiny commits, so each branch stays easy to review without excessive commit noise. Dont do multiple unrelated changes in the same commit.
 5. Never commit directly on `main`.
 6. Always create or use a dedicated working branch and make implementation commits there; do not add implementation commits directly on `main`.
-7. When bringing a completed branch into `main`, merge that branch back into `main` with a merge commit. Do not create a manual direct commit on `main`, including manual squash-style commits.
+7. When bringing a completed branch into `main`, merge that branch back into `main` with a **non-fast-forward** merge commit (`git merge <branch> --no-ff`). **Never** fast-forward `main` — not via `git merge`, `git pull`, cherry-picks, or rebasing the branch onto `main`. Do not create a manual direct commit on `main`, including manual squash-style commits.
 8. When working through a backlog or implementation file with multiple related features, use **one shared branch** for all of them. Make one commit per logical group on that branch. Merge that single branch into `main` once at the end — not one branch per feature.
 9. If additional follow-up fixes are needed after review or deploy, do them on a new branch and merge again instead of adding direct commits to `main`.
 

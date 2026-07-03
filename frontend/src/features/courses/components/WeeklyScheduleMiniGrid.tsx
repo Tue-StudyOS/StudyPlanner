@@ -126,7 +126,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
                     <div className="text-fg-muted">{block.room}</div>
                   ) : null}
                   {isExamSlot ? (
-                    <div className={`text-[11px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
+                    <div className={`text-[11px] leading-snug ${scheduleSlotListLabelClasses(block.slotKind)}`}>
                       {block.slotType}
                     </div>
                   ) : null}
