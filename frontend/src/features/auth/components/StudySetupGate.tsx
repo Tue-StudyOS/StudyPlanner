@@ -32,8 +32,11 @@ function StudySetupDialog({
   const [draftLanguage, setDraftLanguage] = useState<SupportedLanguage>(() =>
     resolveAppLanguage(user.profile.appLanguage),
   )
-  const [studyProgramId, setStudyProgramId] = useState<number | null>(user.profile.studyProgramId)
-  const [semesterLabel, setSemesterLabel] = useState<string>(user.profile.currentSemesterLabel ?? '')
+  // Start the setup fresh on every reload/revisit instead of restoring a
+  // partially-filled profile in the background: the popup simply asks again
+  // rather than forcing the user back into a half-finished flow.
+  const [studyProgramId, setStudyProgramId] = useState<number | null>(null)
+  const [semesterLabel, setSemesterLabel] = useState<string>('')
   const [isSaving, setIsSaving] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const t = useMemo(() => createTranslator(draftLanguage || language), [draftLanguage, language])
