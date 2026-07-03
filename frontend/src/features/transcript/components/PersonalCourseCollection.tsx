@@ -2,9 +2,46 @@ import { useState } from 'react'
 import type { CompletedCourse } from '../../courses'
 import { useTranslation } from '../../i18n'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { usePersistedToggle } from '../../../shared/hooks/usePersistedToggle'
 import type { TranscriptImportCandidate } from '../types'
 import { TrashIcon } from './icons'
 import { TranscriptImportRow } from './TranscriptImportRow'
+
+// Section collapse state is remembered per device so returning users keep their
+// preferred layout instead of re-collapsing long lists every visit.
+const CREDITED_COLLAPSE_KEY = 'studyplaner.transcript.collapse.credited'
+const SAVED_ISSUES_COLLAPSE_KEY = 'studyplaner.transcript.collapse.savedIssues'
+
+function CollapseToggle({
+  label,
+  count,
+  isCollapsed,
+  onToggle,
+}: {
+  label: string
+  count: number
+  isCollapsed: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={!isCollapsed}
+      onClick={onToggle}
+      className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted transition-colors hover:text-fg"
+    >
+      <svg
+        viewBox="0 0 12 12"
+        aria-hidden="true"
+        className={`h-3 w-3 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+      >
+        <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="truncate">{label}</span>
+      <span className="text-fg-muted/70">({count})</span>
+    </button>
+  )
+}
 
 function formatCompletedSubtitle(course: CompletedCourse): string {
   const parts = [
@@ -82,6 +119,8 @@ export function PersonalCourseCollection({
 }) {
   const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState<boolean>(false)
+  const [isCreditedCollapsed, setIsCreditedCollapsed] = usePersistedToggle(CREDITED_COLLAPSE_KEY, false)
+  const [isSavedIssuesCollapsed, setIsSavedIssuesCollapsed] = usePersistedToggle(SAVED_ISSUES_COLLAPSE_KEY, false)
   const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
 
   return (
@@ -182,9 +221,12 @@ export function PersonalCourseCollection({
             <div className="grid min-w-0 gap-2.5">
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2.5">
                 <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                    {t('transcript.savedForLater')}
-                  </div>
+                  <CollapseToggle
+                    label={t('transcript.savedForLater')}
+                    count={savedIssueCandidates.length}
+                    isCollapsed={isSavedIssuesCollapsed}
+                    onToggle={() => setIsSavedIssuesCollapsed(!isSavedIssuesCollapsed)}
+                  />
                   <p className="mt-1 text-[11.5px] text-fg-muted">
                     {t('transcript.savedForLaterHint', { ready: savedIssueImportableCount, total: savedIssueCandidates.length })}
                   </p>
@@ -209,31 +251,38 @@ export function PersonalCourseCollection({
                 </div>
               </div>
 
-              {savedIssueCandidates.map((candidate) => (
-                <TranscriptImportRow
-                  key={candidate.id}
-                  candidate={candidate}
-                  studyProgramCode={studyProgramCode}
-                  regulationRuleGroups={regulationRuleGroups}
-                  onDiscard={() => onDiscardSavedIssueCandidate(candidate.id)}
-                  onChange={onSavedIssueCandidateChange}
-                />
-              ))}
+              {!isSavedIssuesCollapsed
+                ? savedIssueCandidates.map((candidate) => (
+                    <TranscriptImportRow
+                      key={candidate.id}
+                      candidate={candidate}
+                      studyProgramCode={studyProgramCode}
+                      regulationRuleGroups={regulationRuleGroups}
+                      onDiscard={() => onDiscardSavedIssueCandidate(candidate.id)}
+                      onChange={onSavedIssueCandidateChange}
+                    />
+                  ))
+                : null}
             </div>
           ) : null}
 
           {completedCourses.length > 0 ? (
             <div className="grid min-w-0 gap-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                {t('transcript.credited')}
-              </div>
-              {completedCourses.map((course) => (
-                <CompletedCourseRow
-                  key={course.id}
-                  course={course}
-                  onDelete={() => onDeleteCompleted(course.id)}
-                />
-              ))}
+              <CollapseToggle
+                label={t('transcript.credited')}
+                count={completedCourses.length}
+                isCollapsed={isCreditedCollapsed}
+                onToggle={() => setIsCreditedCollapsed(!isCreditedCollapsed)}
+              />
+              {!isCreditedCollapsed
+                ? completedCourses.map((course) => (
+                    <CompletedCourseRow
+                      key={course.id}
+                      course={course}
+                      onDelete={() => onDeleteCompleted(course.id)}
+                    />
+                  ))
+                : null}
             </div>
           ) : null}
         </div>
