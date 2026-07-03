@@ -109,6 +109,26 @@ def _normalize_course_assignments(payload: dict[str, Any]) -> dict[str, str]:
     return result
 
 
+def _normalize_course_parallel_groups(payload: dict[str, Any]) -> dict[str, int]:
+    """Chosen parallel group per course, keyed courseId -> 1-based group position.
+
+    Position (not the catalog row id) is stored because it survives catalog
+    re-imports, so a user's group choice stays valid across re-scrapes.
+    """
+    raw = payload.get('courseParallelGroups')
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, int] = {}
+    for course_id, raw_position in raw.items():
+        try:
+            position = int(raw_position)
+        except (TypeError, ValueError):
+            continue
+        if position >= 1:
+            result[str(course_id)] = position
+    return result
+
+
 async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
     if not course_ids:
         return
@@ -173,6 +193,62 @@ def _normalize_stored_assignments(raw_assignments: Any, course_ids: list[str]) -
     return normalized_assignments
 
 
+def _normalize_stored_parallel_groups(
+    raw_selections: Any,
+    course_ids: list[str],
+) -> dict[str, int]:
+    if not isinstance(raw_selections, dict):
+        return {}
+    course_id_set = set(course_ids)
+    normalized: dict[str, int] = {}
+    for raw_course_id, raw_position in raw_selections.items():
+        course_id = _safe_text(raw_course_id)
+        if not course_id or course_id not in course_id_set:
+            continue
+        try:
+            position = int(raw_position)
+        except (TypeError, ValueError):
+            continue
+        if position >= 1:
+            normalized[course_id] = position
+    return normalized
+
+
+async def _validate_course_parallel_groups(
+    env: Any,
+    course_ids: list[int],
+    selections: dict[str, int],
+) -> dict[str, int]:
+    """Keep only selections whose (course, group position) exists in the catalog.
+
+    An invalid or stale position is dropped rather than rejected so the calendar
+    can fall back to the course's first group instead of failing the whole save.
+    """
+    if not selections or not course_ids:
+        return {}
+    course_id_set = {str(course_id) for course_id in course_ids}
+    relevant = {
+        course_id: position
+        for course_id, position in selections.items()
+        if course_id in course_id_set
+    }
+    if not relevant:
+        return {}
+
+    placeholders = ', '.join('?' for _ in course_ids)
+    rows = await fetch_all(
+        env,
+        f'SELECT course_id, position FROM parallel_groups WHERE course_id IN ({placeholders})',
+        course_ids,
+    )
+    valid_pairs = {(int(row['course_id']), int(row['position'])) for row in rows}
+    return {
+        course_id: position
+        for course_id, position in relevant.items()
+        if (int(course_id), position) in valid_pairs
+    }
+
+
 def _coerce_unix(value: Any) -> int:
     try:
         return int(value)
@@ -191,6 +267,9 @@ def _serialize_stored_plan(raw_plan: Any, fallback_semester_label: str) -> dict[
 
     course_ids = _normalize_stored_plan_course_ids(raw_plan.get('courseIds'))
     course_assignments = _normalize_stored_assignments(raw_plan.get('courseAssignments'), course_ids)
+    course_parallel_groups = _normalize_stored_parallel_groups(
+        raw_plan.get('courseParallelGroups'), course_ids
+    )
     hidden_slot_ids = _normalize_stored_hidden_slot_ids(raw_plan.get('hiddenSlotIds'))
     created_at_unix = _coerce_unix(raw_plan.get('createdAtUnix'))
     updated_at_unix = _coerce_unix(raw_plan.get('updatedAtUnix'))
@@ -202,6 +281,7 @@ def _serialize_stored_plan(raw_plan: Any, fallback_semester_label: str) -> dict[
         'courseIds': course_ids,
         'hiddenSlotIds': hidden_slot_ids,
         'courseAssignments': course_assignments,
+        'courseParallelGroups': course_parallel_groups,
         'courseCount': len(course_ids),
         'createdAtUnix': created_at_unix,
         'updatedAtUnix': updated_at_unix,
@@ -269,6 +349,7 @@ def _normalize_plan_payload(payload: dict[str, Any]) -> SemesterPlanPayload:
         courseIds=_normalize_course_ids(payload),
         hiddenSlotIds=_normalize_hidden_slot_ids(payload),
         courseAssignments=_normalize_course_assignments(payload),
+        courseParallelGroups=_normalize_course_parallel_groups(payload),
     )
 
 
@@ -292,6 +373,11 @@ async def replace_current_user_semester_plan(
         course_ids,
         normalized_payload['courseAssignments'],
     )
+    validated_parallel_groups = await _validate_course_parallel_groups(
+        env,
+        course_ids,
+        normalized_payload['courseParallelGroups'],
+    )
 
     stored_plans = await _load_stored_plans(env, username)
     existing_plan = stored_plans.get(normalized_semester_label)
@@ -303,6 +389,7 @@ async def replace_current_user_semester_plan(
         'courseIds': [str(course_id) for course_id in course_ids],
         'hiddenSlotIds': hidden_slot_ids,
         'courseAssignments': validated_assignments,
+        'courseParallelGroups': validated_parallel_groups,
         'courseCount': len(course_ids),
         'createdAtUnix': int(existing_plan['createdAtUnix']) if existing_plan else current_unix,
         'updatedAtUnix': current_unix,
