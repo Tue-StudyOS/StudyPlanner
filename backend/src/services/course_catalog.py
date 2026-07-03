@@ -235,25 +235,62 @@ def _appointment_slot_type(row: dict[str, Any]) -> str:
     return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
 
 
-def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, str]]:
-    schedule: list[dict[str, str]] = []
+def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    schedule: list[dict[str, Any]] = []
 
     for row in appointment_rows:
         day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
         slot_type = _appointment_slot_type(row)
-
+        # groupPosition is the 1-based index of the parallel group within the
+        # course. It is stable across re-imports (unlike the row id), so the
+        # calendar keys a user's chosen group on it and filters slots by it.
         schedule.append(
             {
                 "day": day,
                 "time": time_text,
                 "room": room_text,
                 "type": slot_type,
+                "parallelGroupId": _normalize_int(row.get("parallelGroupId")),
+                "groupPosition": _normalize_int(row.get("groupPosition")),
             }
         )
 
     return schedule
+
+
+def _build_parallel_groups(
+    parallel_group_rows: list[dict[str, Any]],
+    schedule: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Summarise each parallel group for the planner's group picker.
+
+    Every group carries its own weekly slots (filtered from the flat schedule by
+    groupPosition), its derived teaching role, and its seat limits, so the picker
+    can show "title · times · room · seats" and the calendar can render only the
+    chosen group. Keyed on groupPosition, which is stable across re-imports.
+    """
+    groups: list[dict[str, Any]] = []
+    for row in parallel_group_rows:
+        position = _normalize_int(row.get("groupPosition"))
+        if position is None:
+            continue
+        group_schedule = [
+            slot for slot in schedule if slot.get("groupPosition") == position
+        ]
+        groups.append(
+            {
+                "position": position,
+                "parallelGroupId": _normalize_int(row.get("parallelGroupId")),
+                "title": _safe_text(row.get("title")),
+                "role": _safe_text(row.get("groupType")),
+                "maxParticipants": _normalize_int(row.get("maxParticipants")),
+                "minParticipants": _normalize_int(row.get("minParticipants")),
+                "schedule": group_schedule,
+            }
+        )
+    return groups
 
 
 def _build_regulation_options(option_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -581,8 +618,13 @@ async def _load_catalog_related_chunk(
         f"""
         SELECT
             course_id AS courseId,
+            id AS parallelGroupId,
+            position AS groupPosition,
+            title,
             group_type AS groupType,
             language,
+            max_participants AS maxParticipants,
+            min_participants AS minParticipants,
             semester_hours AS semesterHours
         FROM parallel_groups
         WHERE course_id IN ({placeholders})
@@ -596,6 +638,8 @@ async def _load_catalog_related_chunk(
         f"""
         SELECT
             pg.course_id AS courseId,
+            pg.id AS parallelGroupId,
+            pg.position AS groupPosition,
             pg.title AS groupTitle,
             pg.group_type AS groupType,
             c.course_type AS courseType,
@@ -768,6 +812,7 @@ def _build_catalog_summary(
         "studyAreaOptions": regulation_options,
         "weekdays": _unique_preserve_order([slot["day"] for slot in schedule]),
         "schedule": schedule,
+        "parallelGroups": _build_parallel_groups(parallel_group_rows, schedule),
         "frequency": _safe_text(course.get("offeringFrequency")) or "Unknown",
         "language": language or "Unknown",
         "prerequisites": [],
@@ -1229,7 +1274,9 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
             "contentSections": content_sections,
             "courseFields": raw_detail["courseFields"],
             "rawLecturers": raw_detail["lecturers"],
-            "parallelGroups": raw_detail["parallelGroups"],
+            # parallelGroups is kept from _build_catalog_summary (position-keyed,
+            # role-tagged, with per-group schedule) so both the list and detail
+            # endpoints expose one consistent shape for the group picker.
             "appointments": raw_detail["appointments"],
             "assessmentDates": raw_detail["assessmentDates"],
         }
@@ -1330,6 +1377,7 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         SELECT
             a.id,
             a.parallel_group_id AS parallelGroupId,
+            pg.position AS groupPosition,
             pg.title AS groupTitle,
             pg.group_type AS groupType,
             c.course_type AS courseType,

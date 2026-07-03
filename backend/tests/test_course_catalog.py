@@ -22,6 +22,7 @@ from db.d1 import D1ExecutionError  # noqa: E402
 from services import course_catalog  # noqa: E402
 from services.course_catalog import (  # noqa: E402
     _build_content_sections,
+    _build_parallel_groups,
     _build_participant_limits,
     _build_schedule,
     _collect_offering_groups,
@@ -218,26 +219,60 @@ class BuildScheduleTest(unittest.TestCase):
                     "time": "08:00 - 11:00",
                     "room": "Hall N02",
                     "type": "Klausur",
+                    "parallelGroupId": None,
+                    "groupPosition": None,
                 },
                 {
                     "day": "27.07.2026",
                     "time": "08:00 - 11:00",
                     "room": "Hall N03",
                     "type": "Klausur",
+                    "parallelGroupId": None,
+                    "groupPosition": None,
                 },
                 {
                     "day": "29.09.2026",
                     "time": "09:00 - 12:00",
                     "room": "Hall 25",
                     "type": "Nachklausur",
+                    "parallelGroupId": None,
+                    "groupPosition": None,
                 },
                 {
                     "day": "29.09.2026",
                     "time": "09:00 - 12:00",
                     "room": "Hall 24",
                     "type": "Nachklausur",
+                    "parallelGroupId": None,
+                    "groupPosition": None,
                 },
             ],
+        )
+
+    def test_stamps_parallel_group_position_on_slots(self) -> None:
+        rows = [
+            {
+                "weekday": "Monday",
+                "timeText": "14:00 - 16:00",
+                "roomText": "Hall N02",
+                "groupType": "Vorlesung",
+                "parallelGroupId": 10,
+                "groupPosition": 1,
+            },
+            {
+                "weekday": "Monday",
+                "timeText": "16:00 - 18:00",
+                "roomText": "C 110",
+                "groupType": "Übung",
+                "parallelGroupId": 11,
+                "groupPosition": 2,
+            },
+        ]
+
+        schedule = _build_schedule(rows)
+        self.assertEqual(
+            [(slot["groupPosition"], slot["parallelGroupId"], slot["type"]) for slot in schedule],
+            [(1, 10, "Vorlesung"), (2, 11, "Übung")],
         )
 
     def test_keeps_same_time_tutorial_appointments(self) -> None:
@@ -273,6 +308,39 @@ class BuildScheduleTest(unittest.TestCase):
 
         self.assertEqual(_build_schedule(rows)[0]["day"], "13.04.2026 - 20.07.2026")
         self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung")
+
+
+class BuildParallelGroupsTest(unittest.TestCase):
+    def test_summarises_groups_with_their_own_slots(self) -> None:
+        schedule = [
+            {"day": "Mon", "time": "14:00 - 16:00", "room": "N02", "type": "Vorlesung",
+             "parallelGroupId": 10, "groupPosition": 1},
+            {"day": "Mon", "time": "16:00 - 18:00", "room": "C110", "type": "Übung",
+             "parallelGroupId": 11, "groupPosition": 2},
+        ]
+        group_rows = [
+            {"parallelGroupId": 10, "groupPosition": 1, "title": "Stochastik (Vorlesung)",
+             "groupType": "Vorlesung", "maxParticipants": None, "minParticipants": None},
+            {"parallelGroupId": 11, "groupPosition": 2, "title": "Stochastik (Übung)",
+             "groupType": "Übung", "maxParticipants": 30, "minParticipants": 5},
+        ]
+
+        groups = _build_parallel_groups(group_rows, schedule)
+
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(groups[0]["position"], 1)
+        self.assertEqual(groups[0]["role"], "Vorlesung")
+        self.assertEqual([slot["time"] for slot in groups[0]["schedule"]], ["14:00 - 16:00"])
+        self.assertEqual(groups[1]["role"], "Übung")
+        self.assertEqual(groups[1]["maxParticipants"], 30)
+        self.assertEqual([slot["time"] for slot in groups[1]["schedule"]], ["16:00 - 18:00"])
+
+    def test_skips_groups_without_position(self) -> None:
+        groups = _build_parallel_groups(
+            [{"parallelGroupId": 10, "groupPosition": None, "title": "x", "groupType": "Seminar"}],
+            [],
+        )
+        self.assertEqual(groups, [])
 
 
 class PeriodSortKeyTest(unittest.TestCase):
