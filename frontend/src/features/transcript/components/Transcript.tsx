@@ -144,9 +144,10 @@ function AuthenticatedTranscript() {
     : importableReviewCandidateCount
   const displayImportableSavedIssueCount = isTranscriptTourPreview ? 0 : importableSavedIssueCount
 
+  // Same order as the progress tab (ECTS, progress, grade) so the two headers match.
   const stats = [
-    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
     { label: t('transcript.ectsEarned'), value: `${displayStats.totalEcts} / ${displayStats.requiredEcts}` },
+    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
     { label: t('transcript.averageGrade'), value: displayStats.averageGrade !== null ? displayStats.averageGrade.toFixed(2) : '–' },
   ]
 

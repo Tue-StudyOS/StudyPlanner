@@ -1,9 +1,20 @@
 import { useMemo, useState } from 'react'
 import type { MasterCat } from '../../courses'
+import { ALL_CATALOG_PERIODS } from '../../courses'
+import { useCatalogCourses } from '../../courses/hooks/useCatalogCourses'
+import { courseMatchesStudyAreaFilter } from '../../courses/utils/studyAreaFilter.ts'
+import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
+import { useAuth } from '../../auth'
+import { useFavorites } from '../../favorites/hooks/useFavorites'
 import { CloseIcon } from '../../../shared/components/icons'
 import { DetailSheet } from '../../../shared/components/DetailSheet'
+import { FavStar } from '../../../shared/components/FavStar'
 import { useTranslation } from '../../i18n'
 import type { RegulationAreaCourse, RegulationAreaProgress } from '../types'
+
+// The addable-course list loads the catalog lazily (only while a modal is open),
+// so cap it to keep the sheet scannable; the rest stays discoverable in the catalog.
+const ADDABLE_COURSE_LIMIT = 40
 
 const CAT_COLOR_CLASS: Partial<Record<MasterCat, string>> & { default: string } = {
   TECH: 'bg-cat-tech',
@@ -33,6 +44,31 @@ function RegulationAreaDetailModal({
 }) {
   const courses = area.courses ?? []
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const { isFavorite, toggleFavorite, isSavingFavorites } = useFavorites()
+  const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+
+  const studyProgramCode = user?.profile.studyProgramCode ?? null
+
+  const addableCourses = useMemo(() => {
+    const areaCodes = area.rawAreaCodes && area.rawAreaCodes.length > 0 ? area.rawAreaCodes : [area.code]
+    const alreadyCredited = new Set(
+      (area.courses ?? [])
+        .map((course) => course.courseNumber)
+        .filter((value): value is string => Boolean(value)),
+    )
+    return catalogCourses
+      .filter((course) => !alreadyCredited.has(course.number))
+      .filter((course) => courseMatchesStudyAreaFilter(course, areaCodes, studyProgramCode))
+      .sort((first, second) =>
+        cleanCourseTitle(first.title, first.number).localeCompare(
+          cleanCourseTitle(second.title, second.number),
+        ),
+      )
+  }, [catalogCourses, area.courses, area.rawAreaCodes, area.code, studyProgramCode])
+
+  const visibleAddableCourses = addableCourses.slice(0, ADDABLE_COURSE_LIMIT)
+  const hiddenAddableCount = addableCourses.length - visibleAddableCourses.length
 
   const header = (
     <div className="flex items-start justify-between gap-4 px-6 py-5">
@@ -91,6 +127,47 @@ function RegulationAreaDetailModal({
             ))}
           </div>
         )}
+
+        <div className="mt-6">
+          <div className="mb-2.5 text-[13px] font-semibold text-fg">
+            {t('progress.regulationAddableTitle')}
+          </div>
+          {visibleAddableCourses.length === 0 ? (
+            <div className="rounded-[10px] border border-dashed border-border px-5 py-8 text-center text-[13px] text-fg-muted">
+              {t('progress.regulationAddableEmpty')}
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:gap-2.5">
+              {visibleAddableCourses.map((course) => (
+                <div
+                  key={course.id}
+                  className="flex min-w-0 items-center gap-2 rounded-[10px] border border-border-light bg-surface px-3 py-2.5 sm:px-4 sm:py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="break-words text-[12.5px] font-semibold text-fg sm:text-[13px]">
+                      {cleanCourseTitle(course.title, course.number)}
+                    </div>
+                    <div className="break-words text-[11.5px] text-fg-muted sm:text-[12px]">
+                      {[course.number, course.ects !== null ? `${course.ects} ECTS` : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  </div>
+                  <FavStar
+                    active={isFavorite(course.id)}
+                    disabled={isSavingFavorites}
+                    onToggle={() => toggleFavorite(course.id)}
+                  />
+                </div>
+              ))}
+              {hiddenAddableCount > 0 ? (
+                <p className="px-1 pt-1 text-[11.5px] text-fg-muted">
+                  {t('progress.regulationAddableMore', { count: hiddenAddableCount })}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
     </DetailSheet>
   )
