@@ -219,6 +219,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const resultsAnchorRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
@@ -389,6 +390,17 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
+  // Clicking a "still missing" area chip focuses the catalog on that single
+  // area; clicking it again while it is the only active area clears it.
+  function handleOpenAreaChipSelect(code: string): void {
+    const isAlreadyOnlySelection =
+      selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
+    setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
+    if (!isAlreadyOnlySelection) {
+      resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   function resetAllFilters(): void {
     setSelectedEctsValues([])
     setSelectedStudyAreaCodes([])
@@ -421,7 +433,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
       <div data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
-      <CatalogProgressHint />
+      <CatalogProgressHint
+        selectedAreaCodes={selectedStudyAreaCodes}
+        onSelectArea={handleOpenAreaChipSelect}
+      />
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
       <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
@@ -636,6 +651,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
           onChange={setShowUnconfirmedOfferings}
         />
       </div>
+
+      {/* Scroll target for the "still missing" chips; the top margin clears
+          the fixed mobile hint bar and the sticky desktop one. */}
+      <div ref={resultsAnchorRef} aria-hidden="true" className="scroll-mt-[8.75rem] md:scroll-mt-[5rem]" />
 
       {isLoading && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">

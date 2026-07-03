@@ -1,14 +1,12 @@
 import type { ReactNode } from 'react'
-import { AreaBadge } from '../../../shared/components/AreaBadge'
-import { SeasonTags } from '../../../shared/components/SeasonTag'
-import { useAuth } from '../../auth'
+import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
 import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getRecentSeasonTermType } from '../utils/catalogOffering.ts'
-import { buildCourseAreaTags } from '../utils/courseCardDisplay.ts'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../utils/courseTitle.ts'
 import { getExamDisplayLabel } from '../utils/examLabels.ts'
+import { cleanLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
 import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
@@ -113,8 +111,6 @@ interface CourseDetailBodyProps {
  */
 export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   const { language, t } = useTranslation()
-  const { user } = useAuth()
-  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
@@ -138,7 +134,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
 
   const factRows: Array<[string, string]> = []
   if (hasValue(course.number)) factRows.push([t('courseDetail.courseNumber'), course.number])
-  if (hasValue(course.lecturer)) factRows.push([t('courseDetail.lecturer'), course.lecturer])
+  if (hasValue(course.lecturer)) factRows.push([t('courseDetail.lecturer'), cleanLecturerName(course.lecturer)])
   const ectsText = formatEcts(course.ects)
   if (ectsText) factRows.push(['ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
@@ -155,31 +151,35 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   return (
     <div className="min-w-0">
       <div className="relative mb-6 min-w-0 rounded-[14px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5">
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <TypePill label={formatCourseTypeLabel(course.types)} />
-          {areaTags.map((tag) => (
-            <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
-          ))}
-        </div>
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <TypePill label={formatCourseTypeLabel(course.types)} />
+            </div>
 
-        <h1 className="break-words font-serif text-[20px] font-semibold leading-tight tracking-[-0.02em] text-fg sm:text-[22px]">
-          {title}
-        </h1>
+            <h1 className="break-words font-serif text-[20px] font-semibold leading-tight tracking-[-0.02em] text-fg sm:text-[22px]">
+              {title}
+            </h1>
 
-        {seasonTermType !== 'unknown' || (course.offeredPeriods?.length ?? 0) > 0 ? (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <SeasonTags termType={seasonTermType} />
-            {(course.offeredPeriods ?? []).map((periodLabel) => (
-              <span
-                key={periodLabel}
-                className="whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium text-fg-mid"
-              >
-                {periodLabel}
-              </span>
-            ))}
+            {(course.offeredPeriods?.length ?? 0) > 0 ? (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {(course.offeredPeriods ?? []).map((periodLabel) => (
+                  <span
+                    key={periodLabel}
+                    className="whitespace-nowrap rounded-full border border-border bg-surface-hover px-2 py-0.5 text-[10.5px] font-medium text-fg-mid"
+                  >
+                    {periodLabel}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
-        ) : null}
 
+          <SeasonSymbol
+            termType={seasonTermType}
+            className="h-14 w-14 shrink-0 sm:h-16 sm:w-16"
+          />
+        </div>
       </div>
 
       {hasValue(course.description) ? (
@@ -303,6 +303,34 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
         </Section>
       ) : null}
 
+      {factRows.length > 0 ? (
+        <Section title={t('courseDetail.facts')}>
+          <div className="grid gap-1.5">
+            {factRows.map(([key, value]) => (
+              <div
+                key={key}
+                className="grid min-w-0 grid-cols-[minmax(4.5rem,7rem)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-0.5 text-[12.5px] sm:grid-cols-[minmax(6rem,8.5rem)_minmax(0,1fr)]"
+              >
+                <span className="min-w-0 break-words font-medium text-fg-muted">{key}</span>
+                <span className="min-w-0 break-words text-fg">{value}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      ) : null}
+
+      {almaUrl ? (
+        <Section title={t('courseDetail.links')}>
+          <div className="grid gap-2 text-[13px]">
+            <a href={almaUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              {t('courseDetail.openAlma')}
+            </a>
+          </div>
+        </Section>
+      ) : null}
+
+      {/* Deliberately the last informational block: the header no longer
+          repeats the study-area mapping, so it lives only here. */}
       {regulationOptions.length > 0 ? (
         <Section title={t('courseDetail.countsToward')}>
           <div className="grid gap-1.5">
@@ -322,35 +350,6 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
             ))}
           </div>
         </Section>
-      ) : null}
-
-      {almaUrl ? (
-        <Section title={t('courseDetail.links')}>
-          <div className="grid gap-2 text-[13px]">
-            <a href={almaUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-              {t('courseDetail.openAlma')}
-            </a>
-          </div>
-        </Section>
-      ) : null}
-
-      {factRows.length > 0 ? (
-        <div className="min-w-0 overflow-hidden rounded-[12px] border border-border bg-surface">
-          <div className="border-b border-border px-4.5 py-3 text-[13px] font-semibold text-fg">
-            {t('courseDetail.facts')}
-          </div>
-          {factRows.map(([key, value], index) => (
-            <div
-              key={key}
-              className={`grid min-w-0 grid-cols-[110px_minmax(0,1fr)] gap-3 px-4.5 py-3 ${
-                index < factRows.length - 1 ? 'border-b border-border-light' : ''
-              }`}
-            >
-              <span className="text-[12px] font-medium text-fg-muted">{key}</span>
-              <span className="break-words text-[13px] text-fg">{value}</span>
-            </div>
-          ))}
-        </div>
       ) : null}
 
       {footer ? <div className="mt-6">{footer}</div> : null}
