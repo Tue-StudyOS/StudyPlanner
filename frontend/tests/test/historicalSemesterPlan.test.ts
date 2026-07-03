@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Course } from '../../src/features/courses/types.ts'
-import { buildHistoricalSemesterPlan } from '../../src/features/planner/utils/historicalSemesterPlan.ts'
+import { buildHistoricalSemesterPlan, findCompletedCourseForCatalogCourse } from '../../src/features/planner/utils/historicalSemesterPlan.ts'
 
 function course(overrides: Partial<Course> & Pick<Course, 'id' | 'number' | 'title'>): Course {
   return {
@@ -108,4 +108,38 @@ test('buildHistoricalSemesterPlan rejects course numbers with mismatched titles'
   )
 
   assert.deepEqual(plan.courses, [])
+})
+
+test('findCompletedCourseForCatalogCourse rejects number matches with mismatched titles', () => {
+  const catalogCourse = course({ id: 'crypto', number: 'INF-501', title: 'Introduction to Cryptography' })
+
+  const match = findCompletedCourseForCatalogCourse(catalogCourse, [
+    {
+      courseId: null,
+      courseNumber: 'INF-501',
+      externalCourseCode: null,
+      semester: 'SS 2024',
+      studyAreaCode: null,
+      title: 'Advanced Java for Bioinformatics',
+    },
+  ])
+
+  assert.equal(match, undefined)
+})
+
+test('findCompletedCourseForCatalogCourse accepts id and title matches', () => {
+  const catalogCourse = course({ id: 'crypto', number: 'INF-501', title: 'Introduction to Cryptography' })
+
+  const match = findCompletedCourseForCatalogCourse(catalogCourse, [
+    {
+      courseId: 'crypto',
+      courseNumber: 'INF-501',
+      externalCourseCode: null,
+      semester: 'SS 2024',
+      studyAreaCode: 'TECH',
+      title: 'Introduction to Cryptography',
+    },
+  ])
+
+  assert.equal(match?.studyAreaCode, 'TECH')
 })

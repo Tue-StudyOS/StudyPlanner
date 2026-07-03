@@ -8,6 +8,10 @@ import {
   MINI_GRID_LABEL_SEPARATOR,
   MINI_GRID_START_MINUTES,
 } from '../utils/weeklyScheduleMiniGrid.ts'
+import {
+  scheduleSlotDotClasses,
+  scheduleSlotGridBlockClasses,
+} from '../utils/scheduleSlotKind.ts'
 import type { ScheduleSlot } from '../types'
 
 const GRID_HEIGHT_PX = 120
@@ -17,17 +21,8 @@ function toPercent(minutes: number): number {
   return ((clamped - MINI_GRID_START_MINUTES) / (MINI_GRID_END_MINUTES - MINI_GRID_START_MINUTES)) * 100
 }
 
-function getGridBlockClasses(): string {
-  return 'border-primary/70 bg-primary/35'
-}
-
-function getDotClasses(): string {
-  return 'bg-primary'
-}
-
 /**
- * Compact Mon–Fri grid. Weekly slots and one-off exam dates share the same
- * block styling; appointment types appear as notes in the list below.
+ * Compact Mon–Fri grid with distinct exam/resit coloring.
  */
 export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] }) {
   const blocks = useMemo(() => buildMiniGridBlocks(schedule), [schedule])
@@ -36,8 +31,8 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
   const listEntries = useMemo(
     () =>
       [...blocks].sort((left, right) => {
-        if (left.kind === 'weekly' && right.kind !== 'weekly') return -1
-        if (left.kind !== 'weekly' && right.kind === 'weekly') return 1
+        if (left.slotKind === 'weekly' && right.slotKind !== 'weekly') return -1
+        if (left.slotKind !== 'weekly' && right.slotKind === 'weekly') return 1
         return left.label.localeCompare(right.label)
       }),
     [blocks],
@@ -98,7 +93,7 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
                 <div
                   key={block.blockId}
                   title={block.label}
-                  className={`absolute rounded-[3px] border ${getGridBlockClasses()}`}
+                  className={`absolute rounded-[3px] border ${scheduleSlotGridBlockClasses(block.slotKind)}`}
                   style={{
                     top: `${toPercent(block.startMinutes)}%`,
                     height: `${Math.max(toPercent(block.endMinutes) - toPercent(block.startMinutes), 4)}%`,
@@ -121,13 +116,19 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
               key={block.blockId}
               className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-fg-mid"
             >
-              <span className={`inline-block h-2 w-2 self-center rounded-full ${getDotClasses()}`} />
+              <span className={`inline-block h-2 w-2 self-center rounded-full ${scheduleSlotDotClasses(block.slotKind)}`} />
               <span className="font-medium text-fg">{block.label.split(MINI_GRID_LABEL_SEPARATOR)[0]}</span>
               {block.room && block.room !== 'TBA' ? (
                 <span className="text-fg-muted">{block.room}</span>
               ) : null}
-              {block.slotType && block.slotType !== 'Course' ? (
-                <span className="text-[11px] text-fg-muted">{block.slotType}</span>
+              {block.slotType ? (
+                <span className={`text-[11px] ${
+                  block.slotKind === 'exam'
+                    ? 'font-medium text-amber-800 dark:text-amber-200'
+                    : block.slotKind === 'resit'
+                      ? 'font-medium text-rose-800 dark:text-rose-200'
+                      : 'text-fg-muted'
+                }`}>{block.slotType}</span>
               ) : null}
             </li>
           ))}

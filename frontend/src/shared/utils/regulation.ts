@@ -103,6 +103,18 @@ function isFlexibleRegulationArea(
 
 // The compulsory CS part is coded "INF", which reads almost identically to the
 // "INFO" elective in tight dropdowns — show it as MAIN instead.
+export function isMandatoryRegulationAreaCode(
+  code: string,
+  ruleGroups: RegulationRuleGroup[],
+): boolean {
+  const normalizedCode = code.trim().toUpperCase()
+  if (normalizedCode === 'INF') {
+    return true
+  }
+  const ruleGroup = ruleGroups.find((group) => group.code.trim().toUpperCase() === normalizedCode)
+  return ruleGroup?.groupType?.trim().toLowerCase() === 'pflicht'
+}
+
 export function formatRegulationAreaShortLabel(
   code: string,
   groupType?: string | null,

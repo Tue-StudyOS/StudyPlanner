@@ -9,7 +9,7 @@ import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { FavStar } from './FavStar'
 import { SeasonSymbol } from './SeasonSymbol'
-import { SEASON_ICON_CLASS } from './seasonSymbolStyles.ts'
+import { SEASON_CARD_WATERMARK_CLASS } from './seasonSymbolStyles.ts'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
 interface CourseCardProps {
@@ -28,7 +28,7 @@ interface CourseCardProps {
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
   regulationRuleGroups?: RegulationRuleGroup[]
-  selectedStudyAreaCodes?: string[]
+  isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
   lecturerLabel?: string
   onSelect?: () => void
@@ -59,7 +59,7 @@ export function CourseCard({
   offeringStatus = 'confirmed',
   seasonTermType,
   regulationRuleGroups = [],
-  selectedStudyAreaCodes = [],
+  isAreaTagActive,
   onAreaTagClick,
   lecturerLabel,
   onSelect,
@@ -90,6 +90,10 @@ export function CourseCard({
 
   const cardContent = (
     <>
+      <SeasonSymbol
+        termType={seasonTermType ?? course.termType}
+        className={SEASON_CARD_WATERMARK_CLASS}
+      />
       <div className="relative flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
@@ -108,11 +112,7 @@ export function CourseCard({
             </span>
           )}
         </div>
-        <div className={`flex shrink-0 items-center gap-1.5 ${secondaryVisibilityClass}`}>
-          <SeasonSymbol
-            termType={seasonTermType ?? course.termType}
-            className={SEASON_ICON_CLASS}
-          />
+        <div className={`flex shrink-0 items-center ${secondaryVisibilityClass}`}>
           {showFavorite ? (
             <div
               onClick={(event) => {
@@ -135,7 +135,7 @@ export function CourseCard({
               key={tag.key}
               label={tag.label}
               masterCat={tag.masterCat}
-              active={selectedStudyAreaCodes.includes(tag.key)}
+              active={isAreaTagActive?.(tag.key) ?? false}
               onClick={onAreaTagClick ? () => onAreaTagClick(tag.key) : undefined}
             />
           ))}

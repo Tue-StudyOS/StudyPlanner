@@ -20,6 +20,8 @@ function createBlock(id: string, startMinutes: number, endMinutes: number): Plan
     endMinutes,
     label: '',
     room: '',
+    slotType: '',
+    slotKind: 'weekly',
     hasOverlap: false,
   }
 }

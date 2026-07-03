@@ -8,11 +8,6 @@ export const COURSE_TYPE_FILTERS = [
     keywords: ['seminar', 'proseminar', 'hauptseminar', 'oberseminar', 'blockseminar'],
   },
   {
-    value: 'exercise',
-    label: 'Exercise',
-    keywords: ['übung', 'uebung', 'exercise', 'tutorial', 'tutorium'],
-  },
-  {
     value: 'practical',
     label: 'Practical / Project',
     keywords: ['praktikum', 'practical', 'projekt', 'project', 'lab'],

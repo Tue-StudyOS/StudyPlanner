@@ -17,7 +17,7 @@ interface AreaBadgeProps {
 export function AreaBadge({ label, masterCat, active = false, onClick }: AreaBadgeProps) {
   const colorClass = masterCat ? CAT_BADGE_CLASSES[masterCat] : NEUTRAL_BADGE_CLASS
   const className = `inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase leading-[1.4] tracking-[0.04em] transition-colors ${colorClass} ${
-    active ? 'ring-1 ring-primary/50' : ''
+    active ? 'border-current font-semibold' : ''
   } ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`
 
   if (onClick) {

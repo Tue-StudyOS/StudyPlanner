@@ -93,6 +93,19 @@ test('buildPlannerBlocks includes one-off date slots such as exam dates on the w
   assert.equal(blocks.length, 3)
   assert.equal(blocks[0].day, 'Monday')
   assert.equal(blocks[1].slotType, 'Klausur')
+  assert.equal(blocks[1].slotKind, 'exam')
+})
+
+test('buildPlannerBlocks labels single-date exam slots without explicit type', () => {
+  const course = createCourse('exam-only-type', [
+    { day: '28.07.2026', time: '14:00 - 16:00', room: 'HS1', type: 'Course' },
+  ])
+
+  const blocks = buildPlannerBlocks([course])
+
+  assert.equal(blocks.length, 1)
+  assert.equal(blocks[0].slotType, 'Klausur')
+  assert.equal(blocks[0].slotKind, 'exam')
 })
 
 test('buildPlannerBlocks skips slots with unknown days or unparsable times', () => {

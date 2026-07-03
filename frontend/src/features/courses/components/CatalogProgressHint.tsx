@@ -11,7 +11,7 @@ function formatEctsValue(value: number): string {
 }
 
 interface CatalogProgressHintProps {
-  selectedAreaCodes?: string[]
+  isAreaActive?: (code: string) => boolean
   onSelectArea?: (code: string) => void
 }
 
@@ -19,7 +19,7 @@ interface CatalogProgressHintProps {
  * Slim sticky reminder of the regulation areas that are still open, so the
  * missing parts of the degree stay visible while scrolling the catalog.
  */
-export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: CatalogProgressHintProps = {}) {
+export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgressHintProps = {}) {
   const { isAuthenticated } = useAuth()
   const { isOpen: isOnboardingOpen } = useOnboarding()
   const { progressSnapshot } = useProgressSnapshot()
@@ -56,7 +56,7 @@ export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: Catalog
       >
         <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
           {openAreas.map((area) => {
-            const isActive = selectedAreaCodes?.includes(area.code) ?? false
+            const isActive = isAreaActive?.(area.code) ?? false
             const shortLabel = formatRegulationAreaShortLabel(area.code)
             const colorClass = area.masterCat ? CAT_BADGE_CLASSES[area.masterCat] : 'text-fg-mid border-border bg-surface-hover'
             return (
@@ -67,7 +67,7 @@ export function CatalogProgressHint({ selectedAreaCodes, onSelectArea }: Catalog
                 aria-pressed={isActive}
                 onClick={() => onSelectArea?.(area.code)}
                 className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-[10.5px] font-medium tabular-nums transition-colors ${colorClass} ${
-                  isActive ? 'ring-1 ring-primary/50' : 'hover:opacity-90'
+                  isActive ? 'border-current font-semibold' : 'hover:opacity-90'
                 }`}
               >
                 {shortLabel} {formatEctsValue(area.earnedEcts)}/{formatEctsValue(area.requiredEcts)}

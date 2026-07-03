@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { CourseTermType } from '../../courses'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
-import { SEASON_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
+import { SEASON_SEMESTER_CARD_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { formatSemesterLabelShort, parseSemesterLabel, compareSemesterLabels, getCurrentSemesterLabel } from '../utils/semesterLabels'
 
 interface SemesterCardProps {
@@ -32,7 +32,7 @@ export function SemesterCard({ semesterLabel, to, showBadge = false }: SemesterC
     >
       <SeasonSymbol
         termType={seasonForLabel(semesterLabel)}
-        className={`absolute right-4 top-4 ${SEASON_ICON_CLASS}`}
+        className={`absolute right-3 top-3 z-0 ${SEASON_SEMESTER_CARD_CLASS}`}
       />
 
       {showBadge ? (

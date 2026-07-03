@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
+import { scheduleSlotBlockClasses } from '../../courses/utils/scheduleSlotKind.ts'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
 import {
   END_HOUR,
@@ -234,12 +235,14 @@ export function PlannerGrid({
                         title={block.courseTitle}
                         className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
                           isBadge
-                            ? block.hasOverlap
-                              ? 'border-primary/70'
-                              : 'border-black/10 dark:border-white/15'
-                            : block.hasOverlap
-                              ? 'border-primary/40 bg-primary/10 text-primary'
-                              : 'border-border bg-surface text-fg dark:bg-surface-hover'
+                            ? block.slotKind === 'exam'
+                              ? 'border-amber-500/80 ring-1 ring-amber-500/35'
+                              : block.slotKind === 'resit'
+                                ? 'border-rose-500/80 ring-1 ring-rose-500/35'
+                                : block.hasOverlap
+                                  ? 'border-primary/70'
+                                  : 'border-black/10 dark:border-white/15'
+                            : scheduleSlotBlockClasses(block.slotKind, block.hasOverlap)
                         }`}
                         style={{
                           ...(badgeColor ? { backgroundColor: badgeColor } : {}),
@@ -267,8 +270,14 @@ export function PlannerGrid({
                             >
                               {block.courseTitle}
                             </div>
-                          {block.slotType && block.slotType !== 'Course' ? (
-                            <div className="truncate text-[9px] leading-[11px] opacity-80 sm:text-[10px]">
+                          {block.slotType ? (
+                            <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${
+                              block.slotKind === 'exam'
+                                ? 'font-medium text-amber-800 dark:text-amber-200'
+                                : block.slotKind === 'resit'
+                                  ? 'font-medium text-rose-800 dark:text-rose-200'
+                                  : 'opacity-80'
+                            }`}>
                               {block.slotType}
                             </div>
                           ) : null}

@@ -133,3 +133,22 @@ export function buildHistoricalSemesterPlan(
 
   return { courses, assignments, matchedCompletedCourseCount }
 }
+
+/** Inverse of the historical-plan lookup — strict title + id/number matching. */
+export function findCompletedCourseForCatalogCourse(
+  course: Course,
+  completedCourses: CompletedCourse[],
+): CompletedCourse | undefined {
+  const { byCatalogId, byCourseNumber } = buildCourseIndexes([course])
+  for (const completed of completedCourses) {
+    const matchedCourse = findCatalogCourseForCompletedCourse(
+      completed,
+      byCatalogId,
+      byCourseNumber,
+    )
+    if (matchedCourse?.id === course.id) {
+      return completed
+    }
+  }
+  return undefined
+}

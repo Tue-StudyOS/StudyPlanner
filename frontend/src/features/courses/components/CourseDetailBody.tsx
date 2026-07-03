@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
-import { SEASON_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
+import { SEASON_HEADER_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
@@ -176,7 +176,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
               </div>
             ) : null}
           </div>
-          <SeasonSymbol termType={seasonTermType} className={SEASON_ICON_CLASS} />
+          <SeasonSymbol termType={seasonTermType} className={SEASON_HEADER_ICON_CLASS} />
         </div>
       </div>
 
