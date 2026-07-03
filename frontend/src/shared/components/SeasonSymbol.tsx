@@ -1,9 +1,10 @@
 import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 
-// ponytail: same fixed hex in light and dark — muted stone family, low chroma.
-const SUMMER_COLOR_CLASSES = 'text-[#C2BDB4]'
-const WINTER_COLOR_CLASSES = 'text-[#B4BABF]'
+// Watercolor hues — identical in light/dark; overall softness comes from one SVG opacity layer.
+const SUMMER_COLOR_CLASSES = 'text-[#F2D998]'
+const WINTER_COLOR_CLASSES = 'text-[#B3D9F2]'
+const GLYPH_OPACITY_CLASS = 'opacity-[0.72]'
 
 interface Point {
   x: number
@@ -28,20 +29,20 @@ const SUN_RAYS: LineSegment[] = [0, 45, 90, 135, 180, 225, 270, 315].map((angle)
   to: polarPoint(9.4, angle),
 }))
 
-// Six spokes, each with a small outward V-branch, form a minimalist snowflake.
+// V-branches sit on the outer arm only; spokes skip the hub so strokes never stack at the center.
 const SNOWFLAKE_LINES: LineSegment[] = [90, 150, 210, 270, 330, 30].flatMap((angle) => {
-  const branchBase = polarPoint(5.4, angle)
+  const branchBase = polarPoint(6.8, angle)
   const branchTip = (offset: number): Point => {
     const radians = ((angle + offset) * Math.PI) / 180
     return {
-      x: Math.round((branchBase.x + 2.6 * Math.cos(radians)) * 100) / 100,
-      y: Math.round((branchBase.y + 2.6 * Math.sin(radians)) * 100) / 100,
+      x: Math.round((branchBase.x + 2.2 * Math.cos(radians)) * 100) / 100,
+      y: Math.round((branchBase.y + 2.2 * Math.sin(radians)) * 100) / 100,
     }
   }
   return [
-    { from: polarPoint(0, angle), to: polarPoint(9.3, angle) },
-    { from: branchBase, to: branchTip(-45) },
-    { from: branchBase, to: branchTip(45) },
+    { from: polarPoint(2.6, angle), to: polarPoint(9.3, angle) },
+    { from: branchBase, to: branchTip(-48) },
+    { from: branchBase, to: branchTip(48) },
   ]
 })
 
@@ -81,8 +82,9 @@ function SnowflakeGlyph() {
     <g
       className={WINTER_COLOR_CLASSES}
       stroke="currentColor"
-      strokeWidth={1.4}
-      strokeLinecap="round"
+      strokeWidth={1.35}
+      strokeLinecap="butt"
+      strokeLinejoin="round"
       fill="none"
     >
       <Lines segments={SNOWFLAKE_LINES} />
@@ -109,7 +111,12 @@ export function SeasonSymbol({ termType, className }: SeasonSymbolProps) {
   }
 
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      className={`${GLYPH_OPACITY_CLASS} ${className ?? ''}`}
+    >
       {termType === 'summer' ? <SunGlyph /> : null}
       {termType === 'winter' ? <SnowflakeGlyph /> : null}
       {termType === 'both' ? (
