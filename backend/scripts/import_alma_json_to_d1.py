@@ -70,6 +70,20 @@ WEEKDAY_PREFIX_RE = re.compile(r"^\s*(Mo\.|Di\.|Mi\.|Do\.|Fr\.|Sa\.|So\.|Montag|
 # Catalog titles look like "INF2410 Theoretische Informatik 2: ... - Vorlesung".
 COURSE_NUMBER_TITLE_RE = re.compile(r"^([A-Z]{2,}[A-Z0-9./-]*)\s+\S")
 COURSE_TYPE_TITLE_RE = re.compile(r"\s-\s([^\W\d_][^\d]{1,38})$", re.UNICODE)
+# ALMA has no structured lecture/tutorial field. Where a course splits into a
+# lecture and an exercise, the role is written into the parallel-group title's
+# parenthetical, e.g. "Stochastik (Übung) (2. Parallelgruppe)". These rules map
+# such a fragment to a canonical role; order matters (Nachklausur before Klausur).
+PARALLEL_GROUP_ROLE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"nachklausur|wiederholung.*klausur", re.IGNORECASE), "Nachklausur"),
+    (re.compile(r"klausur", re.IGNORECASE), "Klausur"),
+    (re.compile(r"vorlesung", re.IGNORECASE), "Vorlesung"),
+    (re.compile(r"[uü]bung", re.IGNORECASE), "Übung"),
+    (re.compile(r"tutorium", re.IGNORECASE), "Tutorium"),
+    (re.compile(r"praktikum", re.IGNORECASE), "Praktikum"),
+    (re.compile(r"repetitorium", re.IGNORECASE), "Repetitorium"),
+    (re.compile(r"seminar", re.IGNORECASE), "Seminar"),
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -327,6 +341,7 @@ def _emit_course(
         (details.get("content") or {}).get("field_links"),
     )
     catalog_title = course.get("title") or ""
+    course_type = fields.get("Veranstaltungsart") or derive_course_type_from_title(catalog_title)
 
     plan.courses.append({
         "id": course_id,
@@ -338,7 +353,7 @@ def _emit_course(
         "number": fields.get("Nummer") or derive_number_from_title(catalog_title),
         "catalog_title": catalog_title,
         "organisation": fields.get("Organisationseinheit") or fields.get("Heimat-Einrichtung"),
-        "course_type": fields.get("Veranstaltungsart") or derive_course_type_from_title(catalog_title),
+        "course_type": course_type,
         "offering_frequency": fields.get("Angebotshäufigkeit"),
         "registration_period": fields.get("Anmeldegruppe"),
         "short_comment": fields.get("Kurzkommentar"),
@@ -402,7 +417,12 @@ def _emit_course(
             "course_id": course_id,
             "position": group_position,
             "title": group.get("title"),
-            "group_type": group_fields.get("Veranstaltungsart"),
+            # ALMA leaves the group-level Veranstaltungsart empty in practice, so
+            # derive the teaching role from the title parenthetical (falling back
+            # to the course-level type) — this is what powers the calendar's
+            # lecture/tutorial split and the parallel-group picker.
+            "group_type": group_fields.get("Veranstaltungsart")
+            or derive_parallel_group_role(group.get("title"), course_type),
             "language": group_fields.get("Sprache"),
             "responsible_text": group_fields.get("Verantwortliche/-r"),
             "max_participants": _maybe_int(group_fields.get("Maximale Teilnehmerzahl")),
@@ -487,6 +507,26 @@ def derive_course_type_from_title(title: str | None) -> str | None:
         return None
     match = COURSE_TYPE_TITLE_RE.search(title.strip())
     return match.group(1).strip() if match else None
+
+
+def derive_parallel_group_role(group_title: str | None, course_type: str | None) -> str | None:
+    """Return a parallel group's teaching role (Vorlesung, Übung, Klausur, ...).
+
+    ALMA exposes no structured lecture/tutorial field, so where a course carries
+    that split it is written into the group title — either a parenthetical
+    ("Stochastik (Übung) (2. Parallelgruppe)") or a prefix ("Nachklausur zu
+    AC1a ..."). We match the first role keyword (rules are priority-ordered, so
+    Nachklausur beats Klausur) and fall back to the course-level
+    ``Veranstaltungsart`` when the title carries no marker — the common case where
+    a course is a single teaching format. The role words are distinctive enough
+    that scanning the whole title rarely collides with topic wording; the
+    "N. Parallelgruppe" counter and location parentheticals carry none of them.
+    """
+    if group_title:
+        for pattern, role in PARALLEL_GROUP_ROLE_RULES:
+            if pattern.search(group_title):
+                return role
+    return course_type or None
 
 
 def _maybe_int(value: object) -> int | None:
