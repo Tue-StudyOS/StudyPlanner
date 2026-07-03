@@ -689,6 +689,14 @@ STUDY_AREA_CODE_ALIASES = [
     ("INFM3410", "BSC_INFO_2021", "THEO"),
     ("INFM3310", "BSC_INFO_2021", "TECH"),
     ("INFM2510", "BSC_INFO_2021", "INFO"),
+    # Compulsory (Pflicht) B.Sc. Mathe modules carry no Wahlpflicht code, only a
+    # math-specific ModulMath* tag, so they never linked to the MATH study area
+    # and dropped out of curriculum views. The ModulMathN codes are unambiguous
+    # and program-scoped, so aliasing them to MATH is safe.
+    ("ModulMath1", "BSC_INFO_2021", "MATH"),
+    ("ModulMath2", "BSC_INFO_2021", "MATH"),
+    ("ModulMath3", "BSC_INFO_2021", "MATH"),
+    ("ModulMath4", "BSC_INFO_2021", "MATH"),
 ]
 
 CURRICULUM_LINK_REBUILD_STATEMENTS[1:1] = [

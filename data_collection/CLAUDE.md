@@ -74,11 +74,13 @@ aliasing — handled in `import_alma_json_to_d1.py`:
   (`MACH-FML→ML-FOUND`, `MACH-DTML→ML-DIVERSE`, `MACH-GCS→ML-CS`, `MACH-EP→ML-EXP`).
 - B.Sc. Wahlpflicht appears as `INFM####` (`INFM3110→PRAK`, `INFM3410→THEO`,
   `INFM3310→TECH`, `INFM2510→INFO`).
+- B.Sc. compulsory Mathe modules carry only a `ModulMath#` tag (no Wahlpflicht
+  code), aliased `ModulMath1..4→MATH` so they link to the MATH study area.
 
 Enumeration is the hard part: once a cross-listed course is scraped and its
 detail page fetched, the existing category-code join attributes it. B.Sc.
-*compulsory* modules (Mathe, Teamprojekt) carry no Wahlpflicht code, so they are
-enumerated but not category-linked (known gap).
+*compulsory* Mathe modules are now linked via the `ModulMath#→MATH` alias;
+Teamprojekt still carries no mappable code, so it stays a known gap.
 
 ## Gotchas
 
