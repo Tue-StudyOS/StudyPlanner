@@ -1,7 +1,8 @@
 export const ROUTES = {
   planner: '/',
   catalog: '/catalog',
-  catalogDetail: '/catalog/:courseId',
+  // '/catalog/:courseId' also exists as a deep link; it is wired as a child
+  // route in App.tsx and opens the detail drawer over the catalog.
   overview: '/overview',
   transcript: '/transcript',
   account: '/account',

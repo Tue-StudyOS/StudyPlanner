@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -17,6 +18,10 @@ import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
+import {
+  encodeCatalogDetailSegment,
+  extractCatalogDetailCourseId,
+} from '../utils/catalogDetailRoute.ts'
 import {
   getLatestKnownSeasonTermType,
   getOfferingStatus,
@@ -215,8 +220,13 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const location = useLocation()
+  // The catalog mounts at '/catalog' and '/test/catalog'; resolving '.'
+  // against the active route keeps the drawer URL scheme working on both.
+  const catalogBasePath = useResolvedPath('.').pathname
+  const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
   const resultsAnchorRef = useRef<HTMLDivElement>(null)
@@ -711,14 +721,14 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                   >
                     <CourseCard
                       course={course}
+                      detailTo={isTourSampleRow ? undefined : encodeCatalogDetailSegment(course.id)}
                       isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
-                      isActive={!isTourSampleRow && selectedCourse?.id === course.id}
+                      isActive={!isTourSampleRow && openCourseId === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
-                      onSelect={isTourSampleRow ? () => undefined : () => setSelectedCourse(course)}
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
                   </div>
@@ -739,14 +749,15 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
       )}
       </div>
       </div>
-      {selectedCourse ? (
+      {openCourseId ? (
         <CourseDetailDrawer
-          course={selectedCourse}
-          isFavorite={isFavorite(selectedCourse.id)}
+          courseId={openCourseId}
+          listCourse={courses.find((course) => course.id === openCourseId) ?? null}
+          isFavorite={isFavorite(openCourseId)}
           favoriteDisabled={isLoadingFavorites || isSavingFavorites}
           showFavorite={canShowFavorites}
-          onToggleFavorite={() => toggleFavorite(selectedCourse.id)}
-          onClose={() => setSelectedCourse(null)}
+          onToggleFavorite={() => toggleFavorite(openCourseId)}
+          onClose={() => navigate(catalogBasePath)}
         />
       ) : null}
     </div>
