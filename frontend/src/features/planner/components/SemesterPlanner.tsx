@@ -87,6 +87,7 @@ export function SemesterPlanner({
     plannedCourseIds,
     hiddenSlotIds,
     planAssignments,
+    planParallelGroups,
     savedPlan,
     isLoadingSemesterPlan,
     isSavingSemesterPlan,
@@ -96,6 +97,7 @@ export function SemesterPlanner({
     setHiddenSlotIds,
     setAssignment,
     setAssignments,
+    setParallelGroup,
   } = useSemesterPlanner(initialSemesterLabel)
 
   // Load the catalog of the semester being planned so the weekly grid uses that
@@ -230,6 +232,7 @@ export function SemesterPlanner({
     )
     clearHiddenSlotsForCourse(courseId)
     setAssignment(courseId, null)
+    setParallelGroup(courseId, null)
   }
 
   function handleInterestedCourseAdd(courseId: string, areaCode: string | null): void {
@@ -494,6 +497,7 @@ export function SemesterPlanner({
               <PlannerGrid
                 plannedCourses={displayPlannedCourses}
                 hiddenSlotIds={displayHiddenSlotIds}
+                selectedGroups={planParallelGroups}
                 isMobilePlanner={isSmallViewport}
                 canCompleteSemester={displayPlannedCourses.length > 0}
                 activeSemesterLabel={activeSemesterLabel}
@@ -548,12 +552,14 @@ export function SemesterPlanner({
           areaOptions={openCourseOptions}
           assignedAreaCode={openCourseAssignment}
           suggestedAreaCode={openCourseSuggestion}
+          selectedGroupPosition={planParallelGroups[openCourse.id] ?? null}
           onAdd={(courseId, areaCode) => {
             handleAddCourse(courseId, areaCode)
             setIsAddDrawerOpen(false)
           }}
           onRemove={handleRemoveCourse}
           onSetAssignment={setAssignment}
+          onSetParallelGroup={setParallelGroup}
           onClose={() => setOpenCourseId(null)}
         />
       ) : null}

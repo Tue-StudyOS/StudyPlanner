@@ -13,7 +13,7 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
-import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
+import { assignCourseNumbers, getCourseColor, getRoleColor } from '../utils/courseBadge.ts'
 import { useTheme } from '../../theme'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
 
@@ -39,6 +39,7 @@ function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
 export function PlannerGrid({
   plannedCourses,
   hiddenSlotIds,
+  selectedGroups = {},
   isMobilePlanner,
   canCompleteSemester,
   activeSemesterLabel,
@@ -52,6 +53,7 @@ export function PlannerGrid({
 }: {
   plannedCourses: Course[]
   hiddenSlotIds: string[]
+  selectedGroups?: Record<string, number>
   isMobilePlanner: boolean
   canCompleteSemester: boolean
   activeSemesterLabel: string
@@ -71,13 +73,27 @@ export function PlannerGrid({
     [plannedCourses],
   )
   const blocks = useMemo(
-    () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
-    [hiddenSlotIds, plannedCourses],
+    () =>
+      buildPlannerBlocks(plannedCourses, selectedGroups).filter(
+        (block) => !hiddenSlotIds.includes(block.slotId),
+      ),
+    [hiddenSlotIds, plannedCourses, selectedGroups],
   )
   const unscheduledPlannedCourses = useMemo(() => {
     const scheduledCourseIds = new Set(blocks.map((block) => block.courseId))
     return plannedCourses.filter((course) => !scheduledCourseIds.has(course.id))
   }, [blocks, plannedCourses])
+  // Distinct teaching roles currently on the grid, for the role-color legend.
+  const roleLegend = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const block of blocks) {
+      const color = getRoleColor(block.slotType)
+      if (color && block.slotType && !seen.has(block.slotType)) {
+        seen.set(block.slotType, color)
+      }
+    }
+    return Array.from(seen, ([role, color]) => ({ role, color }))
+  }, [blocks])
   const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
   const maxVisibleColumns = isMobilePlanner ? MOBILE_MAX_OVERLAP_COLUMNS : MAX_VISIBLE_OVERLAP_COLUMNS
@@ -172,6 +188,7 @@ export function PlannerGrid({
                     Boolean(block.slotType),
                   )
                   const badgeColor = isBadge ? getCourseColor(block.courseId) : null
+                  const roleColor = getRoleColor(block.slotType)
                   const courseNumber = courseNumbers.get(block.courseId)
                   return (
                     <button
@@ -195,6 +212,11 @@ export function PlannerGrid({
                         width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
                         height: `${height}px`,
                         ...(badgeColor ? { backgroundColor: badgeColor } : {}),
+                        // Role accent: a colored left edge marks lecture vs. tutorial
+                        // vs. exam at a glance, independent of the per-course color.
+                        ...(roleColor
+                          ? { borderLeftColor: roleColor, borderLeftWidth: '4px' }
+                          : {}),
                       }}
                     >
                       {isBadge && badgeColor ? (
@@ -254,6 +276,21 @@ export function PlannerGrid({
             ))}
           </div>
         </div>
+
+        {roleLegend.length > 1 ? (
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {roleLegend.map(({ role, color }) => (
+              <span key={role} className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+                <span
+                  aria-hidden
+                  className="h-2.5 w-2.5 rounded-[3px]"
+                  style={{ backgroundColor: color }}
+                />
+                {role}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         {isBadge && plannedCourses.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">

@@ -29,6 +29,32 @@ export function getCourseColor(courseId: string): string {
   return COURSE_COLOR_PALETTE[hashCourseId(courseId) % COURSE_COLOR_PALETTE.length]
 }
 
+// Teaching-role accent colors so a lecture reads differently from its tutorial or
+// exam at a glance. Roles arrive as free German text (e.g. "Vorlesung/Übung",
+// "Laborpraktikum", "Proseminar"), so match by keyword and check the more
+// specific/urgent roles first (exam before lecture).
+const ROLE_COLOR_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/nachklausur|klausur|prüfung|pruefung/i, '#ef476f'],
+  [/übung|ubung/i, '#43aa8b'],
+  [/tutorium/i, '#118ab2'],
+  [/praktikum/i, '#9b5de5'],
+  [/seminar|kolloquium/i, '#f9844a'],
+  [/vorlesung/i, '#4361ee'],
+]
+
+/** Accent color for a teaching role, or null when the role is unknown/absent. */
+export function getRoleColor(role: string | null | undefined): string | null {
+  if (!role) {
+    return null
+  }
+  for (const [pattern, color] of ROLE_COLOR_RULES) {
+    if (pattern.test(role)) {
+      return color
+    }
+  }
+  return null
+}
+
 // Numbers planned courses 1..n in plan order; the same id always keeps its first
 // number so the grid badge and the legend agree.
 export function assignCourseNumbers(courseIds: string[]): Map<string, number> {

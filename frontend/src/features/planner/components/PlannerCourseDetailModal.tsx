@@ -5,6 +5,7 @@ import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { CourseDetailBody } from '../../courses/components/CourseDetailBody'
 import { useCatalogCourseDetail } from '../../courses/hooks/useCatalogCourseDetail'
 import type { Course } from '../../courses'
+import { ParallelGroupPicker } from './ParallelGroupPicker'
 
 interface PlannerCourseDetailModalProps {
   course: Course
@@ -12,9 +13,11 @@ interface PlannerCourseDetailModalProps {
   areaOptions: RegulationAreaOption[]
   assignedAreaCode: string | null
   suggestedAreaCode: string | null
+  selectedGroupPosition: number | null
   onAdd: (courseId: string, areaCode: string | null) => void
   onRemove: (courseId: string) => void
   onSetAssignment: (courseId: string, areaCode: string | null) => void
+  onSetParallelGroup: (courseId: string, groupPosition: number | null) => void
   onClose: () => void
 }
 
@@ -29,9 +32,11 @@ export function PlannerCourseDetailModal({
   areaOptions,
   assignedAreaCode,
   suggestedAreaCode,
+  selectedGroupPosition,
   onAdd,
   onRemove,
   onSetAssignment,
+  onSetParallelGroup,
   onClose,
 }: PlannerCourseDetailModalProps) {
   const isMobileViewport = useMediaQuery('(max-width: 768px)')
@@ -47,6 +52,29 @@ export function PlannerCourseDetailModal({
     setSelection({ courseId: course.id, areaCode: assignedAreaCode })
   }
   const selectedAreaCode = selection.areaCode
+
+  const parallelGroups = (detailCourse ?? course).parallelGroups ?? []
+  const defaultGroupPosition =
+    parallelGroups.length > 0
+      ? Math.min(...parallelGroups.map((group) => group.position))
+      : null
+  // Local group choice for the add flow (before the course is in the plan);
+  // reset when the modal switches courses, mirroring the area selection.
+  const [groupSelection, setGroupSelection] = useState<{ courseId: string; position: number | null }>({
+    courseId: course.id,
+    position: selectedGroupPosition,
+  })
+  if (groupSelection.courseId !== course.id) {
+    setGroupSelection({ courseId: course.id, position: selectedGroupPosition })
+  }
+  const effectiveGroupPosition = groupSelection.position ?? defaultGroupPosition
+
+  function handleSelectGroup(position: number): void {
+    setGroupSelection({ courseId: course.id, position })
+    if (isPlanned) {
+      onSetParallelGroup(course.id, position)
+    }
+  }
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
@@ -71,6 +99,14 @@ export function PlannerCourseDetailModal({
 
   const footer = (
     <div className="grid gap-3">
+      {parallelGroups.length > 1 ? (
+        <ParallelGroupPicker
+          groups={parallelGroups}
+          selectedPosition={effectiveGroupPosition}
+          onSelect={handleSelectGroup}
+        />
+      ) : null}
+
       {areaOptions.length > 0 ? (
         <label className="grid gap-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
@@ -108,6 +144,9 @@ export function PlannerCourseDetailModal({
           type="button"
           onClick={() => {
             onAdd(course.id, selectedAreaCode)
+            if (effectiveGroupPosition !== null) {
+              onSetParallelGroup(course.id, effectiveGroupPosition)
+            }
             onClose()
           }}
           disabled={areaOptions.length === 0}
