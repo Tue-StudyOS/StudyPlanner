@@ -3,7 +3,7 @@ import {
   writeSessionCache,
 } from '../../../shared/utils/sessionCache.ts'
 import { fetchSemesterPlan, saveSemesterPlan } from '../api'
-import { SEMESTER_PLAN_CHANGED_EVENT } from './semesterTabBadge.ts'
+import { SEMESTER_PLAN_CHANGED_EVENT, markSemesterBadge } from './semesterTabBadge.ts'
 import { getCurrentSemesterLabel } from './semesterLabels'
 
 export async function addCourseToCurrentSemesterPlan(
@@ -30,6 +30,7 @@ export async function addCourseToCurrentSemesterPlan(
   invalidateSessionCache('private:planner:index', userCacheKey)
 
   if (typeof window !== 'undefined') {
+    markSemesterBadge(semesterLabel)
     window.dispatchEvent(
       new CustomEvent(SEMESTER_PLAN_CHANGED_EVENT, { detail: { semesterLabel } }),
     )

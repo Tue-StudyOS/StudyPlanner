@@ -1,3 +1,7 @@
+import { appendApiRequestLog } from './apiRequestLog.ts'
+import { getApiBaseUrl } from './apiBaseUrl.ts'
+import { reportClientErrorToServer } from './reportClientError.ts'
+
 export class ApiError extends Error {
   readonly status: number
   readonly code?: string
@@ -10,36 +14,9 @@ export class ApiError extends Error {
   }
 }
 
-// Calls go directly to the Worker's public URL instead of the Pages Function
-// proxy: Cloudflare-internal invocation paths (service bindings) intermittently
-// crash Python Workers during isolate init, while external HTTP ingress does not.
-// See https://github.com/cloudflare/workerd/issues/6624.
-const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
-const PRODUCTION_PAGES_HOST = 'studyplaner.pages.dev'
-const PRODUCTION_PAGES_PREVIEW_SUFFIX = '.studyplaner.pages.dev'
-
-function isProductionPagesHost(hostname: string): boolean {
-  return hostname === PRODUCTION_PAGES_HOST || hostname.endsWith(PRODUCTION_PAGES_PREVIEW_SUFFIX)
-}
-
-function getApiBaseUrl(): string {
-  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
-  if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, '')
-  }
-
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    if (hostname === 'localhost') {
-      return 'http://localhost:8787'
-    }
-    if (isProductionPagesHost(hostname)) {
-      return PRODUCTION_API_BASE_URL
-    }
-  }
-
-  return ''
-}
+// Direct workers.dev remains available for local dev via VITE_API_BASE_URL.
+// Deployed Pages apps call same-origin /api/* through the Pages gateway.
+export { getApiBaseUrl } from './apiBaseUrl.ts'
 
 // The body must be consumed exactly once: non-JSON error bodies (e.g. Cloudflare's
 // plain-text "error code: 1101" pages) previously triggered a second read via
@@ -77,14 +54,35 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   const apiBaseUrl = getApiBaseUrl()
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const requestUrl = `${apiBaseUrl}${normalizedPath}`
+  const method = init?.method ?? 'GET'
+  const startedAt = Date.now()
   let response: Response
 
   try {
     response = await fetch(requestUrl, init)
-  } catch (error) {
-    const fallbackMessage = `Network error while requesting ${requestUrl}. The API may be unreachable or blocked by CORS.`
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause)
+    appendApiRequestLog({
+      timestamp: Date.now(),
+      method,
+      url: requestUrl,
+      status: 0,
+      code: 'network_error',
+      message: 'Network request failed',
+      detail,
+      durationMs: Date.now() - startedAt,
+    })
+    reportClientErrorToServer({
+      method,
+      url: requestUrl,
+      status: 0,
+      code: 'network_error',
+      message: 'Network request failed',
+      detail,
+      durationMs: Date.now() - startedAt,
+    })
     throw new ApiError(
-      error instanceof Error && error.message ? `${fallbackMessage} ${error.message}` : fallbackMessage,
+      'The service is temporarily unavailable. Please try again shortly.',
       0,
       'network_error',
     )
@@ -99,8 +97,36 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
     }
 
     const { message, code } = parseApiErrorBody(bodyText, response.status)
+    appendApiRequestLog({
+      timestamp: Date.now(),
+      method,
+      url: requestUrl,
+      status: response.status,
+      code,
+      message,
+      detail: bodyText || undefined,
+      durationMs: Date.now() - startedAt,
+    })
+    reportClientErrorToServer({
+      method,
+      url: requestUrl,
+      status: response.status,
+      code,
+      message,
+      detail: bodyText || undefined,
+      durationMs: Date.now() - startedAt,
+    })
     throw new ApiError(message, response.status, code)
   }
+
+  appendApiRequestLog({
+    timestamp: Date.now(),
+    method,
+    url: requestUrl,
+    status: response.status,
+    message: 'OK',
+    durationMs: Date.now() - startedAt,
+  })
 
   if (response.status === 204) {
     return undefined as T

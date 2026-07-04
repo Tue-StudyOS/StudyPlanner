@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cleanLecturerName } from '../../src/features/courses/utils/lecturerName.ts'
+import { cleanLecturerName, formatCourseLecturerName } from '../../src/features/courses/utils/lecturerName.ts'
 
 test('cleanLecturerName strips stacked academic titles', () => {
   assert.equal(cleanLecturerName('o. Prof. Dr. rer. nat. Torsten Grust'), 'Torsten Grust')
@@ -37,6 +37,21 @@ test('cleanLecturerName cleans multiple lecturers and rejoins with commas', () =
     cleanLecturerName('Dr. Anna Müller, Prof. Dr. Torsten Grust'),
     'Anna Müller, Torsten Grust',
   )
+})
+
+test('formatCourseLecturerName deduplicates structured lecturer names', () => {
+  assert.equal(
+    formatCourseLecturerName({
+      lecturer: 'Prof. Dr. Anna Müller, Prof. Dr. Anna Müller',
+      lecturers: ['Prof. Dr. Anna Müller', 'Prof. Dr. Torsten Grust'],
+    }),
+    'Anna Müller, Torsten Grust',
+  )
+})
+
+test('formatCourseLecturerName returns empty when no lecturer is known', () => {
+  assert.equal(formatCourseLecturerName({ lecturer: '', lecturers: [] }), '')
+  assert.equal(formatCourseLecturerName({ lecturer: 'TBA', lecturers: [] }), '')
 })
 
 test('cleanLecturerName handles empty, whitespace, and placeholder input gracefully', () => {

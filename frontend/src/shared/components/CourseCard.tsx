@@ -4,11 +4,12 @@ import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
-import { cleanLecturerName } from '../../features/courses/utils/lecturerName.ts'
+import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
+import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
 import { FavStar } from './FavStar'
-import { SeasonSymbol } from './SeasonSymbol'
+import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
 interface CourseCardProps {
   course: Course
@@ -25,6 +26,10 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
+  regulationRuleGroups?: RegulationRuleGroup[]
+  isAreaTagActive?: (areaCode: string) => boolean
+  onAreaTagClick?: (areaCode: string) => void
+  lecturerLabel?: string
   onSelect?: () => void
   onToggleFavorite: () => void
 }
@@ -52,12 +57,17 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
+  regulationRuleGroups = [],
+  isAreaTagActive,
+  onAreaTagClick,
+  lecturerLabel,
   onSelect,
   onToggleFavorite,
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null)
+  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null, regulationRuleGroups)
+  const resolvedLecturerLabel = lecturerLabel ?? formatCourseLecturerName(course)
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
     ? 'border-primary ring-1 ring-primary/40'
@@ -72,53 +82,48 @@ export function CourseCard({
   const visibility = getCompletedCourseCardVisibility(isCompleted)
   const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
 
-  const cardClassName = `group relative flex h-full cursor-pointer flex-col gap-3 rounded-[10px] border bg-surface px-4.5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
+  const cardClassName = `group relative flex h-full min-h-[7rem] cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
   }`
   const accessibleLabel = `Open course details: ${title}`
 
   const cardContent = (
     <>
-      {/* Rendered behind the card content: clipped to the rounded card shape
-          and non-interactive so it never affects layout or clicks. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[10px]"
-      >
-        <SeasonSymbol
-          termType={seasonTermType ?? course.termType}
-          className="absolute -right-2 top-1/2 aspect-square h-[85%] w-auto -translate-y-1/2 opacity-40 dark:opacity-30"
-        />
-      </div>
-
+      <SeasonGlyphWatermark
+        termType={seasonTermType ?? course.termType}
+        overlay={
+          showFavorite ? (
+            <div
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+            </div>
+          ) : undefined
+        }
+      />
       <div className="relative flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] min-h-[2.45rem] sm:overflow-visible sm:[display:block]">
+          <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
             {title}
           </h3>
           {visibility.showCompletedLabel ? (
-            <div className="mt-1 text-[13px] font-medium text-accent">
-              {t('catalog.completed')}
+            <div className="mt-1 min-w-0">
+              <div className="text-[13px] font-medium text-accent">{t('catalog.completed')}</div>
+              {resolvedLecturerLabel ? (
+                <span className="mt-0.5 block min-w-0 truncate text-[12px] text-fg-muted">
+                  {resolvedLecturerLabel}
+                </span>
+              ) : null}
             </div>
-          ) : (
+          ) : resolvedLecturerLabel ? (
             <span className="mt-1 block min-w-0 truncate text-[12px] text-fg-muted">
-              {course.lecturer ? cleanLecturerName(course.lecturer) : 'TBA'}
+              {resolvedLecturerLabel}
             </span>
-          )}
+          ) : null}
         </div>
-        {showFavorite ? (
-          <div
-            className={secondaryVisibilityClass}
-            // preventDefault keeps the surrounding link from navigating when
-            // bookmarking; stopPropagation shields the plain-button variant.
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-          >
-            <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
-          </div>
-        ) : null}
       </div>
 
       <div className="relative mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
@@ -126,7 +131,13 @@ export function CourseCard({
             ECTS value can stay right-aligned next to the season/type tags. */}
         <span className={`order-last flex w-full flex-wrap items-center gap-0.75 sm:order-none sm:w-auto ${secondaryVisibilityClass}`}>
           {areaTags.map((tag) => (
-            <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
+            <AreaBadge
+              key={tag.key}
+              label={tag.label}
+              masterCat={tag.masterCat}
+              active={isAreaTagActive?.(tag.key) ?? false}
+              onClick={onAreaTagClick ? () => onAreaTagClick(tag.key) : undefined}
+            />
           ))}
           <OfferingStatusTag status={offeringStatus} />
         </span>

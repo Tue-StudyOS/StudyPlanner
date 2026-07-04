@@ -6,7 +6,7 @@ import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
-import { LEGACY_PLANNER_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
+import { LEGACY_CATALOG_ROUTE, LEGACY_PLANNER_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
 // shell and providers; each page becomes its own chunk.
@@ -19,11 +19,19 @@ const CoursesOverview = lazy(() =>
 const Transcript = lazy(() =>
   import('./features/transcript/components/Transcript').then((module) => ({ default: module.Transcript })),
 )
-const SemesterPlanner = lazy(() =>
-  import('./features/planner/components/SemesterPlanner').then((module) => ({ default: module.SemesterPlanner })),
+const SemesterHub = lazy(() =>
+  import('./features/planner/components/SemesterHub').then((module) => ({ default: module.SemesterHub })),
+)
+const SemesterPlanPage = lazy(() =>
+  import('./features/planner/components/SemesterPlanPage').then((module) => ({ default: module.SemesterPlanPage })),
 )
 const AccountPage = lazy(() =>
   import('./features/auth/components/AccountPage').then((module) => ({ default: module.AccountPage })),
+)
+const RequestLogPage = lazy(() =>
+  import('./features/diagnostics/components/RequestLogPage').then((module) => ({
+    default: module.RequestLogPage,
+  })),
 )
 const TestLayout = lazy(() =>
   import('./features/test').then((module) => ({ default: module.TestLayout })),
@@ -79,7 +87,10 @@ function App() {
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
-                      <Route path={ROUTES.planner} element={<SemesterPlanner />} />
+                      <Route path="/" element={<Navigate to={LEGACY_CATALOG_ROUTE} replace />} />
+                      <Route path={ROUTES.planner} element={<SemesterHub />} />
+                      <Route path={ROUTES.semesterDetail} element={<SemesterPlanPage />} />
+                      <Route path={LEGACY_CATALOG_ROUTE} element={<Navigate to={ROUTES.catalog} replace />} />
                       {/* The course detail renders as a URL-driven drawer inside
                           the catalog; the child route only makes
                           '/catalog/:courseId' a valid deep link. */}
@@ -89,6 +100,7 @@ function App() {
                       <Route path={ROUTES.overview} element={<Dashboard />} />
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
+                      <Route path={ROUTES.log} element={<RequestLogPage />} />
                       <Route
                         path={LEGACY_PLANNER_ROUTE}
                         element={<Navigate to={ROUTES.planner} replace />}

@@ -1,5 +1,10 @@
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
+import {
+  getScheduleSlotKind,
+  getScheduleSlotTypeLabel,
+  type ScheduleSlotKind,
+} from '../../courses/utils/scheduleSlotKind.ts'
 import { clampPlannerTimeRange } from './plannerDayLayout.ts'
 
 export const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
@@ -63,6 +68,7 @@ export interface PlannerBlock {
   label: string
   room: string
   slotType: string
+  slotKind: ScheduleSlotKind
   hasOverlap: boolean
 }
 
@@ -130,9 +136,6 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
 
   courses.forEach((course) => {
     course.schedule.forEach((slot, index) => {
-      if (isSingleDateSlot(slot.day)) {
-        return
-      }
       const normalizedDay = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
       if (!normalizedDay || !timeRange) {
@@ -142,6 +145,7 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
       if (!visibleTimeRange) {
         return
       }
+      const slotKind = getScheduleSlotKind(slot)
       blocks.push({
         blockId: `${course.id}-${index}`,
         slotId: `${course.id}:${index}`,
@@ -152,7 +156,8 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         endMinutes: visibleTimeRange.endMinutes,
         label: slot.time,
         room: slot.room,
-        slotType: slot.type !== 'Course' && /[\p{L}\p{N}]/u.test(slot.type) ? slot.type : '',
+        slotType: getScheduleSlotTypeLabel(slot),
+        slotKind,
         hasOverlap: false,
       })
     })

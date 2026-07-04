@@ -2,7 +2,6 @@ import type { ChangeEvent, DragEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
-import { StatItem } from '../../../shared/components/StatItem'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
@@ -11,7 +10,6 @@ import {
   TOUR_PLANNER_RULE_GROUPS,
   TOUR_TRANSCRIPT_COMPLETED_COURSES,
   TOUR_TRANSCRIPT_IMPORT_CANDIDATES,
-  TOUR_TRANSCRIPT_STATS,
   isTranscriptTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
@@ -20,7 +18,6 @@ import {
   fetchTranscriptIssues,
   saveTranscriptIssues,
 } from '../api'
-import { useStudyStats } from '../hooks/useStudyStats'
 import { useTranscript } from '../hooks/useTranscript'
 import type {
   SavedTranscriptIssue,
@@ -100,7 +97,6 @@ function AuthenticatedTranscript() {
     removeTranscriptImports,
     clearCompletedCoursesError,
   } = useTranscript()
-  const { totalEcts, requiredEcts, progress, averageGrade } = useStudyStats()
   const {
     courses: baseCatalogCourses,
     isLoading: isLoadingCatalog,
@@ -122,7 +118,6 @@ function AuthenticatedTranscript() {
   )
 
   const isTranscriptTourPreview = isOnboardingOpen && isTranscriptTourStep(activeStepId)
-  const displayStats = isTranscriptTourPreview ? TOUR_TRANSCRIPT_STATS : { totalEcts, requiredEcts, progress, averageGrade }
   const displayImportCandidates = isTranscriptTourPreview ? TOUR_TRANSCRIPT_IMPORT_CANDIDATES : importCandidates
   const displaySavedIssueCandidates = isTranscriptTourPreview ? [] : savedIssueCandidates
   const displayCompletedCourses = isTranscriptTourPreview ? TOUR_TRANSCRIPT_COMPLETED_COURSES : completedCourses
@@ -144,13 +139,6 @@ function AuthenticatedTranscript() {
     ? TOUR_TRANSCRIPT_IMPORT_CANDIDATES.filter((candidate) => canImportTranscriptCandidate(candidate)).length
     : importableReviewCandidateCount
   const displayImportableSavedIssueCount = isTranscriptTourPreview ? 0 : importableSavedIssueCount
-
-  // Same order as the progress tab (ECTS, progress, grade) so the two headers match.
-  const stats = [
-    { label: t('transcript.ectsEarned'), value: `${displayStats.totalEcts} / ${displayStats.requiredEcts}` },
-    { label: t('transcript.progress'), value: `${displayStats.progress} %` },
-    { label: t('transcript.averageGrade'), value: displayStats.averageGrade !== null ? displayStats.averageGrade.toFixed(2) : '–' },
-  ]
 
   useEffect(() => {
     let isActive = true
@@ -511,17 +499,6 @@ function AuthenticatedTranscript() {
         onChange={handleFileInputChange}
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3.5">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-[10px] border border-border bg-surface px-3 py-3.5 sm:px-5 sm:py-4"
-          >
-            <StatItem label={stat.label} value={stat.value} />
-          </div>
-        ))}
-      </div>
-
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 text-[12.5px] text-fg-muted">{t('transcript.almaGuideLead')}</p>
         <AlmaImportGuide onChooseFile={openFilePicker} />
@@ -636,6 +613,9 @@ export function Transcript() {
         <h1 className="mb-0.75 text-[22px] font-semibold tracking-[-0.01em] text-fg">
           {t('transcript.title')}
         </h1>
+        {!isAuthenticated ? (
+          <p className="text-[13.5px] text-fg-muted">{t('transcript.guestSubtitle')}</p>
+        ) : null}
       </div>
 
       {isAuthenticated ? (

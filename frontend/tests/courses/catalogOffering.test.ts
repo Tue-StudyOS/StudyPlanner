@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
   getOutdatedOfferingSortRank,
@@ -150,4 +151,22 @@ test('getRecentSeasonTermType shifts the reference window during a winter term',
   assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2024/25'] }, winterNow), 'winter')
   // The running winter does not count yet.
   assert.equal(getRecentSeasonTermType({ offeredPeriods: ['Winter 2025/26'] }, winterNow), 'unknown')
+})
+
+test('getDetailSeasonTermType shows both when catalog termType or offered periods cover both seasons', () => {
+  assert.equal(
+    getDetailSeasonTermType({ termType: 'both', offeredPeriods: [] }, NOW),
+    'both',
+  )
+  assert.equal(
+    getDetailSeasonTermType({
+      termType: 'summer',
+      offeredPeriods: ['Sommer 2025', 'Winter 2025/26'],
+    }, NOW),
+    'both',
+  )
+  assert.equal(
+    getDetailSeasonTermType({ termType: 'winter', offeredPeriods: ['Winter 2025/26'] }, NOW),
+    'winter',
+  )
 })

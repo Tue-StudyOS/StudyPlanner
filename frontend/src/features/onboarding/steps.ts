@@ -1,5 +1,6 @@
 import type { TranslationKey } from '../i18n/translations.ts'
-import { ROUTES } from '../routes.ts'
+import { ROUTES, semesterPath } from '../routes.ts'
+import { getCurrentSemesterLabel } from '../planner/utils/semesterLabels.ts'
 import type { TourStep } from './types.ts'
 
 interface TourStepDefinition extends Omit<TourStep, 'title' | 'body'> {
@@ -165,6 +166,13 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   },
 ]
 
+function resolveStepRoute(route: string | undefined): string | undefined {
+  if (route === ROUTES.planner) {
+    return semesterPath(getCurrentSemesterLabel())
+  }
+  return route
+}
+
 function getRouteTitleKey(route: string | undefined): TranslationKey | null {
   switch (route) {
     case ROUTES.transcript:
@@ -176,6 +184,9 @@ function getRouteTitleKey(route: string | undefined): TranslationKey | null {
     case ROUTES.overview:
       return 'nav.progress'
     default:
+      if (route?.startsWith('/semester/')) {
+        return 'nav.semester'
+      }
       return null
   }
 }
@@ -185,14 +196,14 @@ function buildStepTitle(step: TourStepDefinition, t: (key: TranslationKey) => st
   if (step.id === 'welcome' || step.id === 'reopen-guide') {
     return title
   }
-  const routeTitleKey = getRouteTitleKey(step.route)
+  const routeTitleKey = getRouteTitleKey(resolveStepRoute(step.route))
   return routeTitleKey ? `${t(routeTitleKey)} - ${title}` : title
 }
 
 export function buildTourSteps(t: (key: TranslationKey) => string): TourStep[] {
   return TOUR_STEP_DEFINITIONS.map((step) => ({
     id: step.id,
-    route: step.route,
+    route: resolveStepRoute(step.route),
     targets: step.targets,
     viewport: step.viewport,
     targetTopOffsetPx: step.targetTopOffsetPx,

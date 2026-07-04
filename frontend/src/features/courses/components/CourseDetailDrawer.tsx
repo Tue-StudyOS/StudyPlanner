@@ -5,6 +5,7 @@ import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useTranslation } from '../../i18n'
 import { useCatalogCourseDetail } from '../hooks/useCatalogCourseDetail'
+import { mergeCourseDetails } from '../utils/mergeCourseDetails.ts'
 import type { Course } from '../types'
 import { CourseDetailBody } from './CourseDetailBody'
 
@@ -38,7 +39,9 @@ export function CourseDetailDrawer({
   // The catalog list only carries summary data; the full record adds the
   // description, exam dates, prerequisites, and learning platform links.
   const { course: detailCourse, isLoading, error } = useCatalogCourseDetail(courseId)
-  const displayCourse = detailCourse ?? listCourse
+  const displayCourse = detailCourse && listCourse
+    ? mergeCourseDetails(listCourse, detailCourse)
+    : detailCourse ?? listCourse
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })

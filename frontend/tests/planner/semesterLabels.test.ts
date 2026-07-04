@@ -4,6 +4,7 @@ import {
   buildSemesterOptions,
   compareSemesterLabels,
   formatSemesterLabelShort,
+  formatSemesterLabelDisplay,
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
   parseSemesterLabel,
@@ -22,6 +23,11 @@ test('formatSemesterLabelShort shortens valid labels and passes through invalid 
   assert.equal(formatSemesterLabelShort('SS 2025'), 'SS 25')
   assert.equal(formatSemesterLabelShort('WS 2024/25'), 'WS 24/25')
   assert.equal(formatSemesterLabelShort('custom label'), 'custom label')
+})
+
+test('formatSemesterLabelDisplay keeps full year labels for hub cards', () => {
+  assert.equal(formatSemesterLabelDisplay('SS 2023'), 'SS 2023')
+  assert.equal(formatSemesterLabelDisplay('WS 2022/23'), 'WS 2022/23')
 })
 
 test('compareSemesterLabels orders semesters chronologically', () => {

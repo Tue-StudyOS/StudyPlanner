@@ -1,9 +1,16 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
+import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
-import { buildFlexibleRegulationAreaOptions } from '../../../shared/utils/regulation'
+import {
+  buildFlexibleRegulationAreaOptions,
+  formatRegulationAreaShortLabel,
+  isMandatoryRegulationAreaCode,
+  studyAreaCodeToMasterCat,
+} from '../../../shared/utils/regulation'
+import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
 import { useOnboarding } from '../../onboarding'
@@ -13,10 +20,13 @@ import {
   getTourCatalogSampleTarget,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { DAY_LABELS, DAY_ORDER } from '../../planner/utils/plannerFeedback'
+import { findCompletedCourseForCatalogCourse } from '../../planner/utils/historicalSemesterPlan.ts'
 import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
+import { useHistoricalLecturerLookup } from '../hooks/useHistoricalLecturerLookup.ts'
+import { resolveCourseCardLecturerLabel } from '../utils/completedCourseLecturer.ts'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
 import {
   encodeCatalogDetailSegment,
@@ -206,7 +216,6 @@ interface CoursesOverviewProps {
 
 export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverviewProps = {}) {
   const [search, setSearch] = useState<string>('')
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
   const [selectedDays, setSelectedDays] = useState<FilterWeekday[]>([])
@@ -219,6 +228,43 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
+  const filterSignature = useMemo(
+    () =>
+      [
+        search,
+        selectedCourseTypes.join('|'),
+        selectedDays.join('|'),
+        selectedEctsValues.join('|'),
+        selectedStudyAreaCodes.join('|'),
+        selectedTerms.join('|'),
+        showOnlyOpenMandatory,
+        showUnconfirmedOfferings,
+        sortOption,
+        timeFromDigits,
+        timeToDigits,
+      ].join('::'),
+    [
+      search,
+      selectedCourseTypes,
+      selectedDays,
+      selectedEctsValues,
+      selectedStudyAreaCodes,
+      selectedTerms,
+      showOnlyOpenMandatory,
+      showUnconfirmedOfferings,
+      sortOption,
+      timeFromDigits,
+      timeToDigits,
+    ],
+  )
+  const [paginationState, setPaginationState] = useState<{ signature: string; visibleCount: number }>(() => ({
+    signature: filterSignature,
+    visibleCount: PAGE_SIZE,
+  }))
+  if (paginationState.signature !== filterSignature) {
+    setPaginationState({ signature: filterSignature, visibleCount: PAGE_SIZE })
+  }
+  const visibleCount = paginationState.visibleCount
   const [layout, setLayout] = useState<CatalogLayout>(readStoredLayout)
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -229,7 +275,8 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const resultsAnchorRef = useRef<HTMLDivElement>(null)
+  const catalogScrollRef = useRef<HTMLDivElement>(null)
+  const preservedScrollTopRef = useRef(0)
   const { isAuthenticated, user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
@@ -239,6 +286,8 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
+  const { progressSnapshot } = useProgressSnapshot()
+  const historicalLecturerLookup = useHistoricalLecturerLookup(completedCourses, periods)
   const canShowFavorites = favoritesVisibility === 'always' || isAuthenticated
 
   const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
@@ -257,18 +306,19 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     return termTypeMap
   }, [courses, knownPeriodLabels])
 
-  const completedByCourseKey = useMemo(() => {
+  const completedByCatalogCourseId = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
-    for (const completed of completedCourses) {
-      if (completed.courseId) map.set(completed.courseId, completed)
-      if (completed.courseNumber) map.set(completed.courseNumber, completed)
-      if (completed.externalCourseCode) map.set(completed.externalCourseCode, completed)
+    for (const course of courses) {
+      const completed = findCompletedCourseForCatalogCourse(course, completedCourses)
+      if (completed) {
+        map.set(course.id, completed)
+      }
     }
     return map
-  }, [completedCourses])
+  }, [courses, completedCourses])
 
   function getCompletedFor(course: Course): CompletedCourse | undefined {
-    return completedByCourseKey.get(course.id) ?? completedByCourseKey.get(course.number)
+    return completedByCatalogCourseId.get(course.id)
   }
 
   useEffect(() => {
@@ -276,7 +326,12 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     if (!sentinel) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) setVisibleCount((prev) => prev + PAGE_SIZE)
+        if (entries[0]?.isIntersecting) {
+          setPaginationState((current) => ({
+            ...current,
+            visibleCount: current.visibleCount + PAGE_SIZE,
+          }))
+        }
       },
       { rootMargin: '200px' },
     )
@@ -300,6 +355,44 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     () => buildFlexibleRegulationAreaOptions(regulationVersion?.ruleGroups ?? []),
     [regulationVersion?.ruleGroups],
   )
+  const regulationRuleGroups = useMemo(
+    () => regulationVersion?.ruleGroups ?? [],
+    [regulationVersion?.ruleGroups],
+  )
+
+  const openRegulationAreaCodes = useMemo(
+    () =>
+      (progressSnapshot?.regulationProgress ?? [])
+        .filter(
+          (area) =>
+            area.code.trim().toUpperCase() !== 'THESIS'
+            && area.requiredEcts > 0
+            && area.earnedEcts < area.requiredEcts,
+        )
+        .map((area) => area.code),
+    [progressSnapshot?.regulationProgress],
+  )
+
+  const topicFilterOptions = useMemo(() => {
+    const options = new Map(
+      topicAreaOptions.map((option) => [option.code, { ...option, isMandatory: false }]),
+    )
+    for (const code of openRegulationAreaCodes) {
+      if (options.has(code)) {
+        continue
+      }
+      const ruleGroup = regulationRuleGroups.find((group) => group.code === code)
+      options.set(code, {
+        code,
+        label: ruleGroup?.name ?? code,
+        shortLabel: formatRegulationAreaShortLabel(code, ruleGroup?.groupType),
+        masterCat: studyAreaCodeToMasterCat(code),
+        isFlexible: false,
+        isMandatory: isMandatoryRegulationAreaCode(code, regulationRuleGroups),
+      })
+    }
+    return [...options.values()]
+  }, [openRegulationAreaCodes, regulationRuleGroups, topicAreaOptions])
 
   const timeWindow = useMemo(
     () => ({
@@ -347,8 +440,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
             showOnlyOpenMandatory
             && !(
               isCompulsoryCourse(course)
-              && !completedByCourseKey.get(course.id)
-              && !completedByCourseKey.get(course.number)
+              && !completedByCatalogCourseId.has(course.id)
             )
           ) {
             return false
@@ -369,7 +461,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         - getOutdatedOfferingSortRank(offeringStatusByCourseId.get(right.id)),
       ),
     [
-      completedByCourseKey,
+      completedByCatalogCourseId,
       courses,
       latestKnownTermTypeByCourseId,
       offeringStatusByCourseId,
@@ -400,16 +492,32 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
-  // Clicking a "still missing" area chip focuses the catalog on that single
-  // area; clicking it again while it is the only active area clears it.
-  function handleOpenAreaChipSelect(code: string): void {
-    const isAlreadyOnlySelection =
-      selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
-    setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
-    if (!isAlreadyOnlySelection) {
-      resultsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  function isAreaFilterActive(code: string): boolean {
+    if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
+      return showOnlyOpenMandatory
+    }
+    return selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
+  }
+
+  function handleAreaFilterSelect(code: string): void {
+    preservedScrollTopRef.current = catalogScrollRef.current?.scrollTop ?? 0
+    setAreFiltersOpen(false)
+    if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
+      setShowOnlyOpenMandatory((current) => !current)
+      setSelectedStudyAreaCodes([])
+    } else {
+      setShowOnlyOpenMandatory(false)
+      const isAlreadyOnlySelection =
+        selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
+      setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
     }
   }
+
+  useEffect(() => {
+    const root = catalogScrollRef.current
+    if (!root) return
+    root.scrollTop = preservedScrollTopRef.current
+  }, [filterSignature])
 
   function resetAllFilters(): void {
     setSelectedEctsValues([])
@@ -442,10 +550,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
 
   return (
     <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
+      <div ref={catalogScrollRef} data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
       <CatalogProgressHint
-        selectedAreaCodes={selectedStudyAreaCodes}
-        onSelectArea={handleOpenAreaChipSelect}
+        isAreaActive={isAreaFilterActive}
+        onSelectArea={handleAreaFilterSelect}
       />
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
@@ -453,12 +561,6 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
 
       <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
       {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}
-
-      {!isAuthenticated ? (
-        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
-          {t('catalog.publicNotice')}
-        </div>
-      ) : null}
 
       {!isOnboardingOpen && favoritesError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
@@ -558,16 +660,15 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
               <FilterGroup label="Topic areas">
                 {isLoadingRegulationVersion ? (
                   <div className="text-[12.5px] text-fg-muted">Loading your active regulation filters...</div>
-                ) : topicAreaOptions.length > 0 ? (
+                ) : topicFilterOptions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {topicAreaOptions.map((option) => (
+                    {topicFilterOptions.map((option) => (
                       <FilterChip
                         key={option.code}
-                        label={option.code}
-                        active={selectedStudyAreaCodes.includes(option.code)}
-                        onClick={() =>
-                          setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, option.code))
-                        }
+                        label={option.shortLabel}
+                        title={option.label}
+                        active={option.isMandatory ? showOnlyOpenMandatory : selectedStudyAreaCodes.includes(option.code)}
+                        onClick={() => handleAreaFilterSelect(option.code)}
                       />
                     ))}
                   </div>
@@ -634,14 +735,6 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
               </FilterGroup>
             </div>
 
-            <FilterGroup label="Degree requirements">
-              <FilterChip
-                label="Mandatory courses I still need"
-                active={showOnlyOpenMandatory}
-                onClick={() => setShowOnlyOpenMandatory((value) => !value)}
-              />
-            </FilterGroup>
-
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-3">
               <button
                 type="button"
@@ -662,17 +755,13 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         />
       </div>
 
-      {/* Scroll target for the "still missing" chips; the top margin clears
-          the fixed mobile hint bar and the sticky desktop one. */}
-      <div ref={resultsAnchorRef} aria-hidden="true" className="scroll-mt-[8.75rem] md:scroll-mt-[5rem]" />
-
       {isLoading && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.loading')}
         </div>
       ) : error && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          {t('catalog.failed')} {error}
+          <p>{toUserFacingApiMessage(error)}</p>
         </div>
       ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
@@ -725,10 +814,23 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
                       isActive={!isTourSampleRow && openCourseId === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
+                      lecturerLabel={
+                        isTourSampleRow
+                          ? undefined
+                          : resolveCourseCardLecturerLabel(
+                              course,
+                              getCompletedFor(course),
+                              periods,
+                              historicalLecturerLookup,
+                            )
+                      }
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      regulationRuleGroups={regulationRuleGroups}
+                      isAreaTagActive={isAreaFilterActive}
+                      onAreaTagClick={handleAreaFilterSelect}
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
                   </div>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { getScheduleSlotKind } from '../../src/features/courses/utils/scheduleSlotKind.ts'
+import { getScheduleSlotKind, getScheduleSlotTypeLabel } from '../../src/features/courses/utils/scheduleSlotKind.ts'
 
 test('classifies recurring date ranges as weekly slots', () => {
   assert.equal(
@@ -54,5 +54,38 @@ test('classifies German and English resit exam slot types', () => {
       type: 'Resit exam',
     }),
     'resit',
+  )
+})
+
+test('keeps one-off lecture sessions off the exam styling path', () => {
+  assert.equal(
+    getScheduleSlotKind({
+      day: '04.08.2026',
+      time: '08:00 - 12:00',
+      room: 'Seminarraum C215',
+      type: 'Vorlesung/Übung',
+    }),
+    'weekly',
+  )
+})
+
+test('labels exams explicitly even when ALMA also carries a session type', () => {
+  assert.equal(
+    getScheduleSlotTypeLabel({
+      day: '27.07.2026',
+      time: '08:00 - 11:00',
+      room: 'Hörsaal N02',
+      type: 'Klausur',
+    }),
+    'Klausur',
+  )
+  assert.equal(
+    getScheduleSlotTypeLabel({
+      day: '04.08.2026',
+      time: '08:00 - 12:00',
+      room: 'Seminarraum C215',
+      type: 'Vorlesung/Übung',
+    }),
+    'Vorlesung/Übung',
   )
 })

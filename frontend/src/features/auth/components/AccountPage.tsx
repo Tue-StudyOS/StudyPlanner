@@ -264,18 +264,18 @@ export function AccountPage() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 pb-6 sm:p-8 sm:pt-6">
       {error ? (
-        <div className="pointer-events-none fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top,0px))] z-50 flex justify-center sm:justify-end">
+        <div className="pointer-events-none fixed inset-x-4 top-[calc(3.75rem+env(safe-area-inset-top,0px)+0.5rem)] z-[90] flex justify-center sm:justify-end">
           <div
             role="alert"
             aria-live="assertive"
-            className="pointer-events-auto w-full max-w-xl rounded-[10px] border border-primary/30 bg-surface px-4 py-3 text-[13px] text-primary shadow-lg"
+            className="pointer-events-auto w-full max-w-xl rounded-[10px] border border-danger/35 bg-surface px-4 py-3 text-[13px] text-fg shadow-lg dark:border-danger/45 dark:bg-surface-hover"
           >
             <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1 break-words">{error}</div>
+              <div className="min-w-0 flex-1 break-words leading-relaxed text-fg">{error}</div>
               <button
                 type="button"
                 onClick={() => setError(null)}
-                className="shrink-0 rounded-md border border-primary/20 px-2.5 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
+                className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg"
               >
                 {t('common.close')}
               </button>
@@ -509,7 +509,6 @@ export function AccountPage() {
           {message}
         </div>
       ) : null}
-
 
     </div>
   )

@@ -1,7 +1,9 @@
 import type { CompletedCourse, Course } from '../../courses'
+import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 
-type HistoricalCompletedCourse = Pick<CompletedCourse,
-  'courseId' | 'courseNumber' | 'externalCourseCode' | 'semester' | 'studyAreaCode'
+type HistoricalCompletedCourse = Pick<
+  CompletedCourse,
+  'courseId' | 'courseNumber' | 'externalCourseCode' | 'semester' | 'studyAreaCode' | 'title'
 >
 
 export interface HistoricalSemesterPlan {
@@ -18,43 +20,82 @@ function normalizeIdentifier(value: string | number | null | undefined): string 
   return normalizedValue || null
 }
 
-function addCourseIndexValue(index: Map<string, Course>, value: string | number | null | undefined, course: Course): void {
-  const key = normalizeIdentifier(value)
-  if (key && !index.has(key)) {
-    index.set(key, course)
+function normalizeCourseNumber(value: string | null | undefined): string | null {
+  const normalized = normalizeIdentifier(value)
+  if (!normalized) {
+    return null
   }
+  return normalized.replace(/\s+/g, '').replace(/-/g, '')
 }
 
-function buildCourseIndex(catalogCourses: Course[]): Map<string, Course> {
-  const index = new Map<string, Course>()
-  for (const course of catalogCourses) {
-    addCourseIndexValue(index, course.id, course)
-    addCourseIndexValue(index, course.numericId, course)
-    addCourseIndexValue(index, course.number, course)
+function titlesLikelyMatch(completedTitle: string | null | undefined, catalogTitle: string): boolean {
+  const normalizedCompletedTitle = cleanCourseTitle(completedTitle ?? '', null).trim().toLowerCase()
+  const normalizedCatalogTitle = cleanCourseTitle(catalogTitle, null).trim().toLowerCase()
+  if (!normalizedCompletedTitle) {
+    return true
   }
-  return index
+  if (normalizedCompletedTitle === normalizedCatalogTitle) {
+    return true
+  }
+  return (
+    normalizedCompletedTitle.includes(normalizedCatalogTitle)
+    || normalizedCatalogTitle.includes(normalizedCompletedTitle)
+  )
+}
+
+function buildCourseIndexes(catalogCourses: Course[]): {
+  byCatalogId: Map<string, Course>
+  byCourseNumber: Map<string, Course>
+} {
+  const byCatalogId = new Map<string, Course>()
+  const byCourseNumber = new Map<string, Course>()
+
+  for (const course of catalogCourses) {
+    const catalogId = normalizeIdentifier(course.id)
+    if (catalogId && !byCatalogId.has(catalogId)) {
+      byCatalogId.set(catalogId, course)
+    }
+
+    const courseNumber = normalizeCourseNumber(course.number)
+    if (courseNumber) {
+      // Prefer the newest representative when the caller passes a deduplicated catalog.
+      byCourseNumber.set(courseNumber, course)
+    }
+  }
+
+  return { byCatalogId, byCourseNumber }
 }
 
 function findCatalogCourseForCompletedCourse(
   completedCourse: HistoricalCompletedCourse,
-  courseIndex: Map<string, Course>,
+  byCatalogId: Map<string, Course>,
+  byCourseNumber: Map<string, Course>,
 ): Course | null {
-  const identifiers = [
-    completedCourse.courseId,
-    completedCourse.externalCourseCode,
-    completedCourse.courseNumber,
-  ]
-  for (const identifier of identifiers) {
-    const key = normalizeIdentifier(identifier)
-    if (!key) {
-      continue
-    }
-    const course = courseIndex.get(key)
-    if (course) {
-      return course
+  const courseNumber = normalizeCourseNumber(
+    completedCourse.courseNumber ?? completedCourse.externalCourseCode,
+  )
+  if (courseNumber) {
+    const byNumberMatch = byCourseNumber.get(courseNumber)
+    if (byNumberMatch && titlesLikelyMatch(completedCourse.title, byNumberMatch.title)) {
+      return byNumberMatch
     }
   }
-  return null
+
+  const catalogId = normalizeIdentifier(completedCourse.courseId)
+  if (!catalogId) {
+    return null
+  }
+
+  const byIdMatch = byCatalogId.get(catalogId)
+  if (!byIdMatch) {
+    return null
+  }
+
+  if (courseNumber && normalizeCourseNumber(byIdMatch.number) !== courseNumber) {
+    return null
+  }
+
+  return titlesLikelyMatch(completedCourse.title, byIdMatch.title) ? byIdMatch : null
 }
 
 export function buildHistoricalSemesterPlan(
@@ -63,7 +104,7 @@ export function buildHistoricalSemesterPlan(
   semesterLabel: string,
 ): HistoricalSemesterPlan {
   const normalizedSemesterLabel = semesterLabel.trim()
-  const courseIndex = buildCourseIndex(catalogCourses)
+  const { byCatalogId, byCourseNumber } = buildCourseIndexes(catalogCourses)
   const seenCourseIds = new Set<string>()
   const courses: Course[] = []
   const assignments: Record<string, string> = {}
@@ -74,7 +115,7 @@ export function buildHistoricalSemesterPlan(
       continue
     }
 
-    const course = findCatalogCourseForCompletedCourse(completedCourse, courseIndex)
+    const course = findCatalogCourseForCompletedCourse(completedCourse, byCatalogId, byCourseNumber)
     if (!course) {
       continue
     }
@@ -91,4 +132,23 @@ export function buildHistoricalSemesterPlan(
   }
 
   return { courses, assignments, matchedCompletedCourseCount }
+}
+
+/** Inverse of the historical-plan lookup — strict title + id/number matching. */
+export function findCompletedCourseForCatalogCourse(
+  course: Course,
+  completedCourses: CompletedCourse[],
+): CompletedCourse | undefined {
+  const { byCatalogId, byCourseNumber } = buildCourseIndexes([course])
+  for (const completed of completedCourses) {
+    const matchedCourse = findCatalogCourseForCompletedCourse(
+      completed,
+      byCatalogId,
+      byCourseNumber,
+    )
+    if (matchedCourse?.id === course.id) {
+      return completed
+    }
+  }
+  return undefined
 }

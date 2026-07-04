@@ -532,10 +532,20 @@ def _build_search_where(search_terms: list[str]) -> tuple[str, list[str]]:
                 COALESCE(c.number, '') LIKE ? ESCAPE '^'
                 OR c.title LIKE ? ESCAPE '^'
                 OR COALESCE(c.organisation, '') LIKE ? ESCAPE '^'
+                OR EXISTS (
+                    SELECT 1
+                    FROM course_lecturers AS cl
+                    JOIN lecturers AS l ON l.id = cl.lecturer_id
+                    WHERE cl.course_id = c.id
+                      AND (
+                        COALESCE(l.display_name, '') LIKE ? ESCAPE '^'
+                        OR COALESCE(l.name, '') LIKE ? ESCAPE '^'
+                      )
+                )
             )
             """
         )
-        params.extend([like_value, like_value, like_value])
+        params.extend([like_value, like_value, like_value, like_value, like_value])
     return "\n          AND ".join(clauses), params
 
 
@@ -1165,8 +1175,48 @@ async def _load_illias_metadata(env: Any, course_id: int) -> dict[str, Any] | No
     }
 
 
+async def _resolve_newest_course_id(env: Any, course_id: int) -> int:
+    """Map a catalog course id to the newest period row for the same number."""
+    row = await fetch_one(
+        env,
+        f"""
+        SELECT c.number, {PERIOD_LABEL_SQL} AS periodLabel
+        FROM courses AS c
+        WHERE c.id = ?
+        LIMIT 1
+        """,
+        [course_id],
+    )
+    if row is None:
+        return course_id
+
+    number = _safe_text(row.get("number"))
+    if not number:
+        return course_id
+
+    candidates = await fetch_all(
+        env,
+        f"""
+        SELECT c.id, {PERIOD_LABEL_SQL} AS periodLabel
+        FROM courses AS c
+        WHERE c.number = ?
+          AND {CATALOG_FILTER_SQL}
+        """,
+        [number],
+    )
+    if not candidates:
+        return course_id
+
+    newest = max(
+        candidates,
+        key=lambda candidate: _period_sort_key(_safe_text(candidate.get("periodLabel")) or ""),
+    )
+    return int(newest["id"])
+
+
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
-    raw_detail = await get_course_detail(env, course_id)
+    resolved_course_id = await _resolve_newest_course_id(env, course_id)
+    raw_detail = await get_course_detail(env, resolved_course_id)
     if raw_detail is None:
         return None
 

@@ -212,3 +212,31 @@ export function getRecentSeasonTermType(
   return 'unknown'
 }
 
+/** Detail header: show the split icon whenever the course runs in both seasons. */
+export function getDetailSeasonTermType(
+  course: Pick<Course, 'termType' | 'offeredPeriods'>,
+  now: Date = new Date(),
+): CourseTermType {
+  if (course.termType === 'both') {
+    return 'both'
+  }
+
+  const offeredPeriods = course.offeredPeriods ?? []
+  let hasSummer = false
+  let hasWinter = false
+  for (const label of offeredPeriods) {
+    const parsed = parsePeriodLabel(label)
+    if (parsed?.season === 'summer') {
+      hasSummer = true
+    }
+    if (parsed?.season === 'winter') {
+      hasWinter = true
+    }
+  }
+  if (hasSummer && hasWinter) {
+    return 'both'
+  }
+
+  return getRecentSeasonTermType(course, now)
+}
+

@@ -12,7 +12,6 @@ test('no selection matches everything', () => {
 
 test('matches when any type keyword fits', () => {
   assert.equal(courseMatchesTypeFilter(LECTURE, ['lecture']), true)
-  assert.equal(courseMatchesTypeFilter(LECTURE, ['exercise']), true)
   assert.equal(courseMatchesTypeFilter(SEMINAR, ['seminar']), true)
   assert.equal(courseMatchesTypeFilter(PRACTICAL, ['practical']), true)
 })

@@ -20,6 +20,8 @@ function createBlock(id: string, startMinutes: number, endMinutes: number): Plan
     endMinutes,
     label: '',
     room: '',
+    slotType: '',
+    slotKind: 'weekly',
     hasOverlap: false,
   }
 }
@@ -93,17 +95,17 @@ test('buildDayLayout returns empty results for an empty day', () => {
   assert.deepEqual(buildDayLayout([]), { visibleBlocks: [], overflowIndicators: [] })
 })
 
-test('planner visible boundary ends at 18:00', () => {
-  assert.equal(END_HOUR, 18)
+test('planner visible boundary ends at 20:00', () => {
+  assert.equal(END_HOUR, 20)
 })
 
-test('clampPlannerTimeRange truncates blocks at 18:00', () => {
-  assert.deepEqual(clampPlannerTimeRange(17 * 60, 20 * 60), {
-    startMinutes: 17 * 60,
-    endMinutes: 18 * 60,
+test('clampPlannerTimeRange truncates blocks at 20:00', () => {
+  assert.deepEqual(clampPlannerTimeRange(19 * 60, 22 * 60), {
+    startMinutes: 19 * 60,
+    endMinutes: 20 * 60,
   })
 })
 
-test('clampPlannerTimeRange drops blocks that start at or after 18:00', () => {
-  assert.equal(clampPlannerTimeRange(18 * 60, 19 * 60), null)
+test('clampPlannerTimeRange drops blocks that start at or after 20:00', () => {
+  assert.equal(clampPlannerTimeRange(20 * 60, 21 * 60), null)
 })

@@ -76,6 +76,13 @@ export function formatSemesterLabelShort(label: string): string {
     : `WS ${y2}/${String(parsed.year + 1).slice(-2)}`
 }
 
+/** Full semester label for hub cards, e.g. "WS 2022/23" or "SS 2023". */
+export function formatSemesterLabelDisplay(label: string): string {
+  const parsed = parseSemesterLabel(label)
+  if (!parsed) return label
+  return formatSemesterLabel(parsed)
+}
+
 export function compareSemesterLabels(left: string, right: string): number {
   const leftSemester = parseSemesterLabel(left)
   const rightSemester = parseSemesterLabel(right)

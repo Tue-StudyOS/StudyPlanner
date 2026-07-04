@@ -92,11 +92,6 @@ export function usePlannerFavorites({
       if (leftOffered !== rightOffered) {
         return Number(rightOffered) - Number(leftOffered)
       }
-      const leftIsPlanned = plannedCourseIds.includes(leftCourse.id)
-      const rightIsPlanned = plannedCourseIds.includes(rightCourse.id)
-      if (leftIsPlanned !== rightIsPlanned) {
-        return Number(rightIsPlanned) - Number(leftIsPlanned)
-      }
       return leftCourse.title.localeCompare(rightCourse.title)
     })
 
