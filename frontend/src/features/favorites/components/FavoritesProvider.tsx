@@ -3,8 +3,6 @@ import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
 import { useAuth } from '../../auth'
 import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
-import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels.ts'
-import { markSemesterBadge } from '../../planner/utils/semesterTabBadge.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
 import { FavoritesContext } from '../FavoritesContext'
 
@@ -95,10 +93,8 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
         if (isAddingFavorite) {
           const addedCourseId = nextFavoriteIds.find((id) => !previousFavoriteIds.includes(id))
           if (addedCourseId) {
-            const addedToPlan = await addCourseToCurrentSemesterPlan(token, userCacheKey, addedCourseId)
-            if (addedToPlan) {
-              markSemesterBadge(getCurrentSemesterLabel())
-            }
+            // addCourseToCurrentSemesterPlan marks the semester badge itself.
+            await addCourseToCurrentSemesterPlan(token, userCacheKey, addedCourseId)
           }
         }
       })

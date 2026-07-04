@@ -32,6 +32,7 @@ import {
   encodeCatalogDetailSegment,
   extractCatalogDetailCourseId,
 } from '../utils/catalogDetailRoute.ts'
+import { getCatalogSeasonGlyphPresentation } from '../utils/catalogSeasonGlyphPresentation.ts'
 import {
   getLatestKnownSeasonTermType,
   getOfferingStatus,
@@ -496,7 +497,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
       return showOnlyOpenMandatory
     }
-    return selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
+    return selectedStudyAreaCodes.includes(code)
   }
 
   function handleAreaFilterSelect(code: string): void {
@@ -507,9 +508,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
       setSelectedStudyAreaCodes([])
     } else {
       setShowOnlyOpenMandatory(false)
-      const isAlreadyOnlySelection =
-        selectedStudyAreaCodes.length === 1 && selectedStudyAreaCodes[0] === code
-      setSelectedStudyAreaCodes(isAlreadyOnlySelection ? [] : [code])
+      setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, code))
     }
   }
 
@@ -789,6 +788,8 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                 : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
               const shouldShowUnconfirmedDivider = course.id === firstOutdatedVisibleCourseId
 
+              const seasonGlyphPresentation = getCatalogSeasonGlyphPresentation(index)
+
               return (
                 <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
                   {shouldShowUnconfirmedDivider ? (
@@ -828,6 +829,8 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      seasonTone={seasonGlyphPresentation.tone}
+                      seasonGlyphSize={seasonGlyphPresentation.size}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
                       onAreaTagClick={handleAreaFilterSelect}

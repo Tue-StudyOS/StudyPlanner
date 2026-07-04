@@ -1,6 +1,5 @@
-import { buildRelevantCourseAreaOptions } from '../../../shared/utils/regulation'
+import { buildRelevantCourseAreaOptions } from '../../../shared/utils/regulation.ts'
 import type { Course } from '../types'
-
 export function courseMatchesStudyAreaFilter(
   course: Pick<Course, 'studyAreaOptions'>,
   selectedStudyAreaCodes: string[],
@@ -12,5 +11,5 @@ export function courseMatchesStudyAreaFilter(
   const relevantAreaCodes = buildRelevantCourseAreaOptions(course.studyAreaOptions, studyProgramCode).map(
     (option) => option.code,
   )
-  return selectedStudyAreaCodes.some((code) => relevantAreaCodes.includes(code))
+  return selectedStudyAreaCodes.every((code) => relevantAreaCodes.includes(code))
 }

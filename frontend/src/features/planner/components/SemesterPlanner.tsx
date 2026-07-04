@@ -48,7 +48,6 @@ import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
 import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
-import { markSemesterBadge } from '../utils/semesterTabBadge.ts'
 
 // Auto-save is silent; only the brief in-flight state is surfaced.
 function SaveIndicator({ isSaving }: { isSaving: boolean }) {
@@ -142,6 +141,9 @@ export function SemesterPlanner({
   // Past semesters that have no saved plan fall back to the transcript so old
   // courses still appear on their card and weekly grid, even without exact times.
   const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
+  // Read-only and past-semester views hide the favorites panel, so the
+  // planner grid must also reclaim the sidebar column.
+  const showFavoritesPanel = !readOnly && !isPastSemester
   const usesCompletedCourseFallback = ((readOnly && useCompletedCourseFallback) || isPastSemester)
     && !isLoadingSemesterPlan
     && !isLoadingCompletedCourses
@@ -235,7 +237,6 @@ export function SemesterPlanner({
   function handleAddCourse(courseId: string, preferredAreaCode: string | null = null): void {
     if (!plannedCourseIds.includes(courseId)) {
       setPlannedCourseIds([...plannedCourseIds, courseId])
-      markSemesterBadge(activeSemesterLabel)
     }
     const course = courseById.get(courseId) ?? allCourseById.get(courseId) ?? null
     const defaultHiddenTutorialSlots = course
@@ -321,8 +322,16 @@ export function SemesterPlanner({
         courseAssignments: planAssignments,
       })
       setAssignments(result.assignments)
-      if (result.strictSolutionFound && result.warnings.length === 0) {
+      if (result.strictSolutionFound && result.warnings.length === 0 && result.unassignedCourseIds.length === 0) {
         setBalanceMessage(null)
+        return
+      }
+      if (!result.strictSolutionFound && result.unassignedCourseIds.length > 0) {
+        setBalanceMessage(t('planner.balanceUnassigned'))
+        return
+      }
+      if (!result.strictSolutionFound) {
+        setBalanceMessage(t('planner.balanceNoValidCombination'))
         return
       }
       const warningText = result.warnings.at(0)?.message
@@ -455,7 +464,7 @@ export function SemesterPlanner({
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
-        {isSmallViewport && !readOnly ? (
+        {isSmallViewport && showFavoritesPanel ? (
           <button
             type="button"
             data-tour="planner-add"
@@ -495,7 +504,7 @@ export function SemesterPlanner({
       <div className="grid min-w-0 gap-4.5">
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
-            favoritesLayout === 'sidebar'
+            favoritesLayout === 'sidebar' && showFavoritesPanel
               ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_19rem] min-[1100px]:items-stretch'
               : ''
           }`}
@@ -530,7 +539,7 @@ export function SemesterPlanner({
             )}
           </div>
 
-          {!isSmallViewport && !readOnly ? plannerFavoritesPanel : null}
+          {!isSmallViewport && showFavoritesPanel ? plannerFavoritesPanel : null}
         </div>
 
         {!readOnly ? (
@@ -550,7 +559,7 @@ export function SemesterPlanner({
         ) : null}
       </div>
 
-      {isSmallViewport && !readOnly ? (
+      {isSmallViewport && showFavoritesPanel ? (
         <MobilePlannerFavoritesDrawer
           isOpen={isAddDrawerOpen || shouldShowTourAddDrawer}
           onClose={() => setIsAddDrawerOpen(false)}

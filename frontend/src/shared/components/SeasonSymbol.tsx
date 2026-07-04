@@ -1,7 +1,19 @@
+import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
+import {
+  SEASON_GLYPH_MUTED_TONE,
+  SEASON_GLYPH_SNOW_TONE,
+  SEASON_GLYPH_SUN_TONE,
+  type SeasonGlyphTone,
+} from './seasonSymbolStyles.ts'
 
-// Single neutral watermark gray (the old sun gray) shared by every glyph.
-const GLYPH_COLOR_CLASSES = 'text-[#C2BDB4]'
+function sunColorClass(tone: SeasonGlyphTone): string {
+  return tone === 'seasonal' ? SEASON_GLYPH_SUN_TONE : SEASON_GLYPH_MUTED_TONE
+}
+
+function snowflakeColorClass(tone: SeasonGlyphTone): string {
+  return tone === 'seasonal' ? SEASON_GLYPH_SNOW_TONE : SEASON_GLYPH_MUTED_TONE
+}
 
 interface Point {
   x: number
@@ -57,10 +69,10 @@ const FUSED_SUN_RAYS: LineSegment[] = [270, 225, 180, 135].map((angle) => ({
 
 const FUSED_SNOWFLAKE_LINES: LineSegment[] = [90, 30, 330].flatMap(buildSnowflakeArm)
 
-// Open arc through the upper-left (no closing chord). It runs slightly past
-// the down-left ray (135°→148°) but stops short of the diagonal at the top
+// Open arc through the upper-left (no closing chord). It runs clearly past
+// the down-left ray (135°→~125°) but stops short of the diagonal at the top
 // right (315°→297°) so the sun never touches the snowflake.
-const FUSED_SUN_ARC_PATH = 'M13.95 8.17A4.3 4.3 0 0 0 8.35 14.28'
+const FUSED_SUN_ARC_PATH = 'M13.95 8.17A4.3 4.3 0 0 0 9.53 15.52'
 
 function Lines({ segments }: { segments: LineSegment[] }) {
   return (
@@ -78,10 +90,10 @@ function Lines({ segments }: { segments: LineSegment[] }) {
   )
 }
 
-function SunGlyph() {
+function SunGlyph({ tone }: { tone: SeasonGlyphTone }) {
   return (
     <g
-      className={GLYPH_COLOR_CLASSES}
+      className={sunColorClass(tone)}
       stroke="currentColor"
       strokeWidth={1.6}
       strokeLinecap="round"
@@ -93,10 +105,10 @@ function SunGlyph() {
   )
 }
 
-function SnowflakeGlyph() {
+function SnowflakeGlyph({ tone }: { tone: SeasonGlyphTone }) {
   return (
     <g
-      className={GLYPH_COLOR_CLASSES}
+      className={snowflakeColorClass(tone)}
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinecap="round"
@@ -107,11 +119,11 @@ function SnowflakeGlyph() {
   )
 }
 
-function FusedSeasonGlyph() {
+function FusedSeasonGlyph({ tone }: { tone: SeasonGlyphTone }) {
   return (
     <>
       <g
-        className={GLYPH_COLOR_CLASSES}
+        className={sunColorClass(tone)}
         stroke="currentColor"
         strokeWidth={1.6}
         strokeLinecap="round"
@@ -121,7 +133,7 @@ function FusedSeasonGlyph() {
         <Lines segments={FUSED_SUN_RAYS} />
       </g>
       <g
-        className={GLYPH_COLOR_CLASSES}
+        className={snowflakeColorClass(tone)}
         stroke="currentColor"
         strokeWidth={1.4}
         strokeLinecap="round"
@@ -133,10 +145,21 @@ function FusedSeasonGlyph() {
   )
 }
 
+function SeasonGlyphShapes({ termType, tone }: { termType: CourseTermType; tone: SeasonGlyphTone }) {
+  return (
+    <>
+      {termType === 'summer' ? <SunGlyph tone={tone} /> : null}
+      {termType === 'winter' ? <SnowflakeGlyph tone={tone} /> : null}
+      {termType === 'both' ? <FusedSeasonGlyph tone={tone} /> : null}
+    </>
+  )
+}
+
 interface SeasonSymbolProps {
   termType: CourseTermType | undefined
   /** Controls size, opacity, and positioning; the SVG itself stays square. */
   className?: string
+  tone?: SeasonGlyphTone
 }
 
 /**
@@ -144,16 +167,54 @@ interface SeasonSymbolProps {
  * summer, a snowflake for winter, and a diagonally split half/half symbol
  * for courses offered in both terms.
  */
-export function SeasonSymbol({ termType, className }: SeasonSymbolProps) {
+export function SeasonSymbol({ termType, className, tone = 'muted' }: SeasonSymbolProps) {
   if (!termType || termType === 'unknown') {
     return null
   }
 
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}>
-      {termType === 'summer' ? <SunGlyph /> : null}
-      {termType === 'winter' ? <SnowflakeGlyph /> : null}
-      {termType === 'both' ? <FusedSeasonGlyph /> : null}
+      <SeasonGlyphShapes termType={termType} tone={tone} />
+    </svg>
+  )
+}
+
+const PATTERN_TILE_SIZE = 34
+const PATTERN_GLYPH_SIZE = 16
+const PATTERN_GLYPH_INSET = (PATTERN_TILE_SIZE - PATTERN_GLYPH_SIZE) / 2
+
+/**
+ * The season glyph repeated as a dense, even tile across the whole element.
+ * One SVG `<pattern>` instead of many glyph instances keeps the DOM flat.
+ */
+export function SeasonSymbolPattern({ termType, className, tone = 'muted' }: SeasonSymbolProps) {
+  // useId emits ":r0:"-style ids; strip the colons so url(#…) stays valid.
+  const patternId = `season-pattern-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  if (!termType || termType === 'unknown') {
+    return null
+  }
+
+  return (
+    <svg aria-hidden="true" focusable="false" className={className}>
+      <defs>
+        <pattern
+          id={patternId}
+          width={PATTERN_TILE_SIZE}
+          height={PATTERN_TILE_SIZE}
+          patternUnits="userSpaceOnUse"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            x={PATTERN_GLYPH_INSET}
+            y={PATTERN_GLYPH_INSET}
+            width={PATTERN_GLYPH_SIZE}
+            height={PATTERN_GLYPH_SIZE}
+          >
+            <SeasonGlyphShapes termType={termType} tone={tone} />
+          </svg>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
   )
 }
