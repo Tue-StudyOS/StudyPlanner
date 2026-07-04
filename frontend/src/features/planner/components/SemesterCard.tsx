@@ -11,6 +11,7 @@ import {
   compareSemesterLabels,
   getCurrentSemesterLabel,
 } from '../utils/semesterLabels'
+import { useSemesterCardBadge } from '../utils/semesterTabBadge.ts'
 
 interface SemesterCardProps {
   semesterLabel: string
@@ -27,6 +28,7 @@ function seasonForLabel(semesterLabel: string): CourseTermType | undefined {
 
 export function SemesterCard({ semesterLabel, to }: SemesterCardProps) {
   const isCurrentSemester = compareSemesterLabels(semesterLabel, getCurrentSemesterLabel()) === 0
+  const showNotificationBadge = useSemesterCardBadge(semesterLabel)
 
   return (
     <Link
@@ -41,7 +43,7 @@ export function SemesterCard({ semesterLabel, to }: SemesterCardProps) {
         termType={seasonForLabel(semesterLabel)}
         variant="semester"
         overlay={
-          isCurrentSemester ? (
+          showNotificationBadge ? (
             <span aria-hidden="true" className="relative flex h-3 w-3 items-center justify-center pointer-events-none">
               <span className={SEASON_SEMESTER_BADGE_GLOW_CLASS} />
               <span className={SEASON_SEMESTER_BADGE_DOT_CLASS} />

@@ -321,8 +321,16 @@ export function SemesterPlanner({
         courseAssignments: planAssignments,
       })
       setAssignments(result.assignments)
-      if (result.strictSolutionFound && result.warnings.length === 0) {
+      if (result.strictSolutionFound && result.warnings.length === 0 && result.unassignedCourseIds.length === 0) {
         setBalanceMessage(null)
+        return
+      }
+      if (!result.strictSolutionFound && result.unassignedCourseIds.length > 0) {
+        setBalanceMessage(t('planner.balanceUnassigned'))
+        return
+      }
+      if (!result.strictSolutionFound) {
+        setBalanceMessage(t('planner.balanceNoValidCombination'))
         return
       }
       const warningText = result.warnings.at(0)?.message
@@ -455,7 +463,7 @@ export function SemesterPlanner({
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
 
-        {isSmallViewport && !readOnly ? (
+        {isSmallViewport && !readOnly && !isPastSemester ? (
           <button
             type="button"
             data-tour="planner-add"
@@ -530,7 +538,7 @@ export function SemesterPlanner({
             )}
           </div>
 
-          {!isSmallViewport && !readOnly ? plannerFavoritesPanel : null}
+          {!isSmallViewport && !readOnly && !isPastSemester ? plannerFavoritesPanel : null}
         </div>
 
         {!readOnly ? (
@@ -550,7 +558,7 @@ export function SemesterPlanner({
         ) : null}
       </div>
 
-      {isSmallViewport && !readOnly ? (
+      {isSmallViewport && !readOnly && !isPastSemester ? (
         <MobilePlannerFavoritesDrawer
           isOpen={isAddDrawerOpen || shouldShowTourAddDrawer}
           onClose={() => setIsAddDrawerOpen(false)}

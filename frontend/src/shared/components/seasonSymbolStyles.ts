@@ -1,12 +1,20 @@
 /** 'muted' = neutral watermark gray (catalog); 'seasonal' = amber sun / sky snowflake (semester hub). */
 export type SeasonGlyphTone = 'muted' | 'seasonal'
 
+export type SeasonGlyphSize = 'small' | 'large'
+
 /** Neutral watermark gray (less warm than the old #C2BDB4). */
 export const SEASON_GLYPH_MUTED_TONE = 'text-[#D8D7D4] dark:text-[#3E4046]'
 
 /** Seasonal watermark colors; solid so overlapping strokes don't composite darker at joins. */
 export const SEASON_GLYPH_SUN_TONE = 'text-amber-400 dark:text-amber-300'
 export const SEASON_GLYPH_SNOW_TONE = 'text-sky-400 dark:text-sky-300'
+
+/** Small glyph centered evenly on the card background (catalog comparison rows). */
+export const SEASON_CARD_SMALL_BACKGROUND_CLASS =
+  'pointer-events-none absolute inset-0 z-0 flex items-center justify-center opacity-40 dark:opacity-35'
+
+export const SEASON_GLYPH_SMALL_CLASS = 'h-14 w-14'
 
 /** 25% of the icon bleeds past the top-right corner — equal inset on top and right. */
 export const SEASON_CARD_WATERMARK_WRAPPER_CLASS =
@@ -20,7 +28,7 @@ export const SEASON_GLYPH_FILL_CLASS = 'h-full w-full'
 
 /** Centered overlay slot (bookmark, notification dot, …). */
 export const SEASON_GLYPH_OVERLAY_CLASS =
-  'pointer-events-auto absolute inset-0 flex items-center justify-center'
+  'pointer-events-auto absolute inset-0 z-20 flex items-center justify-center'
 
 export const SEASON_SEMESTER_BADGE_GLOW_CLASS =
   'absolute inset-0 rounded-full bg-red-500/20 blur-[2.5px] dark:bg-red-400/35'

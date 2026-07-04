@@ -14,7 +14,11 @@ export function FavStar({ active, disabled = false, onToggle }: FavStarProps) {
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onToggle()
+      }}
       disabled={disabled}
       aria-label={active ? 'Remove from interested' : 'Mark as interested'}
       aria-pressed={active}

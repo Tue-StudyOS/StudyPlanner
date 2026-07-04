@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 import type { CompletedCourse, Course } from '../../courses'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../courses'
 import { buildCourseAreaTags } from '../../courses/utils/courseCardDisplay.ts'
+import { encodeCatalogDetailSegment } from '../../courses/utils/catalogDetailRoute.ts'
 import { ROUTES } from '../../routes'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { FavStar } from '../../../shared/components/FavStar'
+import { InfoIcon } from '../../../shared/components/icons'
 import { useTranslation } from '../../i18n'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
@@ -152,7 +154,14 @@ function CandidateCard({
           ) : null}
         </div>
 
-        <div onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start gap-1" onClick={(event) => event.stopPropagation()}>
+          <Link
+            to={`${ROUTES.catalog}/${encodeCatalogDetailSegment(course.id)}`}
+            aria-label={t('planner.favorites.openCourseDetail')}
+            className="flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
+          >
+            <InfoIcon size={15} />
+          </Link>
           <FavStar active onToggle={() => onToggleFavorite(course.id)} />
         </div>
       </div>
