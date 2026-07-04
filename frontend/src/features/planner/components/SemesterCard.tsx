@@ -28,7 +28,8 @@ function seasonForLabel(semesterLabel: string): CourseTermType | undefined {
 
 export function SemesterCard({ semesterLabel, to }: SemesterCardProps) {
   const isCurrentSemester = compareSemesterLabels(semesterLabel, getCurrentSemesterLabel()) === 0
-  const showNotificationBadge = useSemesterCardBadge(semesterLabel)
+  const hasBadge = useSemesterCardBadge()
+  const showNotificationBadge = isCurrentSemester && hasBadge
 
   return (
     <Link

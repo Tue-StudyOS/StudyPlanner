@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { LEGACY_PLANNER_ROUTE, ROUTES, semesterPath } from '../../routes'
+import { getCurrentSemesterLabel } from './semesterLabels'
 
+// One flag: a course was added to the current semester plan from outside its
+// planner page. Only the current semester card (and the semester tab) show it.
 const BADGE_STORAGE_KEY = 'studyplanner.semesterTabBadge'
-const PER_SEMESTER_BADGE_PREFIX = 'studyplanner.semesterBadge.'
 export const SEMESTER_PLAN_CHANGED_EVENT = 'studyplanner:semester-plan-changed'
 const BADGE_CHANGED_EVENT = 'studyplanner:semester-tab-badge-changed'
 
@@ -14,27 +16,7 @@ function readBadgeFlag(): boolean {
   return window.localStorage.getItem(BADGE_STORAGE_KEY) === '1'
 }
 
-function semesterBadgeKey(semesterLabel: string): string {
-  return `${PER_SEMESTER_BADGE_PREFIX}${semesterLabel}`
-}
-
-export function hasSemesterBadge(semesterLabel: string): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-  return window.localStorage.getItem(semesterBadgeKey(semesterLabel)) === '1'
-}
-
-export function markSemesterBadge(semesterLabel: string): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.localStorage.setItem(semesterBadgeKey(semesterLabel), '1')
-  window.localStorage.setItem(BADGE_STORAGE_KEY, '1')
-  window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
-}
-
-export function markSemesterTabBadge(): void {
+export function markSemesterBadge(): void {
   if (typeof window === 'undefined') {
     return
   }
@@ -50,14 +32,6 @@ function clearBadgeFlag(): void {
   window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
 }
 
-function clearSemesterBadge(semesterLabel: string): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.localStorage.removeItem(semesterBadgeKey(semesterLabel))
-  window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
-}
-
 function isSemesterTabPath(pathname: string): boolean {
   return (
     pathname === ROUTES.planner
@@ -66,10 +40,8 @@ function isSemesterTabPath(pathname: string): boolean {
   )
 }
 
-export function useSemesterTabBadge(): boolean {
-  const location = useLocation()
-  const onSemesterTab = isSemesterTabPath(location.pathname)
-  const [revision, setRevision] = useState<number>(0)
+function useBadgeRevision(): void {
+  const [, setRevision] = useState<number>(0)
 
   useEffect(() => {
     function syncBadge(): void {
@@ -82,40 +54,24 @@ export function useSemesterTabBadge(): boolean {
       window.removeEventListener(SEMESTER_PLAN_CHANGED_EVENT, syncBadge)
     }
   }, [])
-
-  useEffect(() => {
-    if (onSemesterTab && readBadgeFlag()) {
-      clearBadgeFlag()
-    }
-  }, [onSemesterTab])
-
-  void revision
-  return !onSemesterTab && readBadgeFlag()
 }
 
-export function useSemesterCardBadge(semesterLabel: string): boolean {
+export function useSemesterTabBadge(): boolean {
   const location = useLocation()
-  const [revision, setRevision] = useState<number>(0)
-  const semesterDetailPath = semesterPath(semesterLabel)
+  useBadgeRevision()
 
+  // Opening the current semester plan resolves the notification; visiting the
+  // hub alone does not, so the card badge stays visible there.
   useEffect(() => {
-    function syncBadge(): void {
-      setRevision((currentValue) => currentValue + 1)
+    if (location.pathname === semesterPath(getCurrentSemesterLabel()) && readBadgeFlag()) {
+      clearBadgeFlag()
     }
-    window.addEventListener(BADGE_CHANGED_EVENT, syncBadge)
-    window.addEventListener(SEMESTER_PLAN_CHANGED_EVENT, syncBadge)
-    return () => {
-      window.removeEventListener(BADGE_CHANGED_EVENT, syncBadge)
-      window.removeEventListener(SEMESTER_PLAN_CHANGED_EVENT, syncBadge)
-    }
-  }, [])
+  }, [location.pathname])
 
-  useEffect(() => {
-    if (location.pathname === semesterDetailPath && hasSemesterBadge(semesterLabel)) {
-      clearSemesterBadge(semesterLabel)
-    }
-  }, [location.pathname, semesterDetailPath, semesterLabel])
+  return !isSemesterTabPath(location.pathname) && readBadgeFlag()
+}
 
-  void revision
-  return hasSemesterBadge(semesterLabel)
+export function useSemesterCardBadge(): boolean {
+  useBadgeRevision()
+  return readBadgeFlag()
 }
