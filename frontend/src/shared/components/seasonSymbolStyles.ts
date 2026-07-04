@@ -10,11 +10,9 @@ export const SEASON_GLYPH_MUTED_TONE = 'text-[#D8D7D4] dark:text-[#3E4046]'
 export const SEASON_GLYPH_SUN_TONE = 'text-amber-400 dark:text-amber-300'
 export const SEASON_GLYPH_SNOW_TONE = 'text-sky-400 dark:text-sky-300'
 
-/** Small glyph centered evenly on the card background (catalog comparison rows). */
-export const SEASON_CARD_SMALL_BACKGROUND_CLASS =
-  'pointer-events-none absolute inset-0 z-0 flex items-center justify-center opacity-40 dark:opacity-35'
-
-export const SEASON_GLYPH_SMALL_CLASS = 'h-14 w-14'
+/** Season glyph tiled across the whole card background (catalog comparison rows). */
+export const SEASON_CARD_PATTERN_BACKGROUND_CLASS =
+  'pointer-events-none absolute inset-0 z-0 opacity-30 dark:opacity-25'
 
 /** 25% of the icon bleeds past the top-right corner — equal inset on top and right. */
 export const SEASON_CARD_WATERMARK_WRAPPER_CLASS =

@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 import {
   SEASON_GLYPH_MUTED_TONE,
@@ -144,6 +145,16 @@ function FusedSeasonGlyph({ tone }: { tone: SeasonGlyphTone }) {
   )
 }
 
+function SeasonGlyphShapes({ termType, tone }: { termType: CourseTermType; tone: SeasonGlyphTone }) {
+  return (
+    <>
+      {termType === 'summer' ? <SunGlyph tone={tone} /> : null}
+      {termType === 'winter' ? <SnowflakeGlyph tone={tone} /> : null}
+      {termType === 'both' ? <FusedSeasonGlyph tone={tone} /> : null}
+    </>
+  )
+}
+
 interface SeasonSymbolProps {
   termType: CourseTermType | undefined
   /** Controls size, opacity, and positioning; the SVG itself stays square. */
@@ -163,9 +174,47 @@ export function SeasonSymbol({ termType, className, tone = 'muted' }: SeasonSymb
 
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}>
-      {termType === 'summer' ? <SunGlyph tone={tone} /> : null}
-      {termType === 'winter' ? <SnowflakeGlyph tone={tone} /> : null}
-      {termType === 'both' ? <FusedSeasonGlyph tone={tone} /> : null}
+      <SeasonGlyphShapes termType={termType} tone={tone} />
+    </svg>
+  )
+}
+
+const PATTERN_TILE_SIZE = 34
+const PATTERN_GLYPH_SIZE = 16
+const PATTERN_GLYPH_INSET = (PATTERN_TILE_SIZE - PATTERN_GLYPH_SIZE) / 2
+
+/**
+ * The season glyph repeated as a dense, even tile across the whole element.
+ * One SVG `<pattern>` instead of many glyph instances keeps the DOM flat.
+ */
+export function SeasonSymbolPattern({ termType, className, tone = 'muted' }: SeasonSymbolProps) {
+  // useId emits ":r0:"-style ids; strip the colons so url(#…) stays valid.
+  const patternId = `season-pattern-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  if (!termType || termType === 'unknown') {
+    return null
+  }
+
+  return (
+    <svg aria-hidden="true" focusable="false" className={className}>
+      <defs>
+        <pattern
+          id={patternId}
+          width={PATTERN_TILE_SIZE}
+          height={PATTERN_TILE_SIZE}
+          patternUnits="userSpaceOnUse"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            x={PATTERN_GLYPH_INSET}
+            y={PATTERN_GLYPH_INSET}
+            width={PATTERN_GLYPH_SIZE}
+            height={PATTERN_GLYPH_SIZE}
+          >
+            <SeasonGlyphShapes termType={termType} tone={tone} />
+          </svg>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
   )
 }

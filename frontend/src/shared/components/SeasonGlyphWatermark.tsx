@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
 import type { CourseTermType } from '../../features/courses'
-import { SeasonSymbol } from './SeasonSymbol.tsx'
+import { SeasonSymbol, SeasonSymbolPattern } from './SeasonSymbol.tsx'
 import {
-  SEASON_CARD_SMALL_BACKGROUND_CLASS,
+  SEASON_CARD_PATTERN_BACKGROUND_CLASS,
   SEASON_CARD_WATERMARK_WRAPPER_CLASS,
   SEASON_GLYPH_FILL_CLASS,
   SEASON_GLYPH_OVERLAY_CLASS,
-  SEASON_GLYPH_SMALL_CLASS,
   SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS,
   type SeasonGlyphSize,
   type SeasonGlyphTone,
@@ -39,16 +38,22 @@ export function SeasonGlyphWatermark({
     )
   }
 
+  // Small cards tile the glyph across the whole background; the overlay
+  // (bookmark) keeps the same top-right corner box as large watermark cards.
   if (size === 'small') {
     return (
-      <div className={SEASON_CARD_SMALL_BACKGROUND_CLASS}>
-        <SeasonSymbol
+      <>
+        <SeasonSymbolPattern
           termType={termType}
-          className={SEASON_GLYPH_SMALL_CLASS}
+          className={SEASON_CARD_PATTERN_BACKGROUND_CLASS}
           tone={resolvedTone}
         />
-        {overlay ? <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div> : null}
-      </div>
+        {overlay ? (
+          <div className={SEASON_CARD_WATERMARK_WRAPPER_CLASS}>
+            <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div>
+          </div>
+        ) : null}
+      </>
     )
   }
 
