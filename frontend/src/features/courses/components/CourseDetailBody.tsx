@@ -176,7 +176,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
               </div>
             ) : null}
           </div>
-          <SeasonSymbol termType={seasonTermType} className={SEASON_HEADER_ICON_CLASS} />
+          <SeasonSymbol termType={seasonTermType} className={SEASON_HEADER_ICON_CLASS} tone="seasonal" />
         </div>
       </div>
 

@@ -30,7 +30,7 @@ export async function addCourseToCurrentSemesterPlan(
   invalidateSessionCache('private:planner:index', userCacheKey)
 
   if (typeof window !== 'undefined') {
-    markSemesterBadge(semesterLabel)
+    markSemesterBadge()
     window.dispatchEvent(
       new CustomEvent(SEMESTER_PLAN_CHANGED_EVENT, { detail: { semesterLabel } }),
     )
