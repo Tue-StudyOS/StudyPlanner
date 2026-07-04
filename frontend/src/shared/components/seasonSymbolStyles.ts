@@ -1,3 +1,13 @@
+/** 'muted' = neutral watermark gray (catalog); 'seasonal' = amber sun / sky snowflake (semester hub). */
+export type SeasonGlyphTone = 'muted' | 'seasonal'
+
+/** Neutral watermark gray (less warm than the old #C2BDB4). */
+export const SEASON_GLYPH_MUTED_TONE = 'text-[#D8D7D4] dark:text-[#3E4046]'
+
+/** Seasonal watermark colors; solid so overlapping strokes don't composite darker at joins. */
+export const SEASON_GLYPH_SUN_TONE = 'text-amber-400 dark:text-amber-300'
+export const SEASON_GLYPH_SNOW_TONE = 'text-sky-400 dark:text-sky-300'
+
 /** 25% of the icon bleeds past the top-right corner — equal inset on top and right. */
 export const SEASON_CARD_WATERMARK_WRAPPER_CLASS =
   'pointer-events-none absolute -top-[1.9375rem] -right-[1.9375rem] z-0 h-[7.75rem] w-[7.75rem]'

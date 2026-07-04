@@ -8,6 +8,7 @@ import { formatCourseLecturerName } from '../../features/courses/utils/lecturerN
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
+import type { SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -26,6 +27,8 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
+  // Overrides the watermark's catalog-muted default tone per card.
+  seasonTone?: SeasonGlyphTone
   regulationRuleGroups?: RegulationRuleGroup[]
   isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
@@ -57,6 +60,7 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
+  seasonTone,
   regulationRuleGroups = [],
   isAreaTagActive,
   onAreaTagClick,
@@ -91,6 +95,7 @@ export function CourseCard({
     <>
       <SeasonGlyphWatermark
         termType={seasonTermType ?? course.termType}
+        tone={seasonTone}
         overlay={
           showFavorite ? (
             <div

@@ -828,6 +828,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      seasonTone={index < 12 ? 'muted' : 'seasonal'}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
                       onAreaTagClick={handleAreaFilterSelect}
