@@ -6,9 +6,12 @@ import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { ManualPlannerSlot, SemesterPlan, SemesterPlanSummary } from '../types'
 import { SEMESTER_PLAN_CHANGED_EVENT } from '../utils/semesterTabBadge.ts'
 import {
+  filterSemesterHubOptions,
+  getLatestSelectableSemesterLabel,
+} from '../utils/semesterHubVisibility.ts'
+import {
   buildSemesterOptions,
   getCurrentSemesterLabel,
-  getRelativeSemesterLabel,
 } from '../utils/semesterLabels'
 
 const AUTO_SAVE_DEBOUNCE_MS = 900
@@ -102,7 +105,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   const [isSavingSemesterPlan, setIsSavingSemesterPlan] = useState<boolean>(false)
   const [plannerError, setPlannerError] = useState<string | null>(null)
   const currentSemesterLabel = getCurrentSemesterLabel()
-  const latestSelectableSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
+  const latestSelectableSemesterLabel = getLatestSelectableSemesterLabel()
   // The current semester is the default; an explicit initial label (e.g. the
   // "/test" semester route) opens that semester instead. Older plans stay
   // reachable through the minimal switcher.
@@ -113,15 +116,22 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
 
   const semesterOptions = useMemo(
     () =>
-      buildSemesterOptions(
+      filterSemesterHubOptions(
+        buildSemesterOptions(
+          [
+            activeSemesterLabel,
+            profileSemesterLabel,
+            ...savedPlans.map((semesterPlan) => semesterPlan.semesterLabel),
+          ],
+          currentSemesterLabel,
+          profileSemesterLabel,
+          latestSelectableSemesterLabel,
+        ),
         [
           activeSemesterLabel,
           profileSemesterLabel,
           ...savedPlans.map((semesterPlan) => semesterPlan.semesterLabel),
         ],
-        currentSemesterLabel,
-        profileSemesterLabel,
-        latestSelectableSemesterLabel,
       ),
     [
       activeSemesterLabel,

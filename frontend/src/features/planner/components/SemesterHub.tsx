@@ -1,6 +1,7 @@
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
@@ -11,6 +12,7 @@ import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { buildSemesterCardStats } from '../utils/semesterCardStats.ts'
+import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
@@ -22,6 +24,11 @@ export function SemesterHub() {
   const { semesterOptions, savedPlans } = useSemesterPlanner()
   const { completedCourses } = useTranscript()
   const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+  const isMobileSemesterList = useMediaQuery('(max-width: 960px)')
+  const currentSemesterLabel = getCurrentSemesterLabel()
+  const displayedSemesterOptions = isMobileSemesterList
+    ? [...semesterOptions].reverse()
+    : semesterOptions
 
   const displayStats = isSemesterHubTour
     ? TOUR_SEMESTER_HUB_STATS
@@ -95,12 +102,12 @@ export function SemesterHub() {
       <div className="min-w-0" data-tour="semester-hub-cards">
         <div className="mb-3 text-[13px] font-semibold text-fg">{t('planner.semestersTitle')}</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {semesterOptions.map((semesterLabel, index) => (
+          {displayedSemesterOptions.map((semesterLabel) => (
             <SemesterCard
               key={semesterLabel}
               semesterLabel={semesterLabel}
               to={semesterPath(semesterLabel)}
-              tourAnchorId={index === 0 ? 'semester-hub-card' : undefined}
+              tourAnchorId={semesterLabel === currentSemesterLabel ? 'semester-hub-card' : undefined}
               stats={buildSemesterCardStats(
                 semesterLabel,
                 savedPlans,
