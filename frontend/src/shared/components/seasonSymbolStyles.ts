@@ -51,7 +51,7 @@ export const SEASON_CARD_BOOKMARK_ANCHOR_CLASS =
   'pointer-events-none absolute right-3 top-3 z-20 flex h-[1.2rem] items-center justify-end'
 
 export const SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS =
-  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem] opacity-35 dark:opacity-40'
+  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem]'
 
 /** Glyph fills the watermark shell. */
 export const SEASON_GLYPH_FILL_CLASS = 'h-full w-full'
@@ -77,9 +77,10 @@ export function isGraySeasonGlyphStrength(strength: SeasonGlyphStrength): boolea
   return strength === 'gray'
 }
 
-export function seasonGlyphStrengthClass(strength: SeasonGlyphStrength): string {
+/** Large card watermarks — soft is a faded tint; gray is a muted A/B variant. */
+export function seasonGlyphWatermarkStrengthClass(strength: SeasonGlyphStrength): string {
   if (strength === 'gray') {
     return 'opacity-30 dark:opacity-25'
   }
-  return ''
+  return 'opacity-15 dark:opacity-12'
 }

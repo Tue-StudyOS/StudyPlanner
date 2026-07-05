@@ -11,7 +11,7 @@ import {
   SEASON_GLYPH_OVERLAY_CLASS,
   SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS,
   isGraySeasonGlyphStrength,
-  seasonGlyphStrengthClass,
+  seasonGlyphWatermarkStrengthClass,
   type SeasonGlyphLayout,
   type SeasonGlyphStrength,
   type SeasonGlyphTone,
@@ -47,7 +47,7 @@ function CatalogGlyph({
 }) {
   const grayScale = isGraySeasonGlyphStrength(strength)
   const resolvedTone: SeasonGlyphTone = tone ?? (grayScale ? 'muted' : 'seasonal')
-  const strengthClass = seasonGlyphStrengthClass(strength)
+  const strengthClass = seasonGlyphWatermarkStrengthClass(strength)
   const edgeRotateFused = layout === 'right-half'
 
   if (layout === 'right-half') {
@@ -98,7 +98,11 @@ export function SeasonGlyphWatermark({
   if (variant === 'semester') {
     return (
       <div className={SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS}>
-        <SeasonSymbol termType={termType} className={SEASON_GLYPH_FILL_CLASS} tone="seasonal" />
+        <SeasonSymbol
+          termType={termType}
+          className={SEASON_GLYPH_FILL_CLASS}
+          tone={tone ?? 'seasonal'}
+        />
         {overlay ? <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div> : null}
       </div>
     )

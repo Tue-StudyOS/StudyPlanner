@@ -40,6 +40,7 @@ import {
   isCompulsoryCourse,
   isDefaultVisibleOfferingStatus,
   isOutdatedOfferingStatus,
+  resolveUnconfirmedOfferingToggleChecked,
   resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
 } from '../utils/catalogOffering.ts'
@@ -412,6 +413,11 @@ export function CoursesOverview() {
     isOnboardingOpen,
     activeStepId,
   )
+  const unconfirmedToggleChecked = resolveUnconfirmedOfferingToggleChecked(
+    showUnconfirmedOfferings,
+    isOnboardingOpen,
+    activeStepId,
+  )
 
   const filteredCourses = useMemo(
     () =>
@@ -743,7 +749,7 @@ export function CoursesOverview() {
         ) : null}
 
         <UnconfirmedOfferingsToggle
-          checked={showUnconfirmedOfferings}
+          checked={unconfirmedToggleChecked}
           label={t('catalog.showUnconfirmedOfferings')}
           onChange={setShowUnconfirmedOfferings}
         />

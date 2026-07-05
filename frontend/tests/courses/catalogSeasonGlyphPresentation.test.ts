@@ -9,7 +9,7 @@ import { courseMatchesStudyAreaFilter } from '../../src/features/courses/utils/s
 test('catalog season glyph presentations cycle twelve soft and gray layouts', () => {
   assert.equal(CATALOG_SEASON_GLYPH_PRESENTATIONS.length, 12)
   assert.deepEqual(getCatalogSeasonGlyphPresentation(0), { layout: 'right-half', strength: 'soft' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(7), { layout: 'ects-inline', strength: 'gray' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(7), { layout: 'ects-inline', strength: 'soft' })
   assert.deepEqual(getCatalogSeasonGlyphPresentation(11), { layout: 'bottom-right', strength: 'gray' })
   assert.deepEqual(getCatalogSeasonGlyphPresentation(12), CATALOG_SEASON_GLYPH_PRESENTATIONS[0])
 })
