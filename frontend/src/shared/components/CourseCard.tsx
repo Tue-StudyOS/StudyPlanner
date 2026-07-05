@@ -89,7 +89,14 @@ export function CourseCard({
     ? null
     : Number.isInteger(course.ects) ? String(course.ects) : course.ects.toFixed(1)
   const visibility = getCompletedCourseCardVisibility(isCompleted)
-  const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
+  const footerTags = visibility.showSecondaryDetails
+    ? [
+        ...areaTags.map((tag) => ({ kind: 'area' as const, tag })),
+        ...(offeringStatus === 'unknown'
+          ? [{ kind: 'status' as const }]
+          : []),
+      ]
+    : []
 
   const cardClassName = `group relative flex h-full min-h-[7rem] cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
@@ -153,24 +160,26 @@ export function CourseCard({
         </div>
       </div>
 
-      <div className="relative mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        {/* On phones the study-area tags drop to their own bottom line so the
-            ECTS value can stay right-aligned next to the season/type tags. */}
-        <span className={`order-last flex w-full flex-wrap items-center gap-0.75 sm:order-none sm:w-auto ${secondaryVisibilityClass}`}>
-          {areaTags.map((tag) => (
-            <AreaBadge
-              key={tag.key}
-              label={tag.label}
-              masterCat={tag.masterCat}
-              active={isAreaTagActive?.(tag.key) ?? false}
-              onClick={onAreaTagClick ? () => onAreaTagClick(tag.key) : undefined}
-            />
-          ))}
-          <OfferingStatusTag status={offeringStatus} />
-        </span>
-        <span className="flex-1" />
+      <div className="relative mt-auto flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1.5 sm:gap-y-1.5">
+        {footerTags.length > 0 ? (
+          <span className="flex flex-wrap items-center gap-0.75">
+            {footerTags.map((entry) =>
+              entry.kind === 'area' ? (
+                <AreaBadge
+                  key={entry.tag.key}
+                  label={entry.tag.label}
+                  masterCat={entry.tag.masterCat}
+                  active={isAreaTagActive?.(entry.tag.key) ?? false}
+                  onClick={onAreaTagClick ? () => onAreaTagClick(entry.tag.key) : undefined}
+                />
+              ) : (
+                <OfferingStatusTag key="offering-status" status={offeringStatus} />
+              ),
+            )}
+          </span>
+        ) : null}
         {resolvedLayout === 'ects-inline' || ectsLabel ? (
-          <span className="flex shrink-0 items-center gap-1 text-[13px] font-bold text-fg">
+          <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
             {resolvedLayout === 'ects-inline' ? (
               <SeasonSymbol
                 termType={glyphTermType}

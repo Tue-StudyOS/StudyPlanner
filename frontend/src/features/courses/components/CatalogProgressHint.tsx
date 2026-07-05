@@ -52,13 +52,11 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
   }
 
   return (
-    <>
-      <div className="h-[4.25rem] md:hidden" aria-hidden="true" />
-      <div
-        data-tour="catalog-progress-hint"
-        className="fixed inset-x-0 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] min-h-[4.25rem] border-b border-border bg-bg px-4 py-2 md:sticky md:top-0 md:z-30 md:min-h-0"
-      >
-        <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
+    <div
+      data-tour="catalog-progress-hint"
+      className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] border-b border-border bg-bg px-4 py-2 md:top-0 md:z-30"
+    >
+      <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
           {openAreas.map((area) => {
             const isActive = isAreaActive?.(area.code) ?? false
             const shortLabel = formatRegulationAreaShortLabel(area.code)
@@ -82,8 +80,7 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
               </button>
             )
           })}
-        </div>
       </div>
-    </>
+    </div>
   )
 }
