@@ -1,5 +1,6 @@
-import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import type { Course } from '../../courses'
+import type { ManualPlannerSlot } from '../types.ts'
+import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import { getLecturePeriod } from './lecturePeriod.ts'
 import { DAY_ORDER, isSingleDateSlot, normalizeWeekday, parseTimeRange } from './plannerFeedback.ts'
 
@@ -78,6 +79,7 @@ interface SemesterIcsInput {
   semesterLabel: string
   courses: Course[]
   hiddenSlotIds: string[]
+  manualSlots?: ManualPlannerSlot[]
 }
 
 /**
@@ -89,6 +91,7 @@ export function buildSemesterPlanIcs({
   semesterLabel,
   courses,
   hiddenSlotIds,
+  manualSlots = [],
 }: SemesterIcsInput): string | null {
   const lecturePeriod = getLecturePeriod(semesterLabel)
   if (!lecturePeriod) {
@@ -169,6 +172,39 @@ export function buildSemesterPlanIcs({
         ].join('\r\n'),
       )
     })
+  })
+
+  const coursesById = new Map(courses.map((course) => [course.id, course]))
+  manualSlots.forEach((manualSlot) => {
+    if (hiddenSlotIds.includes(`manual:${manualSlot.id}`)) {
+      return
+    }
+    const course = coursesById.get(manualSlot.courseId)
+    if (!course) {
+      return
+    }
+    const title = cleanCourseTitle(course.title, course.number)
+    const timeRange = parseTimeRange(manualSlot.time)
+    if (!timeRange) {
+      return
+    }
+    const firstOccurrence = firstWeekdayOnOrAfter(
+      lecturePeriod.start,
+      JS_DAY_INDEX[manualSlot.day],
+    )
+    const lines = [
+      'BEGIN:VEVENT',
+      `UID:manual-${manualSlot.id}@studyplanner`,
+      `DTSTART;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.startMinutes)}`,
+      `DTEND;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.endMinutes)}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[manualSlot.day]};UNTIL=${untilValue}`,
+      `SUMMARY:${escapeIcsText(title)}`,
+    ]
+    if (manualSlot.room) {
+      lines.push(`LOCATION:${escapeIcsText(manualSlot.room)}`)
+    }
+    lines.push('END:VEVENT')
+    events.push(lines.join('\r\n'))
   })
 
   return [

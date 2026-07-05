@@ -131,26 +131,34 @@ function CandidateCard({
             </div>
           ) : null}
           {tutorialSlotOptions.length > 1 && selectedTutorialSlotId ? (
-            <label
-              className="mt-2 grid gap-1"
+            <div
+              className="mt-2 grid gap-1.5"
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
               <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 {t('planner.favorites.chooseTutorialSlot')}
               </span>
-              <select
-                value={selectedTutorialSlotId}
-                onChange={(event) => onSelectTutorialSlot(course.id, event.target.value)}
-                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-[11.5px] text-fg outline-none focus:border-primary"
-              >
-                {tutorialSlotOptions.map((option) => (
-                  <option key={option.slotId} value={option.slotId}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="flex flex-wrap gap-1">
+                {tutorialSlotOptions.map((option) => {
+                  const isSelected = option.slotId === selectedTutorialSlotId
+                  return (
+                    <button
+                      key={option.slotId}
+                      type="button"
+                      onClick={() => onSelectTutorialSlot(course.id, option.slotId)}
+                      className={`max-w-full rounded-md border px-2 py-1 text-left text-[10.5px] leading-snug transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 font-medium text-primary'
+                          : 'border-border bg-surface text-fg-mid hover:border-primary/30'
+                      }`}
+                    >
+                      <span className="block break-words">{option.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           ) : null}
         </div>
 
@@ -237,7 +245,7 @@ export function PlannerFavoritesPanel({
   return (
     <aside
       data-tour="planner-interested"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1100px]:h-0 min-[1100px]:min-h-full"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[10px] border border-border bg-surface min-[1180px]:h-0 min-[1180px]:min-h-full"
     >
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="text-[14px] font-semibold text-fg">{t('planner.favorites.title')}</div>

@@ -8,7 +8,9 @@ import { formatCourseLecturerName } from '../../features/courses/utils/lecturerN
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
-import type { SeasonGlyphMotif, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
+import { SeasonSymbol } from './SeasonSymbol.tsx'
+import type { SeasonGlyphLayout, SeasonGlyphStrength, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
+import { isGraySeasonGlyphStrength, seasonGlyphStrengthClass } from '../../shared/components/seasonSymbolStyles.ts'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -27,9 +29,9 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
-  // Overrides the watermark's catalog-muted default tone per card.
+  seasonLayout?: SeasonGlyphLayout
+  seasonStrength?: SeasonGlyphStrength
   seasonTone?: SeasonGlyphTone
-  seasonMotif?: SeasonGlyphMotif
   regulationRuleGroups?: RegulationRuleGroup[]
   isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
@@ -61,8 +63,9 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
+  seasonLayout,
+  seasonStrength,
   seasonTone,
-  seasonMotif,
   regulationRuleGroups = [],
   isAreaTagActive,
   onAreaTagClick,
@@ -93,12 +96,19 @@ export function CourseCard({
   }`
   const accessibleLabel = `Open course details: ${title}`
 
+  const resolvedSeasonTermType = seasonTermType ?? course.termType
+  const resolvedLayout = seasonLayout ?? 'right-half'
+  const resolvedStrength = seasonStrength ?? 'strong'
+  const inlineGlyphTone = isGraySeasonGlyphStrength(resolvedStrength) ? 'muted' : 'seasonal'
+  const inlineGlyphStrengthClass = seasonGlyphStrengthClass(resolvedStrength)
+
   const cardContent = (
     <>
       <SeasonGlyphWatermark
-        termType={seasonTermType ?? course.termType}
+        termType={resolvedSeasonTermType}
+        layout={resolvedLayout}
+        strength={resolvedStrength}
         tone={seasonTone}
-        motif={seasonMotif}
         overlay={
           showFavorite ? (
             // The overlay slot is pointer-events-none so card clicks pass
@@ -155,7 +165,15 @@ export function CourseCard({
         </span>
         <span className="flex-1" />
         {ectsLabel ? (
-          <span className="shrink-0 text-[13px] font-bold text-fg">
+          <span className="flex shrink-0 items-center gap-1 text-[13px] font-bold text-fg">
+            {resolvedLayout === 'ects-inline' ? (
+              <SeasonSymbol
+                termType={resolvedSeasonTermType}
+                tone={inlineGlyphTone}
+                grayScale={isGraySeasonGlyphStrength(resolvedStrength)}
+                className={`h-4 w-4 shrink-0 ${inlineGlyphStrengthClass}`}
+              />
+            ) : null}
             {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
           </span>
         ) : null}

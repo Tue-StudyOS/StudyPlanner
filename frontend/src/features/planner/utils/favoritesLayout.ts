@@ -1,4 +1,4 @@
-export const PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY = '(min-width: 1100px)'
+export const PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY = '(min-width: 1180px)'
 
 type PlannerFavoritesLayout = 'stacked' | 'sidebar'
 

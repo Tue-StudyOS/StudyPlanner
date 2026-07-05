@@ -3,7 +3,7 @@ import { ApiError } from '../../../shared/utils/api'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
-import type { SemesterPlan, SemesterPlanSummary } from '../types'
+import type { ManualPlannerSlot, SemesterPlan, SemesterPlanSummary } from '../types'
 import { SEMESTER_PLAN_CHANGED_EVENT } from '../utils/semesterTabBadge.ts'
 import {
   buildSemesterOptions,
@@ -43,12 +43,30 @@ function areAssignmentsEqual(
   return leftKeys.every((key) => left[key] === right[key])
 }
 
+function areManualSlotsEqual(left: ManualPlannerSlot[], right: ManualPlannerSlot[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+  return left.every((slot, index) => {
+    const other = right[index]
+    return (
+      slot.id === other.id
+      && slot.courseId === other.courseId
+      && slot.day === other.day
+      && slot.time === other.time
+      && (slot.room ?? null) === (other.room ?? null)
+      && (slot.label ?? null) === (other.label ?? null)
+    )
+  })
+}
+
 interface UseSemesterPlannerResult {
   activeSemesterLabel: string
   semesterOptions: string[]
   savedPlans: SemesterPlanSummary[]
   plannedCourseIds: string[]
   hiddenSlotIds: string[]
+  manualSlots: ManualPlannerSlot[]
   planAssignments: Record<string, string>
   savedPlan: SemesterPlan | null
   isLoadingPlanIndex: boolean
@@ -59,6 +77,7 @@ interface UseSemesterPlannerResult {
   setActiveSemesterLabel: (semesterLabel: string) => void
   setPlannedCourseIds: (courseIds: string[]) => void
   setHiddenSlotIds: (slotIds: string[]) => void
+  setManualSlots: (slots: ManualPlannerSlot[]) => void
   setAssignment: (courseId: string, areaCode: string | null) => void
   setAssignments: (assignments: Record<string, string>) => void
 }
@@ -76,6 +95,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   const [savedPlan, setSavedPlan] = useState<SemesterPlan | null>(null)
   const [plannedCourseIds, setPlannedCourseIds] = useState<string[]>([])
   const [hiddenSlotIds, setHiddenSlotIds] = useState<string[]>([])
+  const [manualSlots, setManualSlots] = useState<ManualPlannerSlot[]>([])
   const [planAssignments, setPlanAssignments] = useState<Record<string, string>>({})
   const [isLoadingPlanIndex, setIsLoadingPlanIndex] = useState<boolean>(false)
   const [isLoadingSemesterPlan, setIsLoadingSemesterPlan] = useState<boolean>(false)
@@ -126,6 +146,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
           setSavedPlan(null)
           setPlannedCourseIds([])
           setHiddenSlotIds([])
+          setManualSlots([])
           setPlanAssignments({})
           setPlannerError(null)
           setIsLoadingPlanIndex(false)
@@ -178,6 +199,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setSavedPlan(cachedSemesterPlan)
         setPlannedCourseIds(cachedSemesterPlan.courseIds)
         setHiddenSlotIds(cachedSemesterPlan.hiddenSlotIds)
+        setManualSlots(cachedSemesterPlan.manualSlots ?? [])
         setPlanAssignments(cachedSemesterPlan.courseAssignments)
       }
       setIsLoadingSemesterPlan(cachedSemesterPlan === null)
@@ -191,12 +213,14 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setSavedPlan(nextSavedPlan)
         setPlannedCourseIds(nextSavedPlan?.courseIds ?? [])
         setHiddenSlotIds(nextSavedPlan?.hiddenSlotIds ?? [])
+        setManualSlots(nextSavedPlan?.manualSlots ?? [])
         setPlanAssignments(nextSavedPlan?.courseAssignments ?? {})
       } catch (error) {
         if (isActive) {
           setSavedPlan(null)
           setPlannedCourseIds([])
           setHiddenSlotIds([])
+          setManualSlots([])
           setPlanAssignments({})
           setPlannerError(normalizeErrorMessage(error))
         }
@@ -232,14 +256,17 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     () =>
       !areStringArraysEqual(plannedCourseIds, savedPlan?.courseIds ?? []) ||
       !areStringArraysEqual(hiddenSlotIds, savedPlan?.hiddenSlotIds ?? []) ||
+      !areManualSlotsEqual(manualSlots, savedPlan?.manualSlots ?? []) ||
       !areAssignmentsEqual(planAssignments, savedPlan?.courseAssignments ?? {}),
     [
       hiddenSlotIds,
+      manualSlots,
       planAssignments,
       plannedCourseIds,
       savedPlan?.courseAssignments,
       savedPlan?.courseIds,
       savedPlan?.hiddenSlotIds,
+      savedPlan?.manualSlots,
     ],
   )
 
@@ -256,6 +283,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         notes: null,
         courseIds: plannedCourseIds,
         hiddenSlotIds,
+        manualSlots,
         courseAssignments: planAssignments,
       })
       setSavedPlan((currentSavedPlan) =>
@@ -299,6 +327,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   }, [
     hasUnsavedChanges,
     hiddenSlotIds,
+    manualSlots,
     isLoadingSemesterPlan,
     normalizedActiveSemesterLabel,
     planAssignments,
@@ -352,6 +381,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     savedPlans,
     plannedCourseIds,
     hiddenSlotIds,
+    manualSlots,
     planAssignments,
     savedPlan,
     isLoadingPlanIndex,
@@ -362,6 +392,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     setActiveSemesterLabel,
     setPlannedCourseIds,
     setHiddenSlotIds,
+    setManualSlots,
     setAssignment,
     setAssignments,
   }

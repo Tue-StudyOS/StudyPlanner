@@ -4,6 +4,7 @@ import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
 import { scheduleSlotBlockClasses, scheduleSlotListLabelClasses } from '../../courses/utils/scheduleSlotKind.ts'
 import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
+import type { ManualPlannerSlot } from '../types.ts'
 import {
   END_HOUR,
   MAX_VISIBLE_OVERLAP_COLUMNS,
@@ -27,6 +28,20 @@ export type PlannerRenderMode = 'name' | 'badge'
 const MOBILE_MAX_OVERLAP_COLUMNS = 2
 const MOBILE_BLOCK_GAP_REM = 0.25
 const DESKTOP_BLOCK_GAP_REM = 0.5
+
+function AddSlotIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4">
+      <path
+        d="M8 3.5v9M3.5 8h9"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  )
+}
 
 function ExportCalendarIcon() {
   return (
@@ -63,6 +78,7 @@ function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
 export function PlannerGrid({
   plannedCourses,
   hiddenSlotIds,
+  manualSlots = [],
   isMobilePlanner,
   canCompleteSemester,
   activeSemesterLabel,
@@ -73,12 +89,14 @@ export function PlannerGrid({
   onRemoveCourse,
   onOpenCourse,
   onRequestAdd = () => {},
+  onRequestManualSlot = () => {},
   onOpenCompletionDialog = () => {},
   onExportCalendar,
   exportCalendarTitle = 'Export calendar',
 }: {
   plannedCourses: Course[]
   hiddenSlotIds: string[]
+  manualSlots?: ManualPlannerSlot[]
   isMobilePlanner: boolean
   canCompleteSemester: boolean
   activeSemesterLabel: string
@@ -89,6 +107,7 @@ export function PlannerGrid({
   onRemoveCourse?: (courseId: string) => void
   onOpenCourse: (courseId: string) => void
   onRequestAdd?: () => void
+  onRequestManualSlot?: () => void
   onOpenCompletionDialog?: () => void
   onExportCalendar?: () => void
   exportCalendarTitle?: string
@@ -101,8 +120,8 @@ export function PlannerGrid({
     [plannedCourses],
   )
   const blocks = useMemo(
-    () => buildPlannerBlocks(plannedCourses).filter((block) => !hiddenSlotIds.includes(block.slotId)),
-    [hiddenSlotIds, plannedCourses],
+    () => buildPlannerBlocks(plannedCourses, manualSlots).filter((block) => !hiddenSlotIds.includes(block.slotId)),
+    [hiddenSlotIds, manualSlots, plannedCourses],
   )
   const unscheduledPlannedCourses = useMemo(() => {
     const scheduledCourseIds = new Set(blocks.map((block) => block.courseId))
@@ -145,19 +164,30 @@ export function PlannerGrid({
           }
         }}
       >
-        {!readOnly && onExportCalendar ? (
-          <div className="mb-2 flex justify-end px-0.5 sm:px-0">
+        {!readOnly ? (
+          <div className="mb-2 flex justify-end gap-1 px-0.5 sm:px-0">
             <button
               type="button"
-              data-tour="planner-export"
-              onClick={onExportCalendar}
-              disabled={plannedCourses.length === 0}
-              title={exportCalendarTitle}
-              aria-label={exportCalendarTitle}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onRequestManualSlot}
+              title="Add manual time slot"
+              aria-label="Add manual time slot"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
             >
-              <ExportCalendarIcon />
+              <AddSlotIcon />
             </button>
+            {onExportCalendar ? (
+              <button
+                type="button"
+                data-tour="planner-export"
+                onClick={onExportCalendar}
+                disabled={plannedCourses.length === 0}
+                title={exportCalendarTitle}
+                aria-label={exportCalendarTitle}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ExportCalendarIcon />
+              </button>
+            ) : null}
           </div>
         ) : null}
         <div
@@ -351,9 +381,9 @@ export function PlannerGrid({
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">
             <div className="text-[12.5px] font-semibold text-fg">Without weekly time</div>
             <p className="mt-1 text-[11.5px] text-fg-muted">
-              These planned courses have no concrete weekday yet — tap one for details.
+              These planned courses have no concrete weekday yet — use + to add a manual slot.
             </p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               {unscheduledPlannedCourses.map((course) => (
                 <button
                   key={course.id}
@@ -366,6 +396,15 @@ export function PlannerGrid({
                   </div>
                 </button>
               ))}
+              {!readOnly ? (
+                <button
+                  type="button"
+                  onClick={onRequestManualSlot}
+                  className="inline-flex min-h-[2.75rem] items-center justify-center rounded-md border border-dashed border-border px-3 py-2 text-[12px] font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
+                >
+                  + Add slot
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}

@@ -41,6 +41,7 @@ export function buildMiniGridBlocks(schedule: ScheduleSlot[]): MiniGridBlock[] {
       slotType: getScheduleSlotTypeLabel(slot),
       slotKind,
       hasOverlap: false,
+      isManual: false,
       examDate: slotKind !== 'weekly' ? slot.day.trim() : null,
     })
   })

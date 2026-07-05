@@ -1,35 +1,40 @@
-import type { SeasonGlyphMotif, SeasonGlyphTone } from '../../../shared/components/seasonSymbolStyles.ts'
+import type { SeasonGlyphLayout, SeasonGlyphStrength } from '../../../shared/components/seasonSymbolStyles.ts'
 
 export interface CatalogSeasonGlyphPresentation {
-  motif: SeasonGlyphMotif
-  tone: SeasonGlyphTone
+  layout: SeasonGlyphLayout
+  strength: SeasonGlyphStrength
 }
 
 /**
- * ponytail: temporary catalog A/B grid — distinct watermark motif/tone combos
- * cycle by card index so candidate treatments can be compared side by side.
+ * ponytail: temporary catalog A/B grid — base 14 presentations plus extra faint
+ * edge variants appended for side-by-side comparison (nothing replaced).
  */
 export const CATALOG_SEASON_GLYPH_PRESENTATIONS: readonly CatalogSeasonGlyphPresentation[] = [
-  { motif: 'small-tile', tone: 'muted' },
-  { motif: 'small-tile', tone: 'seasonal' },
-  { motif: 'dense-tile', tone: 'muted' },
-  { motif: 'dense-tile', tone: 'seasonal' },
-  { motif: 'sparse-tile', tone: 'seasonal' },
-  { motif: 'large-corner', tone: 'muted' },
-  { motif: 'large-corner', tone: 'seasonal' },
-  { motif: 'corner-only', tone: 'seasonal' },
-  { motif: 'double-corner', tone: 'muted' },
-  { motif: 'left-border-accent', tone: 'seasonal' },
-  { motif: 'right-border-accent', tone: 'muted' },
-  { motif: 'bottom-strip', tone: 'seasonal' },
-  { motif: 'top-strip', tone: 'muted' },
-  { motif: 'diagonal-wash', tone: 'seasonal' },
-  { motif: 'corner-wash', tone: 'muted' },
-  { motif: 'sparse-center', tone: 'seasonal' },
-  { motif: 'center-watermark', tone: 'muted' },
+  { layout: 'right-half', strength: 'strong' },
+  { layout: 'right-half', strength: 'strong' },
+  { layout: 'right-half', strength: 'soft' },
+  { layout: 'right-half', strength: 'soft' },
+  { layout: 'right-half', strength: 'gray' },
+  { layout: 'right-half', strength: 'gray' },
+  { layout: 'ects-inline', strength: 'strong' },
+  { layout: 'ects-inline', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'soft' },
+  { layout: 'bottom-right', strength: 'soft' },
+  { layout: 'bottom-right', strength: 'gray' },
+  { layout: 'bottom-right', strength: 'gray' },
+  { layout: 'right-half', strength: 'softer' },
+  { layout: 'right-half', strength: 'softer' },
+  { layout: 'right-half', strength: 'gray-softer' },
+  { layout: 'right-half', strength: 'gray-softer' },
+  { layout: 'bottom-right', strength: 'softer' },
+  { layout: 'bottom-right', strength: 'softer' },
+  { layout: 'bottom-right', strength: 'gray-softer' },
+  { layout: 'bottom-right', strength: 'gray-softer' },
 ]
 
 export function getCatalogSeasonGlyphPresentation(cardIndex: number): CatalogSeasonGlyphPresentation {
   const count = CATALOG_SEASON_GLYPH_PRESENTATIONS.length
-  return CATALOG_SEASON_GLYPH_PRESENTATIONS[((cardIndex % count) + count) % count]
+  return CATALOG_SEASON_GLYPH_PRESENTATIONS[((cardIndex % count) + count) % count]!
 }
