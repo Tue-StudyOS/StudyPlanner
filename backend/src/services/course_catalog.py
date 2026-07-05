@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -558,7 +559,7 @@ async def _resolve_period_id(env: Any, period_id: str | None) -> str | None:
     return periods[0]["periodId"] if periods else None
 
 
-_D1_CHUNK_SIZE = 50
+_D1_CHUNK_SIZE = 80
 
 
 async def _load_catalog_related_chunk(
@@ -572,9 +573,55 @@ async def _load_catalog_related_chunk(
 ]:
     placeholders = _placeholders(len(chunk))
 
-    lecturer_rows = await fetch_all(
-        env,
-        f"""
+    # Module matches sort first (matchRank 0); direct study-area links are fetched
+    # separately because D1 is more reliable without a UNION in the hot catalog path.
+    curriculum_option_sql = f"""
+        SELECT
+            m.course_id AS courseId,
+            cm.module_code AS moduleCode,
+            cm.title AS moduleTitle,
+            cm.ects AS moduleEcts,
+            sp.code AS programCode,
+            sp.name AS programName,
+            sa.code AS studyAreaCode,
+            sa.name AS studyAreaName,
+            sa.area_type AS areaType,
+            opt.status AS optionStatus,
+            opt.ects_counted AS ectsCounted,
+            0 AS matchRank,
+            sa.sort_order AS areaSortOrder
+        FROM course_curriculum_matches AS m
+        JOIN curriculum_modules AS cm ON cm.id = m.module_id
+        LEFT JOIN module_study_area_options AS opt ON opt.module_id = cm.id
+        LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
+        LEFT JOIN study_programs AS sp ON sp.id = sa.program_id
+        WHERE m.course_id IN ({placeholders})
+    """
+    study_area_link_sql = f"""
+        SELECT
+            l.course_id AS courseId,
+            NULL AS moduleCode,
+            NULL AS moduleTitle,
+            NULL AS moduleEcts,
+            sp.code AS programCode,
+            sp.name AS programName,
+            sa.code AS studyAreaCode,
+            sa.name AS studyAreaName,
+            sa.area_type AS areaType,
+            'allowed' AS optionStatus,
+            NULL AS ectsCounted,
+            1 AS matchRank,
+            sa.sort_order AS areaSortOrder
+        FROM course_study_area_links AS l
+        JOIN study_areas AS sa ON sa.id = l.study_area_id
+        JOIN study_programs AS sp ON sp.id = sa.program_id
+        WHERE l.course_id IN ({placeholders})
+    """
+
+    lecturer_rows, parallel_group_rows, appointment_rows, curriculum_rows, link_rows = await asyncio.gather(
+        fetch_all(
+            env,
+            f"""
         SELECT
             cl.course_id AS courseId,
             l.display_name AS displayName
@@ -583,12 +630,11 @@ async def _load_catalog_related_chunk(
         WHERE cl.course_id IN ({placeholders})
         ORDER BY cl.course_id ASC, l.display_name ASC
         """,
-        chunk,
-    )
-
-    parallel_group_rows = await fetch_all(
-        env,
-        f"""
+            chunk,
+        ),
+        fetch_all(
+            env,
+            f"""
         SELECT
             course_id AS courseId,
             group_type AS groupType,
@@ -598,12 +644,11 @@ async def _load_catalog_related_chunk(
         WHERE course_id IN ({placeholders})
         ORDER BY course_id ASC, position ASC
         """,
-        chunk,
-    )
-
-    appointment_rows = await fetch_all(
-        env,
-        f"""
+            chunk,
+        ),
+        fetch_all(
+            env,
+            f"""
         SELECT
             pg.course_id AS courseId,
             pg.title AS groupTitle,
@@ -628,56 +673,21 @@ async def _load_catalog_related_chunk(
             COALESCE(a.start_time, '99:99') ASC,
             a.position ASC
         """,
-        chunk,
+            chunk,
+        ),
+        fetch_all(env, curriculum_option_sql, chunk),
+        fetch_all(env, study_area_link_sql, chunk),
     )
 
-    # Module matches sort first (matchRank 0) so module code/title/ECTS stay
-    # the primary source; direct study-area links only contribute area badges.
-    option_rows = await fetch_all(
-        env,
-        f"""
-        SELECT
-            m.course_id AS courseId,
-            cm.module_code AS moduleCode,
-            cm.title AS moduleTitle,
-            cm.ects AS moduleEcts,
-            sp.code AS programCode,
-            sp.name AS programName,
-            sa.code AS studyAreaCode,
-            sa.name AS studyAreaName,
-            sa.area_type AS areaType,
-            opt.status AS optionStatus,
-            opt.ects_counted AS ectsCounted,
-            0 AS matchRank,
-            sa.sort_order AS areaSortOrder
-        FROM course_curriculum_matches AS m
-        JOIN curriculum_modules AS cm ON cm.id = m.module_id
-        LEFT JOIN module_study_area_options AS opt ON opt.module_id = cm.id
-        LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
-        LEFT JOIN study_programs AS sp ON sp.id = sa.program_id
-        WHERE m.course_id IN ({placeholders})
-        UNION ALL
-        SELECT
-            l.course_id AS courseId,
-            NULL AS moduleCode,
-            NULL AS moduleTitle,
-            NULL AS moduleEcts,
-            sp.code AS programCode,
-            sp.name AS programName,
-            sa.code AS studyAreaCode,
-            sa.name AS studyAreaName,
-            sa.area_type AS areaType,
-            'allowed' AS optionStatus,
-            NULL AS ectsCounted,
-            1 AS matchRank,
-            sa.sort_order AS areaSortOrder
-        FROM course_study_area_links AS l
-        JOIN study_areas AS sa ON sa.id = l.study_area_id
-        JOIN study_programs AS sp ON sp.id = sa.program_id
-        WHERE l.course_id IN ({placeholders})
-        ORDER BY courseId ASC, matchRank ASC, programCode ASC, areaSortOrder ASC, studyAreaName ASC
-        """,
-        [*chunk, *chunk],
+    option_rows = sorted(
+        [*curriculum_rows, *link_rows],
+        key=lambda row: (
+            int(row["courseId"]),
+            int(row.get("matchRank") or 0),
+            str(row.get("programCode") or ""),
+            int(row.get("areaSortOrder") or 0),
+            str(row.get("studyAreaName") or ""),
+        ),
     )
 
     return lecturer_rows, parallel_group_rows, appointment_rows, option_rows

@@ -1,8 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
-import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
-import { invalidateSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import {
@@ -272,23 +270,13 @@ export function CoursesOverview() {
   const catalogBasePath = useResolvedPath('.').pathname
   const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
-  const [catalogReloadKey, setCatalogReloadKey] = useState(0)
-  const wasOnboardingOpenRef = useRef(isOnboardingOpen)
-
-  useEffect(() => {
-    if (wasOnboardingOpenRef.current && !isOnboardingOpen) {
-      invalidateSessionCache('catalog:courses')
-      setCatalogReloadKey((current) => current + 1)
-    }
-    wasOnboardingOpenRef.current = isOnboardingOpen
-  }, [isOnboardingOpen])
   const sentinelRef = useRef<HTMLDivElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
   const { user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
-  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS, catalogReloadKey)
+  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
@@ -774,13 +762,19 @@ export function CoursesOverview() {
         />
       </div>
 
-      {isLoading && !isOnboardingOpen ? (
+      {!isOnboardingOpen && refreshWarning ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
+          {refreshWarning}
+        </div>
+      ) : null}
+
+      {isLoading && !isOnboardingOpen && courses.length === 0 ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.loading')}
         </div>
-      ) : error && !isOnboardingOpen ? (
+      ) : error && !isOnboardingOpen && courses.length === 0 ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          <p>{typeof error === 'string' ? error : toUserFacingApiMessage(error)}</p>
+          <p>{error}</p>
         </div>
       ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">

@@ -5,9 +5,9 @@ import { CloseIcon } from '../../../shared/components/icons'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { NAV } from '../nav'
 import { AccountIcon, GearIcon, MenuIcon, MoonIcon, SunIcon } from './icons'
-import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
-import { HelpButton } from '../../onboarding'
+import { HelpButton, useOnboarding } from '../../onboarding'
+import { HelpIcon } from '../../onboarding/components/icons'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
 import { useSemesterTabBadge } from '../../planner/utils/semesterTabBadge.ts'
@@ -25,7 +25,7 @@ export function TopBar() {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false)
   const { isDark, toggleTheme } = useTheme()
   const { t } = useTranslation()
-  const { isAuthenticated } = useAuth()
+  const { open: openTour } = useOnboarding()
   const showSemesterTabBadge = useSemesterTabBadge()
 
   const askGptButton = (
@@ -95,10 +95,10 @@ export function TopBar() {
         </Link>
 
         {isMobileNavigation ? (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 shrink items-center gap-2">
             {betaButton}
             {askGptButton}
-            {isAuthenticated ? <HelpButton /> : null}
+            <HelpButton />
             {themeToggleButton}
             <button
               type="button"
@@ -140,10 +140,10 @@ export function TopBar() {
               ))}
             </nav>
 
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 shrink items-center gap-2">
               {betaButton}
               {askGptButton}
-              {isAuthenticated ? <HelpButton /> : null}
+              <HelpButton />
               {themeToggleButton}
               <Link
                 to={ROUTES.account}
@@ -183,6 +183,17 @@ export function TopBar() {
             </div>
 
             <nav className="grid gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false)
+                  openTour()
+                }}
+                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-[13px] text-fg transition-colors hover:bg-surface-hover"
+              >
+                <HelpIcon />
+                <span>{t('help.open')}</span>
+              </button>
               {NAV.map(({ path, labelKey, Icon }) => (
                 <NavLink
                   key={path}
