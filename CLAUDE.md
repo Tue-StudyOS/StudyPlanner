@@ -62,6 +62,16 @@ The catalog is a **snapshot**. Course data flows:
   `content_sections`; `services/course_catalog._build_content_sections()` surfaces them
   in the catalog detail (de-duped against Description and Prerequisites). Courses with no
   labelled boxes fall back to one "Inhalte" blob that needs nav-chrome stripping.
+- **Parallel-group role (lecture vs tutorial):** ALMA leaves the group-level
+  `Veranstaltungsart` empty, so `parallel_groups.group_type` was blank. When a course
+  splits its lecture, exercise and exam into separate parallel groups the role sits in the
+  group *title* (`Analysis (Übung) (2. Parallelgruppe)`); the importer's
+  `derive_parallel_group_role()` reads it into `group_type`. This is what makes the
+  planner's tutorial-slot picker (`_appointment_slot_type` → `isTutorialLikeSlotType`)
+  choose among the actual Übung/Tutorium groups while keeping the Vorlesung pinned —
+  without it every slot inherits the course type (`Vorlesung/Übung`) and the lecture looks
+  like a tutorial too. **Takes effect only after an in-place re-seed** (a scraper/importer
+  change alone doesn't touch live data — see above).
 
 ## Local dev
 
