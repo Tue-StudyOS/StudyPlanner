@@ -5,20 +5,36 @@ export interface CatalogSeasonGlyphPresentation {
   strength: SeasonGlyphStrength
 }
 
-const CATALOG_LAYOUTS: readonly SeasonGlyphLayout[] = ['right-half', 'ects-inline', 'bottom-left']
-const CATALOG_STRENGTHS: readonly SeasonGlyphStrength[] = ['strong', 'soft', 'gray']
-
 /**
- * ponytail: temporary catalog A/B grid — the first six cards cycle three layouts
- * and three color strengths (two cards each); later cards default to right-half + strong.
+ * ponytail: temporary catalog A/B grid — base 14 presentations plus extra faint
+ * edge variants appended for side-by-side comparison (nothing replaced).
  */
+export const CATALOG_SEASON_GLYPH_PRESENTATIONS: readonly CatalogSeasonGlyphPresentation[] = [
+  { layout: 'right-half', strength: 'strong' },
+  { layout: 'right-half', strength: 'strong' },
+  { layout: 'right-half', strength: 'soft' },
+  { layout: 'right-half', strength: 'soft' },
+  { layout: 'right-half', strength: 'gray' },
+  { layout: 'right-half', strength: 'gray' },
+  { layout: 'ects-inline', strength: 'strong' },
+  { layout: 'ects-inline', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'strong' },
+  { layout: 'bottom-right', strength: 'soft' },
+  { layout: 'bottom-right', strength: 'soft' },
+  { layout: 'bottom-right', strength: 'gray' },
+  { layout: 'bottom-right', strength: 'gray' },
+  { layout: 'right-half', strength: 'softer' },
+  { layout: 'right-half', strength: 'softer' },
+  { layout: 'right-half', strength: 'gray-softer' },
+  { layout: 'right-half', strength: 'gray-softer' },
+  { layout: 'bottom-right', strength: 'softer' },
+  { layout: 'bottom-right', strength: 'softer' },
+  { layout: 'bottom-right', strength: 'gray-softer' },
+  { layout: 'bottom-right', strength: 'gray-softer' },
+]
+
 export function getCatalogSeasonGlyphPresentation(cardIndex: number): CatalogSeasonGlyphPresentation {
-  const normalizedIndex = Math.max(0, cardIndex)
-  if (normalizedIndex < 6) {
-    return {
-      layout: CATALOG_LAYOUTS[normalizedIndex % CATALOG_LAYOUTS.length]!,
-      strength: CATALOG_STRENGTHS[Math.floor(normalizedIndex / 2) % CATALOG_STRENGTHS.length]!,
-    }
-  }
-  return { layout: 'right-half', strength: 'strong' }
+  const count = CATALOG_SEASON_GLYPH_PRESENTATIONS.length
+  return CATALOG_SEASON_GLYPH_PRESENTATIONS[((cardIndex % count) + count) % count]!
 }

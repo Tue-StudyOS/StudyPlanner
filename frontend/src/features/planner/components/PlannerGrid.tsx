@@ -29,6 +29,20 @@ const MOBILE_MAX_OVERLAP_COLUMNS = 2
 const MOBILE_BLOCK_GAP_REM = 0.25
 const DESKTOP_BLOCK_GAP_REM = 0.5
 
+function AddSlotIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4">
+      <path
+        d="M8 3.5v9M3.5 8h9"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  )
+}
+
 function ExportCalendarIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4">
@@ -157,10 +171,9 @@ export function PlannerGrid({
               onClick={onRequestManualSlot}
               title="Add manual time slot"
               aria-label="Add manual time slot"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-[12px] font-medium text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
             >
-              <span aria-hidden="true" className="text-[15px] leading-none">+</span>
-              <span className="hidden sm:inline">Slot</span>
+              <AddSlotIcon />
             </button>
             {onExportCalendar ? (
               <button
@@ -368,7 +381,7 @@ export function PlannerGrid({
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">
             <div className="text-[12.5px] font-semibold text-fg">Without weekly time</div>
             <p className="mt-1 text-[11.5px] text-fg-muted">
-              These planned courses have no concrete weekday yet — add a manual slot with + Slot.
+              These planned courses have no concrete weekday yet — use + to add a manual slot.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {unscheduledPlannedCourses.map((course) => (

@@ -157,16 +157,26 @@ function SeasonGlyphShapes({
   termType,
   tone,
   grayScale,
+  edgeRotateFused,
 }: {
   termType: CourseTermType
   tone: SeasonGlyphTone
   grayScale: boolean
+  edgeRotateFused: boolean
 }) {
+  const fusedGlyph = <FusedSeasonGlyph tone={tone} grayScale={grayScale} />
+
   return (
     <>
       {termType === 'summer' ? <SunGlyph tone={tone} grayScale={grayScale} /> : null}
       {termType === 'winter' ? <SnowflakeGlyph tone={tone} grayScale={grayScale} /> : null}
-      {termType === 'both' ? <FusedSeasonGlyph tone={tone} grayScale={grayScale} /> : null}
+      {termType === 'both' ? (
+        edgeRotateFused ? (
+          <g transform="rotate(90 12 12)">{fusedGlyph}</g>
+        ) : (
+          fusedGlyph
+        )
+      ) : null}
     </>
   )
 }
@@ -177,6 +187,8 @@ interface SeasonSymbolProps {
   className?: string
   tone?: SeasonGlyphTone
   grayScale?: boolean
+  /** Right-edge catalog cards rotate the fused SS/WS glyph 90° clockwise. */
+  edgeRotateFused?: boolean
 }
 
 /**
@@ -189,6 +201,7 @@ export function SeasonSymbol({
   className,
   tone = 'muted',
   grayScale = false,
+  edgeRotateFused = false,
 }: SeasonSymbolProps) {
   if (!termType || termType === 'unknown') {
     return null
@@ -196,7 +209,12 @@ export function SeasonSymbol({
 
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}>
-      <SeasonGlyphShapes termType={termType} tone={tone} grayScale={grayScale} />
+      <SeasonGlyphShapes
+        termType={termType}
+        tone={tone}
+        grayScale={grayScale}
+        edgeRotateFused={edgeRotateFused}
+      />
     </svg>
   )
 }
@@ -216,7 +234,7 @@ interface PatternGlyphTileProps {
 function PatternGlyphTile({ termType, tone, x, y, size }: PatternGlyphTileProps) {
   return (
     <svg viewBox="0 0 24 24" x={x} y={y} width={size} height={size}>
-      <SeasonGlyphShapes termType={termType} tone={tone} grayScale={false} />
+      <SeasonGlyphShapes termType={termType} tone={tone} grayScale={false} edgeRotateFused={false} />
     </svg>
   )
 }

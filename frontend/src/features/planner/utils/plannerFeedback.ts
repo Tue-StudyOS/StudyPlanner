@@ -148,6 +148,9 @@ function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
         return
       }
       const slotKind = getScheduleSlotKind(slot)
+      if (isSingleDateSlot(slot.day) || slotKind === 'exam' || slotKind === 'resit') {
+        return
+      }
       blocks.push({
         blockId: `${course.id}-${index}`,
         slotId: `${course.id}:${index}`,

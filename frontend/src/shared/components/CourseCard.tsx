@@ -10,7 +10,7 @@ import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
 import { SeasonSymbol } from './SeasonSymbol.tsx'
 import type { SeasonGlyphLayout, SeasonGlyphStrength, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
-import { seasonGlyphStrengthClass } from '../../shared/components/seasonSymbolStyles.ts'
+import { isGraySeasonGlyphStrength, seasonGlyphStrengthClass } from '../../shared/components/seasonSymbolStyles.ts'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -99,7 +99,7 @@ export function CourseCard({
   const resolvedSeasonTermType = seasonTermType ?? course.termType
   const resolvedLayout = seasonLayout ?? 'right-half'
   const resolvedStrength = seasonStrength ?? 'strong'
-  const inlineGlyphTone = resolvedStrength === 'gray' ? 'muted' : 'seasonal'
+  const inlineGlyphTone = isGraySeasonGlyphStrength(resolvedStrength) ? 'muted' : 'seasonal'
   const inlineGlyphStrengthClass = seasonGlyphStrengthClass(resolvedStrength)
 
   const cardContent = (
@@ -170,7 +170,7 @@ export function CourseCard({
               <SeasonSymbol
                 termType={resolvedSeasonTermType}
                 tone={inlineGlyphTone}
-                grayScale={resolvedStrength === 'gray'}
+                grayScale={isGraySeasonGlyphStrength(resolvedStrength)}
                 className={`h-4 w-4 shrink-0 ${inlineGlyphStrengthClass}`}
               />
             ) : null}

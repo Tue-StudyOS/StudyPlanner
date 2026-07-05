@@ -571,7 +571,7 @@ export function SemesterPlanner({
           {!isSmallViewport && showFavoritesPanel ? plannerFavoritesPanel : null}
         </div>
 
-        {!readOnly ? (
+        {!readOnly && !isPastSemester ? (
           <PlannerFeedback
             plannedCourses={displayPlannedCourses}
             completedCourses={displayCompletedCourses}

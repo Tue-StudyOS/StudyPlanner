@@ -2,12 +2,15 @@ import type { ReactNode } from 'react'
 import type { CourseTermType } from '../../features/courses'
 import { SeasonSymbol } from './SeasonSymbol.tsx'
 import {
-  CATALOG_GLYPH_HEIGHT_CLASS,
-  SEASON_CARD_WATERMARK_WRAPPER_CLASS,
+  CATALOG_CORNER_GLYPH_SIZE_CLASS,
+  CATALOG_CORNER_GLYPH_WRAPPER_CLASS,
+  CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS,
+  CATALOG_EDGE_GLYPH_SIZE_CLASS,
+  SEASON_CARD_BOOKMARK_ANCHOR_CLASS,
   SEASON_GLYPH_FILL_CLASS,
-  SEASON_GLYPH_GRAY_TONE,
   SEASON_GLYPH_OVERLAY_CLASS,
   SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS,
+  isGraySeasonGlyphStrength,
   seasonGlyphStrengthClass,
   type SeasonGlyphLayout,
   type SeasonGlyphStrength,
@@ -23,6 +26,14 @@ interface SeasonGlyphWatermarkProps {
   overlay?: ReactNode
 }
 
+function BookmarkOverlay({ overlay }: { overlay: ReactNode }) {
+  return (
+    <div className={SEASON_CARD_BOOKMARK_ANCHOR_CLASS}>
+      <div className="pointer-events-auto">{overlay}</div>
+    </div>
+  )
+}
+
 function CatalogGlyph({
   termType,
   layout,
@@ -32,37 +43,39 @@ function CatalogGlyph({
   layout: SeasonGlyphLayout
   strength: SeasonGlyphStrength
 }) {
-  const tone = strength === 'gray' ? 'muted' : 'seasonal'
+  const grayScale = isGraySeasonGlyphStrength(strength)
+  const tone = grayScale ? 'muted' : 'seasonal'
   const strengthClass = seasonGlyphStrengthClass(strength)
-  const grayClass = strength === 'gray' ? SEASON_GLYPH_GRAY_TONE : ''
+  const edgeRotateFused = layout === 'right-half'
 
   if (layout === 'right-half') {
     return (
       <div
-        className={`pointer-events-none absolute right-0 top-1/2 z-0 w-[2.8rem] -translate-y-1/2 overflow-hidden ${CATALOG_GLYPH_HEIGHT_CLASS} ${strengthClass}`}
+        className={`pointer-events-none absolute right-0 top-[5%] z-0 overflow-hidden ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS} ${strengthClass}`}
         aria-hidden="true"
       >
         <SeasonSymbol
           termType={termType}
           tone={tone}
-          grayScale={strength === 'gray'}
-          className={`${CATALOG_GLYPH_HEIGHT_CLASS} absolute right-0 top-0 aspect-square ${SEASON_GLYPH_FILL_CLASS} ${grayClass}`}
+          grayScale={grayScale}
+          edgeRotateFused={edgeRotateFused}
+          className={`absolute right-0 top-1/2 aspect-square ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${SEASON_GLYPH_FILL_CLASS} translate-x-1/2 -translate-y-1/2`}
         />
       </div>
     )
   }
 
-  if (layout === 'bottom-left') {
+  if (layout === 'bottom-right') {
     return (
       <div
-        className={`pointer-events-none absolute -bottom-[1.25rem] -left-[1.25rem] z-0 ${CATALOG_GLYPH_HEIGHT_CLASS} w-[5.6rem] ${strengthClass}`}
+        className={`${CATALOG_CORNER_GLYPH_WRAPPER_CLASS} ${CATALOG_CORNER_GLYPH_SIZE_CLASS} ${strengthClass}`}
         aria-hidden="true"
       >
         <SeasonSymbol
           termType={termType}
           tone={tone}
-          grayScale={strength === 'gray'}
-          className={`${SEASON_GLYPH_FILL_CLASS} ${grayClass}`}
+          grayScale={grayScale}
+          className={SEASON_GLYPH_FILL_CLASS}
         />
       </div>
     )
@@ -92,21 +105,13 @@ export function SeasonGlyphWatermark({
   }
 
   if (layout === 'ects-inline') {
-    return overlay ? (
-      <div className={SEASON_CARD_WATERMARK_WRAPPER_CLASS}>
-        <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div>
-      </div>
-    ) : null
+    return overlay ? <BookmarkOverlay overlay={overlay} /> : null
   }
 
   return (
     <>
       <CatalogGlyph termType={termType} layout={layout} strength={strength} />
-      {overlay ? (
-        <div className={SEASON_CARD_WATERMARK_WRAPPER_CLASS}>
-          <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div>
-        </div>
-      ) : null}
+      {overlay ? <BookmarkOverlay overlay={overlay} /> : null}
     </>
   )
 }

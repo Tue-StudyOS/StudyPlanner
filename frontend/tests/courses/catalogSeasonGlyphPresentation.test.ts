@@ -1,18 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  CATALOG_SEASON_GLYPH_PRESENTATIONS,
   getCatalogSeasonGlyphPresentation,
 } from '../../src/features/courses/utils/catalogSeasonGlyphPresentation.ts'
 import { courseMatchesStudyAreaFilter } from '../../src/features/courses/utils/studyAreaFilter.ts'
 
-test('getCatalogSeasonGlyphPresentation cycles three layouts for the first six cards', () => {
+test('catalog season glyph presentations cycle twenty-two layouts including faint variants', () => {
+  assert.equal(CATALOG_SEASON_GLYPH_PRESENTATIONS.length, 22)
   assert.deepEqual(getCatalogSeasonGlyphPresentation(0), { layout: 'right-half', strength: 'strong' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(1), { layout: 'ects-inline', strength: 'strong' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(2), { layout: 'bottom-left', strength: 'soft' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(3), { layout: 'right-half', strength: 'soft' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(4), { layout: 'ects-inline', strength: 'gray' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(5), { layout: 'bottom-left', strength: 'gray' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(6), { layout: 'right-half', strength: 'strong' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(13), { layout: 'bottom-right', strength: 'gray' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(14), { layout: 'right-half', strength: 'softer' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(17), { layout: 'right-half', strength: 'gray-softer' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(21), { layout: 'bottom-right', strength: 'gray-softer' })
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(22), CATALOG_SEASON_GLYPH_PRESENTATIONS[0])
 })
 
 test('courseMatchesStudyAreaFilter requires every selected area', () => {
