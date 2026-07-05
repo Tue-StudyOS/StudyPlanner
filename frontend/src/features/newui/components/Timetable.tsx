@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { Course, MasterCat } from '../../courses'
+import { useTheme } from '../../theme'
 import {
   buildBlockLeft,
   buildBlockWidth,
@@ -9,6 +10,7 @@ import {
 } from '../../planner/utils/plannerDayLayout.ts'
 import { DAY_ORDER, buildPlannerBlocks } from '../../planner/utils/plannerFeedback.ts'
 import { isTutorialLikeSlotType } from '../../planner/utils/plannerSlotSelection.ts'
+import { useAutoHideScrollbar } from '../hooks/useAutoHideScrollbar'
 import { isLectureOrTutorialBlock } from '../utils/timetableFilter'
 
 const PX_PER_HOUR = 42
@@ -58,6 +60,11 @@ export function Timetable({ plannedCourses, hiddenSlotIds, plannedEcts, category
     [blocks],
   )
   const isEmpty = blocks.length === 0
+  const scrollRef = useAutoHideScrollbar()
+  const { isDark } = useTheme()
+  // Day-column stripe background — theme-aware (inline style can't use `dark:`).
+  const stripeBase = isDark ? '#202024' : '#faf8f3'
+  const stripeLine = isDark ? '#2b2b31' : '#f2ede2'
 
   return (
     <section className="rounded-3xl border border-[#ece7db] bg-white p-6 shadow-[0_2px_10px_rgba(60,50,20,0.04)] dark:border-neutral-800 dark:bg-neutral-900">
@@ -80,7 +87,7 @@ export function Timetable({ plannedCourses, hiddenSlotIds, plannedEcts, category
         </span>
       </div>
 
-      <div className="overflow-x-auto">
+      <div ref={scrollRef} className="beta-scroll overflow-x-auto">
         <div className="min-w-[520px]">
           <div className="grid grid-cols-[34px_repeat(5,1fr)] gap-1.5">
             <div />
@@ -111,8 +118,8 @@ export function Timetable({ plannedCourses, hiddenSlotIds, plannedEcts, category
                 style={{
                   height: GRID_HEIGHT,
                   backgroundImage:
-                    'repeating-linear-gradient(#faf8f3,#faf8f3 ' +
-                    `${PX_PER_HOUR - 1}px,#f2ede2 ${PX_PER_HOUR - 1}px,#f2ede2 ${PX_PER_HOUR}px)`,
+                    `repeating-linear-gradient(${stripeBase},${stripeBase} ` +
+                    `${PX_PER_HOUR - 1}px,${stripeLine} ${PX_PER_HOUR - 1}px,${stripeLine} ${PX_PER_HOUR}px)`,
                 }}
               >
                 {layoutByDay[day].visibleBlocks.map((block) => {

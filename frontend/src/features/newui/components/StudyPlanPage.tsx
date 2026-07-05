@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth'
 import { ROUTES } from '../../routes'
 import { useTheme } from '../../theme'
+import { useAutoHideScrollbar } from '../hooks/useAutoHideScrollbar'
 import { useBetaPlanner } from '../hooks/useBetaPlanner'
 import { useStudyPlanOverview } from '../hooks/useStudyPlanOverview'
 import { formatGrade } from '../utils/studyPlanOverview'
@@ -57,6 +58,7 @@ export function StudyPlanPage() {
   const plannedCategoryById = new Map(
     plannedCourses.map((course) => [course.id, categoryControl.categoryOf(course)]),
   )
+  const semesterScrollRef = useAutoHideScrollbar()
 
   const requiredEcts = summary?.requiredEcts ?? 120
   const totalEcts = summary?.totalEcts ?? 0
@@ -148,7 +150,7 @@ export function StudyPlanPage() {
               {isLoading && semesters.length === 0 ? (
                 <div className="py-8 text-center text-[13px] text-[#a39d90]">Lädt…</div>
               ) : (
-                <div className="-mx-1 flex gap-3.5 overflow-x-auto px-1 pb-2">
+                <div ref={semesterScrollRef} className="beta-scroll -mx-1 flex gap-3.5 overflow-x-auto px-1 pb-2">
                   {semesters.map((semester) => (
                     <SemesterColumn
                       key={semester.label}
