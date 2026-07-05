@@ -5,33 +5,20 @@ export interface CatalogSeasonGlyphPresentation {
   strength: SeasonGlyphStrength
 }
 
-/**
- * ponytail: temporary catalog A/B grid — base 14 presentations plus extra faint
- * edge variants appended for side-by-side comparison (nothing replaced).
- */
+/** ponytail: temporary catalog layout A/B — soft and gray only. */
 export const CATALOG_SEASON_GLYPH_PRESENTATIONS: readonly CatalogSeasonGlyphPresentation[] = [
-  { layout: 'right-half', strength: 'strong' },
-  { layout: 'right-half', strength: 'strong' },
   { layout: 'right-half', strength: 'soft' },
   { layout: 'right-half', strength: 'soft' },
   { layout: 'right-half', strength: 'gray' },
   { layout: 'right-half', strength: 'gray' },
-  { layout: 'ects-inline', strength: 'strong' },
-  { layout: 'ects-inline', strength: 'strong' },
-  { layout: 'bottom-right', strength: 'strong' },
-  { layout: 'bottom-right', strength: 'strong' },
+  { layout: 'ects-inline', strength: 'soft' },
+  { layout: 'ects-inline', strength: 'soft' },
+  { layout: 'ects-inline', strength: 'soft' },
+  { layout: 'ects-inline', strength: 'soft' },
   { layout: 'bottom-right', strength: 'soft' },
   { layout: 'bottom-right', strength: 'soft' },
   { layout: 'bottom-right', strength: 'gray' },
   { layout: 'bottom-right', strength: 'gray' },
-  { layout: 'right-half', strength: 'softer' },
-  { layout: 'right-half', strength: 'softer' },
-  { layout: 'right-half', strength: 'gray-softer' },
-  { layout: 'right-half', strength: 'gray-softer' },
-  { layout: 'bottom-right', strength: 'softer' },
-  { layout: 'bottom-right', strength: 'softer' },
-  { layout: 'bottom-right', strength: 'gray-softer' },
-  { layout: 'bottom-right', strength: 'gray-softer' },
 ]
 
 export function getCatalogSeasonGlyphPresentation(cardIndex: number): CatalogSeasonGlyphPresentation {

@@ -1,6 +1,5 @@
-import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
+import { formatRegulationAreaShortLabel, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
 import { CAT_BADGE_CLASSES } from '../../../shared/components/catClasses'
-import type { MasterCat } from '../../courses'
 import { useAuth } from '../../auth'
 import { useOnboarding } from '../../onboarding'
 import { TOUR_CATALOG_OPEN_AREAS } from '../../onboarding/utils/tourPreviewData.ts'
@@ -41,20 +40,23 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
 
   const openAreas = realOpenAreas.length > 0
     ? realOpenAreas
-    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS.map((area) => ({ ...area, masterCat: null as MasterCat | null })) : []
+    : isOnboardingOpen
+      ? TOUR_CATALOG_OPEN_AREAS.map((area) => ({
+          ...area,
+          masterCat: studyAreaCodeToMasterCat(area.code),
+        }))
+      : []
 
   if (!isAuthenticated || openAreas.length === 0) {
     return null
   }
 
   return (
-    <>
-      <div className="h-[4.25rem] md:hidden" aria-hidden="true" />
-      <div
-        data-tour="catalog-progress-hint"
-        className="fixed inset-x-0 top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] min-h-[4.25rem] border-b border-border bg-bg px-4 py-2 md:sticky md:top-0 md:z-30 md:min-h-0"
-      >
-        <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
+    <div
+      data-tour="catalog-progress-hint"
+      className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] border-b border-border bg-bg px-4 py-2 md:top-0 md:z-30"
+    >
+      <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
           {openAreas.map((area) => {
             const isActive = isAreaActive?.(area.code) ?? false
             const shortLabel = formatRegulationAreaShortLabel(area.code)
@@ -78,8 +80,7 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
               </button>
             )
           })}
-        </div>
       </div>
-    </>
+    </div>
   )
 }

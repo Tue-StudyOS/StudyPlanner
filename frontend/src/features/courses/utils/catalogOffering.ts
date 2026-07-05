@@ -90,11 +90,52 @@ export function getOutdatedOfferingSortRank(status: OfferingStatus | undefined):
   return isOutdatedOfferingStatus(status) ? 1 : 0
 }
 
+const CATALOG_TOUR_UNCONFIRMED_PREVIEW_STEP_IDS = new Set([
+  'catalog-progress-hint',
+  'catalog-search',
+  'catalog-filters',
+  'catalog-card',
+  'catalog-card-likely',
+  'catalog-card-unknown',
+])
+
+export function isCatalogTourUnconfirmedPreviewStep(activeStepId: string | null): boolean {
+  return activeStepId !== null && CATALOG_TOUR_UNCONFIRMED_PREVIEW_STEP_IDS.has(activeStepId)
+}
+
 export function resolveUnconfirmedOfferingVisibility(
   showUnconfirmedOfferings: boolean,
   isOnboardingOpen: boolean,
+  activeStepId: string | null,
 ): boolean {
-  return showUnconfirmedOfferings || isOnboardingOpen
+  if (showUnconfirmedOfferings) {
+    return true
+  }
+  if (!isOnboardingOpen) {
+    return false
+  }
+  if (activeStepId === 'reopen-guide') {
+    return false
+  }
+  return isCatalogTourUnconfirmedPreviewStep(activeStepId)
+}
+
+/** Tour checkbox: forced on while introducing catalog cards; mirrors user setting on reopen-guide. */
+export function resolveUnconfirmedOfferingToggleChecked(
+  showUnconfirmedOfferings: boolean,
+  isOnboardingOpen: boolean,
+  activeStepId: string | null,
+): boolean {
+  if (!isOnboardingOpen) {
+    return showUnconfirmedOfferings
+  }
+  if (activeStepId === 'reopen-guide') {
+    return showUnconfirmedOfferings
+  }
+  if (isCatalogTourUnconfirmedPreviewStep(activeStepId)) {
+    return true
+  }
+  return showUnconfirmedOfferings
 }
 
 /**

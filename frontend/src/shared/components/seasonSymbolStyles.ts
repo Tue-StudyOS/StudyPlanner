@@ -4,8 +4,8 @@ export type SeasonGlyphTone = 'muted' | 'seasonal'
 /** Catalog watermark layout — three candidate treatments for side-by-side comparison. */
 export type SeasonGlyphLayout = 'right-half' | 'ects-inline' | 'bottom-right'
 
-/** Catalog A/B color strengths — original trio plus extra faint variants. */
-export type SeasonGlyphStrength = 'strong' | 'soft' | 'softer' | 'gray' | 'gray-softer'
+/** Catalog A/B color strengths — faded soft tint or gray watermark. */
+export type SeasonGlyphStrength = 'soft' | 'gray'
 
 /**
  * Muted tone is season-tinted: plain watermark gray was invisible on the white
@@ -25,17 +25,17 @@ export const SEASON_GLYPH_GRAY_TONE = 'text-fg-muted'
 export const CATALOG_CARD_MIN_HEIGHT_REM = 7
 
 /** Edge watermarks span this share of the smallest catalog card height. */
-export const CATALOG_GLYPH_HEIGHT_RATIO = 0.9
+export const CATALOG_GLYPH_HEIGHT_RATIO = 1
 
-export const CATALOG_EDGE_GLYPH_SIZE_CLASS = 'h-[90%]'
+export const CATALOG_EDGE_GLYPH_SIZE_CLASS = 'h-full'
 
 export const CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS = 'w-[45%]'
 
-/** Bottom-right corner glyph — 80% of smallest card; equal bleed past bottom and right. */
-export const CATALOG_CORNER_GLYPH_SIZE_CLASS = 'h-[5.6rem] w-[5.6rem]'
+/** Bottom-right corner glyph — inset inside the card so overflow-hidden can clip cleanly. */
+export const CATALOG_CORNER_GLYPH_SIZE_CLASS = 'h-[4.5rem] w-[4.5rem]'
 
 export const CATALOG_CORNER_GLYPH_WRAPPER_CLASS =
-  'pointer-events-none absolute -bottom-[1.25rem] -right-[1.25rem] z-0 aspect-square'
+  'pointer-events-none absolute bottom-2 right-2 z-0 aspect-square'
 
 /**
  * 25% of the icon bleeds past the top-right corner — equal inset on top and
@@ -51,7 +51,7 @@ export const SEASON_CARD_BOOKMARK_ANCHOR_CLASS =
   'pointer-events-none absolute right-3 top-3 z-20 flex h-[1.2rem] items-center justify-end'
 
 export const SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS =
-  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem]'
+  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem] opacity-35 dark:opacity-40'
 
 /** Glyph fills the watermark shell. */
 export const SEASON_GLYPH_FILL_CLASS = 'h-full w-full'
@@ -74,20 +74,13 @@ export const SEASON_SEMESTER_BADGE_DOT_CLASS =
 export const SEASON_HEADER_ICON_CLASS = 'h-7 w-7 shrink-0 opacity-80 dark:opacity-95'
 
 export function isGraySeasonGlyphStrength(strength: SeasonGlyphStrength): boolean {
-  return strength === 'gray' || strength === 'gray-softer'
+  return strength === 'gray'
 }
 
-export function seasonGlyphStrengthClass(strength: SeasonGlyphStrength): string {
-  switch (strength) {
-    case 'strong':
-      return ''
-    case 'soft':
-    case 'gray':
-      return 'opacity-30 dark:opacity-25'
-    case 'softer':
-    case 'gray-softer':
-      return 'opacity-15 dark:opacity-12'
-    default:
-      return ''
+/** Large card watermarks — soft is a faded tint; gray is a muted A/B variant. */
+export function seasonGlyphWatermarkStrengthClass(strength: SeasonGlyphStrength): string {
+  if (strength === 'gray') {
+    return 'opacity-30 dark:opacity-25'
   }
+  return 'opacity-15 dark:opacity-12'
 }

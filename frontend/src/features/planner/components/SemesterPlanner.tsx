@@ -16,7 +16,7 @@ import {
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
-import { TEST_ROUTES, ROUTES } from '../../routes'
+import { ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
 import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
@@ -49,7 +49,7 @@ import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
 import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
-import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
+import { PlannerGrid } from './PlannerGrid'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
 // Auto-save is silent; only the brief in-flight state is surfaced.
@@ -62,14 +62,8 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
 
 export function SemesterPlanner({
   initialSemesterLabel,
-  renderMode = 'name',
-  readOnly = false,
-  useCompletedCourseFallback = false,
 }: {
   initialSemesterLabel?: string
-  renderMode?: PlannerRenderMode
-  readOnly?: boolean
-  useCompletedCourseFallback?: boolean
 } = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
@@ -150,8 +144,8 @@ export function SemesterPlanner({
   const isCurrentSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) === 0
   // Read-only and past-semester views hide the favorites panel, so the
   // planner grid must also reclaim the sidebar column.
-  const showFavoritesPanel = !readOnly && !isPastSemester
-  const usesCompletedCourseFallback = ((readOnly && useCompletedCourseFallback) || isPastSemester)
+  const showFavoritesPanel = !isPastSemester
+  const usesCompletedCourseFallback = isPastSemester
     && !isLoadingSemesterPlan
     && !isLoadingCompletedCourses
     && plannedCourses.length === 0
@@ -456,8 +450,6 @@ export function SemesterPlanner({
       completedCourses={displayCompletedCourses}
       chosenInfoAlternativeCode={chosenInfoAlternativeCode}
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
-      renderMode={renderMode}
-      catalogTo={renderMode === 'badge' ? TEST_ROUTES.catalog : undefined}
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
       onToggleFavorite={toggleFavorite}
@@ -469,7 +461,7 @@ export function SemesterPlanner({
   return (
     <PageShell>
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {initialSemesterLabel && !readOnly ? (
+        {initialSemesterLabel ? (
           <Link
             to={ROUTES.planner}
             className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
@@ -550,10 +542,9 @@ export function SemesterPlanner({
                 canCompleteSemester={displayPlannedCourses.length > 0}
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
-                renderMode={renderMode}
-                readOnly={readOnly}
+                isPastSemester={isPastSemester}
                 onDropCourse={handleAddCourse}
-                onRemoveCourse={readOnly ? undefined : handleRemoveCourse}
+                onRemoveCourse={isPastSemester ? undefined : handleRemoveCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}
                 onRequestManualSlot={() => setIsManualSlotDialogOpen(true)}
@@ -562,7 +553,7 @@ export function SemesterPlanner({
                   setCompletionNotice(null)
                   setIsCompletionDialogOpen(true)
                 }}
-                onExportCalendar={readOnly ? undefined : handleExportIcs}
+                onExportCalendar={isPastSemester ? undefined : handleExportIcs}
                 exportCalendarTitle={t('planner.exportCalendarTitle')}
               />
             )}
@@ -571,7 +562,7 @@ export function SemesterPlanner({
           {!isSmallViewport && showFavoritesPanel ? plannerFavoritesPanel : null}
         </div>
 
-        {!readOnly && !isPastSemester ? (
+        {!isPastSemester ? (
           <PlannerFeedback
             plannedCourses={displayPlannedCourses}
             completedCourses={displayCompletedCourses}
@@ -597,7 +588,7 @@ export function SemesterPlanner({
         </MobilePlannerFavoritesDrawer>
       ) : null}
 
-      {isManualSlotDialogOpen && !readOnly ? (
+      {isManualSlotDialogOpen && !isPastSemester ? (
         <ManualSlotDialog
           courses={displayPlannedCourses.length > 0 ? displayPlannedCourses : displayFavoriteCourses}
           onClose={() => setIsManualSlotDialogOpen(false)}

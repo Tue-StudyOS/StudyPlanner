@@ -18,6 +18,7 @@ interface SemesterCardProps {
   semesterLabel: string
   to: string
   stats?: SemesterCardStats
+  tourAnchorId?: string
 }
 
 function seasonForLabel(semesterLabel: string): CourseTermType | undefined {
@@ -28,7 +29,7 @@ function seasonForLabel(semesterLabel: string): CourseTermType | undefined {
   return parsed.term === 'SS' ? 'summer' : 'winter'
 }
 
-export function SemesterCard({ semesterLabel, to, stats }: SemesterCardProps) {
+export function SemesterCard({ semesterLabel, to, stats, tourAnchorId }: SemesterCardProps) {
   const isCurrentSemester = compareSemesterLabels(semesterLabel, getCurrentSemesterLabel()) === 0
   const hasBadge = useSemesterCardBadge()
   const showNotificationBadge = isCurrentSemester && hasBadge
@@ -36,10 +37,11 @@ export function SemesterCard({ semesterLabel, to, stats }: SemesterCardProps) {
   return (
     <Link
       to={to}
-      className={`relative flex min-h-[8.5rem] w-full min-w-0 flex-col justify-end overflow-hidden rounded-[14px] border px-4 py-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${
+      data-tour={tourAnchorId}
+      className={`relative flex min-h-[8.5rem] w-full min-w-0 flex-col justify-end overflow-hidden rounded-[14px] border px-4 py-4 text-left opacity-90 transition-all hover:-translate-y-0.5 hover:opacity-100 hover:shadow-md ${
         isCurrentSemester
-          ? 'border-primary ring-1 ring-primary/35 bg-surface'
-          : 'border-border bg-surface hover:border-primary/30'
+          ? 'border-primary ring-1 ring-primary/35 bg-surface/90'
+          : 'border-border bg-surface/80 hover:border-primary/30'
       }`}
     >
       <SeasonGlyphWatermark

@@ -52,7 +52,18 @@ export function isPlannerTourStep(stepId: string | null): boolean {
   return Boolean(stepId && stepId.startsWith('planner-'))
 }
 
-const PLANNER_INSERTED_STEP_IDS = new Set(['planner-progress', 'planner-export'])
+export function isSemesterHubTourStep(stepId: string | null): boolean {
+  return Boolean(stepId && stepId.startsWith('semester-hub'))
+}
+
+export const TOUR_SEMESTER_HUB_STATS = {
+  totalEcts: 42,
+  requiredEcts: 120,
+  progressPercentage: 35,
+  averageGrade: 2.1 as number | null,
+}
+
+const PLANNER_INSERTED_STEP_IDS = new Set(['planner-export'])
 
 // Steps shown after the "interested" step, where the highlighted saved course
 // should already appear inserted into the planned week.
@@ -217,8 +228,26 @@ export const TOUR_PLANNER_RULE_GROUPS: RegulationRuleGroup[] = [
   { code: 'UEBK', name: 'Interdisciplinary Skills', groupType: 'elective_area', requiredEcts: 6, sortOrder: 5 },
 ]
 
+const TOUR_PLANNER_TUTORIAL_COURSE: Course = createTourCourse({
+  id: 'tour-planner-tutorials',
+  number: 'TOUR302',
+  title: 'Distributed Tutorial Picking',
+  lecturer: 'Uta Übung',
+  types: ['Lecture', 'Exercise'],
+  ects: 6,
+  masterCats: ['INFO'],
+  termType: 'summer',
+  schedule: [
+    { day: 'Monday', time: '10:00 - 12:00', room: 'Lecture Hall A', type: 'Lecture' },
+    { day: 'Tuesday', time: '14:00 - 16:00', room: 'Lab B', type: 'Übung' },
+    { day: 'Thursday', time: '14:00 - 16:00', room: 'Lab C', type: 'Übung' },
+  ],
+  description: 'A tour-only course with two tutorial slots to demonstrate the chip picker.',
+})
+
 const TOUR_PLANNER_BASE_PLANNED_COURSES: Course[] = [
   TOUR_SAMPLE_COURSES.confirmed,
+  TOUR_PLANNER_TUTORIAL_COURSE,
   createTourCourse({
     id: 'tour-planner-overlap',
     number: 'TOUR303',
@@ -270,6 +299,7 @@ const TOUR_PLANNER_INTERESTED_INSERT_COURSE: Course = createTourCourse({
 // courses would otherwise sort to the top of the list.
 const TOUR_PLANNER_BASE_FAVORITE_COURSES: Course[] = [
   TOUR_PLANNER_INTERESTED_INSERT_COURSE,
+  TOUR_PLANNER_TUTORIAL_COURSE,
   TOUR_SAMPLE_COURSES.likely,
   createTourCourse({
     id: 'tour-planner-favorite',
@@ -292,6 +322,7 @@ export const TOUR_PLANNER_FAVORITE_COURSES: Course[] = TOUR_PLANNER_BASE_FAVORIT
 
 export const TOUR_PLANNER_ASSIGNMENTS: Record<string, string> = {
   'tour-sample-confirmed': 'TECH',
+  'tour-planner-tutorials': 'INFO',
   'tour-planner-overlap': 'PRAK',
   'tour-planner-unscheduled': 'INFO',
 }

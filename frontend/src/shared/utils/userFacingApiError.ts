@@ -2,6 +2,12 @@ import { ApiError } from './api.ts'
 
 /** Keeps user-facing copy calm; technical detail lives in the request log. */
 export function toUserFacingApiMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    if (/status 5\d\d/.test(error)) {
+      return 'Something went wrong on our side. Please try again shortly.'
+    }
+    return error
+  }
   if (error instanceof ApiError) {
     if (error.code === 'network_error' || error.status === 0) {
       return 'The service is temporarily unavailable. Please try again shortly.'

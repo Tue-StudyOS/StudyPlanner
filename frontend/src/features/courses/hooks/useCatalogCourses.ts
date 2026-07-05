@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
+import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { fetchCatalogCourses } from '../api'
 import type { Course } from '../types'
 
@@ -11,6 +12,7 @@ interface CatalogQueryState {
   courses: Course[]
   isLoading: boolean
   error: string | null
+  refreshWarning: string | null
 }
 
 function buildCacheKey(search: string, limit: number, periodId?: string): string {
@@ -21,15 +23,20 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
   courses: Course[]
   isLoading: boolean
   error: string | null
+  refreshWarning: string | null
 } {
   const cacheKey = buildCacheKey(search, limit, periodId)
   const [state, setState] = useState<CatalogQueryState>(() => {
     const cached = readSessionCache<Course[]>(cacheKey)
-    return { cacheKey, courses: cached ?? [], isLoading: !cached, error: null }
+    return {
+      cacheKey,
+      courses: cached ?? [],
+      isLoading: !cached,
+      error: null,
+      refreshWarning: null,
+    }
   })
 
-  // Adjust state during render when the query changes; previous results stay
-  // visible while the new query loads, matching the old behavior.
   if (state.cacheKey !== cacheKey) {
     const cached = readSessionCache<Course[]>(cacheKey)
     setState({
@@ -37,6 +44,7 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
       courses: cached ?? state.courses,
       isLoading: !cached,
       error: null,
+      refreshWarning: null,
     })
   }
 
@@ -56,17 +64,23 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
         writeSessionCache(cacheKey, nextCourses)
         setState((current) =>
           current.cacheKey === cacheKey
-            ? { cacheKey, courses: nextCourses, isLoading: false, error: null }
+            ? { cacheKey, courses: nextCourses, isLoading: false, error: null, refreshWarning: null }
             : current,
         )
       } catch (loadError) {
         if (!isActive) {
           return
         }
-        const message = loadError instanceof Error ? loadError.message : 'Failed to load courses.'
+        const message = toUserFacingApiMessage(loadError)
         setState((current) =>
           current.cacheKey === cacheKey
-            ? { cacheKey, courses: current.courses, isLoading: false, error: message }
+            ? {
+                cacheKey,
+                courses: current.courses,
+                isLoading: false,
+                error: current.courses.length > 0 ? null : message,
+                refreshWarning: current.courses.length > 0 ? message : null,
+              }
             : current,
         )
       }
@@ -80,5 +94,10 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
     }
   }, [cacheKey, limit, periodId, search])
 
-  return { courses: state.courses, isLoading: state.isLoading, error: state.error }
+  return {
+    courses: state.courses,
+    isLoading: state.isLoading,
+    error: state.error,
+    refreshWarning: state.refreshWarning,
+  }
 }

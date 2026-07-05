@@ -44,7 +44,8 @@ test('planner tour preview follows the selected regulation rule groups', () => {
 
   assert.deepEqual(preview.ruleGroups.map((group) => group.code), ['ML-FOUND', 'ML-DIVERSE'])
   assert.equal(preview.completedCourses[0]?.studyAreaCode, 'ML-FOUND')
-  assert.equal(preview.assignments['tour-planner-overlap'], 'ML-DIVERSE')
+  assert.equal(preview.assignments['tour-planner-tutorials'], 'ML-DIVERSE')
+  assert.equal(preview.assignments['tour-planner-overlap'], 'ML-FOUND')
 })
 
 test('transcript tour preview uses mock rows instead of personal data', () => {
