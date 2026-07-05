@@ -45,6 +45,19 @@ The logged-in "Studienplaner mit Modulplan" (`studyPlanner-flow`) returns **403
 anonymously** — do not target it. The studiesOffered tree above is the
 anonymously-reachable equivalent.
 
+### übK external offerings are pruned
+
+Each degree program has a übK ("überfachliche Kompetenzen") module whose
+"Außerfakultäre Angebote / übK - Anrechnung auf Curriculum prüfen" container
+holds the *entire* external catalog — Fremdsprachenzentrum, Universitäts-
+bibliothek, Transdisciplinary Course Program, ZDV, etc. None of those are
+Informatik courses and none carry an Informatik study-area code. ALMA
+pre-expands this container inline for **some** semesters (e.g. WiSe 2022/23,
+SoSe 2023) and not others, so a naive crawl produced ~480 courses for those
+periods versus ~130 for the rest. The scraper refuses to expand that container
+(matched by `EXTERNAL_UEBK_TITLE_MARKER` in `_crawl_catalog`) so every period
+stays consistently slim. Pass `--include-uebk` to crawl it anyway.
+
 ## Period ids ↔ semesters
 
 Period ids are opaque ALMA ints; the mapping is **not** chronological by number:
