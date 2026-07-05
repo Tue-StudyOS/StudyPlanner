@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 import {
+  SEASON_GLYPH_GRAY_TONE,
   SEASON_GLYPH_MUTED_SNOW_TONE,
   SEASON_GLYPH_MUTED_SUN_TONE,
   SEASON_GLYPH_SNOW_TONE,
@@ -8,11 +9,17 @@ import {
   type SeasonGlyphTone,
 } from './seasonSymbolStyles.ts'
 
-function sunColorClass(tone: SeasonGlyphTone): string {
+function sunColorClass(tone: SeasonGlyphTone, grayScale: boolean): string {
+  if (grayScale) {
+    return SEASON_GLYPH_GRAY_TONE
+  }
   return tone === 'seasonal' ? SEASON_GLYPH_SUN_TONE : SEASON_GLYPH_MUTED_SUN_TONE
 }
 
-function snowflakeColorClass(tone: SeasonGlyphTone): string {
+function snowflakeColorClass(tone: SeasonGlyphTone, grayScale: boolean): string {
+  if (grayScale) {
+    return SEASON_GLYPH_GRAY_TONE
+  }
   return tone === 'seasonal' ? SEASON_GLYPH_SNOW_TONE : SEASON_GLYPH_MUTED_SNOW_TONE
 }
 
@@ -91,10 +98,10 @@ function Lines({ segments }: { segments: LineSegment[] }) {
   )
 }
 
-function SunGlyph({ tone }: { tone: SeasonGlyphTone }) {
+function SunGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale: boolean }) {
   return (
     <g
-      className={sunColorClass(tone)}
+      className={sunColorClass(tone, grayScale)}
       stroke="currentColor"
       strokeWidth={1.6}
       strokeLinecap="round"
@@ -106,10 +113,10 @@ function SunGlyph({ tone }: { tone: SeasonGlyphTone }) {
   )
 }
 
-function SnowflakeGlyph({ tone }: { tone: SeasonGlyphTone }) {
+function SnowflakeGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale: boolean }) {
   return (
     <g
-      className={snowflakeColorClass(tone)}
+      className={snowflakeColorClass(tone, grayScale)}
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinecap="round"
@@ -120,11 +127,11 @@ function SnowflakeGlyph({ tone }: { tone: SeasonGlyphTone }) {
   )
 }
 
-function FusedSeasonGlyph({ tone }: { tone: SeasonGlyphTone }) {
+function FusedSeasonGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale: boolean }) {
   return (
     <>
       <g
-        className={sunColorClass(tone)}
+        className={sunColorClass(tone, grayScale)}
         stroke="currentColor"
         strokeWidth={1.6}
         strokeLinecap="round"
@@ -134,7 +141,7 @@ function FusedSeasonGlyph({ tone }: { tone: SeasonGlyphTone }) {
         <Lines segments={FUSED_SUN_RAYS} />
       </g>
       <g
-        className={snowflakeColorClass(tone)}
+        className={snowflakeColorClass(tone, grayScale)}
         stroke="currentColor"
         strokeWidth={1.4}
         strokeLinecap="round"
@@ -146,12 +153,20 @@ function FusedSeasonGlyph({ tone }: { tone: SeasonGlyphTone }) {
   )
 }
 
-function SeasonGlyphShapes({ termType, tone }: { termType: CourseTermType; tone: SeasonGlyphTone }) {
+function SeasonGlyphShapes({
+  termType,
+  tone,
+  grayScale,
+}: {
+  termType: CourseTermType
+  tone: SeasonGlyphTone
+  grayScale: boolean
+}) {
   return (
     <>
-      {termType === 'summer' ? <SunGlyph tone={tone} /> : null}
-      {termType === 'winter' ? <SnowflakeGlyph tone={tone} /> : null}
-      {termType === 'both' ? <FusedSeasonGlyph tone={tone} /> : null}
+      {termType === 'summer' ? <SunGlyph tone={tone} grayScale={grayScale} /> : null}
+      {termType === 'winter' ? <SnowflakeGlyph tone={tone} grayScale={grayScale} /> : null}
+      {termType === 'both' ? <FusedSeasonGlyph tone={tone} grayScale={grayScale} /> : null}
     </>
   )
 }
@@ -161,6 +176,7 @@ interface SeasonSymbolProps {
   /** Controls size, opacity, and positioning; the SVG itself stays square. */
   className?: string
   tone?: SeasonGlyphTone
+  grayScale?: boolean
 }
 
 /**
@@ -168,14 +184,19 @@ interface SeasonSymbolProps {
  * summer, a snowflake for winter, and a diagonally split half/half symbol
  * for courses offered in both terms.
  */
-export function SeasonSymbol({ termType, className, tone = 'muted' }: SeasonSymbolProps) {
+export function SeasonSymbol({
+  termType,
+  className,
+  tone = 'muted',
+  grayScale = false,
+}: SeasonSymbolProps) {
   if (!termType || termType === 'unknown') {
     return null
   }
 
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={className}>
-      <SeasonGlyphShapes termType={termType} tone={tone} />
+      <SeasonGlyphShapes termType={termType} tone={tone} grayScale={grayScale} />
     </svg>
   )
 }
@@ -195,7 +216,7 @@ interface PatternGlyphTileProps {
 function PatternGlyphTile({ termType, tone, x, y, size }: PatternGlyphTileProps) {
   return (
     <svg viewBox="0 0 24 24" x={x} y={y} width={size} height={size}>
-      <SeasonGlyphShapes termType={termType} tone={tone} />
+      <SeasonGlyphShapes termType={termType} tone={tone} grayScale={false} />
     </svg>
   )
 }

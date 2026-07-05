@@ -1,94 +1,82 @@
 import type { ReactNode } from 'react'
 import type { CourseTermType } from '../../features/courses'
-import { SeasonSymbol, SeasonSymbolPattern } from './SeasonSymbol.tsx'
+import { SeasonSymbol } from './SeasonSymbol.tsx'
 import {
-  SEASON_CARD_PATTERN_OPACITY_CLASS,
+  CATALOG_GLYPH_HEIGHT_CLASS,
   SEASON_CARD_WATERMARK_WRAPPER_CLASS,
   SEASON_GLYPH_FILL_CLASS,
-  SEASON_GLYPH_MUTED_FADE_CLASS,
+  SEASON_GLYPH_GRAY_TONE,
   SEASON_GLYPH_OVERLAY_CLASS,
   SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS,
-  type SeasonGlyphMotif,
+  seasonGlyphStrengthClass,
+  type SeasonGlyphLayout,
+  type SeasonGlyphStrength,
   type SeasonGlyphTone,
 } from './seasonSymbolStyles.ts'
-
-// Mirrors the top-right watermark box on the opposite corner (double-corner motif).
-const BOTTOM_LEFT_WATERMARK_BOX_CLASS =
-  'pointer-events-none absolute -bottom-[1.9375rem] -left-[1.9375rem] h-[7.75rem] w-[7.75rem]'
-
-type MotifConfig =
-  | { kind: 'pattern'; tileSize: number; regionClass: string }
-  | { kind: 'glyph'; boxClasses: string[] }
-
-/**
- * Catalog watermark motifs. Pattern motifs tile the glyph edge-to-edge inside
- * their region (masks fade them out instead of clipping tiles mid-stroke);
- * glyph motifs place one full-size glyph per box.
- */
-const CATALOG_MOTIF_CONFIGS: Record<SeasonGlyphMotif, MotifConfig> = {
-  'small-tile': { kind: 'pattern', tileSize: 34, regionClass: 'inset-0 h-full w-full' },
-  'dense-tile': { kind: 'pattern', tileSize: 24, regionClass: 'inset-0 h-full w-full' },
-  'sparse-tile': { kind: 'pattern', tileSize: 58, regionClass: 'inset-0 h-full w-full' },
-  'diagonal-wash': {
-    kind: 'pattern',
-    tileSize: 34,
-    regionClass: 'inset-0 h-full w-full [mask-image:linear-gradient(to_bottom_left,black_15%,transparent_70%)]',
-  },
-  'corner-wash': {
-    kind: 'pattern',
-    tileSize: 30,
-    regionClass: 'inset-0 h-full w-full [mask-image:radial-gradient(circle_at_top_right,black,transparent_65%)]',
-  },
-  'sparse-center': {
-    kind: 'pattern',
-    tileSize: 52,
-    regionClass: 'inset-0 h-full w-full [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]',
-  },
-  'left-border-accent': {
-    kind: 'pattern',
-    tileSize: 26,
-    regionClass: 'inset-y-0 left-0 h-full w-10 [mask-image:linear-gradient(to_right,black_40%,transparent)]',
-  },
-  'right-border-accent': {
-    kind: 'pattern',
-    tileSize: 26,
-    regionClass: 'inset-y-0 right-0 h-full w-10 [mask-image:linear-gradient(to_left,black_40%,transparent)]',
-  },
-  'bottom-strip': {
-    kind: 'pattern',
-    tileSize: 26,
-    regionClass: 'inset-x-0 bottom-0 h-10 w-full [mask-image:linear-gradient(to_top,black_40%,transparent)]',
-  },
-  'top-strip': {
-    kind: 'pattern',
-    tileSize: 26,
-    regionClass: 'inset-x-0 top-0 h-10 w-full [mask-image:linear-gradient(to_bottom,black_40%,transparent)]',
-  },
-  'large-corner': { kind: 'glyph', boxClasses: [SEASON_CARD_WATERMARK_WRAPPER_CLASS] },
-  'corner-only': { kind: 'glyph', boxClasses: ['pointer-events-none absolute right-2 top-2 h-11 w-11'] },
-  'double-corner': {
-    kind: 'glyph',
-    boxClasses: [SEASON_CARD_WATERMARK_WRAPPER_CLASS, BOTTOM_LEFT_WATERMARK_BOX_CLASS],
-  },
-  'center-watermark': {
-    kind: 'glyph',
-    boxClasses: ['pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2'],
-  },
-}
 
 interface SeasonGlyphWatermarkProps {
   termType: CourseTermType | undefined
   variant?: 'catalog' | 'semester'
-  motif?: SeasonGlyphMotif
+  layout?: SeasonGlyphLayout
+  strength?: SeasonGlyphStrength
   tone?: SeasonGlyphTone
   overlay?: ReactNode
+}
+
+function CatalogGlyph({
+  termType,
+  layout,
+  strength,
+}: {
+  termType: CourseTermType | undefined
+  layout: SeasonGlyphLayout
+  strength: SeasonGlyphStrength
+}) {
+  const tone = strength === 'gray' ? 'muted' : 'seasonal'
+  const strengthClass = seasonGlyphStrengthClass(strength)
+  const grayClass = strength === 'gray' ? SEASON_GLYPH_GRAY_TONE : ''
+
+  if (layout === 'right-half') {
+    return (
+      <div
+        className={`pointer-events-none absolute right-0 top-1/2 z-0 w-[2.8rem] -translate-y-1/2 overflow-hidden ${CATALOG_GLYPH_HEIGHT_CLASS} ${strengthClass}`}
+        aria-hidden="true"
+      >
+        <SeasonSymbol
+          termType={termType}
+          tone={tone}
+          grayScale={strength === 'gray'}
+          className={`${CATALOG_GLYPH_HEIGHT_CLASS} absolute right-0 top-0 aspect-square ${SEASON_GLYPH_FILL_CLASS} ${grayClass}`}
+        />
+      </div>
+    )
+  }
+
+  if (layout === 'bottom-left') {
+    return (
+      <div
+        className={`pointer-events-none absolute -bottom-[1.25rem] -left-[1.25rem] z-0 ${CATALOG_GLYPH_HEIGHT_CLASS} w-[5.6rem] ${strengthClass}`}
+        aria-hidden="true"
+      >
+        <SeasonSymbol
+          termType={termType}
+          tone={tone}
+          grayScale={strength === 'gray'}
+          className={`${SEASON_GLYPH_FILL_CLASS} ${grayClass}`}
+        />
+      </div>
+    )
+  }
+
+  return null
 }
 
 /** Shared watermark shell — glyph and overlays share one box. */
 export function SeasonGlyphWatermark({
   termType,
   variant = 'catalog',
-  motif = 'large-corner',
+  layout = 'right-half',
+  strength = 'strong',
   tone,
   overlay,
 }: SeasonGlyphWatermarkProps) {
@@ -103,27 +91,17 @@ export function SeasonGlyphWatermark({
     )
   }
 
-  const config = CATALOG_MOTIF_CONFIGS[motif]
-  const mutedFadeClass = resolvedTone === 'muted' ? ` ${SEASON_GLYPH_MUTED_FADE_CLASS}` : ''
+  if (layout === 'ects-inline') {
+    return overlay ? (
+      <div className={SEASON_CARD_WATERMARK_WRAPPER_CLASS}>
+        <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div>
+      </div>
+    ) : null
+  }
 
-  // The overlay (bookmark) keeps the same top-right corner box across all
-  // motifs so its position never shifts between cards.
   return (
     <>
-      {config.kind === 'pattern' ? (
-        <SeasonSymbolPattern
-          termType={termType}
-          tileSize={config.tileSize}
-          tone={resolvedTone}
-          className={`pointer-events-none absolute ${config.regionClass} ${SEASON_CARD_PATTERN_OPACITY_CLASS}`}
-        />
-      ) : (
-        config.boxClasses.map((boxClass) => (
-          <div key={boxClass} className={`${boxClass}${mutedFadeClass}`}>
-            <SeasonSymbol termType={termType} className={SEASON_GLYPH_FILL_CLASS} tone={resolvedTone} />
-          </div>
-        ))
-      )}
+      <CatalogGlyph termType={termType} layout={layout} strength={strength} />
       {overlay ? (
         <div className={SEASON_CARD_WATERMARK_WRAPPER_CLASS}>
           <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div>
