@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
+import { invalidateSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import {
@@ -34,6 +35,7 @@ import {
 } from '../utils/catalogDetailRoute.ts'
 import { getCatalogSeasonGlyphPresentation } from '../utils/catalogSeasonGlyphPresentation.ts'
 import {
+  getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
   getOutdatedOfferingSortRank,
@@ -270,13 +272,23 @@ export function CoursesOverview() {
   const catalogBasePath = useResolvedPath('.').pathname
   const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0)
+  const wasOnboardingOpenRef = useRef(isOnboardingOpen)
+
+  useEffect(() => {
+    if (wasOnboardingOpenRef.current && !isOnboardingOpen) {
+      invalidateSessionCache('catalog:courses')
+      setCatalogReloadKey((current) => current + 1)
+    }
+    wasOnboardingOpenRef.current = isOnboardingOpen
+  }, [isOnboardingOpen])
   const sentinelRef = useRef<HTMLDivElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
   const { user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
-  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
+  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS, catalogReloadKey)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
@@ -301,6 +313,13 @@ export function CoursesOverview() {
     }
     return termTypeMap
   }, [courses, knownPeriodLabels])
+  const detailSeasonTermTypeByCourseId = useMemo(() => {
+    const termTypeMap = new Map<string, CourseTermType>()
+    for (const course of courses) {
+      termTypeMap.set(course.id, getDetailSeasonTermType(course))
+    }
+    return termTypeMap
+  }, [courses])
 
   const completedByCatalogCourseId = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -761,7 +780,7 @@ export function CoursesOverview() {
         </div>
       ) : error && !isOnboardingOpen ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          <p>{toUserFacingApiMessage(error)}</p>
+          <p>{typeof error === 'string' ? error : toUserFacingApiMessage(error)}</p>
         </div>
       ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
@@ -829,7 +848,7 @@ export function CoursesOverview() {
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
-                      seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
+                      seasonTermType={isTourSampleRow ? course.termType : detailSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
                       seasonLayout={seasonGlyphPresentation.layout}
                       seasonStrength={seasonGlyphPresentation.strength}
                       regulationRuleGroups={regulationRuleGroups}

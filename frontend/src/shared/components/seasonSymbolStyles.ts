@@ -31,11 +31,11 @@ export const CATALOG_EDGE_GLYPH_SIZE_CLASS = 'h-full'
 
 export const CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS = 'w-[45%]'
 
-/** Bottom-right corner glyph — 80% of smallest card; equal bleed past bottom and right. */
-export const CATALOG_CORNER_GLYPH_SIZE_CLASS = 'h-[5.6rem] w-[5.6rem]'
+/** Bottom-right corner glyph — inset inside the card so overflow-hidden can clip cleanly. */
+export const CATALOG_CORNER_GLYPH_SIZE_CLASS = 'h-[4.5rem] w-[4.5rem]'
 
 export const CATALOG_CORNER_GLYPH_WRAPPER_CLASS =
-  'pointer-events-none absolute -bottom-[1.25rem] -right-[1.25rem] z-0 aspect-square'
+  'pointer-events-none absolute bottom-2 right-2 z-0 aspect-square'
 
 /**
  * 25% of the icon bleeds past the top-right corner — equal inset on top and
@@ -51,7 +51,7 @@ export const SEASON_CARD_BOOKMARK_ANCHOR_CLASS =
   'pointer-events-none absolute right-3 top-3 z-20 flex h-[1.2rem] items-center justify-end'
 
 export const SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS =
-  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem]'
+  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem] opacity-35 dark:opacity-40'
 
 /** Glyph fills the watermark shell. */
 export const SEASON_GLYPH_FILL_CLASS = 'h-full w-full'

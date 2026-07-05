@@ -1,6 +1,5 @@
-import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
+import { formatRegulationAreaShortLabel, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
 import { CAT_BADGE_CLASSES } from '../../../shared/components/catClasses'
-import type { MasterCat } from '../../courses'
 import { useAuth } from '../../auth'
 import { useOnboarding } from '../../onboarding'
 import { TOUR_CATALOG_OPEN_AREAS } from '../../onboarding/utils/tourPreviewData.ts'
@@ -41,7 +40,12 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
 
   const openAreas = realOpenAreas.length > 0
     ? realOpenAreas
-    : isOnboardingOpen ? TOUR_CATALOG_OPEN_AREAS.map((area) => ({ ...area, masterCat: null as MasterCat | null })) : []
+    : isOnboardingOpen
+      ? TOUR_CATALOG_OPEN_AREAS.map((area) => ({
+          ...area,
+          masterCat: studyAreaCodeToMasterCat(area.code),
+        }))
+      : []
 
   if (!isAuthenticated || openAreas.length === 0) {
     return null

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { fetchCatalogCourses } from '../api'
@@ -18,7 +18,12 @@ function buildCacheKey(search: string, limit: number, periodId?: string): string
   return `catalog:courses:${search}::${limit}::${periodId ?? ''}`
 }
 
-export function useCatalogCourses(search: string, limit: number = 200, periodId?: string): {
+export function useCatalogCourses(
+  search: string,
+  limit: number = 200,
+  periodId?: string,
+  reloadKey: number = 0,
+): {
   courses: Course[]
   isLoading: boolean
   error: string | null
@@ -28,6 +33,7 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
     const cached = readSessionCache<Course[]>(cacheKey)
     return { cacheKey, courses: cached ?? [], isLoading: !cached, error: null }
   })
+  const lastReloadKeyRef = useRef(reloadKey)
 
   // Adjust state during render when the query changes; previous results stay
   // visible while the new query loads, matching the old behavior.
@@ -42,7 +48,10 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
   }
 
   useEffect(() => {
-    if (readSessionCache<Course[]>(cacheKey)) {
+    const forceRefetch = lastReloadKeyRef.current !== reloadKey
+    lastReloadKeyRef.current = reloadKey
+
+    if (!forceRefetch && readSessionCache<Course[]>(cacheKey)) {
       return
     }
 
@@ -79,7 +88,7 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
       isActive = false
       window.clearTimeout(timeoutId)
     }
-  }, [cacheKey, limit, periodId, search])
+  }, [cacheKey, limit, periodId, reloadKey, search])
 
   return { courses: state.courses, isLoading: state.isLoading, error: state.error }
 }

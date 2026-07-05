@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../features/auth'
 import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
+import { getDetailSeasonTermType } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
@@ -96,13 +97,20 @@ export function CourseCard({
   const accessibleLabel = `Open course details: ${title}`
 
   const resolvedSeasonTermType = seasonTermType ?? course.termType
+  const glyphTermType = (() => {
+    if (resolvedSeasonTermType && resolvedSeasonTermType !== 'unknown') {
+      return resolvedSeasonTermType
+    }
+    const detailTermType = getDetailSeasonTermType(course)
+    return detailTermType !== 'unknown' ? detailTermType : resolvedSeasonTermType
+  })()
   const resolvedLayout = seasonLayout ?? 'right-half'
   const resolvedStrength = seasonStrength ?? 'soft'
 
   const cardContent = (
     <>
       <SeasonGlyphWatermark
-        termType={resolvedSeasonTermType}
+        termType={glyphTermType}
         layout={resolvedLayout}
         strength={resolvedStrength}
         tone={seasonTone}
@@ -161,16 +169,20 @@ export function CourseCard({
           <OfferingStatusTag status={offeringStatus} />
         </span>
         <span className="flex-1" />
-        {ectsLabel ? (
+        {resolvedLayout === 'ects-inline' || ectsLabel ? (
           <span className="flex shrink-0 items-center gap-1 text-[13px] font-bold text-fg">
             {resolvedLayout === 'ects-inline' ? (
               <SeasonSymbol
-                termType={resolvedSeasonTermType}
+                termType={glyphTermType}
                 tone="seasonal"
                 className="h-4 w-4 shrink-0"
               />
             ) : null}
-            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+            {ectsLabel ? (
+              <>
+                {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+              </>
+            ) : null}
           </span>
         ) : null}
       </div>
