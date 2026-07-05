@@ -8,7 +8,7 @@ import { formatCourseLecturerName } from '../../features/courses/utils/lecturerN
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
-import type { SeasonGlyphTone, SeasonGlyphSize } from '../../shared/components/seasonSymbolStyles.ts'
+import type { SeasonGlyphMotif, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -29,7 +29,7 @@ interface CourseCardProps {
   seasonTermType?: CourseTermType
   // Overrides the watermark's catalog-muted default tone per card.
   seasonTone?: SeasonGlyphTone
-  seasonGlyphSize?: SeasonGlyphSize
+  seasonMotif?: SeasonGlyphMotif
   regulationRuleGroups?: RegulationRuleGroup[]
   isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
@@ -62,7 +62,7 @@ export function CourseCard({
   offeringStatus = 'confirmed',
   seasonTermType,
   seasonTone,
-  seasonGlyphSize = 'large',
+  seasonMotif,
   regulationRuleGroups = [],
   isAreaTagActive,
   onAreaTagClick,
@@ -98,10 +98,13 @@ export function CourseCard({
       <SeasonGlyphWatermark
         termType={seasonTermType ?? course.termType}
         tone={seasonTone}
-        size={seasonGlyphSize}
+        motif={seasonMotif}
         overlay={
           showFavorite ? (
+            // The overlay slot is pointer-events-none so card clicks pass
+            // through; only the bookmark itself opts back in.
             <div
+              className="pointer-events-auto"
               onClick={(event) => {
                 event.preventDefault()
                 event.stopPropagation()

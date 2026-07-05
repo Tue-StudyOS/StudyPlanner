@@ -1,16 +1,27 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getCatalogSeasonGlyphPresentation } from '../../src/features/courses/utils/catalogSeasonGlyphPresentation.ts'
+import {
+  CATALOG_SEASON_GLYPH_PRESENTATIONS,
+  getCatalogSeasonGlyphPresentation,
+} from '../../src/features/courses/utils/catalogSeasonGlyphPresentation.ts'
 import { courseMatchesStudyAreaFilter } from '../../src/features/courses/utils/studyAreaFilter.ts'
 
-test('getCatalogSeasonGlyphPresentation maps comparison tiers', () => {
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(0), { size: 'small', tone: 'muted' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(5), { size: 'small', tone: 'muted' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(6), { size: 'small', tone: 'seasonal' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(11), { size: 'small', tone: 'seasonal' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(12), { size: 'large', tone: 'muted' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(17), { size: 'large', tone: 'muted' })
-  assert.deepEqual(getCatalogSeasonGlyphPresentation(18), { size: 'large', tone: 'seasonal' })
+test('catalog season glyph presentations are distinct and cover many motifs', () => {
+  const serialized = CATALOG_SEASON_GLYPH_PRESENTATIONS.map((entry) => `${entry.motif}:${entry.tone}`)
+  assert.equal(new Set(serialized).size, CATALOG_SEASON_GLYPH_PRESENTATIONS.length)
+
+  const distinctMotifs = new Set(CATALOG_SEASON_GLYPH_PRESENTATIONS.map((entry) => entry.motif))
+  assert.ok(distinctMotifs.size >= 12, `expected at least 12 motifs, got ${distinctMotifs.size}`)
+})
+
+test('getCatalogSeasonGlyphPresentation cycles by card index', () => {
+  const count = CATALOG_SEASON_GLYPH_PRESENTATIONS.length
+
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(0), CATALOG_SEASON_GLYPH_PRESENTATIONS[0])
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(count - 1), CATALOG_SEASON_GLYPH_PRESENTATIONS[count - 1])
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(count), CATALOG_SEASON_GLYPH_PRESENTATIONS[0])
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(count + 3), CATALOG_SEASON_GLYPH_PRESENTATIONS[3])
+  assert.deepEqual(getCatalogSeasonGlyphPresentation(count * 5 + 7), CATALOG_SEASON_GLYPH_PRESENTATIONS[7])
 })
 
 test('courseMatchesStudyAreaFilter requires every selected area', () => {

@@ -1,18 +1,19 @@
 import { useId } from 'react'
 import type { CourseTermType } from '../../features/courses'
 import {
-  SEASON_GLYPH_MUTED_TONE,
+  SEASON_GLYPH_MUTED_SNOW_TONE,
+  SEASON_GLYPH_MUTED_SUN_TONE,
   SEASON_GLYPH_SNOW_TONE,
   SEASON_GLYPH_SUN_TONE,
   type SeasonGlyphTone,
 } from './seasonSymbolStyles.ts'
 
 function sunColorClass(tone: SeasonGlyphTone): string {
-  return tone === 'seasonal' ? SEASON_GLYPH_SUN_TONE : SEASON_GLYPH_MUTED_TONE
+  return tone === 'seasonal' ? SEASON_GLYPH_SUN_TONE : SEASON_GLYPH_MUTED_SUN_TONE
 }
 
 function snowflakeColorClass(tone: SeasonGlyphTone): string {
-  return tone === 'seasonal' ? SEASON_GLYPH_SNOW_TONE : SEASON_GLYPH_MUTED_TONE
+  return tone === 'seasonal' ? SEASON_GLYPH_SNOW_TONE : SEASON_GLYPH_MUTED_SNOW_TONE
 }
 
 interface Point {
@@ -179,39 +180,68 @@ export function SeasonSymbol({ termType, className, tone = 'muted' }: SeasonSymb
   )
 }
 
-const PATTERN_TILE_SIZE = 34
-const PATTERN_GLYPH_SIZE = 16
-const PATTERN_GLYPH_INSET = (PATTERN_TILE_SIZE - PATTERN_GLYPH_SIZE) / 2
+export const DEFAULT_PATTERN_TILE_SIZE = 34
+// Glyph fills just under half the tile; the rest is even breathing room.
+const PATTERN_GLYPH_RATIO = 16 / 34
+
+interface PatternGlyphTileProps {
+  termType: CourseTermType
+  tone: SeasonGlyphTone
+  x: number
+  y: number
+  size: number
+}
+
+function PatternGlyphTile({ termType, tone, x, y, size }: PatternGlyphTileProps) {
+  return (
+    <svg viewBox="0 0 24 24" x={x} y={y} width={size} height={size}>
+      <SeasonGlyphShapes termType={termType} tone={tone} />
+    </svg>
+  )
+}
+
+interface SeasonSymbolPatternProps extends SeasonSymbolProps {
+  /** Tile edge length in px — smaller means denser tiling. */
+  tileSize?: number
+}
 
 /**
  * The season glyph repeated as a dense, even tile across the whole element.
  * One SVG `<pattern>` instead of many glyph instances keeps the DOM flat.
+ * 'both' tiles as a checkerboard of alternating suns and snowflakes instead
+ * of repeating the fused glyph.
  */
-export function SeasonSymbolPattern({ termType, className, tone = 'muted' }: SeasonSymbolProps) {
+export function SeasonSymbolPattern({
+  termType,
+  className,
+  tone = 'muted',
+  tileSize = DEFAULT_PATTERN_TILE_SIZE,
+}: SeasonSymbolPatternProps) {
   // useId emits ":r0:"-style ids; strip the colons so url(#…) stays valid.
   const patternId = `season-pattern-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   if (!termType || termType === 'unknown') {
     return null
   }
 
+  const glyphSize = Math.round(tileSize * PATTERN_GLYPH_RATIO * 100) / 100
+  const inset = (tileSize - glyphSize) / 2
+  const isCheckerboard = termType === 'both'
+  const patternSize = isCheckerboard ? tileSize * 2 : tileSize
+
   return (
     <svg aria-hidden="true" focusable="false" className={className}>
       <defs>
-        <pattern
-          id={patternId}
-          width={PATTERN_TILE_SIZE}
-          height={PATTERN_TILE_SIZE}
-          patternUnits="userSpaceOnUse"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            x={PATTERN_GLYPH_INSET}
-            y={PATTERN_GLYPH_INSET}
-            width={PATTERN_GLYPH_SIZE}
-            height={PATTERN_GLYPH_SIZE}
-          >
-            <SeasonGlyphShapes termType={termType} tone={tone} />
-          </svg>
+        <pattern id={patternId} width={patternSize} height={patternSize} patternUnits="userSpaceOnUse">
+          {isCheckerboard ? (
+            <>
+              <PatternGlyphTile termType="summer" tone={tone} x={inset} y={inset} size={glyphSize} />
+              <PatternGlyphTile termType="winter" tone={tone} x={inset + tileSize} y={inset} size={glyphSize} />
+              <PatternGlyphTile termType="winter" tone={tone} x={inset} y={inset + tileSize} size={glyphSize} />
+              <PatternGlyphTile termType="summer" tone={tone} x={inset + tileSize} y={inset + tileSize} size={glyphSize} />
+            </>
+          ) : (
+            <PatternGlyphTile termType={termType} tone={tone} x={inset} y={inset} size={glyphSize} />
+          )}
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
