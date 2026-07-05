@@ -5,14 +5,19 @@ import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { semesterPath } from '../../routes'
+import { useTranscript } from '../../transcript'
+import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
+import { buildSemesterCardStats } from '../utils/semesterCardStats.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
   const { isAuthenticated, user } = useAuth()
   const { t } = useTranslation()
   const { progressSnapshot } = useProgressSnapshot()
-  const { semesterOptions } = useSemesterPlanner()
+  const { semesterOptions, savedPlans } = useSemesterPlanner()
+  const { completedCourses } = useTranscript()
+  const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
 
   if (!isAuthenticated || !user) {
     return (
@@ -77,6 +82,13 @@ export function SemesterHub() {
               key={semesterLabel}
               semesterLabel={semesterLabel}
               to={semesterPath(semesterLabel)}
+              stats={buildSemesterCardStats(
+                semesterLabel,
+                savedPlans,
+                completedCourses,
+                catalogCourses,
+                {},
+              )}
             />
           ))}
         </div>

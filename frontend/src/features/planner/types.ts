@@ -7,8 +7,18 @@ export interface SemesterPlanSummary {
   updatedAtUnix: number
 }
 
+export interface ManualPlannerSlot {
+  id: string
+  courseId: string
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday'
+  time: string
+  room?: string | null
+  label?: string | null
+}
+
 export interface SemesterPlan extends SemesterPlanSummary {
   courseIds: string[]
   courseAssignments: Record<string, string>
   hiddenSlotIds: string[]
+  manualSlots?: ManualPlannerSlot[]
 }

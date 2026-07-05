@@ -6,7 +6,9 @@ import { fetchSemesterPlans } from '../../planner/api'
 import type { SemesterPlanSummary } from '../../planner/types'
 import { formatSemesterLabelShort, getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
 import { fetchCompletedCourses } from '../../transcript/api'
-import type { CompletedCourse } from '../../courses'
+import type { CompletedCourse, Course } from '../../courses'
+import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
+import { buildSemesterCardStats } from '../../planner/utils/semesterCardStats.ts'
 import { TEST_ROUTES, testSemesterPath } from '../../routes'
 import { RequireTestAuth } from './RequireTestAuth'
 import { RevealItem } from './RevealItem'
@@ -17,8 +19,17 @@ import {
   type SemesterBlock,
 } from '../utils/semesterBlocks'
 
-function BlockCard({ block }: { block: SemesterBlock }) {
+function BlockCard({
+  block,
+  completedCourses,
+  catalogCourses,
+}: {
+  block: SemesterBlock
+  completedCourses: CompletedCourse[]
+  catalogCourses: Course[]
+}) {
   const { t } = useTranslation()
+  const stats = buildSemesterCardStats(block.label, [], completedCourses, catalogCourses, {})
   const detailText = block.isHistorical
     ? `${t('test.semesters.historical')} · ${t('test.semesters.courseCount', { count: block.courseCount })}`
     : block.isEmpty
@@ -44,6 +55,17 @@ function BlockCard({ block }: { block: SemesterBlock }) {
         <span className="mt-1 block break-words text-[12.5px] leading-5 text-fg-muted">
           {detailText}
         </span>
+        {stats.courseCount > 0 ? (
+          <span className="mt-2 block text-[11.5px] text-fg-muted">
+            <span className="font-semibold text-fg">{stats.totalEcts}</span> ECTS
+            {stats.areaStats.length > 0 ? (
+              <span>
+                {' · '}
+                {stats.areaStats.slice(0, 2).map((area) => `${area.label} ${area.ects}`).join(' · ')}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </span>
       <span className="relative z-10 mt-4 flex items-center justify-between gap-3">
         <span className="h-px min-w-0 flex-1 bg-border" />
@@ -62,6 +84,7 @@ function SemestersInner() {
   const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>([])
   const [extraEmptyLabel, setExtraEmptyLabel] = useState<string | null>(null)
   const startLabel = user?.profile.currentSemesterLabel ?? null
+  const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
 
   useEffect(() => {
     if (!token) return
@@ -129,7 +152,11 @@ function SemestersInner() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {blocks.map((block, index) => (
             <RevealItem key={block.label} index={Math.min(index, 5)}>
-              <BlockCard block={block} />
+              <BlockCard
+                block={block}
+                completedCourses={completedCourses}
+                catalogCourses={catalogCourses}
+              />
             </RevealItem>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import type { Course } from '../../courses'
+import type { ManualPlannerSlot } from '../types.ts'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import {
   getScheduleSlotKind,
@@ -70,6 +71,7 @@ export interface PlannerBlock {
   slotType: string
   slotKind: ScheduleSlotKind
   hasOverlap: boolean
+  isManual: boolean
 }
 
 /**
@@ -131,7 +133,7 @@ export function parseTimeRange(timeText: string): { startMinutes: number; endMin
   }
 }
 
-export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
+function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
   const blocks: PlannerBlock[] = []
 
   courses.forEach((course) => {
@@ -159,9 +161,59 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         slotType: getScheduleSlotTypeLabel(slot),
         slotKind,
         hasOverlap: false,
+        isManual: false,
       })
     })
   })
+
+  return blocks
+}
+
+function buildManualBlocks(
+  manualSlots: readonly ManualPlannerSlot[],
+  coursesById: Map<string, Course>,
+): PlannerBlock[] {
+  const blocks: PlannerBlock[] = []
+
+  manualSlots.forEach((manualSlot) => {
+    const course = coursesById.get(manualSlot.courseId)
+    if (!course) {
+      return
+    }
+    const timeRange = parseTimeRange(manualSlot.time)
+    if (!timeRange) {
+      return
+    }
+    const visibleTimeRange = clampPlannerTimeRange(timeRange.startMinutes, timeRange.endMinutes)
+    if (!visibleTimeRange) {
+      return
+    }
+    blocks.push({
+      blockId: `manual-${manualSlot.id}`,
+      slotId: `manual:${manualSlot.id}`,
+      courseId: manualSlot.courseId,
+      courseTitle: cleanCourseTitle(course.title, course.number),
+      day: manualSlot.day,
+      startMinutes: visibleTimeRange.startMinutes,
+      endMinutes: visibleTimeRange.endMinutes,
+      label: manualSlot.time,
+      room: manualSlot.room ?? '',
+      slotType: manualSlot.label ?? 'Manual',
+      slotKind: 'weekly',
+      hasOverlap: false,
+      isManual: true,
+    })
+  })
+
+  return blocks
+}
+
+export function buildPlannerBlocks(
+  courses: Course[],
+  manualSlots: readonly ManualPlannerSlot[] = [],
+): PlannerBlock[] {
+  const coursesById = new Map(courses.map((course) => [course.id, course]))
+  const blocks = [...buildCatalogBlocks(courses), ...buildManualBlocks(manualSlots, coursesById)]
 
   return blocks
     .map((block) => {
@@ -169,8 +221,6 @@ export function buildPlannerBlocks(courses: Course[]): PlannerBlock[] {
         if (candidate.blockId === block.blockId || candidate.day !== block.day) {
           return false
         }
-        // The same course listed in several rooms at the same time is one event,
-        // not a clash with itself, so it must not be flagged as a conflict.
         if (
           candidate.courseId === block.courseId
           && candidate.startMinutes === block.startMinutes

@@ -15,6 +15,7 @@ from services.user_data import (
 MAX_SEMESTER_LABEL_LENGTH = 80
 MAX_PLAN_TITLE_LENGTH = 120
 MAX_PLAN_NOTES_LENGTH = 4000
+VALID_MANUAL_SLOT_DAYS = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'}
 
 
 class SemesterPlanUpdateError(ValueError):
@@ -128,6 +129,82 @@ async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
         )
 
 
+def _normalize_manual_slots(payload: dict[str, Any], course_ids: list[int]) -> list[dict[str, str]]:
+    raw_manual_slots = payload.get('manualSlots')
+    if raw_manual_slots is None:
+        return []
+    if not isinstance(raw_manual_slots, list):
+        raise SemesterPlanUpdateError('manualSlots must be an array.')
+
+    course_id_set = {str(course_id) for course_id in course_ids}
+    normalized_slots: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    for raw_slot in raw_manual_slots:
+        if not isinstance(raw_slot, dict):
+            continue
+        slot_id = _safe_text(raw_slot.get('id'))
+        course_id = _safe_text(raw_slot.get('courseId'))
+        day = _safe_text(raw_slot.get('day'))
+        time_value = _safe_text(raw_slot.get('time'))
+        if not slot_id or not course_id or not day or not time_value:
+            continue
+        if slot_id in seen_ids or course_id not in course_id_set:
+            continue
+        if day not in VALID_MANUAL_SLOT_DAYS:
+            continue
+        seen_ids.add(slot_id)
+        normalized_slot: dict[str, str] = {
+            'id': slot_id,
+            'courseId': course_id,
+            'day': day,
+            'time': time_value,
+        }
+        room = _safe_text(raw_slot.get('room'))
+        if room:
+            normalized_slot['room'] = room
+        label = _safe_text(raw_slot.get('label'))
+        if label:
+            normalized_slot['label'] = label
+        normalized_slots.append(normalized_slot)
+    return normalized_slots
+
+
+def _normalize_stored_manual_slots(raw_manual_slots: Any, course_ids: list[str]) -> list[dict[str, str]]:
+    if not isinstance(raw_manual_slots, list):
+        return []
+    course_id_set = set(course_ids)
+    normalized_slots: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    for raw_slot in raw_manual_slots:
+        if not isinstance(raw_slot, dict):
+            continue
+        slot_id = _safe_text(raw_slot.get('id'))
+        course_id = _safe_text(raw_slot.get('courseId'))
+        day = _safe_text(raw_slot.get('day'))
+        time_value = _safe_text(raw_slot.get('time'))
+        if not slot_id or not course_id or not day or not time_value:
+            continue
+        if slot_id in seen_ids or course_id not in course_id_set:
+            continue
+        if day not in VALID_MANUAL_SLOT_DAYS:
+            continue
+        seen_ids.add(slot_id)
+        normalized_slot: dict[str, str] = {
+            'id': slot_id,
+            'courseId': course_id,
+            'day': day,
+            'time': time_value,
+        }
+        room = _safe_text(raw_slot.get('room'))
+        if room:
+            normalized_slot['room'] = room
+        label = _safe_text(raw_slot.get('label'))
+        if label:
+            normalized_slot['label'] = label
+        normalized_slots.append(normalized_slot)
+    return normalized_slots
+
+
 def _normalize_stored_plan_course_ids(raw_course_ids: Any) -> list[str]:
     if not isinstance(raw_course_ids, list):
         return []
@@ -173,6 +250,23 @@ def _normalize_stored_assignments(raw_assignments: Any, course_ids: list[str]) -
     return normalized_assignments
 
 
+def _normalize_stored_plan_course_ids(raw_course_ids: Any) -> list[str]:
+    if not isinstance(raw_course_ids, list):
+        return []
+    normalized_ids: list[str] = []
+    seen_ids: set[int] = set()
+    for raw_value in raw_course_ids:
+        try:
+            course_id = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if course_id in seen_ids:
+            continue
+        seen_ids.add(course_id)
+        normalized_ids.append(str(course_id))
+    return normalized_ids
+
+
 def _coerce_unix(value: Any) -> int:
     try:
         return int(value)
@@ -192,6 +286,7 @@ def _serialize_stored_plan(raw_plan: Any, fallback_semester_label: str) -> dict[
     course_ids = _normalize_stored_plan_course_ids(raw_plan.get('courseIds'))
     course_assignments = _normalize_stored_assignments(raw_plan.get('courseAssignments'), course_ids)
     hidden_slot_ids = _normalize_stored_hidden_slot_ids(raw_plan.get('hiddenSlotIds'))
+    manual_slots = _normalize_stored_manual_slots(raw_plan.get('manualSlots'), course_ids)
     created_at_unix = _coerce_unix(raw_plan.get('createdAtUnix'))
     updated_at_unix = _coerce_unix(raw_plan.get('updatedAtUnix'))
 
@@ -201,6 +296,7 @@ def _serialize_stored_plan(raw_plan: Any, fallback_semester_label: str) -> dict[
         'notes': _safe_text(raw_plan.get('notes')),
         'courseIds': course_ids,
         'hiddenSlotIds': hidden_slot_ids,
+        'manualSlots': manual_slots,
         'courseAssignments': course_assignments,
         'courseCount': len(course_ids),
         'createdAtUnix': created_at_unix,
@@ -272,6 +368,14 @@ def _normalize_plan_payload(payload: dict[str, Any]) -> SemesterPlanPayload:
     )
 
 
+def _normalize_plan_payload_with_course_ids(payload: dict[str, Any]) -> tuple[SemesterPlanPayload, list[int]]:
+    normalized_payload = _normalize_plan_payload(payload)
+    course_ids = [int(course_id) for course_id in normalized_payload['courseIds']]
+    manual_slots = _normalize_manual_slots(payload, course_ids)
+    normalized_payload['manualSlots'] = manual_slots
+    return normalized_payload, course_ids
+
+
 async def replace_current_user_semester_plan(
     env: Any,
     request: Any,
@@ -281,9 +385,9 @@ async def replace_current_user_semester_plan(
     user = await require_authenticated_user(env, request)
     username = str(user['username'])
     normalized_semester_label = _normalize_semester_label(semester_label)
-    normalized_payload = _normalize_plan_payload(payload)
-    course_ids = [int(course_id) for course_id in normalized_payload['courseIds']]
+    normalized_payload, course_ids = _normalize_plan_payload_with_course_ids(payload)
     hidden_slot_ids = normalized_payload['hiddenSlotIds']
+    manual_slots = normalized_payload['manualSlots']
     await _validate_course_ids(env, course_ids)
 
     validated_assignments = await validate_plan_course_assignments(
@@ -302,6 +406,7 @@ async def replace_current_user_semester_plan(
         'notes': normalized_payload['notes'],
         'courseIds': [str(course_id) for course_id in course_ids],
         'hiddenSlotIds': hidden_slot_ids,
+        'manualSlots': manual_slots,
         'courseAssignments': validated_assignments,
         'courseCount': len(course_ids),
         'createdAtUnix': int(existing_plan['createdAtUnix']) if existing_plan else current_unix,

@@ -6,7 +6,7 @@ import {
 } from '../../src/features/planner/utils/favoritesLayout.ts'
 
 test('getPlannerFavoritesLayout stacks favorites when no sidebar space is available', () => {
-  assert.equal(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY, '(min-width: 1100px)')
+  assert.equal(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY, '(min-width: 1180px)')
   assert.equal(getPlannerFavoritesLayout(false), 'stacked')
 })
 
