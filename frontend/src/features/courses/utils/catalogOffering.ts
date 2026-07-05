@@ -93,8 +93,15 @@ export function getOutdatedOfferingSortRank(status: OfferingStatus | undefined):
 export function resolveUnconfirmedOfferingVisibility(
   showUnconfirmedOfferings: boolean,
   isOnboardingOpen: boolean,
+  activeStepId: string | null,
 ): boolean {
-  return showUnconfirmedOfferings || isOnboardingOpen
+  if (showUnconfirmedOfferings) {
+    return true
+  }
+  if (!isOnboardingOpen) {
+    return false
+  }
+  return activeStepId === 'catalog-card-unknown' || activeStepId === 'catalog-card-likely'
 }
 
 /**

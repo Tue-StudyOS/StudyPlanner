@@ -38,25 +38,27 @@ function CatalogGlyph({
   termType,
   layout,
   strength,
+  tone,
 }: {
   termType: CourseTermType | undefined
   layout: SeasonGlyphLayout
   strength: SeasonGlyphStrength
+  tone?: SeasonGlyphTone
 }) {
   const grayScale = isGraySeasonGlyphStrength(strength)
-  const tone = grayScale ? 'muted' : 'seasonal'
+  const resolvedTone: SeasonGlyphTone = tone ?? (grayScale ? 'muted' : 'seasonal')
   const strengthClass = seasonGlyphStrengthClass(strength)
   const edgeRotateFused = layout === 'right-half'
 
   if (layout === 'right-half') {
     return (
       <div
-        className={`pointer-events-none absolute right-0 top-[5%] z-0 overflow-hidden ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS} ${strengthClass}`}
+        className={`pointer-events-none absolute right-0 top-0 z-0 overflow-hidden ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS} ${strengthClass}`}
         aria-hidden="true"
       >
         <SeasonSymbol
           termType={termType}
-          tone={tone}
+          tone={resolvedTone}
           grayScale={grayScale}
           edgeRotateFused={edgeRotateFused}
           className={`absolute right-0 top-1/2 aspect-square ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${SEASON_GLYPH_FILL_CLASS} translate-x-1/2 -translate-y-1/2`}
@@ -73,7 +75,7 @@ function CatalogGlyph({
       >
         <SeasonSymbol
           termType={termType}
-          tone={tone}
+          tone={resolvedTone}
           grayScale={grayScale}
           className={SEASON_GLYPH_FILL_CLASS}
         />
@@ -89,16 +91,14 @@ export function SeasonGlyphWatermark({
   termType,
   variant = 'catalog',
   layout = 'right-half',
-  strength = 'strong',
+  strength = 'soft',
   tone,
   overlay,
 }: SeasonGlyphWatermarkProps) {
-  const resolvedTone = tone ?? (variant === 'semester' ? 'seasonal' : 'muted')
-
   if (variant === 'semester') {
     return (
       <div className={SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS}>
-        <SeasonSymbol termType={termType} className={SEASON_GLYPH_FILL_CLASS} tone={resolvedTone} />
+        <SeasonSymbol termType={termType} className={SEASON_GLYPH_FILL_CLASS} tone="seasonal" />
         {overlay ? <div className={SEASON_GLYPH_OVERLAY_CLASS}>{overlay}</div> : null}
       </div>
     )
@@ -110,7 +110,7 @@ export function SeasonGlyphWatermark({
 
   return (
     <>
-      <CatalogGlyph termType={termType} layout={layout} strength={strength} />
+      <CatalogGlyph termType={termType} layout={layout} strength={strength} tone={tone} />
       {overlay ? <BookmarkOverlay overlay={overlay} /> : null}
     </>
   )

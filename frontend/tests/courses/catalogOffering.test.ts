@@ -115,11 +115,13 @@ test('catalog offering display helpers keep likely courses in normal order', () 
   assert.equal(getOutdatedOfferingSortRank('unknown'), 1)
 })
 
-test('onboarding keeps unconfirmed course examples visible regardless of the checkbox draft state', () => {
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, false), false)
-  assert.equal(resolveUnconfirmedOfferingVisibility(true, false), true)
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, true), true)
-  assert.equal(resolveUnconfirmedOfferingVisibility(true, true), true)
+test('onboarding keeps unconfirmed course examples visible only on sample-card steps', () => {
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, false, null), false)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, false, null), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'catalog-search'), false)
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'reopen-guide'), false)
+  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'catalog-card-unknown'), true)
+  assert.equal(resolveUnconfirmedOfferingVisibility(true, true, 'reopen-guide'), true)
 })
 
 // During summer term 2026 the last *completed* semesters are Sommer 2025 and

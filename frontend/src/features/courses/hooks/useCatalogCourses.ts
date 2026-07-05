@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
+import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { fetchCatalogCourses } from '../api'
 import type { Course } from '../types'
 
@@ -63,7 +64,7 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
         if (!isActive) {
           return
         }
-        const message = loadError instanceof Error ? loadError.message : 'Failed to load courses.'
+        const message = toUserFacingApiMessage(loadError)
         setState((current) =>
           current.cacheKey === cacheKey
             ? { cacheKey, courses: current.courses, isLoading: false, error: message }

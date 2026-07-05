@@ -3,6 +3,8 @@ import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatur
 import { StatItem } from '../../../shared/components/StatItem'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
+import { useOnboarding } from '../../onboarding'
+import { isSemesterHubTourStep, TOUR_SEMESTER_HUB_STATS } from '../../onboarding/utils/tourPreviewData.ts'
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { semesterPath } from '../../routes'
 import { useTranscript } from '../../transcript'
@@ -14,10 +16,23 @@ import { SemesterCard } from './SemesterCard'
 export function SemesterHub() {
   const { isAuthenticated, user } = useAuth()
   const { t } = useTranslation()
+  const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
+  const isSemesterHubTour = isOnboardingOpen && isSemesterHubTourStep(activeStepId)
   const { progressSnapshot } = useProgressSnapshot()
   const { semesterOptions, savedPlans } = useSemesterPlanner()
   const { completedCourses } = useTranscript()
   const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+
+  const displayStats = isSemesterHubTour
+    ? TOUR_SEMESTER_HUB_STATS
+    : progressSnapshot
+      ? {
+          totalEcts: progressSnapshot.summary.totalEcts,
+          requiredEcts: progressSnapshot.summary.requiredEcts,
+          progressPercentage: progressSnapshot.summary.progressPercentage,
+          averageGrade: progressSnapshot.summary.averageGrade,
+        }
+      : null
 
   if (!isAuthenticated || !user) {
     return (
@@ -45,19 +60,22 @@ export function SemesterHub() {
         </p>
       </div>
 
-      {progressSnapshot ? (
-        <div className="mb-5 grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
+      {displayStats ? (
+        <div
+          data-tour="semester-hub-stats"
+          className="mb-5 grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5"
+        >
           <div className="min-w-0 overflow-hidden">
             <StatItem
               label={t('progress.totalEcts')}
-              value={String(progressSnapshot.summary.totalEcts)}
-              sub={`/ ${progressSnapshot.summary.requiredEcts} ECTS`}
+              value={String(displayStats.totalEcts)}
+              sub={`/ ${displayStats.requiredEcts} ECTS`}
             />
           </div>
           <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
             <StatItem
               label={t('progress.progress')}
-              value={`${progressSnapshot.summary.progressPercentage} %`}
+              value={`${displayStats.progressPercentage} %`}
               sub={t('progress.ofDegree')}
             />
           </div>
@@ -65,8 +83,8 @@ export function SemesterHub() {
             <StatItem
               label={t('progress.averageGrade')}
               value={
-                progressSnapshot.summary.averageGrade !== null
-                  ? progressSnapshot.summary.averageGrade.toFixed(2)
+                displayStats.averageGrade !== null
+                  ? displayStats.averageGrade.toFixed(2)
                   : '–'
               }
             />
@@ -74,14 +92,15 @@ export function SemesterHub() {
         </div>
       ) : null}
 
-      <div className="min-w-0">
+      <div className="min-w-0" data-tour="semester-hub-cards">
         <div className="mb-3 text-[13px] font-semibold text-fg">{t('planner.semestersTitle')}</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {semesterOptions.map((semesterLabel) => (
+          {semesterOptions.map((semesterLabel, index) => (
             <SemesterCard
               key={semesterLabel}
               semesterLabel={semesterLabel}
               to={semesterPath(semesterLabel)}
+              tourAnchorId={index === 0 ? 'semester-hub-card' : undefined}
               stats={buildSemesterCardStats(
                 semesterLabel,
                 savedPlans,

@@ -16,11 +16,7 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
-import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
-import { useTheme } from '../../theme'
 import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
-
-export type PlannerRenderMode = 'name' | 'badge'
 
 // Narrow phone columns cannot fit three side-by-side blocks legibly, so mobile
 // shows fewer overlap columns (the rest collapse into the "+n" dialog) and uses
@@ -83,8 +79,7 @@ export function PlannerGrid({
   canCompleteSemester,
   activeSemesterLabel,
   isLoadingSemesterPlan,
-  renderMode = 'name',
-  readOnly = false,
+  isPastSemester = false,
   onDropCourse = () => {},
   onRemoveCourse,
   onOpenCourse,
@@ -101,8 +96,7 @@ export function PlannerGrid({
   canCompleteSemester: boolean
   activeSemesterLabel: string
   isLoadingSemesterPlan: boolean
-  renderMode?: PlannerRenderMode
-  readOnly?: boolean
+  isPastSemester?: boolean
   onDropCourse?: (courseId: string, areaCode: string | null) => void
   onRemoveCourse?: (courseId: string) => void
   onOpenCourse: (courseId: string) => void
@@ -112,13 +106,6 @@ export function PlannerGrid({
   onExportCalendar?: () => void
   exportCalendarTitle?: string
 }) {
-  const isBadge = renderMode === 'badge'
-  const { isDark } = useTheme()
-  const badgeTextColor = isDark ? '#1a1a1a' : '#ffffff'
-  const courseNumbers = useMemo(
-    () => assignCourseNumbers(plannedCourses.map((course) => course.id)),
-    [plannedCourses],
-  )
   const blocks = useMemo(
     () => buildPlannerBlocks(plannedCourses, manualSlots).filter((block) => !hiddenSlotIds.includes(block.slotId)),
     [hiddenSlotIds, manualSlots, plannedCourses],
@@ -154,8 +141,8 @@ export function PlannerGrid({
     <>
       <div
         className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-4 sm:py-5.5"
-        onDragOver={readOnly ? undefined : (event) => event.preventDefault()}
-        onDrop={readOnly ? undefined : (event) => {
+        onDragOver={isPastSemester ? undefined : (event) => event.preventDefault()}
+        onDrop={isPastSemester ? undefined : (event) => {
           event.preventDefault()
           const courseId = event.dataTransfer.getData('text/planner-course-id')
           const areaCode = event.dataTransfer.getData('text/planner-area-code') || null
@@ -164,10 +151,11 @@ export function PlannerGrid({
           }
         }}
       >
-        {!readOnly ? (
+        {!isPastSemester ? (
           <div className="mb-2 flex justify-end gap-1 px-0.5 sm:px-0">
             <button
               type="button"
+              data-tour="planner-manual-slot"
               onClick={onRequestManualSlot}
               title="Add manual time slot"
               aria-label="Add manual time slot"
@@ -220,7 +208,7 @@ export function PlannerGrid({
             {DAY_ORDER.map((day) => (
               <div
                 key={day}
-                onClick={isMobilePlanner && !readOnly ? handleEmptyAreaClick : undefined}
+                onClick={isMobilePlanner && !isPastSemester ? handleEmptyAreaClick : undefined}
                 className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
                 style={{ height: `${totalHeight}px` }}
               >
@@ -246,9 +234,6 @@ export function PlannerGrid({
                     isMobilePlanner,
                     Boolean(block.slotType),
                   )
-                  const badgeColor = isBadge && block.slotKind === 'weekly' ? getCourseColor(block.courseId) : null
-                  const showBadgeNumber = isBadge && (badgeColor || block.slotKind !== 'weekly')
-                  const courseNumber = courseNumbers.get(block.courseId)
                   return (
                     <div
                       key={block.blockId}
@@ -265,50 +250,26 @@ export function PlannerGrid({
                         onClick={() => onOpenCourse(block.courseId)}
                         aria-label={`Show details for ${block.courseTitle}`}
                         title={block.courseTitle}
-                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${
-                          isBadge && block.slotKind === 'weekly'
-                            ? block.hasOverlap
-                              ? 'border-primary/70'
-                              : 'border-black/10 dark:border-white/15'
-                            : scheduleSlotBlockClasses(block.slotKind, block.hasOverlap)
-                        }`}
-                        style={{
-                          ...(badgeColor ? { backgroundColor: badgeColor } : {}),
-                        }}
+                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap)}`}
                       >
-                        {showBadgeNumber ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <span
-                              className="text-[13px] font-bold tabular-nums sm:text-[15px]"
-                              style={{
-                                color: block.slotKind === 'weekly' ? badgeTextColor : undefined,
-                              }}
-                            >
-                              {courseNumber}
-                            </span>
+                        <div
+                          className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: titleLineClamp,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {block.courseTitle}
+                        </div>
+                        {block.slotType && (block.slotKind === 'exam' || block.slotKind === 'resit') ? (
+                          <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
+                            {block.slotType}
                           </div>
-                        ) : (
-                          <>
-                            <div
-                              className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
-                              style={{
-                                display: '-webkit-box',
-                                WebkitBoxOrient: 'vertical',
-                                WebkitLineClamp: titleLineClamp,
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {block.courseTitle}
-                            </div>
-                          {block.slotType && (block.slotKind === 'exam' || block.slotKind === 'resit') ? (
-                            <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
-                              {block.slotType}
-                            </div>
-                          ) : null}
-                          </>
-                        )}
+                        ) : null}
                       </button>
-                      {onRemoveCourse && !readOnly ? (
+                      {onRemoveCourse && !isPastSemester ? (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -343,39 +304,13 @@ export function PlannerGrid({
                   </button>
                 ))}
 
-                {plannedCourses.length === 0 && !isLoadingSemesterPlan && !readOnly ? (
+                {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
                   <EmptyDayHint isMobilePlanner={isMobilePlanner} />
                 ) : null}
               </div>
             ))}
           </div>
         </div>
-
-        {isBadge && plannedCourses.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-            {plannedCourses.map((course) => {
-              const legendColor = getCourseColor(course.id)
-              return (
-                <button
-                  key={course.id}
-                  type="button"
-                  onClick={() => onOpenCourse(course.id)}
-                  className="flex min-w-0 items-center gap-2 text-left"
-                >
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-[11px] font-bold tabular-nums"
-                    style={{ backgroundColor: legendColor, color: badgeTextColor }}
-                  >
-                    {courseNumbers.get(course.id)}
-                  </span>
-                  <span className="min-w-0 truncate text-[12px] text-fg">
-                    {cleanCourseTitle(course.title, course.number)}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
 
         {unscheduledPlannedCourses.length > 0 ? (
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">
@@ -396,7 +331,7 @@ export function PlannerGrid({
                   </div>
                 </button>
               ))}
-              {!readOnly ? (
+              {!isPastSemester ? (
                 <button
                   type="button"
                   onClick={onRequestManualSlot}
@@ -409,7 +344,7 @@ export function PlannerGrid({
           </div>
         ) : null}
 
-        {canCompleteSemester && !readOnly ? (
+        {canCompleteSemester && !isPastSemester ? (
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/20 px-4 py-3.5">
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">

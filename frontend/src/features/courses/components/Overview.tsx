@@ -209,13 +209,7 @@ function UnconfirmedOfferingsToggle({
   )
 }
 
-interface CoursesOverviewProps {
-  // The "/test" surface hides bookmarking for signed-out visitors; the main app
-  // keeps the star always visible (default).
-  favoritesVisibility?: 'always' | 'authenticatedOnly'
-}
-
-export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverviewProps = {}) {
+export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
@@ -278,7 +272,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const sentinelRef = useRef<HTMLDivElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
-  const { isAuthenticated, user } = useAuth()
+  const { user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
   const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
@@ -289,7 +283,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const { completedCourses } = useTranscript()
   const { progressSnapshot } = useProgressSnapshot()
   const historicalLecturerLookup = useHistoricalLecturerLookup(completedCourses, periods)
-  const canShowFavorites = favoritesVisibility === 'always' || isAuthenticated
+  const canShowFavorites = true
 
   const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
   const offeringStatusByCourseId = useMemo(() => {
@@ -416,6 +410,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const shouldShowUnconfirmedOfferings = resolveUnconfirmedOfferingVisibility(
     showUnconfirmedOfferings,
     isOnboardingOpen,
+    activeStepId,
   )
 
   const filteredCourses = useMemo(
@@ -748,7 +743,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         ) : null}
 
         <UnconfirmedOfferingsToggle
-          checked={shouldShowUnconfirmedOfferings}
+          checked={showUnconfirmedOfferings}
           label={t('catalog.showUnconfirmedOfferings')}
           onChange={setShowUnconfirmedOfferings}
         />

@@ -11,13 +11,10 @@ import { InfoIcon } from '../../../shared/components/icons'
 import { useTranslation } from '../../i18n'
 import { usePlannerFavorites, type PlannerFavoriteCandidate } from '../hooks/usePlannerFavorites'
 import { formatSemesterLabelShort } from '../utils/semesterLabels'
-import { assignCourseNumbers, getCourseColor } from '../utils/courseBadge.ts'
 import {
   getTutorialSlotOptions,
   resolveVisibleTutorialSlotId,
 } from '../utils/plannerSlotSelection.ts'
-import { useTheme } from '../../theme'
-import type { PlannerRenderMode } from './PlannerGrid'
 
 function formatPlannerTypeLabel(types: string[]): string {
   return formatCourseTypeLabel(types).replace(/\s*\/\s*/g, ' + ')
@@ -27,8 +24,6 @@ function CandidateCard({
   candidate,
   studyProgramCode,
   activeSemesterLabel,
-  isBadge,
-  badgeNumber,
   hiddenSlotIds,
   onAddCourse,
   onToggleFavorite,
@@ -37,16 +32,12 @@ function CandidateCard({
   candidate: PlannerFavoriteCandidate
   studyProgramCode: string | null
   activeSemesterLabel: string
-  isBadge: boolean
-  badgeNumber?: number
   hiddenSlotIds: string[]
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onToggleFavorite: (courseId: string) => void
   onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }) {
   const { t } = useTranslation()
-  const { isDark } = useTheme()
-  const badgeTextColor = isDark ? '#1a1a1a' : '#ffffff'
   const { course, isPlanned, isOfferedInActiveSemester, completedCourse, options, explicitAreaCode } = candidate
   const isAssignable = options.length > 0
   const canAdd = isAssignable && isOfferedInActiveSemester
@@ -95,14 +86,6 @@ function CandidateCard({
       <div className="flex items-start justify-between gap-2">
         <div className={`min-w-0 flex-1 ${dimClassName}`}>
           <div className="break-words text-[13px] font-semibold leading-snug text-fg">
-            {isBadge && badgeNumber ? (
-              <span
-                className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-[4px] align-[-2px] text-[10px] font-bold tabular-nums"
-                style={{ backgroundColor: getCourseColor(course.id), color: badgeTextColor }}
-              >
-                {badgeNumber}
-              </span>
-            ) : null}
             {cleanCourseTitle(course.title, course.number)}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -132,6 +115,7 @@ function CandidateCard({
           ) : null}
           {tutorialSlotOptions.length > 1 && selectedTutorialSlotId ? (
             <div
+              data-tour="planner-tutorial-slots"
               className="mt-2 grid gap-1.5"
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
@@ -191,7 +175,6 @@ interface PlannerFavoritesPanelProps {
   completedCourses: CompletedCourse[]
   chosenInfoAlternativeCode: string | null
   maxVisibleCandidates?: number
-  renderMode?: PlannerRenderMode
   catalogTo?: string
   onSetAssignment: (courseId: string, areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
@@ -214,7 +197,6 @@ export function PlannerFavoritesPanel({
   completedCourses,
   chosenInfoAlternativeCode,
   maxVisibleCandidates,
-  renderMode = 'name',
   catalogTo = ROUTES.catalog,
   onSetAssignment,
   onAddCourse,
@@ -223,8 +205,6 @@ export function PlannerFavoritesPanel({
   onSelectTutorialSlot,
 }: PlannerFavoritesPanelProps) {
   const { t } = useTranslation()
-  const isBadge = renderMode === 'badge'
-  const courseNumbers = assignCourseNumbers(plannedCourses.map((course) => course.id))
   const { candidates } = usePlannerFavorites({
     favoriteCourses,
     plannedCourseIds,
@@ -277,8 +257,6 @@ export function PlannerFavoritesPanel({
                   candidate={candidate}
                   studyProgramCode={studyProgramCode}
                   activeSemesterLabel={activeSemesterLabel}
-                  isBadge={isBadge}
-                  badgeNumber={courseNumbers.get(candidate.course.id)}
                   hiddenSlotIds={hiddenSlotIds}
                   onAddCourse={onAddCourse}
                   onToggleFavorite={onToggleFavorite}

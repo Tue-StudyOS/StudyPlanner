@@ -98,9 +98,10 @@ export function CourseCard({
 
   const resolvedSeasonTermType = seasonTermType ?? course.termType
   const resolvedLayout = seasonLayout ?? 'right-half'
-  const resolvedStrength = seasonStrength ?? 'strong'
-  const inlineGlyphTone = isGraySeasonGlyphStrength(resolvedStrength) ? 'muted' : 'seasonal'
-  const inlineGlyphStrengthClass = seasonGlyphStrengthClass(resolvedStrength)
+  const resolvedStrength = seasonStrength ?? 'soft'
+  const inlineGlyphGray = isGraySeasonGlyphStrength(resolvedStrength)
+  const inlineGlyphTone: SeasonGlyphTone = inlineGlyphGray ? 'muted' : 'seasonal'
+  const inlineGlyphStrengthClass = inlineGlyphGray ? seasonGlyphStrengthClass(resolvedStrength) : ''
 
   const cardContent = (
     <>

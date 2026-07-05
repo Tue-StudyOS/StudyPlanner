@@ -6,6 +6,8 @@ import type { TourStep } from './types.ts'
 interface TourStepDefinition extends Omit<TourStep, 'title' | 'body'> {
   titleKey: TranslationKey
   bodyKey: TranslationKey
+  /** Stay on /semester hub instead of opening the current semester plan. */
+  semesterHub?: boolean
 }
 
 /**
@@ -91,6 +93,25 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     bodyKey: 'tour.catalogUnknown.body',
   },
   {
+    id: 'semester-hub-stats',
+    route: ROUTES.planner,
+    semesterHub: true,
+    targets: ['semester-hub-stats'],
+    preserveScroll: true,
+    resetScroll: true,
+    titleKey: 'tour.semesterHubStats.title',
+    bodyKey: 'tour.semesterHubStats.body',
+  },
+  {
+    id: 'semester-hub-cards',
+    route: ROUTES.planner,
+    semesterHub: true,
+    targets: ['semester-hub-card'],
+    preserveScroll: true,
+    titleKey: 'tour.semesterHubCards.title',
+    bodyKey: 'tour.semesterHubCards.body',
+  },
+  {
     id: 'planner-grid',
     route: ROUTES.planner,
     targets: ['planner-grid'],
@@ -131,13 +152,21 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     bodyKey: 'tour.plannerAddDesktop.body',
   },
   {
-    id: 'planner-progress',
+    id: 'planner-manual-slot',
     route: ROUTES.planner,
-    targets: ['planner-progress'],
+    targets: ['planner-manual-slot'],
     preserveScroll: true,
-    allowMobileScroll: true,
-    titleKey: 'tour.plannerProgress.title',
-    bodyKey: 'tour.plannerProgress.body',
+    titleKey: 'tour.plannerManualSlot.title',
+    bodyKey: 'tour.plannerManualSlot.body',
+  },
+  {
+    id: 'planner-tutorial-slots',
+    route: ROUTES.planner,
+    targets: ['planner-tutorial-slots'],
+    preserveScroll: true,
+    optional: true,
+    titleKey: 'tour.plannerTutorialSlots.title',
+    bodyKey: 'tour.plannerTutorialSlots.body',
   },
   {
     id: 'planner-export',
@@ -149,14 +178,6 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
     bodyKey: 'tour.plannerExport.body',
   },
   {
-    id: 'progress',
-    route: ROUTES.overview,
-    targets: ['overview-progress', 'overview-page'],
-    allowMobileScroll: true,
-    titleKey: 'tour.progress.title',
-    bodyKey: 'tour.progress.body',
-  },
-  {
     id: 'reopen-guide',
     route: ROUTES.catalog,
     targets: ['reopen-tour'],
@@ -166,11 +187,11 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
   },
 ]
 
-function resolveStepRoute(route: string | undefined): string | undefined {
-  if (route === ROUTES.planner) {
+function resolveStepRoute(step: TourStepDefinition): string | undefined {
+  if (step.route === ROUTES.planner && !step.semesterHub) {
     return semesterPath(getCurrentSemesterLabel())
   }
-  return route
+  return step.route
 }
 
 function getRouteTitleKey(route: string | undefined): TranslationKey | null {
@@ -181,8 +202,6 @@ function getRouteTitleKey(route: string | undefined): TranslationKey | null {
       return 'nav.catalog'
     case ROUTES.planner:
       return 'nav.semester'
-    case ROUTES.overview:
-      return 'nav.progress'
     default:
       if (route?.startsWith('/semester/')) {
         return 'nav.semester'
@@ -196,14 +215,14 @@ function buildStepTitle(step: TourStepDefinition, t: (key: TranslationKey) => st
   if (step.id === 'welcome' || step.id === 'reopen-guide') {
     return title
   }
-  const routeTitleKey = getRouteTitleKey(resolveStepRoute(step.route))
+  const routeTitleKey = getRouteTitleKey(resolveStepRoute(step))
   return routeTitleKey ? `${t(routeTitleKey)} - ${title}` : title
 }
 
 export function buildTourSteps(t: (key: TranslationKey) => string): TourStep[] {
   return TOUR_STEP_DEFINITIONS.map((step) => ({
     id: step.id,
-    route: resolveStepRoute(step.route),
+    route: resolveStepRoute(step),
     targets: step.targets,
     viewport: step.viewport,
     targetTopOffsetPx: step.targetTopOffsetPx,

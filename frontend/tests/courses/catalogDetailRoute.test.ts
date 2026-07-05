@@ -7,7 +7,6 @@ import {
 
 test('extractCatalogDetailCourseId reads the course id below the catalog base', () => {
   assert.equal(extractCatalogDetailCourseId('/catalog/12345', '/catalog'), '12345')
-  assert.equal(extractCatalogDetailCourseId('/test/catalog/12345', '/test/catalog'), '12345')
 })
 
 test('extractCatalogDetailCourseId returns null on the plain catalog page', () => {
