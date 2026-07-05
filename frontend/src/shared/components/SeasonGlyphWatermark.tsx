@@ -2,26 +2,16 @@ import type { ReactNode } from 'react'
 import type { CourseTermType } from '../../features/courses'
 import { SeasonSymbol } from './SeasonSymbol.tsx'
 import {
-  CATALOG_CORNER_GLYPH_SIZE_CLASS,
-  CATALOG_CORNER_GLYPH_WRAPPER_CLASS,
-  CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS,
-  CATALOG_EDGE_GLYPH_SIZE_CLASS,
   SEASON_CARD_BOOKMARK_ANCHOR_CLASS,
   SEASON_GLYPH_FILL_CLASS,
   SEASON_GLYPH_OVERLAY_CLASS,
   SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS,
-  isGraySeasonGlyphStrength,
-  seasonGlyphWatermarkStrengthClass,
-  type SeasonGlyphLayout,
-  type SeasonGlyphStrength,
   type SeasonGlyphTone,
 } from './seasonSymbolStyles.ts'
 
 interface SeasonGlyphWatermarkProps {
-  termType: CourseTermType | undefined
+  termType?: CourseTermType | undefined
   variant?: 'catalog' | 'semester'
-  layout?: SeasonGlyphLayout
-  strength?: SeasonGlyphStrength
   tone?: SeasonGlyphTone
   overlay?: ReactNode
 }
@@ -34,64 +24,10 @@ function BookmarkOverlay({ overlay }: { overlay: ReactNode }) {
   )
 }
 
-function CatalogGlyph({
-  termType,
-  layout,
-  strength,
-  tone,
-}: {
-  termType: CourseTermType | undefined
-  layout: SeasonGlyphLayout
-  strength: SeasonGlyphStrength
-  tone?: SeasonGlyphTone
-}) {
-  const grayScale = isGraySeasonGlyphStrength(strength)
-  const resolvedTone: SeasonGlyphTone = tone ?? (grayScale ? 'muted' : 'seasonal')
-  const strengthClass = seasonGlyphWatermarkStrengthClass(strength)
-  const edgeRotateFused = layout === 'right-half'
-
-  if (layout === 'right-half') {
-    return (
-      <div
-        className={`pointer-events-none absolute right-0 top-0 z-0 overflow-hidden ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${CATALOG_EDGE_GLYPH_CLIP_WIDTH_CLASS} ${strengthClass}`}
-        aria-hidden="true"
-      >
-        <SeasonSymbol
-          termType={termType}
-          tone={resolvedTone}
-          grayScale={grayScale}
-          edgeRotateFused={edgeRotateFused}
-          className={`absolute right-0 top-1/2 aspect-square ${CATALOG_EDGE_GLYPH_SIZE_CLASS} ${SEASON_GLYPH_FILL_CLASS} translate-x-1/2 -translate-y-1/2`}
-        />
-      </div>
-    )
-  }
-
-  if (layout === 'bottom-right') {
-    return (
-      <div
-        className={`${CATALOG_CORNER_GLYPH_WRAPPER_CLASS} ${CATALOG_CORNER_GLYPH_SIZE_CLASS} ${strengthClass}`}
-        aria-hidden="true"
-      >
-        <SeasonSymbol
-          termType={termType}
-          tone={resolvedTone}
-          grayScale={grayScale}
-          className={SEASON_GLYPH_FILL_CLASS}
-        />
-      </div>
-    )
-  }
-
-  return null
-}
-
-/** Shared watermark shell — glyph and overlays share one box. */
+/** Catalog cards only anchor the bookmark; semester cards keep the large watermark. */
 export function SeasonGlyphWatermark({
   termType,
   variant = 'catalog',
-  layout = 'right-half',
-  strength = 'soft',
   tone,
   overlay,
 }: SeasonGlyphWatermarkProps) {
@@ -108,14 +44,5 @@ export function SeasonGlyphWatermark({
     )
   }
 
-  if (layout === 'ects-inline') {
-    return overlay ? <BookmarkOverlay overlay={overlay} /> : null
-  }
-
-  return (
-    <>
-      <CatalogGlyph termType={termType} layout={layout} strength={strength} tone={tone} />
-      {overlay ? <BookmarkOverlay overlay={overlay} /> : null}
-    </>
-  )
+  return overlay ? <BookmarkOverlay overlay={overlay} /> : null
 }

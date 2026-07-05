@@ -10,7 +10,6 @@ import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
 import { SeasonSymbol } from './SeasonSymbol.tsx'
-import type { SeasonGlyphLayout, SeasonGlyphStrength, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -29,9 +28,6 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
-  seasonLayout?: SeasonGlyphLayout
-  seasonStrength?: SeasonGlyphStrength
-  seasonTone?: SeasonGlyphTone
   regulationRuleGroups?: RegulationRuleGroup[]
   isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
@@ -63,9 +59,6 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
-  seasonLayout,
-  seasonStrength,
-  seasonTone,
   regulationRuleGroups = [],
   isAreaTagActive,
   onAreaTagClick,
@@ -111,16 +104,10 @@ export function CourseCard({
     const detailTermType = getDetailSeasonTermType(course)
     return detailTermType !== 'unknown' ? detailTermType : resolvedSeasonTermType
   })()
-  const resolvedLayout = seasonLayout ?? 'right-half'
-  const resolvedStrength = seasonStrength ?? 'soft'
 
   const cardContent = (
     <>
       <SeasonGlyphWatermark
-        termType={glyphTermType}
-        layout={resolvedLayout}
-        strength={resolvedStrength}
-        tone={seasonTone}
         overlay={
           showFavorite ? (
             // The overlay slot is pointer-events-none so card clicks pass
@@ -138,7 +125,7 @@ export function CourseCard({
           ) : undefined
         }
       />
-      <div className="relative flex min-w-0 items-start gap-2">
+      <div className="relative flex min-w-0 items-start gap-2 pr-8">
         <div className="min-w-0 flex-1">
           <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
             {title}
@@ -178,20 +165,14 @@ export function CourseCard({
             )}
           </span>
         ) : null}
-        {resolvedLayout === 'ects-inline' || ectsLabel ? (
+        {ectsLabel ? (
           <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
-            {resolvedLayout === 'ects-inline' ? (
-              <SeasonSymbol
-                termType={glyphTermType}
-                tone="seasonal"
-                className="h-4 w-4 shrink-0"
-              />
-            ) : null}
-            {ectsLabel ? (
-              <>
-                {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
-              </>
-            ) : null}
+            <SeasonSymbol
+              termType={glyphTermType}
+              tone="seasonal"
+              className="h-4 w-4 shrink-0"
+            />
+            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
           </span>
         ) : null}
       </div>

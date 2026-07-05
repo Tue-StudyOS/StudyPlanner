@@ -31,7 +31,6 @@ import {
   encodeCatalogDetailSegment,
   extractCatalogDetailCourseId,
 } from '../utils/catalogDetailRoute.ts'
-import { getCatalogSeasonGlyphPresentation } from '../utils/catalogSeasonGlyphPresentation.ts'
 import {
   getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
@@ -802,8 +801,6 @@ export function CoursesOverview() {
                 : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
               const shouldShowUnconfirmedDivider = course.id === firstOutdatedVisibleCourseId
 
-              const seasonGlyphPresentation = getCatalogSeasonGlyphPresentation(index)
-
               return (
                 <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
                   {shouldShowUnconfirmedDivider ? (
@@ -843,8 +840,6 @@ export function CoursesOverview() {
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : detailSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
-                      seasonLayout={seasonGlyphPresentation.layout}
-                      seasonStrength={seasonGlyphPresentation.strength}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
                       onAreaTagClick={handleAreaFilterSelect}
