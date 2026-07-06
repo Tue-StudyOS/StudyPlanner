@@ -59,7 +59,7 @@ export function SemesterHub() {
   }
 
   return (
-    <PageShell>
+    <PageShell className="pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:pb-8">
       <div className="mb-5">
         <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">{t('planner.title')}</h1>
         <p className="mt-1 max-w-[40rem] text-[13px] text-fg-muted">

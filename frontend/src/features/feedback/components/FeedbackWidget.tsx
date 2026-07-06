@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useTranslation } from '../../i18n'
@@ -165,12 +166,12 @@ export function FeedbackWidget() {
     }
   }
 
-  return (
+  const widget = (
     <>
       <button
         type="button"
         onClick={openFromButton}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-border bg-surface px-4 py-2 text-[12.5px] font-medium text-fg-mid shadow-lg shadow-black/10 transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-muted focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 md:right-6"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-[11.5px] font-medium text-fg-mid shadow-lg shadow-black/10 backdrop-blur-sm transition-colors hover:bg-surface hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-muted focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 sm:px-4 sm:py-2 sm:text-[12.5px] md:right-6"
       >
         {t('feedback.button')}
       </button>
@@ -287,4 +288,7 @@ export function FeedbackWidget() {
       ) : null}
     </>
   )
+
+  // ponytail: portal keeps fixed positioning reliable on iOS Safari inside flex/overflow shells.
+  return createPortal(widget, document.body)
 }

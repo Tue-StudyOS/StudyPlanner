@@ -555,15 +555,19 @@ export function CoursesOverview() {
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div ref={catalogScrollRef} data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <CatalogProgressHint
         isAreaActive={isAreaFilterActive}
         onSelectArea={handleAreaFilterSelect}
       />
+      <div
+        ref={catalogScrollRef}
+        data-tour-scroll-root
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+      >
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
-      <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
+      <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:p-8 sm:pt-6 sm:pb-8">
 
       <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
       {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}

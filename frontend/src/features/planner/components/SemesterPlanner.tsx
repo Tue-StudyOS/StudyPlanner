@@ -459,7 +459,7 @@ export function SemesterPlanner({
   )
 
   return (
-    <PageShell>
+    <PageShell className="pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:pb-8">
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
         {initialSemesterLabel ? (
           <Link
