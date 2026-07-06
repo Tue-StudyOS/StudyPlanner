@@ -120,7 +120,6 @@ function SnowflakeGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale:
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinecap="round"
-      strokeLinejoin="round"
       fill="none"
     >
       <Lines segments={SNOWFLAKE_LINES} />
@@ -146,7 +145,6 @@ function FusedSeasonGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScal
         stroke="currentColor"
         strokeWidth={1.4}
         strokeLinecap="round"
-        strokeLinejoin="round"
         fill="none"
       >
         <Lines segments={FUSED_SNOWFLAKE_LINES} />

@@ -15,8 +15,8 @@ interface CatalogProgressHintProps {
 }
 
 /**
- * Slim sticky reminder of the regulation areas that are still open, so the
- * missing parts of the degree stay visible while scrolling the catalog.
+ * Slim reminder of regulation areas still open. Rendered above the catalog
+ * scroll pane so it stays fixed while course cards scroll underneath.
  */
 export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgressHintProps = {}) {
   const { isAuthenticated } = useAuth()
@@ -54,7 +54,7 @@ export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgr
   return (
     <div
       data-tour="catalog-progress-hint"
-      className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] z-[70] border-b border-border bg-bg px-4 py-2 md:top-0 md:z-30"
+      className="shrink-0 border-b border-border bg-bg px-4 py-2"
     >
       <div className="mx-auto flex w-full max-w-[64rem] flex-wrap items-center justify-center gap-1.5">
           {openAreas.map((area) => {

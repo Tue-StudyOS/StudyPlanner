@@ -4,6 +4,7 @@ import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
 import { getDetailSeasonTermType } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
+import { buildCourseSeasonIconTitle } from '../../features/courses/utils/courseOfferingLabel.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
@@ -104,6 +105,11 @@ export function CourseCard({
     const detailTermType = getDetailSeasonTermType(course)
     return detailTermType !== 'unknown' ? detailTermType : resolvedSeasonTermType
   })()
+  const seasonIconTitle = buildCourseSeasonIconTitle(glyphTermType, {
+    summer: t('catalog.seasonIcon.summer'),
+    winter: t('catalog.seasonIcon.winter'),
+    both: t('catalog.seasonIcon.both'),
+  })
 
   const cardContent = (
     <>
@@ -167,11 +173,18 @@ export function CourseCard({
         ) : null}
         {ectsLabel ? (
           <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
-            <SeasonSymbol
-              termType={glyphTermType}
-              tone="seasonal"
-              className="h-4 w-4 shrink-0"
-            />
+            <span
+              className="inline-flex shrink-0"
+              {...(seasonIconTitle ? { title: seasonIconTitle, 'aria-label': seasonIconTitle } : {})}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <SeasonSymbol
+                termType={glyphTermType}
+                tone="seasonal"
+                className="h-4 w-4 shrink-0"
+              />
+            </span>
             {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
           </span>
         ) : null}

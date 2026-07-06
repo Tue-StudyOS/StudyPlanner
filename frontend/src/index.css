@@ -60,8 +60,15 @@ html {
   background-color: var(--color-sidebar);
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   background-color: var(--color-bg);
+  overflow: hidden;
 }
 
 .studyplanner-tour-active [data-app-topbar] {
