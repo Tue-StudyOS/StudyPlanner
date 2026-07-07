@@ -75,80 +75,82 @@ body {
   0% {
     transform: scale(1);
   }
-  42% {
-    transform: scale(1.34) rotate(-8deg);
+  45% {
+    transform: scale(1.16) translateY(-1px);
   }
-  72% {
-    transform: scale(0.94) rotate(4deg);
+  78% {
+    transform: scale(0.98);
   }
   100% {
-    transform: scale(1) rotate(0);
+    transform: scale(1);
   }
 }
 
 @keyframes favorite-save-burst {
   0% {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) scale(0.35);
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.55);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.8);
+    transform: translate(-50%, -50%) scale(1.35);
   }
 }
 
-@keyframes favorite-save-spark {
+@keyframes favorite-remove-pop {
   0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(-0.15rem) scale(0.45);
+    transform: scale(1);
   }
-  35% {
-    opacity: 1;
+  45% {
+    transform: scale(0.86);
   }
   100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(-1rem) scale(0.85);
+    transform: scale(1);
   }
 }
 
-.favorite-save-pop {
-  animation: favorite-save-pop 420ms cubic-bezier(0.2, 1.35, 0.38, 1);
+@keyframes favorite-remove-ring {
+  0% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+}
+
+.favorite-add-pop {
+  animation: favorite-save-pop 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.favorite-remove-pop {
+  animation: favorite-remove-pop 260ms ease-out;
 }
 
 .favorite-save-burst {
-  animation: favorite-save-burst 520ms ease-out forwards;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 52%, transparent);
+  animation: favorite-save-burst 380ms ease-out forwards;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 34%, transparent);
   border-radius: 9999px;
-  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--color-primary) 12%, transparent);
-  height: 1.65rem;
+  box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--color-primary) 8%, transparent);
+  height: 1.45rem;
   left: 50%;
   pointer-events: none;
   position: absolute;
   top: 50%;
-  width: 1.65rem;
+  width: 1.45rem;
 }
 
-.favorite-save-burst span {
-  animation: favorite-save-spark 560ms ease-out forwards;
-  background: var(--color-primary);
+.favorite-remove-ring {
+  animation: favorite-remove-ring 300ms ease-out forwards;
+  border: 1px solid color-mix(in srgb, var(--color-fg-muted) 32%, transparent);
   border-radius: 9999px;
-  height: 0.22rem;
+  height: 1.25rem;
   left: 50%;
+  pointer-events: none;
   position: absolute;
   top: 50%;
-  width: 0.22rem;
-}
-
-.favorite-save-burst span:nth-child(1) {
-  --spark-angle: -35deg;
-}
-
-.favorite-save-burst span:nth-child(2) {
-  --spark-angle: 0deg;
-}
-
-.favorite-save-burst span:nth-child(3) {
-  --spark-angle: 35deg;
+  width: 1.25rem;
 }
 
 .studyplanner-tour-active [data-app-topbar] {

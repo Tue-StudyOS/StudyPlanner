@@ -10,7 +10,7 @@ interface FavStarProps {
 
 export function FavStar({ active, disabled = false, isLoading = false, onToggle }: FavStarProps) {
   const [isHovered, setIsHovered] = useState<boolean>(false)
-  const [feedbackKey, setFeedbackKey] = useState<number>(0)
+  const [feedback, setFeedback] = useState<{ key: number; type: 'add' | 'remove' } | null>(null)
   const showFilled = isLoading ? active : isHovered ? !active : active
 
   return (
@@ -19,9 +19,10 @@ export function FavStar({ active, disabled = false, isLoading = false, onToggle 
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
-        if (!active) {
-          setFeedbackKey((current) => current + 1)
-        }
+        setFeedback((current) => ({
+          key: (current?.key ?? 0) + 1,
+          type: active ? 'remove' : 'add',
+        }))
         onToggle()
       }}
       disabled={disabled || isLoading}
@@ -36,14 +37,17 @@ export function FavStar({ active, disabled = false, isLoading = false, onToggle 
         isLoading ? 'animate-pulse' : ''
       }`}
     >
-      {feedbackKey > 0 ? (
-        <span key={feedbackKey} aria-hidden className="favorite-save-burst">
-          <span />
-          <span />
-          <span />
-        </span>
+      {feedback ? (
+        <span
+          key={`favorite-feedback-${feedback.key}`}
+          aria-hidden
+          className={feedback.type === 'add' ? 'favorite-save-burst' : 'favorite-remove-ring'}
+        />
       ) : null}
-      <span key={`favorite-pop-${feedbackKey}`} className={feedbackKey > 0 ? 'favorite-save-pop' : undefined}>
+      <span
+        key={`favorite-pop-${feedback?.key ?? 0}`}
+        className={feedback ? `favorite-${feedback.type}-pop` : undefined}
+      >
         <BookmarkIcon filled={showFilled} />
       </span>
     </button>
