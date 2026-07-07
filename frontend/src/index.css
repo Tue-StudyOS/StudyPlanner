@@ -71,6 +71,88 @@ body {
   overflow: hidden;
 }
 
+@keyframes favorite-save-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.16) translateY(-1px);
+  }
+  78% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes favorite-save-burst {
+  0% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+}
+
+@keyframes favorite-remove-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.86);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes favorite-remove-ring {
+  0% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+}
+
+.favorite-add-pop {
+  animation: favorite-save-pop 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.favorite-remove-pop {
+  animation: favorite-remove-pop 260ms ease-out;
+}
+
+.favorite-save-burst {
+  animation: favorite-save-burst 380ms ease-out forwards;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 34%, transparent);
+  border-radius: 9999px;
+  box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--color-primary) 8%, transparent);
+  height: 1.45rem;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  width: 1.45rem;
+}
+
+.favorite-remove-ring {
+  animation: favorite-remove-ring 300ms ease-out forwards;
+  border: 1px solid color-mix(in srgb, var(--color-fg-muted) 32%, transparent);
+  border-radius: 9999px;
+  height: 1.25rem;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  width: 1.25rem;
+}
+
 .studyplanner-tour-active [data-app-topbar] {
   pointer-events: none;
 }
