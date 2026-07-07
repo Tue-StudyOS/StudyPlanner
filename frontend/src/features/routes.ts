@@ -8,9 +8,6 @@ export const ROUTES = {
   account: '/account',
   log: '/log',
   semesterDetail: '/semester/:label',
-  // Standalone beta UI surface (parallel look, same data); rendered outside the
-  // shared Layout so it can carry its own header and color scheme.
-  beta: '/beta',
 } as const
 
 // The planner hub used to live at '/'; '/' now opens the catalog instead.

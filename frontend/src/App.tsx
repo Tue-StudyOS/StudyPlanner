@@ -33,9 +33,6 @@ const RequestLogPage = lazy(() =>
     default: module.RequestLogPage,
   })),
 )
-const StudyPlanBeta = lazy(() =>
-  import('./features/newui').then((module) => ({ default: module.StudyPlanPage })),
-)
 const TestLayout = lazy(() =>
   import('./features/test').then((module) => ({ default: module.TestLayout })),
 )
@@ -109,7 +106,6 @@ function App() {
                         element={<Navigate to={ROUTES.planner} replace />}
                       />
                     </Route>
-                    <Route path={ROUTES.beta} element={<StudyPlanBeta />} />
                     <Route path={TEST_ROUTES.root} element={<TestLayout />}>
                       <Route index element={<TestLanding />} />
                       <Route path="catalog" element={<TestCatalog />}>

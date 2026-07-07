@@ -112,21 +112,6 @@ body {
   }
 }
 
-/* Auto-hiding scrollbar: transparent at rest, visible only while the container is
-   actively scrolled (`is-scrolling`, toggled by useAutoHideScrollbar with a short
-   trailing delay). Uses the standard `scrollbar-color` property (which updates
-   reactively, unlike `::-webkit-scrollbar-*` pseudo-elements that get stuck).
-   Setting `scrollbar-color` also makes WebKit/Chrome ignore the always-on global
-   scrollbar pseudo-elements for these containers. */
-.beta-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.beta-scroll.is-scrolling {
-  scrollbar-color: var(--color-scrollbar) transparent;
-}
-
 .dark {
   --color-bg: rgb(26 28 32);
   --color-surface: #27292F;
