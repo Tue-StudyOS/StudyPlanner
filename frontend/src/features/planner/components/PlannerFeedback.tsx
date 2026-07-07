@@ -66,11 +66,11 @@ interface PlannerFeedbackProps {
   planAssignments: Record<string, string>
   regulationRuleGroups: RegulationRuleGroup[]
   isLoadingRegulationVersion: boolean
-  isBalancing: boolean
-  balanceMessage: string | null
+  isBalancing?: boolean
+  balanceMessage?: string | null
   onSetAssignments: (assignments: Record<string, string>) => void
   onRemoveCourse: (courseId: string) => void
-  onAutoBalance: () => Promise<void>
+  onAutoBalance?: () => Promise<void>
 }
 
 export function PlannerFeedback({
@@ -80,8 +80,8 @@ export function PlannerFeedback({
   planAssignments,
   regulationRuleGroups,
   isLoadingRegulationVersion,
-  isBalancing,
-  balanceMessage,
+  isBalancing = false,
+  balanceMessage = null,
   onSetAssignments,
   onRemoveCourse,
   onAutoBalance,
@@ -150,15 +150,17 @@ export function PlannerFeedback({
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => void onAutoBalance()}
-              disabled={isBalancing || plannedCourses.length === 0}
-              title="Distributes your planned courses across the areas so nothing overflows."
-              className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isBalancing ? 'Assigning...' : 'Auto-assign areas'}
-            </button>
+            {onAutoBalance ? (
+              <button
+                type="button"
+                onClick={() => void onAutoBalance()}
+                disabled={isBalancing || plannedCourses.length === 0}
+                title="Distributes your planned courses across the areas so nothing overflows."
+                className="rounded-md bg-primary px-4 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBalancing ? 'Assigning...' : 'Auto-assign areas'}
+              </button>
+            ) : null}
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-fg-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className={`h-2.5 w-2.5 rounded-full ${creditedProgressClass('TECH')}`} />

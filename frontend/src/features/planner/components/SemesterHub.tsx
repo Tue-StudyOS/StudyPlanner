@@ -1,18 +1,45 @@
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
+import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
+import { useOnboarding } from '../../onboarding'
+import { isSemesterHubTourStep, TOUR_SEMESTER_HUB_STATS } from '../../onboarding/utils/tourPreviewData.ts'
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { semesterPath } from '../../routes'
+import { useTranscript } from '../../transcript'
+import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
+import { buildSemesterCardStats } from '../utils/semesterCardStats.ts'
+import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
   const { isAuthenticated, user } = useAuth()
   const { t } = useTranslation()
+  const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
+  const isSemesterHubTour = isOnboardingOpen && isSemesterHubTourStep(activeStepId)
   const { progressSnapshot } = useProgressSnapshot()
-  const { semesterOptions } = useSemesterPlanner()
+  const { semesterOptions, savedPlans } = useSemesterPlanner()
+  const { completedCourses } = useTranscript()
+  const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+  const isMobileSemesterList = useMediaQuery('(max-width: 960px)')
+  const currentSemesterLabel = getCurrentSemesterLabel()
+  const displayedSemesterOptions = isMobileSemesterList
+    ? [...semesterOptions].reverse()
+    : semesterOptions
+
+  const displayStats = isSemesterHubTour
+    ? TOUR_SEMESTER_HUB_STATS
+    : progressSnapshot
+      ? {
+          totalEcts: progressSnapshot.summary.totalEcts,
+          requiredEcts: progressSnapshot.summary.requiredEcts,
+          progressPercentage: progressSnapshot.summary.progressPercentage,
+          averageGrade: progressSnapshot.summary.averageGrade,
+        }
+      : null
 
   if (!isAuthenticated || !user) {
     return (
@@ -32,7 +59,7 @@ export function SemesterHub() {
   }
 
   return (
-    <PageShell>
+    <PageShell className="pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:pb-8">
       <div className="mb-5">
         <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg">{t('planner.title')}</h1>
         <p className="mt-1 max-w-[40rem] text-[13px] text-fg-muted">
@@ -40,19 +67,22 @@ export function SemesterHub() {
         </p>
       </div>
 
-      {progressSnapshot ? (
-        <div className="mb-5 grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5">
+      {displayStats ? (
+        <div
+          data-tour="semester-hub-stats"
+          className="mb-5 grid grid-cols-3 gap-3 rounded-[10px] border border-border bg-surface px-4 py-4 sm:gap-6 sm:px-6 sm:py-4.5"
+        >
           <div className="min-w-0 overflow-hidden">
             <StatItem
               label={t('progress.totalEcts')}
-              value={String(progressSnapshot.summary.totalEcts)}
-              sub={`/ ${progressSnapshot.summary.requiredEcts} ECTS`}
+              value={String(displayStats.totalEcts)}
+              sub={`/ ${displayStats.requiredEcts} ECTS`}
             />
           </div>
           <div className="min-w-0 overflow-hidden border-l border-border-light pl-3 sm:pl-6">
             <StatItem
               label={t('progress.progress')}
-              value={`${progressSnapshot.summary.progressPercentage} %`}
+              value={`${displayStats.progressPercentage} %`}
               sub={t('progress.ofDegree')}
             />
           </div>
@@ -60,8 +90,8 @@ export function SemesterHub() {
             <StatItem
               label={t('progress.averageGrade')}
               value={
-                progressSnapshot.summary.averageGrade !== null
-                  ? progressSnapshot.summary.averageGrade.toFixed(2)
+                displayStats.averageGrade !== null
+                  ? displayStats.averageGrade.toFixed(2)
                   : '–'
               }
             />
@@ -69,14 +99,22 @@ export function SemesterHub() {
         </div>
       ) : null}
 
-      <div className="min-w-0">
+      <div className="min-w-0" data-tour="semester-hub-cards">
         <div className="mb-3 text-[13px] font-semibold text-fg">{t('planner.semestersTitle')}</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {semesterOptions.map((semesterLabel) => (
+          {displayedSemesterOptions.map((semesterLabel) => (
             <SemesterCard
               key={semesterLabel}
               semesterLabel={semesterLabel}
               to={semesterPath(semesterLabel)}
+              tourAnchorId={semesterLabel === currentSemesterLabel ? 'semester-hub-card' : undefined}
+              stats={buildSemesterCardStats(
+                semesterLabel,
+                savedPlans,
+                completedCourses,
+                catalogCourses,
+                {},
+              )}
             />
           ))}
         </div>

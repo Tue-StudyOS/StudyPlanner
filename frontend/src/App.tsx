@@ -1,18 +1,15 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AuthProvider, StudySetupGate } from './features/auth'
 import { ThemeProvider } from './features/theme'
 import { Layout } from './features/layout'
 import { FavoritesProvider } from './features/favorites'
 import { TranscriptProvider } from './features/transcript'
 import { OnboardingProvider } from './features/onboarding'
-import { LEGACY_CATALOG_ROUTE, LEGACY_PLANNER_ROUTE, ROUTES, TEST_ROUTES } from './features/routes'
+import { LEGACY_CATALOG_ROUTE, LEGACY_PLANNER_ROUTE, ROUTES } from './features/routes'
 
 // Route components are lazy-loaded so the initial bundle only carries the
 // shell and providers; each page becomes its own chunk.
-const Dashboard = lazy(() =>
-  import('./features/dashboard/components/Dashboard').then((module) => ({ default: module.Dashboard })),
-)
 const CoursesOverview = lazy(() =>
   import('./features/courses/components/Overview').then((module) => ({ default: module.CoursesOverview })),
 )
@@ -65,16 +62,6 @@ function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
 }
 
-// The "/test" surface drives onboarding inline, so the global blocking setup
-// dialog must not overlay it.
-function GlobalStudySetupGate() {
-  const location = useLocation()
-  if (location.pathname.startsWith(TEST_ROUTES.root)) {
-    return null
-  }
-  return <StudySetupGate />
-}
-
 function App() {
   return (
     <ThemeProvider>
@@ -83,7 +70,7 @@ function App() {
           <TranscriptProvider>
             <BrowserRouter>
               <OnboardingProvider>
-                <GlobalStudySetupGate />
+                <StudySetupGate />
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
@@ -97,7 +84,6 @@ function App() {
                       <Route path={ROUTES.catalog} element={<CoursesOverview />}>
                         <Route path=":courseId" element={null} />
                       </Route>
-                      <Route path={ROUTES.overview} element={<Dashboard />} />
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
                       <Route path={ROUTES.log} element={<RequestLogPage />} />

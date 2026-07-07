@@ -69,6 +69,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--include-uebk",
+        action="store_true",
+        help=(
+            "Also crawl each program's 'Außerfakultäre Angebote / übK - "
+            "Anrechnung auf Curriculum' container (Fremdsprachenzentrum, "
+            "Universitätsbibliothek, Transdisciplinary Course Program, ...). "
+            "Off by default: that subtree holds no Informatik courses, carries "
+            "no study-area code, and ALMA only pre-expands it for some "
+            "semesters — skipping it keeps output slim and consistent."
+        ),
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=30.0,
@@ -364,6 +376,7 @@ def _run_single_period_scrape(
         max_expansions=args.max_expansions,
         progress_bar=not args.quiet,
         progress_label="courses",
+        prune_external_uebk=not args.include_uebk,
     )
     return scraper.scrape(options)
 
@@ -430,6 +443,7 @@ def _scrape_period_branches(
             skip_unit_ids=frozenset(seen_unit_ids) or None,
             progress_bar=not args.quiet,
             progress_label=f"{period.label}: {branch_label}",
+            prune_external_uebk=not args.include_uebk,
         )
         result = scraper.scrape(options)
         partial = partial or bool(result["source"].get("partial"))

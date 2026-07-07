@@ -1,7 +1,7 @@
+import { getLatestSelectableSemesterLabel } from '../../planner/utils/semesterHubVisibility.ts'
 import {
   buildSemesterOptions,
   getCurrentSemesterLabel,
-  getRelativeSemesterLabel,
   parseSemesterLabel,
 } from '../../planner/utils/semesterLabels.ts'
 
@@ -10,7 +10,7 @@ export function buildManualSemesterOptions(
   now: Date = new Date(),
 ): string[] {
   const currentSemesterLabel = getCurrentSemesterLabel(now)
-  const latestSemesterLabel = getRelativeSemesterLabel(currentSemesterLabel, 1)
+  const latestSemesterLabel = getLatestSelectableSemesterLabel(now)
   const normalizedStartSemester = startSemesterLabel?.trim() ?? ''
 
   if (!parseSemesterLabel(normalizedStartSemester)) {

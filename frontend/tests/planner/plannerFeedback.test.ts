@@ -81,7 +81,7 @@ test('buildPlannerBlocks derives weekdays from ALMA date-range labels', () => {
   )
 })
 
-test('buildPlannerBlocks includes one-off date slots such as exam dates on the weekday', () => {
+test('buildPlannerBlocks excludes one-off exam slots from the weekly grid', () => {
   const course = createCourse('with-exam-date', [
     { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
     { day: '28.07.2026', time: '10:00 - 12:00', room: 'Hörsaal 1', type: 'Klausur' },
@@ -90,22 +90,18 @@ test('buildPlannerBlocks includes one-off date slots such as exam dates on the w
 
   const blocks = buildPlannerBlocks([course])
 
-  assert.equal(blocks.length, 3)
+  assert.equal(blocks.length, 1)
   assert.equal(blocks[0].day, 'Monday')
-  assert.equal(blocks[1].slotType, 'Klausur')
-  assert.equal(blocks[1].slotKind, 'exam')
 })
 
-test('buildPlannerBlocks labels single-date exam slots without explicit type', () => {
+test('buildPlannerBlocks labels single-date exam slots without explicit type but keeps them off the grid', () => {
   const course = createCourse('exam-only-type', [
     { day: '28.07.2026', time: '14:00 - 16:00', room: 'HS1', type: 'Course' },
   ])
 
   const blocks = buildPlannerBlocks([course])
 
-  assert.equal(blocks.length, 1)
-  assert.equal(blocks[0].slotType, 'Klausur')
-  assert.equal(blocks[0].slotKind, 'exam')
+  assert.equal(blocks.length, 0)
 })
 
 test('buildPlannerBlocks skips slots with unknown days or unparsable times', () => {

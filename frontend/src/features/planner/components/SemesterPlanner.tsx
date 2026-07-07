@@ -16,10 +16,11 @@ import {
   isPlannerTourStep,
 } from '../../onboarding/utils/tourPreviewData.ts'
 import { useTranscript } from '../../transcript'
-import { TEST_ROUTES, ROUTES } from '../../routes'
+import { ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
 import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
+import type { ManualPlannerSlot } from '../types'
 import {
   getCurrentPlannerAssignment,
   getPlannerCourseAreaOptions,
@@ -42,11 +43,13 @@ import {
   getPlannerFavoritesLayout,
   PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY,
 } from '../utils/favoritesLayout.ts'
+import { ManualSlotDialog } from './ManualSlotDialog'
+import { PastSemesterCourseList } from './PastSemesterCourseList'
 import { MobilePlannerFavoritesDrawer } from './PlannerDialogs'
 import { PlannerCourseDetailModal } from './PlannerCourseDetailModal'
 import { PlannerFavoritesPanel } from './PlannerFavoritesPanel'
 import { PlannerFeedback } from './PlannerFeedback'
-import { PlannerGrid, type PlannerRenderMode } from './PlannerGrid'
+import { PlannerGrid } from './PlannerGrid'
 import { SemesterCompletionDialog } from './SemesterCompletionDialog'
 
 // Auto-save is silent; only the brief in-flight state is surfaced.
@@ -59,14 +62,8 @@ function SaveIndicator({ isSaving }: { isSaving: boolean }) {
 
 export function SemesterPlanner({
   initialSemesterLabel,
-  renderMode = 'name',
-  readOnly = false,
-  useCompletedCourseFallback = false,
 }: {
   initialSemesterLabel?: string
-  renderMode?: PlannerRenderMode
-  readOnly?: boolean
-  useCompletedCourseFallback?: boolean
 } = {}) {
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
@@ -80,12 +77,13 @@ export function SemesterPlanner({
   } = useTranscript()
   const isSmallViewport = useMediaQuery('(max-width: 768px)')
   const hasSidebarSpace = useMediaQuery(PLANNER_FAVORITES_SIDEBAR_MEDIA_QUERY)
-  const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
-  const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState<boolean>(false)
   const [completionNotice, setCompletionNotice] = useState<string | null>(null)
   const [openCourseId, setOpenCourseId] = useState<string | null>(null)
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState<boolean>(false)
+  const [isManualSlotDialogOpen, setIsManualSlotDialogOpen] = useState<boolean>(false)
+  const [isBalancingAssignments, setIsBalancingAssignments] = useState<boolean>(false)
+  const [balanceMessage, setBalanceMessage] = useState<string | null>(null)
   const {
     regulationVersion,
     isLoadingRegulationVersion,
@@ -95,6 +93,7 @@ export function SemesterPlanner({
     activeSemesterLabel,
     plannedCourseIds,
     hiddenSlotIds,
+    manualSlots,
     planAssignments,
     savedPlan,
     isLoadingSemesterPlan,
@@ -102,6 +101,7 @@ export function SemesterPlanner({
     plannerError,
     setPlannedCourseIds,
     setHiddenSlotIds,
+    setManualSlots,
     setAssignment,
     setAssignments,
   } = useSemesterPlanner(initialSemesterLabel)
@@ -141,10 +141,11 @@ export function SemesterPlanner({
   // Past semesters that have no saved plan fall back to the transcript so old
   // courses still appear on their card and weekly grid, even without exact times.
   const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
+  const isCurrentSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) === 0
   // Read-only and past-semester views hide the favorites panel, so the
   // planner grid must also reclaim the sidebar column.
-  const showFavoritesPanel = !readOnly && !isPastSemester
-  const usesCompletedCourseFallback = ((readOnly && useCompletedCourseFallback) || isPastSemester)
+  const showFavoritesPanel = !isPastSemester
+  const usesCompletedCourseFallback = isPastSemester
     && !isLoadingSemesterPlan
     && !isLoadingCompletedCourses
     && plannedCourses.length === 0
@@ -152,6 +153,7 @@ export function SemesterPlanner({
   const effectivePlannedCourses = usesCompletedCourseFallback ? historicalSemesterPlan.courses : plannedCourses
   const effectivePlannedCourseIds = effectivePlannedCourses.map((course) => course.id)
   const effectiveHiddenSlotIds = usesCompletedCourseFallback ? [] : hiddenSlotIds
+  const effectiveManualSlots = usesCompletedCourseFallback ? [] : manualSlots
   const effectivePlanAssignments = usesCompletedCourseFallback ? historicalSemesterPlan.assignments : planAssignments
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
   const plannerRuleGroups = useMemo(
@@ -188,6 +190,7 @@ export function SemesterPlanner({
   const displayCompletedCourses = isPlannerTourPreview ? plannerTourPreview.completedCourses : completedCourses
   const displayPlanAssignments = isPlannerTourPreview ? plannerTourPreview.assignments : effectivePlanAssignments
   const displayHiddenSlotIds = isPlannerTourPreview ? [] : effectiveHiddenSlotIds
+  const displayManualSlots = isPlannerTourPreview ? [] : effectiveManualSlots
   const displayRuleGroups = isPlannerTourPreview ? plannerTourPreview.ruleGroups : plannerRuleGroups
   const displayStudyProgramCode = plannerStudyProgramCode
   // INFO-FOKUS and INFO-BASIS are alternatives — resolve the single one this plan
@@ -254,6 +257,7 @@ export function SemesterPlanner({
       plannedCourseIds.filter((plannedCourseId) => plannedCourseId !== courseId),
     )
     clearHiddenSlotsForCourse(courseId)
+    setManualSlots(manualSlots.filter((slot) => slot.courseId !== courseId))
     setAssignment(courseId, null)
   }
 
@@ -286,11 +290,19 @@ export function SemesterPlanner({
     }
   }
 
+  function handleAddManualSlot(slot: ManualPlannerSlot): void {
+    if (!plannedCourseIds.includes(slot.courseId)) {
+      setPlannedCourseIds([...plannedCourseIds, slot.courseId])
+    }
+    setManualSlots([...manualSlots.filter((existing) => existing.id !== slot.id), slot])
+  }
+
   function handleExportIcs(): void {
     const icsContent = buildSemesterPlanIcs({
       semesterLabel: activeSemesterLabel,
       courses: plannedCourses,
       hiddenSlotIds,
+      manualSlots,
     })
     if (!icsContent) {
       return
@@ -303,6 +315,8 @@ export function SemesterPlanner({
     anchor.click()
     URL.revokeObjectURL(url)
   }
+
+  const showPastSemesterCourses = isPastSemester || usesCompletedCourseFallback
 
   async function handleAutoBalanceAssignments(): Promise<void> {
     if (!token) {
@@ -436,8 +450,6 @@ export function SemesterPlanner({
       completedCourses={displayCompletedCourses}
       chosenInfoAlternativeCode={chosenInfoAlternativeCode}
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
-      renderMode={renderMode}
-      catalogTo={renderMode === 'badge' ? TEST_ROUTES.catalog : undefined}
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
       onToggleFavorite={toggleFavorite}
@@ -447,9 +459,9 @@ export function SemesterPlanner({
   )
 
   return (
-    <PageShell>
+    <PageShell className="pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:pb-8">
       <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {initialSemesterLabel && !readOnly ? (
+        {initialSemesterLabel ? (
           <Link
             to={ROUTES.planner}
             className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
@@ -505,11 +517,18 @@ export function SemesterPlanner({
         <div
           className={`grid min-w-0 items-start gap-4.5 ${
             favoritesLayout === 'sidebar' && showFavoritesPanel
-              ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_19rem] min-[1100px]:items-stretch'
+              ? 'min-[1180px]:grid-cols-[minmax(0,1fr)_22rem] min-[1180px]:items-stretch'
               : ''
           }`}
         >
           <div className="grid min-w-0 gap-4.5">
+            {showPastSemesterCourses ? (
+              <PastSemesterCourseList
+                courses={displayPlannedCourses}
+                studyProgramCode={displayStudyProgramCode}
+                assignments={displayPlanAssignments}
+              />
+            ) : null}
             {!isPlannerTourPreview && isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
               <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
                 {t('planner.loadingPlan', { semester: activeSemesterLabel })}
@@ -518,22 +537,23 @@ export function SemesterPlanner({
               <PlannerGrid
                 plannedCourses={displayPlannedCourses}
                 hiddenSlotIds={displayHiddenSlotIds}
+                manualSlots={displayManualSlots}
                 isMobilePlanner={isSmallViewport}
                 canCompleteSemester={displayPlannedCourses.length > 0}
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
-                renderMode={renderMode}
-                readOnly={readOnly}
+                isPastSemester={isPastSemester}
                 onDropCourse={handleAddCourse}
-                onRemoveCourse={readOnly ? undefined : handleRemoveCourse}
+                onRemoveCourse={isPastSemester ? undefined : handleRemoveCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
                 onRequestAdd={() => setIsAddDrawerOpen(true)}
+                onRequestManualSlot={() => setIsManualSlotDialogOpen(true)}
                 onOpenCompletionDialog={() => {
                   clearCompletedCoursesError()
                   setCompletionNotice(null)
                   setIsCompletionDialogOpen(true)
                 }}
-                onExportCalendar={readOnly ? undefined : handleExportIcs}
+                onExportCalendar={isPastSemester ? undefined : handleExportIcs}
                 exportCalendarTitle={t('planner.exportCalendarTitle')}
               />
             )}
@@ -542,7 +562,7 @@ export function SemesterPlanner({
           {!isSmallViewport && showFavoritesPanel ? plannerFavoritesPanel : null}
         </div>
 
-        {!readOnly ? (
+        {!isPastSemester ? (
           <PlannerFeedback
             plannedCourses={displayPlannedCourses}
             completedCourses={displayCompletedCourses}
@@ -551,10 +571,10 @@ export function SemesterPlanner({
             regulationRuleGroups={displayRuleGroups}
             isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
             isBalancing={isBalancingAssignments}
-            balanceMessage={balanceMessage}
+            balanceMessage={isCurrentSemester ? balanceMessage : null}
             onSetAssignments={setAssignments}
             onRemoveCourse={handleRemoveCourse}
-            onAutoBalance={handleAutoBalanceAssignments}
+            onAutoBalance={isCurrentSemester ? handleAutoBalanceAssignments : undefined}
           />
         ) : null}
       </div>
@@ -566,6 +586,14 @@ export function SemesterPlanner({
         >
           {plannerFavoritesPanel}
         </MobilePlannerFavoritesDrawer>
+      ) : null}
+
+      {isManualSlotDialogOpen && !isPastSemester ? (
+        <ManualSlotDialog
+          courses={displayPlannedCourses.length > 0 ? displayPlannedCourses : displayFavoriteCourses}
+          onClose={() => setIsManualSlotDialogOpen(false)}
+          onAdd={handleAddManualSlot}
+        />
       ) : null}
 
       {openCourse ? (

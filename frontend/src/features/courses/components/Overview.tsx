@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
-import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import {
@@ -32,14 +31,15 @@ import {
   encodeCatalogDetailSegment,
   extractCatalogDetailCourseId,
 } from '../utils/catalogDetailRoute.ts'
-import { getCatalogSeasonGlyphPresentation } from '../utils/catalogSeasonGlyphPresentation.ts'
 import {
+  getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
   getOutdatedOfferingSortRank,
   isCompulsoryCourse,
   isDefaultVisibleOfferingStatus,
   isOutdatedOfferingStatus,
+  resolveUnconfirmedOfferingToggleChecked,
   resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
 } from '../utils/catalogOffering.ts'
@@ -209,13 +209,7 @@ function UnconfirmedOfferingsToggle({
   )
 }
 
-interface CoursesOverviewProps {
-  // The "/test" surface hides bookmarking for signed-out visitors; the main app
-  // keeps the star always visible (default).
-  favoritesVisibility?: 'always' | 'authenticatedOnly'
-}
-
-export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverviewProps = {}) {
+export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
   const [selectedStudyAreaCodes, setSelectedStudyAreaCodes] = useState<string[]>([])
@@ -278,10 +272,10 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const sentinelRef = useRef<HTMLDivElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
-  const { isAuthenticated, user } = useAuth()
+  const { user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
-  const { courses, isLoading, error } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
+  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
@@ -289,7 +283,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const { completedCourses } = useTranscript()
   const { progressSnapshot } = useProgressSnapshot()
   const historicalLecturerLookup = useHistoricalLecturerLookup(completedCourses, periods)
-  const canShowFavorites = favoritesVisibility === 'always' || isAuthenticated
+  const canShowFavorites = true
 
   const knownPeriodLabels = useMemo(() => periods.map((period) => period.label), [periods])
   const offeringStatusByCourseId = useMemo(() => {
@@ -306,6 +300,13 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
     }
     return termTypeMap
   }, [courses, knownPeriodLabels])
+  const detailSeasonTermTypeByCourseId = useMemo(() => {
+    const termTypeMap = new Map<string, CourseTermType>()
+    for (const course of courses) {
+      termTypeMap.set(course.id, getDetailSeasonTermType(course))
+    }
+    return termTypeMap
+  }, [courses])
 
   const completedByCatalogCourseId = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -416,6 +417,12 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const shouldShowUnconfirmedOfferings = resolveUnconfirmedOfferingVisibility(
     showUnconfirmedOfferings,
     isOnboardingOpen,
+    activeStepId,
+  )
+  const unconfirmedToggleChecked = resolveUnconfirmedOfferingToggleChecked(
+    showUnconfirmedOfferings,
+    isOnboardingOpen,
+    activeStepId,
   )
 
   const filteredCourses = useMemo(
@@ -548,15 +555,19 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
-    <div className="flex min-h-0 min-w-0 md:h-[calc(100dvh-3.75rem)]">
-      <div ref={catalogScrollRef} data-tour-scroll-root className="min-w-0 flex-1 md:overflow-y-auto">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <CatalogProgressHint
         isAreaActive={isAreaFilterActive}
         onSelectArea={handleAreaFilterSelect}
       />
+      <div
+        ref={catalogScrollRef}
+        data-tour-scroll-root
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+      >
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
-      <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 sm:p-8 sm:pt-6">
+      <div className="mx-auto w-full min-w-0 max-w-[64rem] p-4 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:p-8 sm:pt-6 sm:pb-8">
 
       <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
       {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}
@@ -748,19 +759,25 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
         ) : null}
 
         <UnconfirmedOfferingsToggle
-          checked={shouldShowUnconfirmedOfferings}
+          checked={unconfirmedToggleChecked}
           label={t('catalog.showUnconfirmedOfferings')}
           onChange={setShowUnconfirmedOfferings}
         />
       </div>
 
-      {isLoading && !isOnboardingOpen ? (
+      {!isOnboardingOpen && refreshWarning ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-fg-muted">
+          {refreshWarning}
+        </div>
+      ) : null}
+
+      {isLoading && !isOnboardingOpen && courses.length === 0 ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
           {t('catalog.loading')}
         </div>
-      ) : error && !isOnboardingOpen ? (
+      ) : error && !isOnboardingOpen && courses.length === 0 ? (
         <div className="rounded-[10px] border border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
-          <p>{toUserFacingApiMessage(error)}</p>
+          <p>{error}</p>
         </div>
       ) : !hasCatalogRows ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-8 py-15 text-center text-[13.5px] text-fg-muted">
@@ -787,8 +804,6 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                 ? sampleOfferingStatus
                 : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
               const shouldShowUnconfirmedDivider = course.id === firstOutdatedVisibleCourseId
-
-              const seasonGlyphPresentation = getCatalogSeasonGlyphPresentation(index)
 
               return (
                 <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
@@ -828,9 +843,7 @@ export function CoursesOverview({ favoritesVisibility = 'always' }: CoursesOverv
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
-                      seasonTermType={isTourSampleRow ? course.termType : latestKnownTermTypeByCourseId.get(course.id) ?? course.termType}
-                      seasonTone={seasonGlyphPresentation.tone}
-                      seasonMotif={seasonGlyphPresentation.motif}
+                      seasonTermType={isTourSampleRow ? course.termType : detailSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
                       onAreaTagClick={handleAreaFilterSelect}

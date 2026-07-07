@@ -20,6 +20,21 @@ ALMA_BASE = "https://alma.uni-tuebingen.de"
 # ALMA caps the "Module / Studiengänge" page-size input ("Zeilen pro Seite") at 300.
 MODULE_ROWS_PER_PAGE = 300
 
+# Each degree program's übK ("überfachliche Kompetenzen") module hangs an
+# "Außerfakultäre Angebote / übK - Anrechnung auf Curriculum prüfen" container
+# under it. That container holds the whole external catalog — Fremdsprachen-
+# zentrum, Universitätsbibliothek, Transdisciplinary Course Program, ZDV,
+# etc. — none of which are Informatik courses and none of which carry an
+# Informatik study-area code. For some semesters ALMA pre-expands this
+# container inline (so a naive crawl walks thousands of language/library
+# nodes); for others it does not, which is why the same scraper produced wide
+# output for old periods and slim output for new ones. We refuse to expand
+# this container so program-branch crawls stay consistently slim. The marker
+# is ASCII on purpose: it survives the cp1252/UTF-8 mojibake ALMA emits, and
+# `casefold()` would fold the ß in "Außerfakultäre" to "ss" — so we match on
+# this ASCII fragment instead.
+EXTERNAL_UEBK_TITLE_MARKER = "anrechnung auf curriculum"
+
 # ALMA labels periods as either "Sommer YYYY"/"Winter YYYY/YY" (term selector
 # in the catalog page) or the longer "Sommersemester YYYY" / "Wintersemester
 # YYYY/YY" elsewhere. Accept both shapes. We extract (year, kind) tuples so
@@ -56,6 +71,11 @@ class ScrapeOptions:
     progress_bar: bool = False
     # Short label for the detail progress bar (e.g. "SoSe 2026: VVZ").
     progress_label: str | None = None
+    # Skip the degree programs' "Außerfakultäre Angebote / übK - Anrechnung
+    # auf Curriculum" container during the crawl (see
+    # EXTERNAL_UEBK_TITLE_MARKER). On by default so output is consistently
+    # slim across periods regardless of whether ALMA pre-expands that subtree.
+    prune_external_uebk: bool = True
 
 
 @dataclass(slots=True)
@@ -453,6 +473,14 @@ class AlmaScraper:
                 continue
             if self._is_skipped_old_version(node):
                 continue
+            if options.prune_external_uebk and self._is_external_uebk_bucket(node):
+                self._progress(
+                    options,
+                    "prune",
+                    f"Skipping external übK container {node.node_id}: {node.title}",
+                    discovered_nodes=len(self.catalog_nodes),
+                )
+                continue
             if options.max_depth is not None and node.level >= options.max_depth:
                 continue
 
@@ -678,6 +706,12 @@ class AlmaScraper:
     @staticmethod
     def _is_course(node: CatalogNode) -> bool:
         return node.kind == "Veranstaltung" and bool(node.detail_url)
+
+    @staticmethod
+    def _is_external_uebk_bucket(node: CatalogNode) -> bool:
+        """True for a program's übK "Außerfakultäre Angebote / Anrechnung auf
+        Curriculum" container (see :data:`EXTERNAL_UEBK_TITLE_MARKER`)."""
+        return EXTERNAL_UEBK_TITLE_MARKER in node.title.casefold()
 
     def _course_count_for_options(self, options: ScrapeOptions) -> int:
         courses = [node for node in self.catalog_nodes.values() if self._is_course(node)]

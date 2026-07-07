@@ -14,6 +14,7 @@ interface SaveSemesterPlanInput {
   notes?: string | null
   courseIds: string[]
   hiddenSlotIds?: string[]
+  manualSlots?: import('./types.ts').ManualPlannerSlot[]
   courseAssignments?: Record<string, string>
 }
 

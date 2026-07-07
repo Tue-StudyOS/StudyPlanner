@@ -87,13 +87,32 @@ test('planner steps keep the page stable and add one mobile-only add button step
   assert.deepEqual(desktopAdd?.targets, ['planner-interested-card', 'planner-interested'])
 })
 
+test('tour includes semester hub steps before opening a semester plan', () => {
+  const hubStats = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'semester-hub-stats')
+  const hubCards = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'semester-hub-cards')
+  const grid = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'planner-grid')
+
+  assert.equal(hubStats?.semesterHub, true)
+  assert.deepEqual(hubStats?.targets, ['semester-hub-stats'])
+  assert.equal(hubCards?.semesterHub, true)
+  assert.deepEqual(hubCards?.targets, ['semester-hub-card'])
+  assert.equal(grid?.semesterHub, undefined)
+})
+
+test('planner tour covers manual slots and tutorial chip picker', () => {
+  const manualSlot = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'planner-manual-slot')
+  const tutorialSlots = TOUR_STEP_DEFINITIONS.find((step) => step.id === 'planner-tutorial-slots')
+
+  assert.deepEqual(manualSlot?.targets, ['planner-manual-slot'])
+  assert.deepEqual(tutorialSlots?.targets, ['planner-tutorial-slots'])
+})
+
 test('buildTourSteps resolves labels without adding auto-advance metadata', () => {
   const steps = buildTourSteps(keyTranslator)
   const welcomeStep = steps[0]
 
   assert.equal(welcomeStep.title, 'tour.welcome.title')
   assert.equal(welcomeStep.body, 'tour.welcome.body')
-  assert.equal(steps.find((step) => step.id === 'progress')?.title, 'nav.progress - tour.progress.title')
   assert.equal(steps.find((step) => step.id === 'reopen-guide')?.title, 'tour.reopen.title')
   assert.equal('durationMs' in welcomeStep, false)
   assert.equal('autoAdvance' in welcomeStep, false)

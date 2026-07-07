@@ -1,22 +1,5 @@
-/** 'muted' = subdued season tint (catalog watermark); 'seasonal' = full amber sun / sky snowflake (semester hub). */
+/** 'muted' = subdued season tint (semester hub); 'seasonal' = full amber sun / sky snowflake. */
 export type SeasonGlyphTone = 'muted' | 'seasonal'
-
-/** Catalog watermark motif — how the season glyph is laid out on a course card. */
-export type SeasonGlyphMotif =
-  | 'small-tile'
-  | 'dense-tile'
-  | 'sparse-tile'
-  | 'large-corner'
-  | 'corner-only'
-  | 'double-corner'
-  | 'left-border-accent'
-  | 'right-border-accent'
-  | 'bottom-strip'
-  | 'top-strip'
-  | 'diagonal-wash'
-  | 'corner-wash'
-  | 'sparse-center'
-  | 'center-watermark'
 
 /**
  * Muted tone is season-tinted: plain watermark gray was invisible on the white
@@ -30,26 +13,14 @@ export const SEASON_GLYPH_MUTED_SNOW_TONE = 'text-sky-600 dark:text-[#3B434C]'
 export const SEASON_GLYPH_SUN_TONE = 'text-amber-400 dark:text-amber-300'
 export const SEASON_GLYPH_SNOW_TONE = 'text-sky-400 dark:text-sky-300'
 
-/** Fade applied to every tiled card-background pattern. */
-export const SEASON_CARD_PATTERN_OPACITY_CLASS = 'opacity-30 dark:opacity-25'
+export const SEASON_GLYPH_GRAY_TONE = 'text-fg-muted'
 
-/**
- * Muted single glyphs need the same fade in light mode (the solid tint would
- * be too strong); the dark muted colors are already subdued, so stay solid.
- */
-export const SEASON_GLYPH_MUTED_FADE_CLASS = 'opacity-30 dark:opacity-100'
-
-/**
- * 25% of the icon bleeds past the top-right corner — equal inset on top and
- * right. Deliberately no z-index: the box must not open a stacking context, so
- * the z-20 overlay inside (bookmark) can stack above the card content while
- * the glyph itself stays behind it in DOM order.
- */
-export const SEASON_CARD_WATERMARK_WRAPPER_CLASS =
-  'pointer-events-none absolute -top-[1.9375rem] -right-[1.9375rem] h-[7.75rem] w-[7.75rem]'
+/** Bookmark sits on the first title line (card py-3 + title cap height). */
+export const SEASON_CARD_BOOKMARK_ANCHOR_CLASS =
+  'pointer-events-none absolute right-3 top-3 z-20 flex h-[1.2rem] w-[1.75rem] items-center justify-end'
 
 export const SEASON_SEMESTER_WATERMARK_WRAPPER_CLASS =
-  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem]'
+  'pointer-events-none absolute -top-[2.1875rem] -right-[2.1875rem] z-0 h-[8.75rem] w-[8.75rem] opacity-35 dark:opacity-40'
 
 /** Glyph fills the watermark shell. */
 export const SEASON_GLYPH_FILL_CLASS = 'h-full w-full'

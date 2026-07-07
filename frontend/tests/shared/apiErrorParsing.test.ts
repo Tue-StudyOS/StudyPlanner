@@ -9,6 +9,12 @@ test('parseApiErrorBody reads structured JSON error payloads', () => {
   )
 })
 
+test('parseApiErrorBody replaces HTML error pages with a generic status message', () => {
+  assert.deepEqual(parseApiErrorBody('<!DOCTYPE html><html><body>Worker threw exception</body></html>', 500), {
+    message: 'Request failed with status 500',
+  })
+})
+
 test('parseApiErrorBody keeps plain-text bodies like Cloudflare runtime error pages', () => {
   assert.deepEqual(parseApiErrorBody('error code: 1101', 500), { message: 'error code: 1101' })
 })

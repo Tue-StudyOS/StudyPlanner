@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.scripts.import_alma_json_to_d1 import (  # noqa: E402
     CURRICULUM_LINK_REBUILD_STATEMENTS,
     STUDY_AREA_CODE_ALIASES,
+    derive_parallel_group_role,
 )
 
 
@@ -104,6 +105,47 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
             math_aliases,
             {("ModulMath1", "MATH"), ("ModulMath2", "MATH"), ("ModulMath3", "MATH"), ("ModulMath4", "MATH")},
         )
+
+
+class DeriveParallelGroupRoleTest(unittest.TestCase):
+    def test_reads_role_from_title_parenthetical(self) -> None:
+        self.assertEqual(
+            derive_parallel_group_role("Analysis (Vorlesung) (1. Parallelgruppe)"),
+            "Vorlesung",
+        )
+        self.assertEqual(
+            derive_parallel_group_role("Analysis (Übung) (2. Parallelgruppe)"),
+            "Übung",
+        )
+        self.assertEqual(
+            derive_parallel_group_role("Mathematik 2 (Klausur)"),
+            "Klausur",
+        )
+
+    def test_nachklausur_wins_over_klausur(self) -> None:
+        # "Nachklausur" contains "klausur", so rule order must resolve to the resit.
+        self.assertEqual(
+            derive_parallel_group_role("OC1: Nachklausur (2. Parallelgruppe)"),
+            "Nachklausur",
+        )
+        self.assertEqual(
+            derive_parallel_group_role("OC1: Wiederholung Klausur Grundlagen"),
+            "Nachklausur",
+        )
+
+    def test_returns_none_when_title_has_no_role_marker(self) -> None:
+        # No marker means the importer keeps ALMA's Veranstaltungsart / course-type
+        # fallback instead of guessing.
+        self.assertIsNone(
+            derive_parallel_group_role("Tumorimmunologie (2. Parallelgruppe)")
+        )
+        self.assertIsNone(
+            derive_parallel_group_role("Meilensteine (Bebenhausen, Gasthof Hirsch)")
+        )
+
+    def test_returns_none_for_empty_title(self) -> None:
+        self.assertIsNone(derive_parallel_group_role(None))
+        self.assertIsNone(derive_parallel_group_role(""))
 
 
 if __name__ == "__main__":

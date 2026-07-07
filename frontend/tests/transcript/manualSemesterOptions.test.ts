@@ -5,14 +5,14 @@ import {
   getManualSemesterDefault,
 } from '../../src/features/transcript/utils/manualSemesterOptions.ts'
 
-test('buildManualSemesterOptions counts from the stored start semester to the next upcoming semester', () => {
+test('buildManualSemesterOptions counts from the stored start semester to the visible latest semester', () => {
   const options = buildManualSemesterOptions('WS 2024/25', new Date(2026, 5, 10))
-  assert.deepEqual(options, ['WS 2024/25', 'SS 2025', 'WS 2025/26', 'SS 2026', 'WS 2026/27'])
+  assert.deepEqual(options, ['WS 2024/25', 'SS 2025', 'WS 2025/26', 'SS 2026'])
 })
 
-test('buildManualSemesterOptions falls back to current and next semester for invalid starts', () => {
+test('buildManualSemesterOptions falls back to the current semester when the start is invalid', () => {
   const options = buildManualSemesterOptions('SoSe 2026', new Date(2026, 5, 10))
-  assert.deepEqual(options, ['SS 2026', 'WS 2026/27'])
+  assert.deepEqual(options, ['SS 2026'])
 })
 
 test('getManualSemesterDefault keeps a valid stored start and otherwise uses the first option', () => {

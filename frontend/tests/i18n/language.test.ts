@@ -26,8 +26,8 @@ test('resolveAppLanguage prefers the persisted user language over the browser la
 })
 
 test('createTranslator resolves localized app chrome labels', () => {
-  assert.equal(createTranslator('en')('nav.progress'), 'Progress')
-  assert.equal(createTranslator('de')('nav.progress'), 'Fortschritt')
+  assert.equal(createTranslator('en')('nav.catalog'), 'Catalog')
+  assert.equal(createTranslator('de')('nav.catalog'), 'Katalog')
   assert.equal(createTranslator('en')('common.complete'), 'Complete')
   assert.equal(createTranslator('de')('common.complete'), 'Fertig')
 })

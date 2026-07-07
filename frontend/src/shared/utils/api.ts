@@ -26,6 +26,10 @@ export function parseApiErrorBody(
   status: number,
 ): { message: string; code?: string } {
   const fallbackMessage = `Request failed with status ${status}`
+  const trimmed = bodyText.trim()
+  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+    return { message: fallbackMessage }
+  }
   if (!bodyText) {
     return { message: fallbackMessage }
   }
@@ -132,5 +136,14 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
     return undefined as T
   }
 
-  return (await response.json()) as T
+  const bodyText = await response.text()
+  try {
+    return JSON.parse(bodyText) as T
+  } catch {
+    throw new ApiError(
+      'Something went wrong on our side. Please try again shortly.',
+      response.status,
+      'invalid_json',
+    )
+  }
 }

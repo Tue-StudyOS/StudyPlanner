@@ -2,13 +2,15 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../features/auth'
 import type { Course, CourseTermType } from '../../features/courses'
 import type { OfferingStatus } from '../../features/courses/utils/catalogOffering.ts'
+import { getDetailSeasonTermType } from '../../features/courses/utils/catalogOffering.ts'
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
+import { buildCourseSeasonIconTitle } from '../../features/courses/utils/courseOfferingLabel.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
-import type { SeasonGlyphMotif, SeasonGlyphTone } from '../../shared/components/seasonSymbolStyles.ts'
+import { SeasonSymbol } from './SeasonSymbol.tsx'
 import { FavStar } from './FavStar'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation.ts'
 
@@ -27,9 +29,6 @@ interface CourseCardProps {
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
-  // Overrides the watermark's catalog-muted default tone per card.
-  seasonTone?: SeasonGlyphTone
-  seasonMotif?: SeasonGlyphMotif
   regulationRuleGroups?: RegulationRuleGroup[]
   isAreaTagActive?: (areaCode: string) => boolean
   onAreaTagClick?: (areaCode: string) => void
@@ -61,8 +60,6 @@ export function CourseCard({
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
-  seasonTone,
-  seasonMotif,
   regulationRuleGroups = [],
   isAreaTagActive,
   onAreaTagClick,
@@ -86,19 +83,37 @@ export function CourseCard({
     ? null
     : Number.isInteger(course.ects) ? String(course.ects) : course.ects.toFixed(1)
   const visibility = getCompletedCourseCardVisibility(isCompleted)
-  const secondaryVisibilityClass = visibility.showSecondaryDetails ? '' : 'invisible pointer-events-none select-none'
+  const footerTags = visibility.showSecondaryDetails
+    ? [
+        ...areaTags.map((tag) => ({ kind: 'area' as const, tag })),
+        ...(offeringStatus === 'unknown'
+          ? [{ kind: 'status' as const }]
+          : []),
+      ]
+    : []
 
   const cardClassName = `group relative flex h-full min-h-[7rem] cursor-pointer flex-col gap-2 overflow-hidden rounded-[10px] border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${borderClasses} ${
     isDimmed ? 'opacity-60' : ''
   }`
   const accessibleLabel = `Open course details: ${title}`
 
+  const resolvedSeasonTermType = seasonTermType ?? course.termType
+  const glyphTermType = (() => {
+    if (resolvedSeasonTermType && resolvedSeasonTermType !== 'unknown') {
+      return resolvedSeasonTermType
+    }
+    const detailTermType = getDetailSeasonTermType(course)
+    return detailTermType !== 'unknown' ? detailTermType : resolvedSeasonTermType
+  })()
+  const seasonIconTitle = buildCourseSeasonIconTitle(glyphTermType, {
+    summer: t('catalog.seasonIcon.summer'),
+    winter: t('catalog.seasonIcon.winter'),
+    both: t('catalog.seasonIcon.both'),
+  })
+
   const cardContent = (
     <>
       <SeasonGlyphWatermark
-        termType={seasonTermType ?? course.termType}
-        tone={seasonTone}
-        motif={seasonMotif}
         overlay={
           showFavorite ? (
             // The overlay slot is pointer-events-none so card clicks pass
@@ -116,7 +131,7 @@ export function CourseCard({
           ) : undefined
         }
       />
-      <div className="relative flex min-w-0 items-start gap-2">
+      <div className="relative flex min-w-0 items-start gap-2 pr-8">
         <div className="min-w-0 flex-1">
           <h3 className="min-w-0 break-words text-[15.5px] font-semibold leading-tight text-fg transition-colors group-hover:text-primary overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:overflow-visible sm:[display:block]">
             {title}
@@ -138,24 +153,38 @@ export function CourseCard({
         </div>
       </div>
 
-      <div className="relative mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        {/* On phones the study-area tags drop to their own bottom line so the
-            ECTS value can stay right-aligned next to the season/type tags. */}
-        <span className={`order-last flex w-full flex-wrap items-center gap-0.75 sm:order-none sm:w-auto ${secondaryVisibilityClass}`}>
-          {areaTags.map((tag) => (
-            <AreaBadge
-              key={tag.key}
-              label={tag.label}
-              masterCat={tag.masterCat}
-              active={isAreaTagActive?.(tag.key) ?? false}
-              onClick={onAreaTagClick ? () => onAreaTagClick(tag.key) : undefined}
-            />
-          ))}
-          <OfferingStatusTag status={offeringStatus} />
-        </span>
-        <span className="flex-1" />
+      <div className="relative mt-auto flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1.5 sm:gap-y-1.5">
+        {footerTags.length > 0 ? (
+          <span className="flex flex-wrap items-center gap-0.75">
+            {footerTags.map((entry) =>
+              entry.kind === 'area' ? (
+                <AreaBadge
+                  key={entry.tag.key}
+                  label={entry.tag.label}
+                  masterCat={entry.tag.masterCat}
+                  active={isAreaTagActive?.(entry.tag.key) ?? false}
+                  onClick={onAreaTagClick ? () => onAreaTagClick(entry.tag.key) : undefined}
+                />
+              ) : (
+                <OfferingStatusTag key="offering-status" status={offeringStatus} />
+              ),
+            )}
+          </span>
+        ) : null}
         {ectsLabel ? (
-          <span className="shrink-0 text-[13px] font-bold text-fg">
+          <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
+            <span
+              className="inline-flex shrink-0"
+              {...(seasonIconTitle ? { title: seasonIconTitle, 'aria-label': seasonIconTitle } : {})}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <SeasonSymbol
+                termType={glyphTermType}
+                tone="seasonal"
+                className="h-4 w-4 shrink-0"
+              />
+            </span>
             {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
           </span>
         ) : null}

@@ -71,6 +71,22 @@ WEEKDAY_PREFIX_RE = re.compile(r"^\s*(Mo\.|Di\.|Mi\.|Do\.|Fr\.|Sa\.|So\.|Montag|
 COURSE_NUMBER_TITLE_RE = re.compile(r"^([A-Z]{2,}[A-Z0-9./-]*)\s+\S")
 COURSE_TYPE_TITLE_RE = re.compile(r"\s-\s([^\W\d_][^\d]{1,38})$", re.UNICODE)
 
+# ALMA leaves the group-level "Veranstaltungsart" empty, but when a course splits a
+# lecture, its exercise and its exam into separate parallel groups, the role is written
+# into the group title (e.g. "Analysis (Übung) (2. Parallelgruppe)"). Deriving it lets the
+# planner separate the always-attended lecture from the exercise/tutorial the student picks
+# one of. Ordered by priority so "Nachklausur" wins over the "Klausur" it contains.
+PARALLEL_GROUP_ROLE_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"nachklausur|wiederholung.*klausur", re.IGNORECASE), "Nachklausur"),
+    (re.compile(r"klausur", re.IGNORECASE), "Klausur"),
+    (re.compile(r"vorlesung", re.IGNORECASE), "Vorlesung"),
+    (re.compile(r"[uü]bung", re.IGNORECASE), "Übung"),
+    (re.compile(r"tutorium", re.IGNORECASE), "Tutorium"),
+    (re.compile(r"praktikum", re.IGNORECASE), "Praktikum"),
+    (re.compile(r"repetitorium", re.IGNORECASE), "Repetitorium"),
+    (re.compile(r"seminar", re.IGNORECASE), "Seminar"),
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -402,7 +418,8 @@ def _emit_course(
             "course_id": course_id,
             "position": group_position,
             "title": group.get("title"),
-            "group_type": group_fields.get("Veranstaltungsart"),
+            "group_type": group_fields.get("Veranstaltungsart")
+            or derive_parallel_group_role(group.get("title")),
             "language": group_fields.get("Sprache"),
             "responsible_text": group_fields.get("Verantwortliche/-r"),
             "max_participants": _maybe_int(group_fields.get("Maximale Teilnehmerzahl")),
@@ -487,6 +504,19 @@ def derive_course_type_from_title(title: str | None) -> str | None:
         return None
     match = COURSE_TYPE_TITLE_RE.search(title.strip())
     return match.group(1).strip() if match else None
+
+
+def derive_parallel_group_role(group_title: str | None) -> str | None:
+    """Read a parallel group's teaching role (Vorlesung, Übung, Klausur, ...) from its
+    title, scanning the whole string so a leading "Nachklausur zu ..." or a trailing
+    "(Übung)" are both caught. Returns None when the title carries no role marker, so the
+    caller keeps ALMA's own value (or the course type) as the fallback."""
+    if not group_title:
+        return None
+    for pattern, role in PARALLEL_GROUP_ROLE_RULES:
+        if pattern.search(group_title):
+            return role
+    return None
 
 
 def _maybe_int(value: object) -> int | None:
