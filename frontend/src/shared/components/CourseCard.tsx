@@ -24,6 +24,7 @@ interface CourseCardProps {
   isActive?: boolean
   isCompleted?: boolean
   favoriteDisabled?: boolean
+  favoriteLoading?: boolean
   showFavorite?: boolean
   offeringStatus?: OfferingStatus
   // Overrides the raw course.termType so callers can align season tags with
@@ -57,6 +58,7 @@ export function CourseCard({
   isActive = false,
   isCompleted = false,
   favoriteDisabled = false,
+  favoriteLoading = false,
   showFavorite = true,
   offeringStatus = 'confirmed',
   seasonTermType,
@@ -126,7 +128,12 @@ export function CourseCard({
               }}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+              <FavStar
+                active={isFavorite}
+                disabled={favoriteDisabled}
+                isLoading={favoriteLoading}
+                onToggle={onToggleFavorite}
+              />
             </div>
           ) : undefined
         }

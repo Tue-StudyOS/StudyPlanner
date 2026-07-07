@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import type { CompletedCourse, Course } from '../../courses'
 import { cleanCourseTitle, formatCourseTypeLabel } from '../../courses'
 import { buildCourseAreaTags } from '../../courses/utils/courseCardDisplay.ts'
-import { encodeCatalogDetailSegment } from '../../courses/utils/catalogDetailRoute.ts'
 import { ROUTES } from '../../routes'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { AreaBadge } from '../../../shared/components/AreaBadge'
@@ -26,7 +25,9 @@ function CandidateCard({
   activeSemesterLabel,
   hiddenSlotIds,
   onAddCourse,
+  onOpenCourse,
   onToggleFavorite,
+  isFavoriteSaving,
   onSelectTutorialSlot,
 }: {
   candidate: PlannerFavoriteCandidate
@@ -34,7 +35,9 @@ function CandidateCard({
   activeSemesterLabel: string
   hiddenSlotIds: string[]
   onAddCourse: (courseId: string, areaCode: string | null) => void
+  onOpenCourse: (courseId: string) => void
   onToggleFavorite: (courseId: string) => void
+  isFavoriteSaving: (courseId: string) => boolean
   onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }) {
   const { t } = useTranslation()
@@ -147,14 +150,19 @@ function CandidateCard({
         </div>
 
         <div className="flex shrink-0 items-start gap-1" onClick={(event) => event.stopPropagation()}>
-          <Link
-            to={`${ROUTES.catalog}/${encodeCatalogDetailSegment(course.id)}`}
+          <button
+            type="button"
+            onClick={() => onOpenCourse(course.id)}
             aria-label={t('planner.favorites.openCourseDetail')}
             className="flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-surface-hover hover:text-primary"
           >
             <InfoIcon size={15} />
-          </Link>
-          <FavStar active onToggle={() => onToggleFavorite(course.id)} />
+          </button>
+          <FavStar
+            active
+            isLoading={isFavoriteSaving(course.id)}
+            onToggle={() => onToggleFavorite(course.id)}
+          />
         </div>
       </div>
     </div>
@@ -178,7 +186,9 @@ interface PlannerFavoritesPanelProps {
   catalogTo?: string
   onSetAssignment: (courseId: string, areaCode: string | null) => void
   onAddCourse: (courseId: string, areaCode: string | null) => void
+  onOpenCourse: (courseId: string) => void
   onToggleFavorite: (courseId: string) => void
+  isFavoriteSaving: (courseId: string) => boolean
   hiddenSlotIds: string[]
   onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }
@@ -200,7 +210,9 @@ export function PlannerFavoritesPanel({
   catalogTo = ROUTES.catalog,
   onSetAssignment,
   onAddCourse,
+  onOpenCourse,
   onToggleFavorite,
+  isFavoriteSaving,
   hiddenSlotIds,
   onSelectTutorialSlot,
 }: PlannerFavoritesPanelProps) {
@@ -259,7 +271,9 @@ export function PlannerFavoritesPanel({
                   activeSemesterLabel={activeSemesterLabel}
                   hiddenSlotIds={hiddenSlotIds}
                   onAddCourse={onAddCourse}
+                  onOpenCourse={onOpenCourse}
                   onToggleFavorite={onToggleFavorite}
+                  isFavoriteSaving={isFavoriteSaving}
                   onSelectTutorialSlot={onSelectTutorialSlot}
                 />
               </div>

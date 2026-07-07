@@ -6,6 +6,7 @@ export interface FavoritesContextValue {
   isSavingFavorites: boolean
   favoritesError: string | null
   isFavorite: (courseId: string) => boolean
+  isFavoriteSaving: (courseId: string) => boolean
   toggleFavorite: (courseId: string) => void
 }
 

@@ -278,7 +278,7 @@ export function CoursesOverview() {
   const { courses, isLoading, error, refreshWarning } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
-  const { isFavorite, isLoadingFavorites, isSavingFavorites, favoritesError, toggleFavorite } =
+  const { isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
   const { progressSnapshot } = useProgressSnapshot()
@@ -840,7 +840,8 @@ export function CoursesOverview() {
                               historicalLecturerLookup,
                             )
                       }
-                      favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
+                      favoriteDisabled={isTourSampleRow || isLoadingFavorites}
+                      favoriteLoading={!isTourSampleRow && isFavoriteSaving(course.id)}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
                       seasonTermType={isTourSampleRow ? course.termType : detailSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
@@ -872,7 +873,8 @@ export function CoursesOverview() {
           courseId={openCourseId}
           listCourse={courses.find((course) => course.id === openCourseId) ?? null}
           isFavorite={isFavorite(openCourseId)}
-          favoriteDisabled={isLoadingFavorites || isSavingFavorites}
+          favoriteDisabled={isLoadingFavorites}
+          favoriteLoading={isFavoriteSaving(openCourseId)}
           showFavorite={canShowFavorites}
           onToggleFavorite={() => toggleFavorite(openCourseId)}
           onClose={() => navigate(catalogBasePath)}
