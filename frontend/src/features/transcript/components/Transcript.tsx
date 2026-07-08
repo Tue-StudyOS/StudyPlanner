@@ -95,6 +95,7 @@ function AuthenticatedTranscript() {
     importCompletedCourses,
     removeCourse,
     removeTranscriptImports,
+    clearTranscriptData,
     clearCompletedCoursesError,
   } = useTranscript()
   const {
@@ -445,13 +446,21 @@ function AuthenticatedTranscript() {
   }
 
   async function handleClearAll(): Promise<void> {
-    resetImportReview()
-    await clearPersistedIssues()
-    if (completedCourses.length > 0) {
-      for (const course of completedCourses) {
-        await removeCourse(course.id)
-      }
+    clearCompletedCoursesError()
+    setImportError(null)
+    setIssuesError(null)
+    setImportNotice(null)
+
+    const cleared = await clearTranscriptData()
+    if (!cleared) {
+      return
     }
+
+    setImportCandidates([])
+    setImportPhase('idle')
+    setPersistedIssues([])
+    setIssueDraftDirty(false)
+    setImportNotice('Removed all transcript data from your account.')
   }
 
   function handleImportCurrentReview(): void {

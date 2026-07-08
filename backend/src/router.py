@@ -66,6 +66,7 @@ from services.user_transcript_issues import (
     get_current_user_transcript_issues,
     replace_current_user_transcript_issues,
 )
+from services.user_transcript_data import clear_current_user_transcript_data
 from services.user_semester_plans import (
     SemesterPlanUpdateError,
     delete_current_user_semester_plan,
@@ -374,6 +375,13 @@ async def route_request(request: Any, env: Any) -> Any:
                 return json_response(transcript_issues, request=request, env=env)
             return _method_not_allowed_response(request, env)
 
+        if path == "/api/me/transcript-data":
+            if method != "DELETE":
+                return _method_not_allowed_response(request, env)
+
+            transcript_data = await clear_current_user_transcript_data(env, request)
+            return json_response(transcript_data, request=request, env=env)
+
         if path == "/api/me/semester-plans":
             if method != "GET":
                 return _method_not_allowed_response(request, env)
@@ -471,6 +479,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "completedCourses": "/api/me/completed-courses",
                         "completedCoursesImport": "/api/me/completed-courses/import",
                         "transcriptIssues": "/api/me/transcript-issues",
+                        "transcriptData": "/api/me/transcript-data",
                         "semesterPlans": "/api/me/semester-plans",
                         "semesterPlanBalance": "/api/me/semester-plans/<semester_label>/balance",
                         "progress": "/api/me/progress",

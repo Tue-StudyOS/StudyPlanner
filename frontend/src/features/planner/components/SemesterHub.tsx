@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { StatItem } from '../../../shared/components/StatItem'
@@ -10,18 +11,26 @@ import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { semesterPath } from '../../routes'
 import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
+import { fetchSemesterPlan } from '../api'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
-import { buildSemesterCardStats } from '../utils/semesterCardStats.ts'
+import { buildSemesterCardStats, type SemesterCardPlanDetails } from '../utils/semesterCardStats.ts'
 import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const isSemesterHubTour = isOnboardingOpen && isSemesterHubTourStep(activeStepId)
   const { progressSnapshot } = useProgressSnapshot()
-  const { semesterOptions, savedPlans } = useSemesterPlanner()
+  const {
+    activeSemesterLabel,
+    semesterOptions,
+    savedPlans,
+    plannedCourseIds,
+    planAssignments,
+    savedPlan,
+  } = useSemesterPlanner()
   const { completedCourses } = useTranscript()
   const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
   const isMobileSemesterList = useMediaQuery('(max-width: 960px)')
@@ -29,6 +38,69 @@ export function SemesterHub() {
   const displayedSemesterOptions = isMobileSemesterList
     ? [...semesterOptions].reverse()
     : semesterOptions
+  const savedPlanLabels = useMemo(() => {
+    const labels = new Set<string>()
+    for (const plan of savedPlans) {
+      const normalizedLabel = plan.semesterLabel.trim()
+      if (normalizedLabel) {
+        labels.add(normalizedLabel)
+      }
+    }
+    return [...labels].sort((left, right) => left.localeCompare(right, 'de'))
+  }, [savedPlans])
+  const [savedPlanDetailsBySemester, setSavedPlanDetailsBySemester] = useState<Record<string, SemesterCardPlanDetails>>({})
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadSavedPlanDetails(): Promise<void> {
+      if (!token || savedPlanLabels.length === 0) {
+        setSavedPlanDetailsBySemester({})
+        return
+      }
+
+      const entries = await Promise.all(
+        savedPlanLabels.map(async (semesterLabel) => {
+          try {
+            return [semesterLabel, await fetchSemesterPlan(token, semesterLabel)] as const
+          } catch {
+            return [semesterLabel, null] as const
+          }
+        }),
+      )
+      if (!isActive) {
+        return
+      }
+
+      const nextDetailsBySemester: Record<string, SemesterCardPlanDetails> = {}
+      for (const [semesterLabel, plan] of entries) {
+        if (plan) {
+          nextDetailsBySemester[semesterLabel] = {
+            courseIds: plan.courseIds,
+            courseAssignments: plan.courseAssignments,
+          }
+        }
+      }
+      setSavedPlanDetailsBySemester(nextDetailsBySemester)
+    }
+
+    void loadSavedPlanDetails()
+
+    return () => {
+      isActive = false
+    }
+  }, [savedPlanLabels, token])
+
+  const planDetailsBySemester = useMemo(() => {
+    const nextDetailsBySemester = { ...savedPlanDetailsBySemester }
+    if (savedPlan || plannedCourseIds.length > 0 || Object.keys(planAssignments).length > 0) {
+      nextDetailsBySemester[activeSemesterLabel] = {
+        courseIds: plannedCourseIds,
+        courseAssignments: planAssignments,
+      }
+    }
+    return nextDetailsBySemester
+  }, [activeSemesterLabel, planAssignments, plannedCourseIds, savedPlan, savedPlanDetailsBySemester])
 
   const displayStats = isSemesterHubTour
     ? TOUR_SEMESTER_HUB_STATS
@@ -114,6 +186,7 @@ export function SemesterHub() {
                 completedCourses,
                 catalogCourses,
                 {},
+                planDetailsBySemester,
               )}
             />
           ))}

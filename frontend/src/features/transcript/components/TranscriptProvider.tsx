@@ -4,7 +4,12 @@ import { ApiError } from '../../../shared/utils/api'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import type { CompletedCourse, MasterCat } from '../../courses'
-import { fetchCompletedCourses, importCompletedCourses, saveCompletedCourses } from '../api'
+import {
+  clearTranscriptData as clearTranscriptDataRequest,
+  fetchCompletedCourses,
+  importCompletedCourses,
+  saveCompletedCourses,
+} from '../api'
 import { TranscriptContext } from '../TranscriptContext'
 import type {
   BulkCompletedCourseImportItem,
@@ -281,6 +286,37 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return persistResult.saved
   }
 
+  async function clearTranscriptData(): Promise<boolean> {
+    if (!token) {
+      const errorMessage = 'Sign in to clear transcript data.'
+      setCompletedCoursesError(errorMessage)
+      return false
+    }
+
+    const previousCompletedCourses = completedCourses
+    setCompletedCourses([])
+    writeSessionCache('private:completed-courses', [], userCacheKey)
+    setCompletedCoursesError(null)
+    setIsSavingCompletedCourses(true)
+
+    try {
+      const result = await clearTranscriptDataRequest(token)
+      setCompletedCourses(result.completedCourses)
+      writeSessionCache('private:completed-courses', result.completedCourses, userCacheKey)
+      invalidateSessionCache('private:progress', userCacheKey)
+      invalidateSessionCache('private:planner', userCacheKey)
+      return true
+    } catch (error) {
+      const errorMessage = normalizeErrorMessage(error)
+      setCompletedCourses(previousCompletedCourses)
+      writeSessionCache('private:completed-courses', previousCompletedCourses, userCacheKey)
+      setCompletedCoursesError(errorMessage)
+      return false
+    } finally {
+      setIsSavingCompletedCourses(false)
+    }
+  }
+
   async function setCategory(courseId: string, masterCat: MasterCat): Promise<boolean> {
     const persistResult = await persistCompletedCourses(
       completedCourses.map((course) =>
@@ -315,6 +351,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
         importCompletedCourses: importCompletedCourseItems,
         removeCourse,
         removeTranscriptImports,
+        clearTranscriptData,
         setCategory,
         updateCourse,
         clearCompletedCoursesError,
