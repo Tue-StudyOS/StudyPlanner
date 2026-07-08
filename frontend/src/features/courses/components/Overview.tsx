@@ -32,7 +32,7 @@ import {
   extractCatalogDetailCourseId,
 } from '../utils/catalogDetailRoute.ts'
 import {
-  getDetailSeasonTermType,
+  getCatalogCardSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
   getOutdatedOfferingSortRank,
@@ -300,13 +300,13 @@ export function CoursesOverview() {
     }
     return termTypeMap
   }, [courses, knownPeriodLabels])
-  const detailSeasonTermTypeByCourseId = useMemo(() => {
+  const cardSeasonTermTypeByCourseId = useMemo(() => {
     const termTypeMap = new Map<string, CourseTermType>()
     for (const course of courses) {
-      termTypeMap.set(course.id, getDetailSeasonTermType(course))
+      termTypeMap.set(course.id, getCatalogCardSeasonTermType(course, knownPeriodLabels))
     }
     return termTypeMap
-  }, [courses])
+  }, [courses, knownPeriodLabels])
 
   const completedByCatalogCourseId = useMemo(() => {
     const map = new Map<string, CompletedCourse>()
@@ -843,7 +843,7 @@ export function CoursesOverview() {
                       favoriteDisabled={isTourSampleRow || isLoadingFavorites || isSavingFavorites}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
-                      seasonTermType={isTourSampleRow ? course.termType : detailSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
+                      seasonTermType={isTourSampleRow ? course.termType : cardSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
                       onAreaTagClick={handleAreaFilterSelect}

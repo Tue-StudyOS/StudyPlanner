@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  getCatalogCardSeasonTermType,
   getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
@@ -100,6 +101,21 @@ test('getLatestKnownSeasonTermType uses the newest known catalog period for each
   assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Winter 2025/26'] }, KNOWN_PERIODS), 'winter')
   assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Winter 2024/25'] }, KNOWN_PERIODS), 'unknown')
   assert.equal(getLatestKnownSeasonTermType({ offeredPeriods: ['Sommer 2025'] }, KNOWN_PERIODS), 'unknown')
+})
+
+test('getCatalogCardSeasonTermType keeps icons for courses confirmed in the newest catalog term', () => {
+  assert.equal(
+    getCatalogCardSeasonTermType({ termType: 'unknown', offeredPeriods: ['Sommer 2026'] }, KNOWN_PERIODS, NOW),
+    'summer',
+  )
+  assert.equal(
+    getCatalogCardSeasonTermType({ termType: 'unknown', offeredPeriods: ['Winter 2025/26'] }, KNOWN_PERIODS, NOW),
+    'winter',
+  )
+  assert.equal(
+    getCatalogCardSeasonTermType({ termType: 'both', offeredPeriods: [] }, KNOWN_PERIODS, NOW),
+    'both',
+  )
 })
 
 test('catalog offering display helpers keep likely courses in normal order', () => {

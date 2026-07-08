@@ -46,8 +46,15 @@ const SUN_RAYS: LineSegment[] = [0, 45, 90, 135, 180, 225, 270, 315].map((angle)
   to: polarPoint(9.4, angle),
 }))
 
-// One snowflake arm: a spoke from the center with a small outward V-branch.
-function buildSnowflakeArm(angle: number): LineSegment[] {
+function pathMoveTo(point: Point): string {
+  return `M${point.x} ${point.y}`
+}
+
+function pathLineTo(point: Point): string {
+  return `L${point.x} ${point.y}`
+}
+
+function buildSnowflakeBranchPath(angle: number): string {
   const branchBase = polarPoint(5.4, angle)
   const branchTip = (offset: number): Point => {
     const radians = ((angle + offset) * Math.PI) / 180
@@ -56,15 +63,31 @@ function buildSnowflakeArm(angle: number): LineSegment[] {
       y: Math.round((branchBase.y + 2.6 * Math.sin(radians)) * 100) / 100,
     }
   }
+
+  // A continuous V avoids the visible rounded end-cap seams that iOS Safari
+  // can show when every snowflake piece is painted as a separate SVG line.
   return [
-    { from: polarPoint(0, angle), to: polarPoint(9.3, angle) },
-    { from: branchBase, to: branchTip(-45) },
-    { from: branchBase, to: branchTip(45) },
-  ]
+    pathMoveTo(branchTip(-45)),
+    pathLineTo(branchBase),
+    pathLineTo(branchTip(45)),
+  ].join('')
 }
 
-// Six spokes, each with a small outward V-branch, form a minimalist snowflake.
-const SNOWFLAKE_LINES: LineSegment[] = [90, 150, 210, 270, 330, 30].flatMap(buildSnowflakeArm)
+function buildSnowflakeArmPath(angle: number): string {
+  return [pathMoveTo(polarPoint(0, angle)), pathLineTo(polarPoint(9.3, angle))].join('')
+}
+
+function buildSnowflakeSpokePath(angle: number): string {
+  return [pathMoveTo(polarPoint(9.3, angle)), pathLineTo(polarPoint(9.3, angle + 180))].join('')
+}
+
+// One compound path keeps the watermark visually solid on iOS Safari. Painting
+// many overlapping semi-transparent <line> elements made the individual
+// snowflake pieces visible on small iPhones while desktop browsers looked fine.
+const SNOWFLAKE_PATH = [
+  ...[90, 150, 210].map(buildSnowflakeSpokePath),
+  ...[90, 150, 210, 270, 330, 30].map(buildSnowflakeBranchPath),
+].join('')
 
 // Fused "both" glyph: half sun upper-left, half snowflake lower-right, split
 // by a sharp top-right→bottom-left cut. SVG polar angles (0° = right, y down):
@@ -75,7 +98,10 @@ const FUSED_SUN_RAYS: LineSegment[] = [270, 225, 180, 135].map((angle) => ({
   to: polarPoint(9.4, angle),
 }))
 
-const FUSED_SNOWFLAKE_LINES: LineSegment[] = [90, 30, 330].flatMap(buildSnowflakeArm)
+const FUSED_SNOWFLAKE_PATH = [
+  ...[90, 30, 330].map(buildSnowflakeArmPath),
+  ...[90, 30, 330].map(buildSnowflakeBranchPath),
+].join('')
 
 // Open arc through the upper-left (no closing chord). It runs clearly past
 // the down-left ray (135°→~125°) but stops short of the diagonal at the top
@@ -115,15 +141,15 @@ function SunGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale: boole
 
 function SnowflakeGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScale: boolean }) {
   return (
-    <g
+    <path
       className={snowflakeColorClass(tone, grayScale)}
+      d={SNOWFLAKE_PATH}
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinecap="round"
+      strokeLinejoin="round"
       fill="none"
-    >
-      <Lines segments={SNOWFLAKE_LINES} />
-    </g>
+    />
   )
 }
 
@@ -140,15 +166,15 @@ function FusedSeasonGlyph({ tone, grayScale }: { tone: SeasonGlyphTone; grayScal
         <path d={FUSED_SUN_ARC_PATH} />
         <Lines segments={FUSED_SUN_RAYS} />
       </g>
-      <g
+      <path
         className={snowflakeColorClass(tone, grayScale)}
+        d={FUSED_SNOWFLAKE_PATH}
         stroke="currentColor"
         strokeWidth={1.4}
         strokeLinecap="round"
+        strokeLinejoin="round"
         fill="none"
-      >
-        <Lines segments={FUSED_SNOWFLAKE_LINES} />
-      </g>
+      />
     </>
   )
 }

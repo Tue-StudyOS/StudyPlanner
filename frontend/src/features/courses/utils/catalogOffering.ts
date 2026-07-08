@@ -223,6 +223,17 @@ export function getLatestKnownSeasonTermType(
   return 'unknown'
 }
 
+export function getCatalogCardSeasonTermType(
+  course: Pick<Course, 'termType' | 'offeredPeriods'>,
+  knownPeriodLabels: string[],
+  now: Date = new Date(),
+): CourseTermType {
+  const latestKnownTermType = getLatestKnownSeasonTermType(course, knownPeriodLabels)
+  return latestKnownTermType !== 'unknown'
+    ? latestKnownTermType
+    : getDetailSeasonTermType(course, now)
+}
+
 export function getRecentSeasonTermType(
   course: Pick<Course, 'offeredPeriods'>,
   now: Date = new Date(),
