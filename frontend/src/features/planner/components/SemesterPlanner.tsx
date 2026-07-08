@@ -68,7 +68,7 @@ export function SemesterPlanner({
   const { isAuthenticated, token, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
-  const { favoriteIds, toggleFavorite } = useFavorites()
+  const { favoriteIds, isFavoriteSaving, toggleFavorite } = useFavorites()
   const {
     completedCourses,
     isLoadingCompletedCourses,
@@ -290,6 +290,13 @@ export function SemesterPlanner({
     }
   }
 
+  function handleOpenFavoriteCourse(courseId: string): void {
+    setOpenCourseId(courseId)
+    if (isSmallViewport) {
+      setIsAddDrawerOpen(false)
+    }
+  }
+
   function handleAddManualSlot(slot: ManualPlannerSlot): void {
     if (!plannedCourseIds.includes(slot.courseId)) {
       setPlannedCourseIds([...plannedCourseIds, slot.courseId])
@@ -452,7 +459,9 @@ export function SemesterPlanner({
       maxVisibleCandidates={isPlannerMobileInterestedTour ? 2 : undefined}
       onSetAssignment={setAssignment}
       onAddCourse={handleInterestedCourseAdd}
+      onOpenCourse={handleOpenFavoriteCourse}
       onToggleFavorite={toggleFavorite}
+      isFavoriteSaving={isFavoriteSaving}
       hiddenSlotIds={displayHiddenSlotIds}
       onSelectTutorialSlot={handleTutorialSlotSelect}
     />

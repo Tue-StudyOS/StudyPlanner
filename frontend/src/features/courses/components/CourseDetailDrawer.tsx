@@ -17,6 +17,7 @@ interface CourseDetailDrawerProps {
   listCourse?: Course | null
   isFavorite: boolean
   favoriteDisabled?: boolean
+  favoriteLoading?: boolean
   showFavorite?: boolean
   onToggleFavorite: () => void
   onClose: () => void
@@ -27,6 +28,7 @@ export function CourseDetailDrawer({
   listCourse = null,
   isFavorite,
   favoriteDisabled = false,
+  favoriteLoading = false,
   showFavorite = true,
   onToggleFavorite,
   onClose,
@@ -78,7 +80,12 @@ export function CourseDetailDrawer({
           </span>
           <div className="flex items-center gap-1.5">
             {showFavorite ? (
-              <FavStar active={isFavorite} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+              <FavStar
+                active={isFavorite}
+                disabled={favoriteDisabled}
+                isLoading={favoriteLoading}
+                onToggle={onToggleFavorite}
+              />
             ) : null}
             <button
               type="button"

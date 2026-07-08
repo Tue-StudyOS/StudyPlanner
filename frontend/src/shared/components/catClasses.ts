@@ -2,11 +2,11 @@ import type { MasterCat } from '../../features/courses'
 
 /** Muted area tints — readable category hint without loud saturation. */
 export const CAT_BADGE_CLASSES: Record<MasterCat, string> = {
-  TECH: 'text-cat-tech/45 border-cat-tech/18 bg-cat-tech/5',
-  THEO: 'text-cat-theo/42 border-cat-theo/16 bg-cat-theo/4',
-  PRAK: 'text-cat-prak/45 border-cat-prak/18 bg-cat-prak/5',
-  INFO: 'text-cat-info/55 border-cat-info/25 bg-cat-info/10 dark:text-[#c4a8e8] dark:border-[#9b7cc4]/45 dark:bg-cat-info/20',
-  BASIS: 'text-cat-basis/42 border-cat-basis/16 bg-cat-basis/4',
+  TECH: 'border-[#B8D9E6] bg-[#EEF8FB] text-[#315F73] dark:border-[#4A6470] dark:bg-[#253239] dark:text-[#A8C7D3]',
+  THEO: 'border-[#EBC3D6] bg-[#FCF0F5] text-[#8A4968] dark:border-[#714B5E] dark:bg-[#382932] dark:text-[#D8A9C0]',
+  PRAK: 'border-[#B7E1DA] bg-[#EFF9F6] text-[#3D6E66] dark:border-[#486B65] dark:bg-[#263633] dark:text-[#A8D2CA]',
+  INFO: 'border-[#D3C4E6] bg-[#F6F1FB] text-[#654F83] dark:border-[#5E526F] dark:bg-[#302A39] dark:text-[#C4B4D9]',
+  BASIS: 'border-[#E8C7C4] bg-[#FCF1EF] text-[#8A504B] dark:border-[#704F4B] dark:bg-[#392B29] dark:text-[#D9ABA6]',
 }
 
 /** Matches tag intensity — soft fills for credited ECTS in the auto-assign panel. */
@@ -49,4 +49,4 @@ export function catProgressPlannedStyle(masterCat: MasterCat | null): {
     opacity: 0.22,
   }
 }
-
+

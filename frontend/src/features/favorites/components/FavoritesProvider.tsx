@@ -5,6 +5,7 @@ import { useAuth } from '../../auth'
 import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
 import { FavoritesContext } from '../FavoritesContext'
+import { toggleFavoriteId, updateSavingFavoriteIds } from '../utils/favoriteIds.ts'
 
 interface FavoritesProviderProps {
   children: ReactNode
@@ -25,8 +26,9 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
   const userCacheKey = user?.username ?? 'anonymous'
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
   const [isLoadingFavorites, setIsLoadingFavorites] = useState<boolean>(false)
-  const [isSavingFavorites, setIsSavingFavorites] = useState<boolean>(false)
+  const [savingFavoriteCourseIds, setSavingFavoriteCourseIds] = useState<string[]>([])
   const [favoritesError, setFavoritesError] = useState<string | null>(null)
+  const isSavingFavorites = savingFavoriteCourseIds.length > 0
 
   useEffect(() => {
     let isActive = true
@@ -69,21 +71,23 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
   }, [token])
 
   const isFavorite = (courseId: string): boolean => favoriteIds.includes(courseId)
+  const isFavoriteSaving = (courseId: string): boolean => savingFavoriteCourseIds.includes(courseId)
 
   const toggleFavorite = (courseId: string): void => {
     if (!token) {
       setFavoritesError('Sign in to save interested courses across devices.')
       return
     }
+    if (savingFavoriteCourseIds.includes(courseId)) {
+      return
+    }
 
     const previousFavoriteIds = favoriteIds
-    const nextFavoriteIds = favoriteIds.includes(courseId)
-      ? favoriteIds.filter((id) => id !== courseId)
-      : [...favoriteIds, courseId]
+    const nextFavoriteIds = toggleFavoriteId(favoriteIds, courseId)
 
     setFavoriteIds(nextFavoriteIds)
     setFavoritesError(null)
-    setIsSavingFavorites(true)
+    setSavingFavoriteCourseIds((current) => updateSavingFavoriteIds(current, courseId, true))
 
     const isAddingFavorite = nextFavoriteIds.length > previousFavoriteIds.length
 
@@ -103,7 +107,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
         setFavoritesError(normalizeErrorMessage(error))
       })
       .finally(() => {
-        setIsSavingFavorites(false)
+        setSavingFavoriteCourseIds((current) => updateSavingFavoriteIds(current, courseId, false))
       })
   }
 
@@ -115,6 +119,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
         isSavingFavorites,
         favoritesError,
         isFavorite,
+        isFavoriteSaving,
         toggleFavorite,
       }}
     >
