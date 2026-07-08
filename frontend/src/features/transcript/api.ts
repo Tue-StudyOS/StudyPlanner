@@ -17,6 +17,13 @@ interface TranscriptIssuesResponse {
   count: number
 }
 
+interface TranscriptDataClearResponse {
+  completedCourses: CompletedCourse[]
+  transcriptIssues: SavedTranscriptIssue[]
+  completedCourseCount: number
+  transcriptIssueCount: number
+}
+
 interface BulkCompletedCourseImportResponse extends BulkCompletedCourseImportResult {
   importedCount: number
   skippedDuplicateCount: number
@@ -89,4 +96,13 @@ export async function saveTranscriptIssues(
     body: JSON.stringify(payload),
   })
   return response.transcriptIssues
+}
+
+export async function clearTranscriptData(token: string): Promise<TranscriptDataClearResponse> {
+  return await fetchJson<TranscriptDataClearResponse>('/api/me/transcript-data', {
+    method: 'DELETE',
+    headers: {
+      ...createAuthHeaders(token),
+    },
+  })
 }
