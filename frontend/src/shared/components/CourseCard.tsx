@@ -105,6 +105,7 @@ export function CourseCard({
     const detailTermType = getDetailSeasonTermType(course)
     return detailTermType !== 'unknown' ? detailTermType : resolvedSeasonTermType
   })()
+  const hasSeasonIcon = Boolean(glyphTermType && glyphTermType !== 'unknown')
   const seasonIconTitle = buildCourseSeasonIconTitle(glyphTermType, {
     summer: t('catalog.seasonIcon.summer'),
     winter: t('catalog.seasonIcon.winter'),
@@ -171,21 +172,27 @@ export function CourseCard({
             )}
           </span>
         ) : null}
-        {ectsLabel ? (
+        {hasSeasonIcon || ectsLabel ? (
           <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
-            <span
-              className="inline-flex shrink-0"
-              {...(seasonIconTitle ? { title: seasonIconTitle, 'aria-label': seasonIconTitle } : {})}
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <SeasonSymbol
-                termType={glyphTermType}
-                tone="seasonal"
-                className="h-4 w-4 shrink-0"
-              />
-            </span>
-            {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+            {hasSeasonIcon ? (
+              <span
+                className="inline-flex shrink-0"
+                {...(seasonIconTitle ? { title: seasonIconTitle, 'aria-label': seasonIconTitle } : {})}
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <SeasonSymbol
+                  termType={glyphTermType}
+                  tone="seasonal"
+                  className="h-4 w-4 shrink-0"
+                />
+              </span>
+            ) : null}
+            {ectsLabel ? (
+              <>
+                {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
+              </>
+            ) : null}
           </span>
         ) : null}
       </div>
