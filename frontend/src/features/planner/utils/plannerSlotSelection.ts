@@ -2,10 +2,14 @@ import type { Course } from '../../courses'
 import { isSingleDateSlot } from './plannerFeedback.ts'
 
 const TUTORIAL_SLOT_PATTERN = /tutorium|übung|uebung|exercise|tutorial/i
+// Combined course types like "Vorlesung/Übung" carry no per-slot role; such slots
+// must default to lecture (always attended), not to a choosable tutorial.
+const LECTURE_SLOT_PATTERN = /vorlesung|lecture/i
 const MAX_LECTURE_SLOTS = 2
 
 export function isTutorialLikeSlotType(slotType: string): boolean {
-  return TUTORIAL_SLOT_PATTERN.test(slotType.trim())
+  const normalized = slotType.trim()
+  return TUTORIAL_SLOT_PATTERN.test(normalized) && !LECTURE_SLOT_PATTERN.test(normalized)
 }
 
 export interface PlannerSlotOption {

@@ -44,6 +44,12 @@ ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', r
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
 EXAM_SLOT_PATTERN = re.compile(r"\b(klausur|nachklausur|pruefung|prüfung|exam|resit)\b", re.IGNORECASE)
 RESIT_SLOT_PATTERN = re.compile(r"\b(nachklausur|resit)\b", re.IGNORECASE)
+# Appointment notes label the session role when a course keeps every session in one
+# parallel group ("Vorlesung", "Übung", "Plenarübung"). No word boundary around
+# "übung" so compounds like "Plenarübung" match; "vorlesungsfrei" must not count
+# as a lecture marker.
+TUTORIAL_NOTE_PATTERN = re.compile(r"tutorium|tutorial|übung|uebung|exercise", re.IGNORECASE)
+LECTURE_NOTE_PATTERN = re.compile(r"vorlesung(?!sfrei)|lecture", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.
 PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
 # Course numbers are unique and stable across ALMA periods, so they identify the
@@ -233,6 +239,18 @@ def _appointment_slot_type(row: dict[str, Any]) -> str:
         return "Nachklausur"
     if EXAM_SLOT_PATTERN.search(context):
         return "Klausur"
+    # Courses like Probabilistic ML put lecture, exercise and exam into one parallel
+    # group, so the role only exists in the per-appointment note. Check the tutorial
+    # marker first: a note mentioning both ("Übung zur Vorlesung") describes a tutorial.
+    note_context = " ".join(
+        value
+        for value in [_safe_text(row.get("timeNote")), _safe_text(row.get("note"))]
+        if value
+    )
+    if TUTORIAL_NOTE_PATTERN.search(note_context):
+        return "Übung"
+    if LECTURE_NOTE_PATTERN.search(note_context):
+        return "Vorlesung"
     return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
 
 
