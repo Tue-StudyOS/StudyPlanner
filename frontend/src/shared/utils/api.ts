@@ -14,8 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-// Direct workers.dev remains available for local dev via VITE_API_BASE_URL.
-// Deployed Pages apps call same-origin /api/* through the Pages gateway.
+// Deployed Pages apps can call the backend Worker directly via VITE_API_BASE_URL.
 export { getApiBaseUrl } from './apiBaseUrl.ts'
 
 // The body must be consumed exactly once: non-JSON error bodies (e.g. Cloudflare's

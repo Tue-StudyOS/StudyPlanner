@@ -6,24 +6,23 @@ function isLocalDevHostname(hostname: string): boolean {
 
 /**
  * Resolves the API origin for browser requests.
- * Deployed Pages builds use same-origin `/api/*` (no CORS). Local dev uses
- * `VITE_API_BASE_URL` when set, otherwise the local Worker.
+ * A configured base URL wins for deployed builds so the browser can call the
+ * backend Worker directly. Local dev falls back to the local Worker.
  */
-export function getApiBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    const configuredBaseUrl = import.meta.env?.VITE_API_BASE_URL?.trim()
-    return configuredBaseUrl ? configuredBaseUrl.replace(/\/$/, '') : ''
+export function resolveApiBaseUrl(hostname: string | undefined, configuredBaseUrl: string | undefined): string {
+  const normalizedConfiguredBaseUrl = configuredBaseUrl?.trim()
+  if (normalizedConfiguredBaseUrl) {
+    return normalizedConfiguredBaseUrl.replace(/\/$/, '')
   }
 
-  const hostname = window.location.hostname
-  if (!isLocalDevHostname(hostname)) {
+  if (!hostname || !isLocalDevHostname(hostname)) {
     return ''
   }
 
-  const configuredBaseUrl = import.meta.env?.VITE_API_BASE_URL?.trim()
-  if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, '')
-  }
-
   return LOCAL_API_BASE_URL
+}
+
+export function getApiBaseUrl(): string {
+  const hostname = typeof window === 'undefined' ? undefined : window.location.hostname
+  return resolveApiBaseUrl(hostname, import.meta.env?.VITE_API_BASE_URL)
 }

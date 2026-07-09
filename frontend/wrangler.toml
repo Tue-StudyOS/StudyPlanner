@@ -10,7 +10,11 @@ compatibility_date = "2026-05-21"
 VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 
 [env.production.vars]
-# Intentionally unset — production resolves API calls relative to the Pages host.
+# Use explicit Worker origins in production. Service bindings are kept below as
+# fallback config, but Python Workers currently hang when invoked through the
+# Pages service binding path.
+VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
+STUDYPLANNER_API_ORIGIN = "https://studyplanner-api.ben-tischberger.workers.dev"
 
 [[services]]
 binding = "STUDYPLANNER_API"

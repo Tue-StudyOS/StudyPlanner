@@ -73,7 +73,7 @@ def empty_response(
     headers = build_cors_headers(request, env)
     if extra_headers:
         headers.update(extra_headers)
-    return Response("", status=status, headers=headers)
+    return Response(None, status=status, headers=headers)
 
 
 def html_response(html: str, status: int = 200, max_age: int = 300) -> Response:
