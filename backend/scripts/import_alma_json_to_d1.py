@@ -632,6 +632,13 @@ SEEDED_TABLES_DELETE_ORDER = [
 # category codes (the _categories_json course field). Set-based so the seed
 # links against whatever study_areas / curriculum_modules the target DB holds.
 #
+# curriculum_modules itself is NOT rebuilt here: it was populated once from a
+# now-deleted source file plus manual seed migrations (e.g. 0030 for INFM2020),
+# so category codes without a module row silently produce no match. Planned
+# follow-up: derive curriculum_modules from the scraped program-tree module
+# nodes (catalog_nodes titles like "BSc-INFM2020-21 Veranstaltungen ...") so a
+# reseed refreshes modules without manual migrations.
+#
 # Kept as separate statements (not one blob) because D1's remote import
 # coalesces same-table INSERTs into one compound statement that overflows
 # SQLite's 500-term limit; write_seed_chunks emits one import call per statement.
