@@ -7,6 +7,11 @@ from typing import Any
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one
 
+# Cross-listed courses from other faculties (MAT-95-*, KOG, GTCNEURO, ...) fail the
+# organisation/number test but are deliberately scraped from the degree-program trees;
+# their course_study_area_links row is what marks them as relevant to a study plan.
+# The Informatik leg stays because ~a third of Informatik courses carry no category
+# codes on ALMA and would otherwise vanish from the catalog.
 CATALOG_FILTER_SQL = """
     (
         c.organisation LIKE '%Fachbereich Informatik%'
@@ -14,6 +19,10 @@ CATALOG_FILTER_SQL = """
         OR c.number LIKE 'INFO%'
         OR c.number LIKE 'INFM%'
         OR c.number LIKE 'INFL%'
+        OR EXISTS (
+            SELECT 1 FROM course_study_area_links AS csal
+            WHERE csal.course_id = c.id
+        )
     )
 """
 
