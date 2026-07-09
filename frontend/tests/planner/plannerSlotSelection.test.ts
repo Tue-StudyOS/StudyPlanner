@@ -35,7 +35,13 @@ const sampleCourse: Course = {
 describe('plannerSlotSelection', () => {
   it('detects tutorial-like slot types', () => {
     assert.equal(isTutorialLikeSlotType('Übung'), true)
+    assert.equal(isTutorialLikeSlotType('Plenarübung'), true)
     assert.equal(isTutorialLikeSlotType('Vorlesung'), false)
+  })
+
+  it('treats combined lecture/tutorial types as lecture', () => {
+    assert.equal(isTutorialLikeSlotType('Vorlesung/Übung'), false)
+    assert.equal(isTutorialLikeSlotType('Lecture/Exercise'), false)
   })
 
   it('lists weekly tutorial slots only', () => {

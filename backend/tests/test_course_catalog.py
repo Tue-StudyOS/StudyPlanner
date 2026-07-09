@@ -261,6 +261,59 @@ class BuildScheduleTest(unittest.TestCase):
 
         self.assertEqual(len(_build_schedule(rows)), 2)
 
+    def test_reads_lecture_and_tutorial_role_from_appointment_note(self) -> None:
+        # Probabilistic ML keeps every session in one untyped parallel group; the
+        # role only exists in the per-appointment note.
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "10:00 - 12:00",
+                "roomText": "Hall 25",
+                "groupTitle": "Probabilistic Machine Learning",
+                "note": "Vorlesung",
+                "courseType": "Vorlesung/Übung",
+            },
+            {
+                "dateText": "15.04.2026 - 22.07.2026",
+                "timeText": "12:00 - 14:00",
+                "roomText": "Hall 22",
+                "groupTitle": "Probabilistic Machine Learning",
+                "note": "Plenarübung",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        schedule = _build_schedule(rows)
+        self.assertEqual(schedule[0]["type"], "Vorlesung")
+        self.assertEqual(schedule[1]["type"], "Übung")
+
+    def test_note_mentioning_both_roles_counts_as_tutorial(self) -> None:
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "14:00 - 16:00",
+                "roomText": "C 110",
+                "groupTitle": "Analysis",
+                "note": "Übung zur Vorlesung",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        self.assertEqual(_build_schedule(rows)[0]["type"], "Übung")
+
+    def test_empty_note_still_falls_back_to_group_then_course_type(self) -> None:
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "10:00 - 12:00",
+                "roomText": "Hall 25",
+                "groupTitle": "Some Course",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung/Übung")
+
     def test_keeps_weekly_date_range_slots(self) -> None:
         rows = [
             {
