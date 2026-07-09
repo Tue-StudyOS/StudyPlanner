@@ -8,13 +8,15 @@ This is the canonical repo-side reference for the Cloudflare Workers, Pages publ
 | --- | --- | --- | --- |
 | Active D1 runtime database | `studyplanner-db` | `80ca9092-ddc6-454a-b04a-8ccae85ef2f5` | Production database since the approved `integrate_new_db` cutover (multi-period ALMA catalog). |
 | Previous test D1 | `studyplaner-db-test` | `297f7a28-9069-431d-b989-49acf2537513` | Superseded by the cutover; delete after the new database is verified. |
-| API Worker | `studyplanner-api` | internal Worker service binding | Source of truth for app and public AI facade API routes. |
+| API Worker | `studyplanner-api` | `https://studyplanner-api.ben-tischberger.workers.dev` | Source of truth for app and public AI facade API routes. |
 | MCP Worker | `studyplanner-mcp` | internal Worker service binding | Hosted MCP adapter for Claude/MCP-capable clients. |
 | Pages project / public gateway | `studyplaner` | `https://studyplaner.pages.dev` | Public frontend, OpenAPI, privacy, and MCP gateway. |
 
 The Worker D1 binding name is always `DB`. Helper commands intentionally use `DB` so migrations follow the checked `backend/wrangler.toml` binding instead of duplicating a database name in multiple scripts.
 
-The public gateway avoids exposing account-specific `workers.dev` subdomains. Pages Functions forward:
+The deployed browser app calls the API Worker origin directly through `VITE_API_BASE_URL`. Pages Functions service bindings remain configured for manual gateway testing and non-browser endpoints, but the app does not depend on `/api/*` on the Pages host because Worker-to-Python-Worker proxy calls can be canceled by the Cloudflare runtime.
+
+Pages Functions forward:
 
 - `/api/*` → `STUDYPLANNER_API` service binding
 - `/mcp`, `/messages`, `/sse`, `/privacy`, `/app/catalog-results.html` → `STUDYPLANNER_MCP` service binding
@@ -48,7 +50,7 @@ npm run db:verify-config
 The verifier checks:
 
 - `backend/wrangler.toml` keeps `DB` bound to `studyplanner-db`
-- `frontend/wrangler.toml` and `frontend/.env.production` point Pages builds at `https://studyplaner.pages.dev`
+- `frontend/wrangler.toml` points deployed browser builds at `https://studyplanner-api.ben-tischberger.workers.dev`
 - `frontend/wrangler.toml` keeps the Pages gateway service bindings for API and MCP
 - `.env.example` documents the active D1 name and id
 - package scripts keep using the checked `DB` binding
@@ -70,9 +72,9 @@ npx wrangler pages deploy dist --project-name studyplaner
 Then verify:
 
 ```bash
-curl https://studyplaner.pages.dev/api/ai/meta
+curl https://studyplanner-api.ben-tischberger.workers.dev/api/ai/meta
 curl https://studyplaner.pages.dev/privacy
-curl https://studyplaner.pages.dev/api/auth/session \
+curl https://studyplanner-api.ben-tischberger.workers.dev/api/auth/session \
   -H "Authorization: Bearer invalid-token"
 curl -X POST https://studyplaner.pages.dev/mcp \
   -H "Content-Type: application/json" \

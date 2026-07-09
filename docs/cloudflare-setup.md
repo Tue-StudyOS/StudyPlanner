@@ -100,13 +100,13 @@ Build output directory: dist
 Production branch: main
 ```
 
-Set this environment variable in Pages:
+Set this environment variable in Pages. Current production builds call the API Worker origin directly:
 
 ```text
-VITE_API_BASE_URL=https://studyplaner.pages.dev
+VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
 ```
 
-Also keep the Pages Functions service bindings from `frontend/wrangler.toml` so the public gateway can forward `/api/*` to `studyplanner-api` and `/mcp`, `/messages`, `/sse`, `/privacy`, and `/app/catalog-results.html` to `studyplanner-mcp`.
+Also keep the Pages Functions service bindings from `frontend/wrangler.toml` so the public gateway can forward `/mcp`, `/messages`, `/sse`, `/privacy`, and `/app/catalog-results.html` to `studyplanner-mcp`. The API service binding remains configured for manual gateway tests, but browser API calls go directly to `studyplanner-api` to avoid Cloudflare Worker-to-Python-Worker proxy hangs.
 
 ## 9. Connect the backend in Cloudflare Workers
 
