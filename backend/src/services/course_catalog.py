@@ -233,6 +233,20 @@ def _appointment_context(row: dict[str, Any]) -> str:
     )
 
 
+def _slot_role_from_text(value: str | None, tutorial_wins_when_both: bool) -> str | None:
+    text = _safe_text(value)
+    if not text:
+        return None
+
+    has_tutorial_marker = bool(TUTORIAL_NOTE_PATTERN.search(text))
+    has_lecture_marker = bool(LECTURE_NOTE_PATTERN.search(text))
+    if has_tutorial_marker and (tutorial_wins_when_both or not has_lecture_marker):
+        return "Übung"
+    if has_lecture_marker and not has_tutorial_marker:
+        return "Vorlesung"
+    return None
+
+
 def _appointment_slot_type(row: dict[str, Any]) -> str:
     context = _appointment_context(row)
     if RESIT_SLOT_PATTERN.search(context):
@@ -247,10 +261,15 @@ def _appointment_slot_type(row: dict[str, Any]) -> str:
         for value in [_safe_text(row.get("timeNote")), _safe_text(row.get("note"))]
         if value
     )
-    if TUTORIAL_NOTE_PATTERN.search(note_context):
-        return "Übung"
-    if LECTURE_NOTE_PATTERN.search(note_context):
-        return "Vorlesung"
+    role_from_note = _slot_role_from_text(note_context, tutorial_wins_when_both=True)
+    if role_from_note:
+        return role_from_note
+
+    for fallback_value in [_safe_text(row.get("groupType")), _safe_text(row.get("groupTitle"))]:
+        role_from_group = _slot_role_from_text(fallback_value, tutorial_wins_when_both=False)
+        if role_from_group:
+            return role_from_group
+
     return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
 
 

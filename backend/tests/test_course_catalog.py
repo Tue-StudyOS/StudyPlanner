@@ -314,6 +314,57 @@ class BuildScheduleTest(unittest.TestCase):
 
         self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung/Übung")
 
+    def test_reads_role_from_group_type_when_note_is_empty(self) -> None:
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "10:00 - 12:00",
+                "roomText": "Hall 25",
+                "groupTitle": "Mathematik für Informatik 4 (Vorlesung)",
+                "groupType": "Vorlesung",
+                "courseType": "Vorlesung/Übung",
+            },
+            {
+                "dateText": "14.04.2026 - 21.07.2026",
+                "timeText": "12:00 - 14:00",
+                "roomText": "C 110",
+                "groupTitle": "Tutorium A",
+                "groupType": "Tutorium",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        schedule = _build_schedule(rows)
+        self.assertEqual(schedule[0]["type"], "Vorlesung")
+        self.assertEqual(schedule[1]["type"], "Übung")
+
+    def test_reads_role_from_group_title_when_group_type_is_empty(self) -> None:
+        rows = [
+            {
+                "dateText": "14.04.2026 - 21.07.2026",
+                "timeText": "12:00 - 14:00",
+                "roomText": "C 110",
+                "groupTitle": "Tutorium A",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        self.assertEqual(_build_schedule(rows)[0]["type"], "Übung")
+
+    def test_combined_group_type_stays_ambiguous_without_appointment_note(self) -> None:
+        rows = [
+            {
+                "dateText": "13.04.2026 - 20.07.2026",
+                "timeText": "10:00 - 12:00",
+                "roomText": "Hall 25",
+                "groupTitle": "Some Course",
+                "groupType": "Vorlesung/Übung",
+                "courseType": "Vorlesung/Übung",
+            },
+        ]
+
+        self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung/Übung")
+
     def test_keeps_weekly_date_range_slots(self) -> None:
         rows = [
             {
