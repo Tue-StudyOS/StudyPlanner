@@ -328,6 +328,8 @@ export function AccountPage() {
                     value={credNewPassword}
                     onChange={(event) => setCredNewPassword(event.target.value)}
                     autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
                     className={inputClass}
                   />
                 </label>
@@ -339,6 +341,8 @@ export function AccountPage() {
                       value={credConfirmPassword}
                       onChange={(event) => setCredConfirmPassword(event.target.value)}
                       autoComplete="new-password"
+                      minLength={8}
+                      maxLength={128}
                       className={inputClass}
                     />
                   </label>
@@ -489,7 +493,16 @@ export function AccountPage() {
               </label>
               <label className="grid gap-1.5">
                 <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.password')}</span>
-                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  minLength={mode === 'register' ? 8 : undefined}
+                  maxLength={mode === 'register' ? 128 : undefined}
+                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                  className={inputClass}
+                />
               </label>
               {mode === 'register' ? (
                 <p className="text-[12px] text-fg-muted">

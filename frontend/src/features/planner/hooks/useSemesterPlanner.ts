@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
@@ -15,16 +15,6 @@ import {
 } from '../utils/semesterLabels'
 
 const AUTO_SAVE_DEBOUNCE_MS = 900
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize your semester plan.'
-}
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
@@ -179,7 +169,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setSavedPlans(nextSavedPlans)
       } catch (error) {
         if (isActive) {
-          setPlannerError(normalizeErrorMessage(error))
+          setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
         }
       } finally {
         if (isActive) {
@@ -232,7 +222,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
           setHiddenSlotIds([])
           setManualSlots([])
           setPlanAssignments({})
-          setPlannerError(normalizeErrorMessage(error))
+          setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
         }
       } finally {
         if (isActive) {
@@ -307,7 +297,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
       invalidateSessionCache('private:progress', userCacheKey)
       setSavedPlans(nextSavedPlans)
     } catch (error) {
-      setPlannerError(normalizeErrorMessage(error))
+      setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
     } finally {
       setIsSavingSemesterPlan(false)
     }

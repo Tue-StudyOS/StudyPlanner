@@ -76,6 +76,11 @@ from services.user_semester_plans import (
 )
 
 
+_PUBLIC_CATALOG_CACHE_HEADERS = {
+    "cache-control": "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
+}
+
+
 _PRIVACY_HTML = """<!doctype html>
 <html lang="en">
 <head>
@@ -546,6 +551,7 @@ async def route_request(request: Any, env: Any) -> Any:
                 },
                 request=request,
                 env=env,
+                extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
             )
 
         if path == "/api/catalog/courses":
@@ -571,6 +577,7 @@ async def route_request(request: Any, env: Any) -> Any:
                 },
                 request=request,
                 env=env,
+                extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
             )
 
         if path.startswith("/api/catalog/courses/"):
@@ -596,7 +603,12 @@ async def route_request(request: Any, env: Any) -> Any:
                     status=404,
                 )
 
-            return json_response(course_detail, request=request, env=env)
+            return json_response(
+                course_detail,
+                request=request,
+                env=env,
+                extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+            )
 
         if path.startswith("/api/courses/"):
             course_id_text = path.removeprefix("/api/courses/")

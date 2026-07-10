@@ -1,20 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { useTranscript } from '../../transcript'
 import { fetchProgressSnapshot } from '../api'
 import type { ProgressSnapshot } from '../types'
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to load progress data.'
-}
 
 export function useProgressSnapshot(): {
   progressSnapshot: ProgressSnapshot | null
@@ -67,7 +57,7 @@ export function useProgressSnapshot(): {
           return
         }
         setProgressSnapshot(null)
-        setProgressError(normalizeErrorMessage(error))
+        setProgressError(getErrorMessage(error, 'Failed to load progress data.'))
       } finally {
         if (isActive) {
           setIsLoadingProgress(false)

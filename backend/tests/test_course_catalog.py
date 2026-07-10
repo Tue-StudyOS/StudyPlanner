@@ -28,6 +28,7 @@ from services.course_catalog import (  # noqa: E402
     _derive_term_type,
     _extract_contents_links,
     _json_list,
+    _load_catalog_related,
     _load_external_links,
     _load_illias_metadata,
     _pick_description,
@@ -615,6 +616,19 @@ class ExternalLinksTest(unittest.IsolatedAsyncioTestCase):
             links = await _load_external_links({}, 42, "INF42")
 
         self.assertEqual(links[0]["label"], "Legacy Moodle")
+
+
+class CatalogBatchLoadingTest(unittest.IsolatedAsyncioTestCase):
+    async def test_loads_large_course_id_sets_in_one_json_batch(self) -> None:
+        course_ids = list(range(1, 251))
+        load_rows = AsyncMock(return_value=([], [], [], []))
+
+        with patch.object(course_catalog, "_load_catalog_related_rows", load_rows):
+            result = await _load_catalog_related(object(), course_ids)
+
+        load_rows.assert_awaited_once()
+        self.assertEqual(load_rows.await_args.args[1], course_ids)
+        self.assertEqual(result, ({}, {}, {}, {}))
 
 
 class SearchWhereTest(unittest.TestCase):

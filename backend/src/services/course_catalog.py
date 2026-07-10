@@ -750,10 +750,10 @@ async def _resolve_period_id(env: Any, period_id: str | None) -> str | None:
     return periods[0]["periodId"] if periods else None
 
 
-_D1_CHUNK_SIZE = 80
+JSON_ID_FILTER_SQL = "SELECT CAST(value AS INTEGER) FROM json_each(?)"
 
 
-async def _load_catalog_related_chunk(
+async def _load_catalog_related_rows(
     env: Any,
     chunk: list[int],
 ) -> tuple[
@@ -762,7 +762,8 @@ async def _load_catalog_related_chunk(
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
-    placeholders = _placeholders(len(chunk))
+    placeholders = JSON_ID_FILTER_SQL
+    query_params = [json.dumps(chunk, separators=(",", ":"))]
 
     # Module matches sort first (matchRank 0); direct study-area links are fetched
     # separately because D1 is more reliable without a UNION in the hot catalog path.
@@ -821,7 +822,7 @@ async def _load_catalog_related_chunk(
         WHERE cl.course_id IN ({placeholders})
         ORDER BY cl.course_id ASC, l.display_name ASC
         """,
-            chunk,
+            query_params,
         ),
         fetch_all(
             env,
@@ -837,7 +838,7 @@ async def _load_catalog_related_chunk(
         WHERE pg.course_id IN ({placeholders})
         ORDER BY pg.course_id ASC, pg.position ASC
         """,
-            chunk,
+            query_params,
         ),
         fetch_all(
             env,
@@ -880,10 +881,10 @@ async def _load_catalog_related_chunk(
             COALESCE(a.start_time, '99:99') ASC,
             a.position ASC
         """,
-            chunk,
+            query_params,
         ),
-        fetch_all(env, curriculum_option_sql, chunk),
-        fetch_all(env, study_area_link_sql, chunk),
+        fetch_all(env, curriculum_option_sql, query_params),
+        fetch_all(env, study_area_link_sql, query_params),
     )
 
     option_rows = sorted(
@@ -912,18 +913,9 @@ async def _load_catalog_related(
     if not course_ids:
         return {}, {}, {}, {}
 
-    all_lecturers: list[dict[str, Any]] = []
-    all_groups: list[dict[str, Any]] = []
-    all_appointments: list[dict[str, Any]] = []
-    all_options: list[dict[str, Any]] = []
-
-    for i in range(0, len(course_ids), _D1_CHUNK_SIZE):
-        chunk = course_ids[i : i + _D1_CHUNK_SIZE]
-        lec, grp, apt, opt = await _load_catalog_related_chunk(env, chunk)
-        all_lecturers.extend(lec)
-        all_groups.extend(grp)
-        all_appointments.extend(apt)
-        all_options.extend(opt)
+    all_lecturers, all_groups, all_appointments, all_options = (
+        await _load_catalog_related_rows(env, course_ids)
+    )
 
     return (
         _group_rows_by_course_id(all_lecturers),
@@ -1072,34 +1064,31 @@ def _build_catalog_summary(
 
 
 async def _fetch_catalog_courses_by_ids(env: Any, course_ids: list[int]) -> list[dict[str, Any]]:
-    courses: list[dict[str, Any]] = []
-    for i in range(0, len(course_ids), _D1_CHUNK_SIZE):
-        chunk = course_ids[i : i + _D1_CHUNK_SIZE]
-        rows = await fetch_all(
-            env,
-            f"""
-            SELECT
-                c.id,
-                c.number,
-                {COURSE_KEY_SQL} AS courseKey,
-                c.title,
-                c.organisation,
-                c.course_type AS courseType,
-                c.offering_frequency AS offeringFrequency,
-                c.registration_period AS registrationPeriod,
-                c.short_comment AS shortComment,
-                c.semester_hours AS semesterHours,
-                c.detail_url AS detailUrl,
-                c.detail_page_url AS detailPageUrl,
-                c.period_id AS periodId,
-                {PERIOD_LABEL_SQL} AS periodLabel
-            FROM courses AS c
-            WHERE c.id IN ({_placeholders(len(chunk))})
-            """,
-            chunk,
-        )
-        courses.extend(rows)
-    return courses
+    if not course_ids:
+        return []
+    return await fetch_all(
+        env,
+        f"""
+        SELECT
+            c.id,
+            c.number,
+            {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            c.organisation,
+            c.course_type AS courseType,
+            c.offering_frequency AS offeringFrequency,
+            c.registration_period AS registrationPeriod,
+            c.short_comment AS shortComment,
+            c.semester_hours AS semesterHours,
+            c.detail_url AS detailUrl,
+            c.detail_page_url AS detailPageUrl,
+            c.period_id AS periodId,
+            {PERIOD_LABEL_SQL} AS periodLabel
+        FROM courses AS c
+        WHERE c.id IN ({JSON_ID_FILTER_SQL})
+        """,
+        [json.dumps(course_ids, separators=(",", ":"))],
+    )
 
 
 async def _list_all_catalog_courses(

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import type { CompletedCourse, MasterCat } from '../../courses'
@@ -23,13 +24,7 @@ interface TranscriptProviderProps {
 }
 
 function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize completed courses.'
+  return getErrorMessage(error, 'Failed to synchronize completed courses.')
 }
 
 function emptySaveResult(): TranscriptSaveResult {

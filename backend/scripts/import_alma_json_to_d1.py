@@ -47,7 +47,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, TextIO
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT_DIR.parent
@@ -821,7 +821,7 @@ def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> lis
     return chunks
 
 
-def _write_rows(handle, table: str, columns: list[str], rows: Iterable[dict[str, Any]]) -> None:
+def _write_rows(handle: TextIO, table: str, columns: list[str], rows: Iterable[dict[str, Any]]) -> None:
     rows = list(rows)
     if not rows:
         handle.write(f"-- (no rows for {table})\n\n")

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { useAuth } from '../../auth'
 import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
@@ -9,16 +9,6 @@ import { toggleFavoriteId, updateSavingFavoriteIds } from '../utils/favoriteIds.
 
 interface FavoritesProviderProps {
   children: ReactNode
-}
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize your interested courses.'
 }
 
 export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Element {
@@ -54,7 +44,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       } catch (error) {
         if (isActive) {
           setFavoriteIds([])
-          setFavoritesError(normalizeErrorMessage(error))
+          setFavoritesError(getErrorMessage(error, 'Failed to synchronize your interested courses.'))
         }
       } finally {
         if (isActive) {
@@ -104,7 +94,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       })
       .catch((error) => {
         setFavoriteIds(previousFavoriteIds)
-        setFavoritesError(normalizeErrorMessage(error))
+        setFavoritesError(getErrorMessage(error, 'Failed to synchronize your interested courses.'))
       })
       .finally(() => {
         setSavingFavoriteCourseIds((current) => updateSavingFavoriteIds(current, courseId, false))

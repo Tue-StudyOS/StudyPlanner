@@ -13,6 +13,8 @@ from http_utils import get_request_header
 from services.user_data import dumps_json, ensure_user_progress, ensure_user_state, now_unix, parse_json_object
 
 PASSWORD_PBKDF2_ITERATIONS = 310_000
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 128
 DEFAULT_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 AUTH_TOKEN_MAX_CLOCK_SKEW_SECONDS = 60
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
@@ -205,6 +207,15 @@ def _validate_password(password: Any) -> str:
     normalized_password = password if isinstance(password, str) else ''
     if len(normalized_password) == 0:
         raise RegistrationError('Passwords must not be empty.')
+    return normalized_password
+
+
+def _validate_new_password(password: Any) -> str:
+    normalized_password = _validate_password(password)
+    if len(normalized_password) < MIN_PASSWORD_LENGTH:
+        raise RegistrationError(f'Passwords must contain at least {MIN_PASSWORD_LENGTH} characters.')
+    if len(normalized_password) > MAX_PASSWORD_LENGTH:
+        raise RegistrationError(f'Passwords must contain at most {MAX_PASSWORD_LENGTH} characters.')
     return normalized_password
 
 
@@ -413,7 +424,7 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
 async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
     del request
     username, email, display_name = _registration_identity(payload)
-    password = _validate_password(payload.get('password'))
+    password = _validate_new_password(payload.get('password'))
 
     if await _get_user_by_identifier(env, username) is not None:
         raise RegistrationError('An account already exists for this email or username.')
@@ -824,7 +835,10 @@ async def update_user_credentials(
         state_updates['display_name'] = _derive_display_name(new_email)
 
     if 'newPassword' in payload:
-        new_password = _validate_password(payload.get('newPassword'))
+        try:
+            new_password = _validate_new_password(payload.get('newPassword'))
+        except RegistrationError as exc:
+            raise CredentialUpdateError(str(exc)) from exc
         pw_hash, pw_salt = _create_password_hash(new_password)
         auth_updates['password_hash'] = pw_hash
         auth_updates['password_salt'] = pw_salt
