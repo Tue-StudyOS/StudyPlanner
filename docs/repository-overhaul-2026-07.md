@@ -120,16 +120,16 @@ Fallback verification against production D1 also confirmed:
 
 ## Validation
 
-- Frontend: 307 tests passed.
+- Frontend: 306 tests passed.
 - Frontend lint: passed with no warnings.
 - Frontend typecheck and production build: passed.
-- Backend: 107 tests passed.
+- Backend: 125 tests passed.
 - Data collection: 19 tests passed.
 - ALMA parser: 3 tests passed.
 - MCP integration: 11 tests passed; build passed.
 - Cloudflare config verification: passed.
 - Frontend dependency audit: zero vulnerabilities.
-- Production migration check: no migrations to apply.
+- Production migration check: migrations 0031 and 0032 applied successfully.
 
 Deployment verification:
 
@@ -139,12 +139,11 @@ Deployment verification:
 
 ## Remaining focused follow-ups
 
-1. Replace the legacy SQLite curriculum/matching source before removing the last
-   60.3 MB tracked database.
-2. Confirm the `MACH-*` to `ML-*` study-area alias mapping.
-3. Re-scrape archived periods to restore missing historical ECTS fields.
-4. Move the 12 legacy curriculum modules into a reproducible migration or seed.
-5. Split remaining large hotspots, especially
+1. Validate and re-import the full archived-period re-scrape to restore
+   historical ECTS fields without dropping any catalog period.
+2. Retain the legacy SQLite curriculum/matching source (about 60.3 MB) while
+   collection and matching tooling still depend on it.
+3. Split remaining large hotspots, especially
    `backend/src/services/course_catalog.py`,
    `frontend/src/features/courses/components/Overview.tsx`, and
    `frontend/src/features/planner/components/SemesterPlanner.tsx`, when those

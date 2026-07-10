@@ -18,7 +18,7 @@ import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
-  const { isAuthenticated, token, user } = useAuth()
+  const { isAuthenticated, csrfToken, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const isSemesterHubTour = isOnboardingOpen && isSemesterHubTourStep(activeStepId)
@@ -54,7 +54,7 @@ export function SemesterHub() {
     let isActive = true
 
     async function loadSavedPlanDetails(): Promise<void> {
-      if (!token || savedPlanLabels.length === 0) {
+      if (!csrfToken || savedPlanLabels.length === 0) {
         setSavedPlanDetailsBySemester({})
         return
       }
@@ -62,7 +62,7 @@ export function SemesterHub() {
       const entries = await Promise.all(
         savedPlanLabels.map(async (semesterLabel) => {
           try {
-            return [semesterLabel, await fetchSemesterPlan(token, semesterLabel)] as const
+            return [semesterLabel, await fetchSemesterPlan(semesterLabel)] as const
           } catch {
             return [semesterLabel, null] as const
           }
@@ -89,7 +89,7 @@ export function SemesterHub() {
     return () => {
       isActive = false
     }
-  }, [savedPlanLabels, token])
+  }, [savedPlanLabels, csrfToken])
 
   const planDetailsBySemester = useMemo(() => {
     const nextDetailsBySemester = { ...savedPlanDetailsBySemester }

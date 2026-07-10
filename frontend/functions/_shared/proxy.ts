@@ -67,6 +67,7 @@ export function isPublicCatalogRequest(request: Request, target: GatewayTarget):
     && request.method === 'GET'
     && new URL(request.url).pathname.startsWith('/api/catalog/')
     && !request.headers.has('Authorization')
+    && !request.headers.has('Cookie')
 }
 
 function getDefaultCache(): Cache | null {

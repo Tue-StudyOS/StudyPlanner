@@ -32,13 +32,14 @@ def build_cors_headers(request: Any, env: Any) -> dict[str, str]:
 
     headers: dict[str, str] = {
         "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "access-control-allow-headers": "Authorization, Content-Type",
+        "access-control-allow-headers": "Authorization, Content-Type, X-CSRF-Token",
     }
 
     if "*" in allowed_origins:
         headers["access-control-allow-origin"] = "*"
     elif is_origin_allowed(request_origin, allowed_origins):
         headers["access-control-allow-origin"] = request_origin or ""
+        headers["access-control-allow-credentials"] = "true"
         headers["vary"] = "Origin"
 
     return headers
@@ -89,6 +90,7 @@ def error_response(
     request: Any,
     env: Any,
     status: int,
+    extra_headers: dict[str, str] | None = None,
 ) -> Response:
     """Create a JSON error response."""
     return json_response(
@@ -99,4 +101,5 @@ def error_response(
         request=request,
         env=env,
         status=status,
+        extra_headers=extra_headers,
     )

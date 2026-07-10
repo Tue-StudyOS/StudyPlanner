@@ -31,7 +31,7 @@ export interface UpdateCredentialsInput {
 
 export interface AuthContextValue {
   user: AuthUser | null
-  token: string | null
+  csrfToken: string | null
   isAuthenticated: boolean
   isLoadingSession: boolean
   register: (input: RegisterInput) => Promise<void>

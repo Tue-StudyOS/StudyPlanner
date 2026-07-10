@@ -12,7 +12,7 @@ interface FavoritesProviderProps {
 }
 
 export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Element {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
   const [isLoadingFavorites, setIsLoadingFavorites] = useState<boolean>(false)
@@ -24,7 +24,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
     let isActive = true
 
     async function loadFavorites(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setFavoriteIds([])
           setFavoritesError(null)
@@ -36,7 +36,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       setIsLoadingFavorites(true)
       setFavoritesError(null)
       try {
-        const nextFavoriteIds = await fetchFavoriteCourseIds(token)
+        const nextFavoriteIds = await fetchFavoriteCourseIds()
         if (!isActive) {
           return
         }
@@ -58,13 +58,13 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [csrfToken])
 
   const isFavorite = (courseId: string): boolean => favoriteIds.includes(courseId)
   const isFavoriteSaving = (courseId: string): boolean => savingFavoriteCourseIds.includes(courseId)
 
   const toggleFavorite = (courseId: string): void => {
-    if (!token) {
+    if (!csrfToken) {
       setFavoritesError('Sign in to save interested courses across devices.')
       return
     }
@@ -81,14 +81,14 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
 
     const isAddingFavorite = nextFavoriteIds.length > previousFavoriteIds.length
 
-    void saveFavoriteCourseIds(token, nextFavoriteIds)
+    void saveFavoriteCourseIds(csrfToken, nextFavoriteIds)
       .then(async (savedFavoriteIds) => {
         setFavoriteIds(savedFavoriteIds)
         if (isAddingFavorite) {
           const addedCourseId = nextFavoriteIds.find((id) => !previousFavoriteIds.includes(id))
           if (addedCourseId) {
             // addCourseToCurrentSemesterPlan marks the semester badge itself.
-            await addCourseToCurrentSemesterPlan(token, userCacheKey, addedCourseId)
+            await addCourseToCurrentSemesterPlan(csrfToken, userCacheKey, addedCourseId)
           }
         }
       })

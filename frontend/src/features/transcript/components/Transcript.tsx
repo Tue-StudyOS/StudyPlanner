@@ -64,7 +64,7 @@ function isPdfFile(file: File): boolean {
 }
 
 function AuthenticatedTranscript() {
-  const { user, token } = useAuth()
+  const { user, csrfToken } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const importCandidatesSessionKey = useMemo(() => buildImportCandidatesSessionKey(user?.username), [user?.username])
@@ -145,7 +145,7 @@ function AuthenticatedTranscript() {
     let isActive = true
 
     async function loadTranscriptIssues(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setPersistedIssues([])
           setIssuesError(null)
@@ -158,7 +158,7 @@ function AuthenticatedTranscript() {
       setIsLoadingIssues(true)
       setIssuesError(null)
       try {
-        const transcriptIssues = await fetchTranscriptIssues(token)
+        const transcriptIssues = await fetchTranscriptIssues()
         if (!isActive) {
           return
         }
@@ -188,7 +188,7 @@ function AuthenticatedTranscript() {
     return () => {
       isActive = false
     }
-  }, [restoredImportCandidates, token])
+  }, [restoredImportCandidates, csrfToken])
 
   useEffect(() => {
     if (importCandidates.length > 0) {
@@ -199,7 +199,7 @@ function AuthenticatedTranscript() {
   }, [importCandidates, importCandidatesSessionKey])
 
   const persistTranscriptIssues = useCallback(async (nextIssues: SavedTranscriptIssue[]): Promise<boolean> => {
-    if (!token) {
+    if (!csrfToken) {
       setIssuesError('Sign in to keep transcript issues in your account.')
       return false
     }
@@ -207,7 +207,7 @@ function AuthenticatedTranscript() {
     setIsSavingIssues(true)
     setIssuesError(null)
     try {
-      const savedIssues = await saveTranscriptIssues(token, {
+      const savedIssues = await saveTranscriptIssues(csrfToken, {
         transcriptIssues: nextIssues.map((issue) => ({ id: issue.id, candidate: issue.candidate })),
       })
       setPersistedIssues(savedIssues.map(toSavedIssue))
@@ -219,10 +219,10 @@ function AuthenticatedTranscript() {
     } finally {
       setIsSavingIssues(false)
     }
-  }, [token])
+  }, [csrfToken])
 
   useEffect(() => {
-    if (!token || !issueDraftDirty) {
+    if (!csrfToken || !issueDraftDirty) {
       return
     }
 
@@ -231,7 +231,7 @@ function AuthenticatedTranscript() {
     }, 500)
 
     return () => window.clearTimeout(timeoutId)
-  }, [issueDraftDirty, persistTranscriptIssues, persistedIssues, token])
+  }, [issueDraftDirty, persistTranscriptIssues, persistedIssues, csrfToken])
 
   async function handleManualCourseAdd(course: CompletedCourse): Promise<boolean> {
     clearCompletedCoursesError()

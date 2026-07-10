@@ -70,7 +70,7 @@ export function SemesterPlanner({
 }: {
   initialSemesterLabel?: string
 } = {}) {
-  const { isAuthenticated, token, user } = useAuth()
+  const { isAuthenticated, csrfToken, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const { favoriteIds, isFavoriteSaving, toggleFavorite } = useFavorites()
@@ -377,7 +377,7 @@ export function SemesterPlanner({
   const showPastSemesterCourses = isPastSemester || usesCompletedCourseFallback
 
   async function handleAutoBalanceAssignments(): Promise<void> {
-    if (!token) {
+    if (!csrfToken) {
       setBalanceMessage(t('planner.signInToBalance'))
       return
     }
@@ -389,7 +389,7 @@ export function SemesterPlanner({
     setIsBalancingAssignments(true)
     setBalanceMessage(null)
     try {
-      const result = await balanceSemesterPlan(token, activeSemesterLabel, {
+      const result = await balanceSemesterPlan(csrfToken, activeSemesterLabel, {
         courseIds: plannedCourseIds,
         courseAssignments: planAssignments,
       })

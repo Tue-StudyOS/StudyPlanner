@@ -1,4 +1,4 @@
-import { createAuthHeaders, fetchJson } from '../../shared/utils/api'
+import { createCsrfHeaders, createLegacyBearerHeaders, fetchJson } from '../../shared/utils/api'
 import type { SupportedLanguage } from '../i18n'
 import type { AuthPayload, AuthSessionResponse, AuthUser, StudyProgramOption } from './types'
 
@@ -63,32 +63,34 @@ export async function loginAccount(input: LoginInput): Promise<AuthPayload> {
   })
 }
 
-export async function logoutAccount(token: string): Promise<void> {
+export async function logoutAccount(csrfToken: string): Promise<void> {
   await fetchJson<void>('/api/auth/logout', {
     method: 'POST',
     headers: {
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
   })
 }
 
-export async function fetchCurrentSession(token: string): Promise<AuthSessionResponse> {
+export async function fetchCurrentSession(
+  legacyBearerToken?: string | null,
+): Promise<AuthSessionResponse> {
   return await fetchJson<AuthSessionResponse>('/api/auth/session', {
     headers: {
-      ...createAuthHeaders(token),
+      ...createLegacyBearerHeaders(legacyBearerToken),
     },
   })
 }
 
 export async function saveCurrentProfile(
-  token: string,
+  csrfToken: string,
   input: SaveProfileInput,
 ): Promise<AuthUser> {
   const response = await fetchJson<UserResponse>('/api/me/profile', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
     body: JSON.stringify(input),
   })
@@ -96,14 +98,14 @@ export async function saveCurrentProfile(
 }
 
 export async function updateCredentials(
-  token: string,
+  csrfToken: string,
   input: UpdateCredentialsInput,
 ): Promise<AuthUser> {
   const response = await fetchJson<UserResponse>('/api/me/credentials', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
     body: JSON.stringify(input),
   })
@@ -116,4 +118,3 @@ export async function fetchStudyPrograms(): Promise<StudyProgramOption[]> {
     .filter(isSupportedStudyProgram)
     .sort((left, right) => left.name.localeCompare(right.name))
 }
-

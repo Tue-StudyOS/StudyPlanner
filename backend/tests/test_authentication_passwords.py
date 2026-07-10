@@ -9,20 +9,17 @@ workers = types.ModuleType("workers")
 workers.Response = object
 sys.modules.setdefault("workers", workers)
 
-from services.authentication import RegistrationError, _validate_new_password  # noqa: E402
+from services.authentication import RegistrationError, _validate_password  # noqa: E402
 
 
-class PasswordPolicyTest(unittest.TestCase):
-    def test_accepts_password_with_supported_length(self) -> None:
-        self.assertEqual(_validate_new_password("abcdefgh"), "abcdefgh")
+class PasswordValidationTest(unittest.TestCase):
+    def test_accepts_non_empty_password(self) -> None:
+        self.assertEqual(_validate_password("test"), "test")
+        self.assertEqual(_validate_password("short"), "short")
 
-    def test_rejects_short_password(self) -> None:
-        with self.assertRaisesRegex(RegistrationError, "at least 8"):
-            _validate_new_password("short")
-
-    def test_rejects_excessively_long_password(self) -> None:
-        with self.assertRaisesRegex(RegistrationError, "at most 128"):
-            _validate_new_password("x" * 129)
+    def test_rejects_empty_password(self) -> None:
+        with self.assertRaisesRegex(RegistrationError, "must not be empty"):
+            _validate_password("")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-import { createAuthHeaders, fetchJson } from '../../shared/utils/api'
+import { fetchJson } from '../../shared/utils/api'
 import type { IntermediateExamStatus, ProgressSnapshot, ProgressSummary } from './types'
 
 type ProgressSnapshotResponse = Omit<Partial<ProgressSnapshot>, 'summary'> & {
@@ -44,11 +44,7 @@ function normalizeProgressSnapshot(snapshot: ProgressSnapshotResponse): Progress
   }
 }
 
-export async function fetchProgressSnapshot(token: string): Promise<ProgressSnapshot> {
-  const response = await fetchJson<ProgressSnapshotResponse>('/api/me/progress', {
-    headers: {
-      ...createAuthHeaders(token),
-    },
-  })
+export async function fetchProgressSnapshot(): Promise<ProgressSnapshot> {
+  const response = await fetchJson<ProgressSnapshotResponse>('/api/me/progress')
   return normalizeProgressSnapshot(response)
 }

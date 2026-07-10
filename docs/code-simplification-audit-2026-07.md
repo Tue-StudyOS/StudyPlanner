@@ -61,31 +61,25 @@ were not removed merely to reduce a count. Request logging was explicitly kept.
 
 Implemented without removing existing user functionality:
 
-- New and changed passwords must contain 8–128 characters. Existing users can
-  still sign in with a previously accepted password.
+- Registration and credential updates show a soft strong/weak password hint in the
+  UI, but passwords are only required to be non-empty on the server.
 - Static Pages responses send `nosniff`, clickjacking, referrer, and browser
   permissions headers.
 - Frontend production dependencies currently have zero known npm audit findings.
 - No tracked secrets, unsafe deserialization, runtime `eval`, or React
   `dangerouslySetInnerHTML` use was found in the student web app.
 
-Open security decision:
+Follow-up implementation:
 
-- `GET /api/client-errors` currently exposes aggregated diagnostics, including
-  detail text and user ids, without an administrator authorization model.
-  Removing it would violate the operational logging requirement. The product
-  owner must decide who may access server-wide logs so this can be restricted
-  without locking out legitimate operators. Browser-session logs remain local
-  to the current tab.
-
-Further deployment-level hardening requires policy decisions rather than more
-application branches:
-
-- rate limits for login, registration, feedback, AI catalog search, and client
-  error reporting
-- whether bearer tokens should remain in local storage or move to secure,
-  HttpOnly cookies
-- the administrator identity/role model for diagnostics
+- `GET /api/client-errors` now requires authentication. Students receive only
+  their own reports; aggregated entries are limited to the usernames configured
+  through `DIAGNOSTICS_ADMIN_USERNAMES`.
+- Signed session tokens moved from local storage to HttpOnly cookies. The
+  frontend receives only a session-bound CSRF proof for authenticated mutations.
+- D1-backed limits cover login, registration, feedback, AI catalog mutations,
+  and client-error reporting. They retain only a hashed client identifier.
+- Browser-session logs remain local to the current tab, while Cloudflare Worker
+  logs remain available to operators.
 
 ## Performance findings
 

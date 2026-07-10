@@ -1,4 +1,4 @@
-import { ApiError, createAuthHeaders, fetchJson } from '../../shared/utils/api'
+import { ApiError, createCsrfHeaders, fetchJson } from '../../shared/utils/api'
 import type { SemesterPlan, SemesterPlanSummary } from './types'
 
 interface SemesterPlansResponse {
@@ -41,27 +41,15 @@ interface PlannerBalanceResult {
   strictSolutionFound: boolean
 }
 
-export async function fetchSemesterPlans(token: string): Promise<SemesterPlanSummary[]> {
-  const response = await fetchJson<SemesterPlansResponse>('/api/me/semester-plans', {
-    headers: {
-      ...createAuthHeaders(token),
-    },
-  })
+export async function fetchSemesterPlans(): Promise<SemesterPlanSummary[]> {
+  const response = await fetchJson<SemesterPlansResponse>('/api/me/semester-plans')
   return response.semesterPlans
 }
 
-export async function fetchSemesterPlan(
-  token: string,
-  semesterLabel: string,
-): Promise<SemesterPlan | null> {
+export async function fetchSemesterPlan(semesterLabel: string): Promise<SemesterPlan | null> {
   try {
     const response = await fetchJson<SemesterPlanResponse>(
       `/api/me/semester-plans/${encodeURIComponent(semesterLabel)}`,
-      {
-        headers: {
-          ...createAuthHeaders(token),
-        },
-      },
     )
     return response.semesterPlan
   } catch (error) {
@@ -73,7 +61,7 @@ export async function fetchSemesterPlan(
 }
 
 export async function saveSemesterPlan(
-  token: string,
+  csrfToken: string,
   semesterLabel: string,
   input: SaveSemesterPlanInput,
 ): Promise<SemesterPlan> {
@@ -83,7 +71,7 @@ export async function saveSemesterPlan(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...createAuthHeaders(token),
+        ...createCsrfHeaders(csrfToken),
       },
       body: JSON.stringify(input),
     },
@@ -91,17 +79,17 @@ export async function saveSemesterPlan(
   return response.semesterPlan
 }
 
-export async function deleteSemesterPlan(token: string, semesterLabel: string): Promise<void> {
+export async function deleteSemesterPlan(csrfToken: string, semesterLabel: string): Promise<void> {
   await fetchJson<void>(`/api/me/semester-plans/${encodeURIComponent(semesterLabel)}`, {
     method: 'DELETE',
     headers: {
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
   })
 }
 
 export async function balanceSemesterPlan(
-  token: string,
+  csrfToken: string,
   semesterLabel: string,
   input: {
     courseIds: string[]
@@ -114,7 +102,7 @@ export async function balanceSemesterPlan(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...createAuthHeaders(token),
+        ...createCsrfHeaders(csrfToken),
       },
       body: JSON.stringify(input),
     },

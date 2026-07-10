@@ -46,7 +46,14 @@ export function parseApiErrorBody(
   return { message: bodyText }
 }
 
-export function createAuthHeaders(token: string | null | undefined): HeadersInit {
+export function createCsrfHeaders(csrfToken: string | null | undefined): HeadersInit {
+  if (!csrfToken) {
+    return {}
+  }
+  return { 'X-CSRF-Token': csrfToken }
+}
+
+export function createLegacyBearerHeaders(token: string | null | undefined): HeadersInit {
   if (!token) {
     return {}
   }
@@ -62,7 +69,10 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   let response: Response
 
   try {
-    response = await fetch(requestUrl, init)
+    response = await fetch(requestUrl, {
+      ...init,
+      credentials: init?.credentials ?? 'include',
+    })
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause)
     appendApiRequestLog({

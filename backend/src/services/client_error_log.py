@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from db.d1 import execute, fetch_all
+from env_config import get_env_value
 from services.authentication import get_authenticated_user
 
 MAX_URL_LENGTH = 2048
@@ -55,6 +56,17 @@ def _validate_duration_ms(value: Any) -> int | None:
     return duration_ms
 
 
+def is_diagnostics_administrator(env: Any, username: str) -> bool:
+    """Keep aggregated diagnostics limited to explicitly configured operators."""
+    configured_usernames = get_env_value(env, 'DIAGNOSTICS_ADMIN_USERNAMES', '') or ''
+    allowed_usernames = {
+        value.strip().lower()
+        for value in configured_usernames.split(',')
+        if value.strip()
+    }
+    return username.strip().lower() in allowed_usernames
+
+
 async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -> dict[str, Any]:
     method = _validate_method(payload.get('method'))
     url = _safe_text(payload.get('url'), max_length=MAX_URL_LENGTH)
@@ -72,17 +84,17 @@ async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -
     duration_ms = _validate_duration_ms(payload.get('durationMs'))
 
     user = await get_authenticated_user(env, request)
-    user_id = int(user['id']) if user and user.get('id') is not None else None
+    username = str(user['username']) if user and user.get('username') else None
 
     await execute(
         env,
         """
         INSERT INTO client_error_log (
-            method, url, status, code, message, detail, duration_ms, page_path, user_id
+            method, url, status, code, message, detail, duration_ms, page_path, user_username
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        [method, url, status, code, message, detail, duration_ms, page_path, user_id],
+        [method, url, status, code, message, detail, duration_ms, page_path, username],
     )
 
     await execute(
@@ -102,10 +114,13 @@ async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -
     return {'ok': True}
 
 
-async def list_client_errors(env: Any) -> dict[str, Any]:
+async def list_client_errors(env: Any, username: str) -> dict[str, Any]:
+    is_administrator = is_diagnostics_administrator(env, username)
+    ownership_filter = '' if is_administrator else 'WHERE user_username = ?'
+    parameters: list[Any] = [MAX_LIST_ENTRIES] if is_administrator else [username, MAX_LIST_ENTRIES]
     rows = await fetch_all(
         env,
-        """
+        f"""
         SELECT
             id,
             method,
@@ -116,12 +131,13 @@ async def list_client_errors(env: Any) -> dict[str, Any]:
             detail,
             duration_ms AS durationMs,
             page_path AS pagePath,
-            user_id AS userId,
+            {'user_username AS userUsername,' if is_administrator else 'NULL AS userUsername,'}
             created_at_unix AS createdAtUnix
         FROM client_error_log
+        {ownership_filter}
         ORDER BY id DESC
         LIMIT ?
         """,
-        [MAX_LIST_ENTRIES],
+        parameters,
     )
-    return {'entries': rows}
+    return {'entries': rows, 'scope': 'all' if is_administrator else 'own'}

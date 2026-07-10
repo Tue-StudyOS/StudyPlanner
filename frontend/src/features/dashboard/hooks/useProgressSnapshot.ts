@@ -11,7 +11,7 @@ export function useProgressSnapshot(): {
   isLoadingProgress: boolean
   progressError: string | null
 } {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const { completedCourses, isLoadingCompletedCourses } = useTranscript()
   const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(null)
@@ -22,7 +22,7 @@ export function useProgressSnapshot(): {
     let isActive = true
 
     async function loadProgressSnapshot(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setProgressSnapshot(null)
           setProgressError(null)
@@ -46,7 +46,7 @@ export function useProgressSnapshot(): {
       setIsLoadingProgress(!cachedSnapshot)
       setProgressError(null)
       try {
-        const snapshot = await fetchProgressSnapshot(token)
+        const snapshot = await fetchProgressSnapshot()
         if (!isActive) {
           return
         }
@@ -70,7 +70,7 @@ export function useProgressSnapshot(): {
     return () => {
       isActive = false
     }
-  }, [completedCourses, isLoadingCompletedCourses, token, userCacheKey])
+  }, [completedCourses, isLoadingCompletedCourses, csrfToken, userCacheKey])
 
   return { progressSnapshot, isLoadingProgress, progressError }
 }

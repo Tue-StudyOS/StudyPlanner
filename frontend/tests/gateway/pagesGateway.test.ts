@@ -37,6 +37,15 @@ test('Pages gateway caches only public catalog reads', () => {
     ),
     false,
   )
+  assert.equal(
+    isPublicCatalogRequest(
+      new Request('https://studyplaner.pages.dev/api/catalog/courses', {
+        headers: { Cookie: 'studyplanner_session=session' },
+      }),
+      'api',
+    ),
+    false,
+  )
 })
 
 test('Pages gateway accepts explicit local fallback origins for manual testing', () => {

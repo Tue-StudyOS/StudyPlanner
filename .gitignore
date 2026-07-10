@@ -170,6 +170,7 @@ venv.bak/
 # Cloudflare
 .wrangler/
 backend/.tmp/
+frontend/.tmp/
 backend/.dev.vars
 
 # Generated catalog data (rebuild with backend/scripts/import_alma_json_to_d1.py)

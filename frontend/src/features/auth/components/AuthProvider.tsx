@@ -12,25 +12,21 @@ import {
 } from '../api'
 import type { AuthUser } from '../types'
 
-const STORAGE_KEY = 'studyplanner.auth.token'
+const LEGACY_TOKEN_STORAGE_KEY = 'studyplanner.auth.token'
 
-function loadStoredToken(): string | null {
+function loadLegacyBearerToken(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY)
+    return localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)
   } catch {
     return null
   }
 }
 
-function persistToken(token: string | null): void {
+function clearLegacyBearerToken(): void {
   try {
-    if (token) {
-      localStorage.setItem(STORAGE_KEY, token)
-      return
-    }
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY)
   } catch {
-    // Ignore storage failures; the in-memory session still works for the current tab.
+    // Browser storage can be unavailable in private or hardened contexts.
   }
 }
 
@@ -39,7 +35,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
-  const [token, setToken] = useState<string | null>(loadStoredToken)
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true)
 
@@ -47,34 +43,29 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     let isActive = true
 
     async function restoreSession(): Promise<void> {
-      if (!token) {
-        if (isActive) {
-          setUser(null)
-          setIsLoadingSession(false)
-        }
-        return
-      }
-
+      const legacyBearerToken = loadLegacyBearerToken()
       try {
-        const session = await fetchCurrentSession(token)
+        const session = await fetchCurrentSession(legacyBearerToken)
         if (!isActive) {
           return
         }
-        if (!session.authenticated || !session.user) {
-          persistToken(null)
-          setToken(null)
-          setUser(null)
-        } else {
+        if (session.authenticated && session.user && session.csrfToken) {
+          setCsrfToken(session.csrfToken)
           setUser(session.user)
+        } else {
+          setCsrfToken(null)
+          setUser(null)
         }
       } catch {
         if (!isActive) {
           return
         }
-        persistToken(null)
-        setToken(null)
+        setCsrfToken(null)
         setUser(null)
       } finally {
+        // A valid legacy bearer token is promoted to the HttpOnly cookie by
+        // /api/auth/session. Invalid and expired tokens must not remain readable.
+        clearLegacyBearerToken()
         if (isActive) {
           setIsLoadingSession(false)
         }
@@ -86,56 +77,54 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [])
 
   const register = useCallback(async (input: RegisterInput): Promise<void> => {
     const authPayload = await registerAccount(input)
-    persistToken(authPayload.token)
-    setToken(authPayload.token)
+    setCsrfToken(authPayload.csrfToken)
     setUser(authPayload.user)
   }, [])
 
   const login = useCallback(async (input: LoginInput): Promise<void> => {
     const authPayload = await loginAccount(input)
-    persistToken(authPayload.token)
-    setToken(authPayload.token)
+    setCsrfToken(authPayload.csrfToken)
     setUser(authPayload.user)
   }, [])
 
   const logout = useCallback(async (): Promise<void> => {
-    if (token) {
+    if (csrfToken) {
       try {
-        await logoutAccount(token)
+        await logoutAccount(csrfToken)
       } catch {
-        // Logging out locally is still better than keeping a broken client session.
+        // Clearing local UI state is still safer than retaining a broken session.
       }
     }
 
-    persistToken(null)
-    setToken(null)
+    clearLegacyBearerToken()
+    setCsrfToken(null)
     setUser(null)
-  }, [token])
+  }, [csrfToken])
 
   const saveProfile = useCallback(async (input: SaveProfileInput): Promise<void> => {
-    if (!token) {
+    if (!csrfToken) {
       throw new Error('You must be signed in to update your profile.')
     }
-    const updatedUser = await saveCurrentProfile(token, input)
+    const updatedUser = await saveCurrentProfile(csrfToken, input)
     setUser(updatedUser)
-  }, [token])
+  }, [csrfToken])
 
   const updateCredentials = useCallback(async (input: UpdateCredentialsInput): Promise<void> => {
-    if (!token) {
+    if (!csrfToken) {
       throw new Error('You must be signed in to update your credentials.')
     }
-    const updatedUser = await updateCredentialsApi(token, input)
+    const updatedUser = await updateCredentialsApi(csrfToken, input)
     setUser(updatedUser)
-  }, [token])
+  }, [csrfToken])
 
   const contextValue = useMemo(
     () => ({
       user,
-      token,
+      csrfToken,
       isAuthenticated: user !== null,
       isLoadingSession,
       register,
@@ -144,7 +133,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       saveProfile,
       updateCredentials,
     }),
-    [isLoadingSession, login, logout, register, saveProfile, updateCredentials, token, user],
+    [csrfToken, isLoadingSession, login, logout, register, saveProfile, updateCredentials, user],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

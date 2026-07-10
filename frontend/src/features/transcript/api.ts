@@ -1,4 +1,4 @@
-import { createAuthHeaders, fetchJson } from '../../shared/utils/api'
+import { createCsrfHeaders, fetchJson } from '../../shared/utils/api'
 import type { CompletedCourse } from '../courses'
 import type {
   BulkCompletedCourseImportItem,
@@ -30,24 +30,20 @@ interface BulkCompletedCourseImportResponse extends BulkCompletedCourseImportRes
   failedCount: number
 }
 
-export async function fetchCompletedCourses(token: string): Promise<CompletedCourse[]> {
-  const response = await fetchJson<CompletedCoursesResponse>('/api/me/completed-courses', {
-    headers: {
-      ...createAuthHeaders(token),
-    },
-  })
+export async function fetchCompletedCourses(): Promise<CompletedCourse[]> {
+  const response = await fetchJson<CompletedCoursesResponse>('/api/me/completed-courses')
   return response.completedCourses
 }
 
 export async function saveCompletedCourses(
-  token: string,
+  csrfToken: string,
   completedCourses: CompletedCourse[],
 ): Promise<CompletedCourse[]> {
   const response = await fetchJson<CompletedCoursesResponse>('/api/me/completed-courses', {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
     body: JSON.stringify({ completedCourses }),
   })
@@ -55,14 +51,14 @@ export async function saveCompletedCourses(
 }
 
 export async function importCompletedCourses(
-  token: string,
+  csrfToken: string,
   items: BulkCompletedCourseImportItem[],
 ): Promise<BulkCompletedCourseImportResult> {
   const response = await fetchJson<BulkCompletedCourseImportResponse>('/api/me/completed-courses/import', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
     body: JSON.stringify({ imports: items }),
   })
@@ -74,35 +70,31 @@ export async function importCompletedCourses(
   }
 }
 
-export async function fetchTranscriptIssues(token: string): Promise<SavedTranscriptIssue[]> {
-  const response = await fetchJson<TranscriptIssuesResponse>('/api/me/transcript-issues', {
-    headers: {
-      ...createAuthHeaders(token),
-    },
-  })
+export async function fetchTranscriptIssues(): Promise<SavedTranscriptIssue[]> {
+  const response = await fetchJson<TranscriptIssuesResponse>('/api/me/transcript-issues')
   return response.transcriptIssues
 }
 
 export async function saveTranscriptIssues(
-  token: string,
+  csrfToken: string,
   payload: TranscriptIssueListPayload,
 ): Promise<SavedTranscriptIssue[]> {
   const response = await fetchJson<TranscriptIssuesResponse>('/api/me/transcript-issues', {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
     body: JSON.stringify(payload),
   })
   return response.transcriptIssues
 }
 
-export async function clearTranscriptData(token: string): Promise<TranscriptDataClearResponse> {
+export async function clearTranscriptData(csrfToken: string): Promise<TranscriptDataClearResponse> {
   return await fetchJson<TranscriptDataClearResponse>('/api/me/transcript-data', {
     method: 'DELETE',
     headers: {
-      ...createAuthHeaders(token),
+      ...createCsrfHeaders(csrfToken),
     },
   })
 }

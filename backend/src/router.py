@@ -12,13 +12,19 @@ from services.authentication import (
     AuthenticationError,
     AuthorizationError,
     CredentialUpdateError,
+    CsrfProtectionError,
     ProfileUpdateError,
     RegistrationError,
+    clear_auth_cookie,
+    create_auth_cookie,
+    create_csrf_token,
+    get_authenticated_session,
     get_authenticated_user,
     get_current_user_profile,
     login_user,
     logout_user,
     register_user,
+    require_csrf_protection,
     update_current_user_profile,
     update_user_credentials,
 )
@@ -39,6 +45,15 @@ from services.course_catalog import (
 from services.app_settings import get_simulated_semester_label
 from services.progress import get_current_user_progress
 from services.client_error_log import ClientErrorLogError, list_client_errors, report_client_error
+from services.request_rate_limit import (
+    AI_CATALOG_POLICY,
+    AUTH_LOGIN_POLICY,
+    AUTH_REGISTRATION_POLICY,
+    CLIENT_ERROR_POLICY,
+    FEEDBACK_POLICY,
+    RateLimitError,
+    enforce_rate_limit,
+)
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
     PlannerAssignmentError,
@@ -196,6 +211,20 @@ def _method_not_allowed_response(request: Any, env: Any) -> Any:
     )
 
 
+def _new_session_response(auth_payload: dict[str, Any], request: Any, env: Any, status: int = 200) -> Any:
+    token = str(auth_payload['token'])
+    return json_response(
+        {
+            'user': auth_payload['user'],
+            'csrfToken': create_csrf_token(env, token),
+        },
+        request=request,
+        env=env,
+        status=status,
+        extra_headers={'set-cookie': create_auth_cookie(env, request, token)},
+    )
+
+
 async def route_request(request: Any, env: Any) -> Any:
     """Route incoming Cloudflare Worker requests."""
     method = str(getattr(request, "method", "GET")).upper()
@@ -211,6 +240,11 @@ async def route_request(request: Any, env: Any) -> Any:
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else ""
 
     try:
+        if method in {'POST', 'PUT', 'PATCH', 'DELETE'} and (
+            path == '/api/auth/logout' or path.startswith('/api/me/')
+        ):
+            await require_csrf_protection(env, request)
+
         if path == "/api/ai/meta":
             if method != "GET":
                 return _method_not_allowed_response(request, env)
@@ -224,6 +258,7 @@ async def route_request(request: Any, env: Any) -> Any:
         if path == "/api/ai/catalog/search":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
+            await enforce_rate_limit(env, request, AI_CATALOG_POLICY)
             try:
                 search_result = await search_courses_for_ai(env, await read_json_object(request))
             except ValueError as exc:
@@ -239,6 +274,7 @@ async def route_request(request: Any, env: Any) -> Any:
         if path == "/api/ai/catalog/resolve-course":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
+            await enforce_rate_limit(env, request, AI_CATALOG_POLICY)
             try:
                 resolve_result = await resolve_course_reference(env, await read_json_object(request))
             except ValueError as exc:
@@ -280,35 +316,48 @@ async def route_request(request: Any, env: Any) -> Any:
             if method != "POST":
                 return _method_not_allowed_response(request, env)
 
+            await enforce_rate_limit(env, request, AUTH_REGISTRATION_POLICY)
             auth_payload = await register_user(env, await read_json_object(request), request)
-            return json_response(auth_payload, request=request, env=env, status=201)
+            return _new_session_response(auth_payload, request, env, status=201)
 
         if path == "/api/auth/login":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
 
+            await enforce_rate_limit(env, request, AUTH_LOGIN_POLICY)
             auth_payload = await login_user(env, await read_json_object(request), request)
-            return json_response(auth_payload, request=request, env=env)
+            return _new_session_response(auth_payload, request, env)
 
         if path == "/api/auth/logout":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
 
             await logout_user(env, request)
-            return empty_response(request=request, env=env)
+            return empty_response(
+                request=request,
+                env=env,
+                extra_headers={'set-cookie': clear_auth_cookie(request)},
+            )
 
         if path == "/api/auth/session":
             if method != "GET":
                 return _method_not_allowed_response(request, env)
 
-            user = await get_authenticated_user(env, request)
+            session = await get_authenticated_session(env, request)
+            extra_headers = (
+                {'set-cookie': create_auth_cookie(env, request, str(session['token']))}
+                if session is not None
+                else None
+            )
             return json_response(
                 {
-                    "authenticated": user is not None,
-                    "user": user,
+                    "authenticated": session is not None,
+                    "user": session['user'] if session is not None else None,
+                    "csrfToken": session['csrfToken'] if session is not None else None,
                 },
                 request=request,
                 env=env,
+                extra_headers=extra_headers,
             )
 
         if path == "/api/me/profile":
@@ -450,11 +499,15 @@ async def route_request(request: Any, env: Any) -> Any:
 
         if path == "/api/client-errors":
             if method == "POST":
+                await enforce_rate_limit(env, request, CLIENT_ERROR_POLICY)
                 result = await report_client_error(env, request, await read_json_object(request))
                 return json_response(result, request=request, env=env, status=201)
 
             if method == "GET":
-                errors = await list_client_errors(env)
+                user = await get_authenticated_user(env, request)
+                if user is None:
+                    raise AuthorizationError('Authentication is required for server diagnostics.')
+                errors = await list_client_errors(env, str(user['username']))
                 return json_response(errors, request=request, env=env)
 
             return _method_not_allowed_response(request, env)
@@ -463,6 +516,7 @@ async def route_request(request: Any, env: Any) -> Any:
             if method != "POST":
                 return _method_not_allowed_response(request, env)
 
+            await enforce_rate_limit(env, request, FEEDBACK_POLICY)
             feedback = await submit_feedback(env, request, await read_json_object(request))
             return json_response(feedback, request=request, env=env, status=201)
 
@@ -798,6 +852,15 @@ async def route_request(request: Any, env: Any) -> Any:
             env=env,
             status=400,
         )
+    except RateLimitError as exc:
+        return error_response(
+            code="rate_limited",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=429,
+            extra_headers={'retry-after': str(exc.retry_after_seconds)},
+        )
     except AuthenticationError as exc:
         return error_response(
             code="authentication_failed",
@@ -813,6 +876,14 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=500,
+        )
+    except CsrfProtectionError as exc:
+        return error_response(
+            code="csrf_validation_failed",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=403,
         )
     except AuthorizationError as exc:
         return error_response(
