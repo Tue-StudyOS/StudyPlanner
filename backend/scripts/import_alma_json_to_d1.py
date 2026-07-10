@@ -418,12 +418,19 @@ def _emit_course(
             "course_id": course_id,
             "position": group_position,
             "title": group.get("title"),
-            "group_type": group_fields.get("Veranstaltungsart")
+            "group_type": group_fields.get("Typ")
+            or group_fields.get("Veranstaltungsart")
             or derive_parallel_group_role(group.get("title")),
-            "language": group_fields.get("Sprache"),
+            "language": group_fields.get("Lehrsprache") or group_fields.get("Sprache"),
             "responsible_text": group_fields.get("Verantwortliche/-r"),
-            "max_participants": _maybe_int(group_fields.get("Maximale Teilnehmerzahl")),
-            "min_participants": _maybe_int(group_fields.get("Minimale Teilnehmerzahl")),
+            "max_participants": _maybe_int(
+                group_fields.get("Maximale Anzahl Teilnehmer/-innen")
+                or group_fields.get("Maximale Teilnehmerzahl")
+            ),
+            "min_participants": _maybe_int(
+                group_fields.get("Minimum der Teilnehmer/-innen für das Stattfinden der Veranstaltung")
+                or group_fields.get("Minimale Teilnehmerzahl")
+            ),
             "semester_hours": _maybe_float(group_fields.get("Semesterwochenstunden")),
             "raw_fields_json": json.dumps(group_fields, ensure_ascii=False),
             "raw_json": json.dumps(group, ensure_ascii=False),

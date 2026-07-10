@@ -81,6 +81,44 @@ test('single-date schedule slots become one-off events instead of weekly ones', 
   assert.doesNotMatch(ics, /RRULE/)
 })
 
+test('uses ALMA recurrence bounds, cancellation dates, and ignores administrative slots', () => {
+  const ics = buildSemesterPlanIcs({
+    semesterLabel: 'WS 2025/26',
+    courses: [
+      buildCourse({
+        exams: [],
+        schedule: [
+          {
+            id: '123',
+            day: '14.10.2025 - 03.02.2026',
+            time: '14:00 - 16:00',
+            room: 'N06',
+            type: 'Vorlesung',
+            startsOn: '2025-10-14',
+            endsOn: '2026-02-03',
+            cancellationDates: ['2025-12-23'],
+          },
+          {
+            id: '124',
+            day: '18.02.2026',
+            time: '08:00 - 18:00',
+            room: 'A104',
+            type: 'Klausurkorrektur',
+            calendarRelevant: false,
+          },
+        ],
+      }),
+    ],
+    hiddenSlotIds: [],
+  })
+
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20251014T140000/)
+  assert.match(ics, /UNTIL=20260203T215959Z/)
+  assert.match(ics, /EXDATE;TZID=Europe\/Berlin:20251223T140000/)
+  assert.doesNotMatch(ics, /Klausurkorrektur/)
+})
+
 test('exam dates become single all-day events', () => {
   const ics = buildSemesterPlanIcs({
     semesterLabel: 'SS 2026',

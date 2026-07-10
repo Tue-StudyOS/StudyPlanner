@@ -211,8 +211,17 @@ class BuildScheduleTest(unittest.TestCase):
             },
         ]
 
+        schedule = _build_schedule(rows)
         self.assertEqual(
-            _build_schedule(rows),
+            [
+                {
+                    "day": slot["day"],
+                    "time": slot["time"],
+                    "room": slot["room"],
+                    "type": slot["type"],
+                }
+                for slot in schedule
+            ],
             [
                 {
                     "day": "27.07.2026",
@@ -240,6 +249,7 @@ class BuildScheduleTest(unittest.TestCase):
                 },
             ],
         )
+        self.assertTrue(all(slot["calendarRelevant"] for slot in schedule))
 
     def test_keeps_same_time_tutorial_appointments(self) -> None:
         rows = [
@@ -379,6 +389,27 @@ class BuildScheduleTest(unittest.TestCase):
         self.assertEqual(_build_schedule(rows)[0]["day"], "13.04.2026 - 20.07.2026")
         self.assertEqual(_build_schedule(rows)[0]["type"], "Vorlesung")
 
+    def test_marks_administrative_dates_as_not_calendar_relevant(self) -> None:
+        schedule = _build_schedule(
+            [
+                {
+                    "appointmentId": 99,
+                    "courseId": 7,
+                    "dateText": "18.02.2026",
+                    "timeText": "08:00 - 18:00",
+                    "note": "Klausurkorrektur",
+                    "courseType": "Vorlesung",
+                    "cancellationDatesJson": '["2026-01-12"]',
+                },
+            ]
+        )
+
+        self.assertEqual(schedule[0]["id"], "99")
+        self.assertEqual(schedule[0]["sourceCourseId"], "7")
+        self.assertEqual(schedule[0]["type"], "Klausurkorrektur")
+        self.assertFalse(schedule[0]["calendarRelevant"])
+        self.assertEqual(schedule[0]["cancellationDates"], ["2026-01-12"])
+
 
 class PeriodSortKeyTest(unittest.TestCase):
     def test_orders_summer_before_winter_within_a_year(self) -> None:
@@ -442,6 +473,51 @@ class CollectOfferingGroupsTest(unittest.TestCase):
         groups = _collect_offering_groups(rows)
 
         self.assertEqual(len(groups), 2)
+
+    def test_combines_lecture_and_exercise_variants_in_the_same_period(self) -> None:
+        rows = [
+            {
+                "id": 1,
+                "courseKey": "INFM1110",
+                "title": "INFM1110 Praktische Informatik 1 (früher Informatik I) - Vorlesung",
+                "courseType": "Vorlesung",
+                "periodLabel": "Winter 2025/26",
+            },
+            {
+                "id": 2,
+                "courseKey": "INFM1110",
+                "title": "INFM1110 Übungen zu Praktische Informatik 1 (früher Informatik I) - Übung",
+                "courseType": "Übung",
+                "periodLabel": "Winter 2025/26",
+            },
+        ]
+
+        groups = _collect_offering_groups(rows)
+
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["representativeId"], 1)
+        self.assertEqual(groups[0]["representativeIds"], [1, 2])
+
+    def test_does_not_merge_unrelated_courses_with_a_generic_number(self) -> None:
+        rows = [
+            {
+                "id": 10,
+                "courseKey": "INF",
+                "title": "INF Mathematischer Vorbereitungskurs - Einführungskurs",
+                "courseType": "Einführungskurs",
+                "periodLabel": "Winter 2025/26",
+            },
+            {
+                "id": 11,
+                "courseKey": "INF",
+                "title": "INF Girls Digital Camp - Praktikum",
+                "courseType": "Praktikum",
+                "periodLabel": "Winter 2025/26",
+            },
+        ]
+
+        self.assertEqual(len(_collect_offering_groups(rows)), 2)
+
 
 class ParticipantLimitsTest(unittest.TestCase):
     def test_builds_compact_limits_from_parallel_groups(self) -> None:

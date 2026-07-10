@@ -7,6 +7,7 @@ import {
   type ScheduleSlotKind,
 } from '../../courses/utils/scheduleSlotKind.ts'
 import { clampPlannerTimeRange } from './plannerDayLayout.ts'
+import { getScheduleSlotId, getScheduleSlotLegacyIds } from './scheduleSlotIds.ts'
 
 export const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
@@ -61,6 +62,7 @@ const DATE_WEEKDAYS: Array<(typeof DAY_ORDER)[number] | null> = [
 export interface PlannerBlock {
   blockId: string
   slotId: string
+  legacySlotIds: string[]
   courseId: string
   courseTitle: string
   day: (typeof DAY_ORDER)[number]
@@ -138,6 +140,9 @@ function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
 
   courses.forEach((course) => {
     course.schedule.forEach((slot, index) => {
+      if (slot.calendarRelevant === false) {
+        return
+      }
       const normalizedDay = normalizeWeekday(slot.day)
       const timeRange = parseTimeRange(slot.time)
       if (!normalizedDay || !timeRange) {
@@ -151,9 +156,11 @@ function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
       if (isSingleDateSlot(slot.day) || slotKind === 'exam' || slotKind === 'resit') {
         return
       }
+      const slotId = getScheduleSlotId(course, slot, index)
       blocks.push({
         blockId: `${course.id}-${index}`,
-        slotId: `${course.id}:${index}`,
+        slotId,
+        legacySlotIds: getScheduleSlotLegacyIds(course, slot, index),
         courseId: course.id,
         courseTitle: cleanCourseTitle(course.title, course.number),
         day: normalizedDay,
@@ -194,6 +201,7 @@ function buildManualBlocks(
     blocks.push({
       blockId: `manual-${manualSlot.id}`,
       slotId: `manual:${manualSlot.id}`,
+      legacySlotIds: [],
       courseId: manualSlot.courseId,
       courseTitle: cleanCourseTitle(course.title, course.number),
       day: manualSlot.day,

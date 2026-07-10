@@ -8,8 +8,46 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.scripts.import_alma_json_to_d1 import (  # noqa: E402
     CURRICULUM_LINK_REBUILD_STATEMENTS,
     STUDY_AREA_CODE_ALIASES,
+    build_seed_plan,
     derive_parallel_group_role,
 )
+
+
+class ParallelGroupNormalizationTest(unittest.TestCase):
+    def test_reads_current_alma_parallel_group_field_labels(self) -> None:
+        plan = build_seed_plan(
+            {
+                "courses": [
+                    {
+                        "node_id": "course-1",
+                        "period_id": "236",
+                        "title": "Example course",
+                        "details": {
+                            "fields": {"Nummer": "INFO1234"},
+                            "parallel_groups": [
+                                {
+                                    "title": "Example group",
+                                    "fields": {
+                                        "Typ": "Übung",
+                                        "Lehrsprache": "deutsch",
+                                        "Verantwortliche/-r": "Prof. Example",
+                                        "Maximale Anzahl Teilnehmer/-innen": "30",
+                                        "Minimum der Teilnehmer/-innen für das Stattfinden der Veranstaltung": "5",
+                                    },
+                                    "appointments": [],
+                                }
+                            ],
+                        },
+                    }
+                ]
+            }
+        )
+
+        group = plan.parallel_groups[0]
+        self.assertEqual(group["group_type"], "Übung")
+        self.assertEqual(group["language"], "deutsch")
+        self.assertEqual(group["max_participants"], 30)
+        self.assertEqual(group["min_participants"], 5)
 
 
 def _study_area_link_statements() -> list[str]:

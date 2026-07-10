@@ -53,6 +53,24 @@ ECTS_TEXT_PATTERN = re.compile(r'(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:cp|ects|lp)\b', r
 PERIOD_LABEL_PATTERN = re.compile(r"^(Sommer|Winter)\s+(\d{4})", re.IGNORECASE)
 EXAM_SLOT_PATTERN = re.compile(r"\b(klausur|nachklausur|pruefung|prüfung|exam|resit)\b", re.IGNORECASE)
 RESIT_SLOT_PATTERN = re.compile(r"\b(nachklausur|resit)\b", re.IGNORECASE)
+NON_CALENDAR_SLOT_PATTERN = re.compile(
+    r"\b(klausurkorrektur|nachklausurkorrektur|klausureinsicht|"
+    r"nachklausureinsicht|tutorenschulung|exam review|grading)\b",
+    re.IGNORECASE,
+)
+COURSE_FORMER_TITLE_PATTERN = re.compile(r"\s*\((?:früher|formerly)\b[^)]*\)", re.IGNORECASE)
+COURSE_ACTIVITY_PREFIX_PATTERN = re.compile(
+    r"^(?:übung(?:en)?|uebung(?:en)?|exercises?)(?:\s+(?:zu|zur|zum|für|fuer|for))?"
+    r"(?:\s+(?:der|die|das|vorlesung|lecture))?\s+",
+    re.IGNORECASE,
+)
+COURSE_TYPE_SUFFIX_PATTERN = re.compile(
+    r"(?:\s*[-–—:]\s*|\s*\()"
+    r"(?:vorlesung|übung|uebung|lecture|exercise|seminar|praktikum|tutorial|tutorium)"
+    r"(?:\s*/\s*(?:vorlesung|übung|uebung|lecture|exercise|seminar|praktikum|tutorial|tutorium))*"
+    r"\)?\s*$",
+    re.IGNORECASE,
+)
 # Appointment notes label the session role when a course keeps every session in one
 # parallel group ("Vorlesung", "Übung", "Plenarübung"). No word boundary around
 # "übung" so compounds like "Plenarübung" match; "vorlesungsfrei" must not count
@@ -61,9 +79,61 @@ TUTORIAL_NOTE_PATTERN = re.compile(r"tutorium|tutorial|übung|uebung|exercise", 
 LECTURE_NOTE_PATTERN = re.compile(r"vorlesung(?!sfrei)|lecture", re.IGNORECASE)
 # The label only exists inside the scraped course payload, so read it from raw_json.
 PERIOD_LABEL_SQL = "COALESCE(json_extract(c.raw_json, '$.period_label'), c.period_id)"
-# Course numbers are unique and stable across ALMA periods, so they identify the
-# same course in different semesters; unit_id is the fallback for unnumbered rows.
+# Course numbers are stable across ALMA periods, but not unique inside a period:
+# ALMA often stores a lecture and its exercise as separate rows with the same number.
+# The number is therefore only the first part of the logical identity; title
+# normalization below keeps related variants together without merging unrelated
+# generic numbers such as "INF".
 COURSE_KEY_SQL = "COALESCE(c.number, c.unit_id)"
+PARALLEL_GROUP_TYPE_SQL = """
+    COALESCE(
+        pg.group_type,
+        (
+            SELECT pgf.value FROM parallel_group_fields AS pgf
+            WHERE pgf.parallel_group_id = pg.id
+              AND pgf.key IN ('Typ', 'Veranstaltungsart')
+            ORDER BY CASE pgf.key WHEN 'Typ' THEN 0 ELSE 1 END
+            LIMIT 1
+        )
+    )
+"""
+PARALLEL_GROUP_LANGUAGE_SQL = """
+    COALESCE(
+        pg.language,
+        (
+            SELECT pgf.value FROM parallel_group_fields AS pgf
+            WHERE pgf.parallel_group_id = pg.id
+              AND pgf.key IN ('Lehrsprache', 'Sprache')
+            ORDER BY CASE pgf.key WHEN 'Lehrsprache' THEN 0 ELSE 1 END
+            LIMIT 1
+        )
+    )
+"""
+PARALLEL_GROUP_MAX_PARTICIPANTS_SQL = """
+    COALESCE(
+        pg.max_participants,
+        CAST((
+            SELECT pgf.value FROM parallel_group_fields AS pgf
+            WHERE pgf.parallel_group_id = pg.id
+              AND pgf.key IN ('Maximale Anzahl Teilnehmer/-innen', 'Maximale Teilnehmerzahl')
+            LIMIT 1
+        ) AS INTEGER)
+    )
+"""
+PARALLEL_GROUP_MIN_PARTICIPANTS_SQL = """
+    COALESCE(
+        pg.min_participants,
+        CAST((
+            SELECT pgf.value FROM parallel_group_fields AS pgf
+            WHERE pgf.parallel_group_id = pg.id
+              AND pgf.key IN (
+                  'Minimum der Teilnehmer/-innen für das Stattfinden der Veranstaltung',
+                  'Minimale Teilnehmerzahl'
+              )
+            LIMIT 1
+        ) AS INTEGER)
+    )
+"""
 ALL_PERIODS_KEYWORD = "all"
 
 
@@ -256,8 +326,18 @@ def _slot_role_from_text(value: str | None, tutorial_wins_when_both: bool) -> st
     return None
 
 
+def _is_calendar_relevant_appointment(row: dict[str, Any]) -> bool:
+    return not bool(NON_CALENDAR_SLOT_PATTERN.search(_appointment_context(row)))
+
+
 def _appointment_slot_type(row: dict[str, Any]) -> str:
     context = _appointment_context(row)
+    if not _is_calendar_relevant_appointment(row):
+        return (
+            _safe_text(row.get("note"))
+            or _safe_text(row.get("timeNote"))
+            or "Sonstiger Termin"
+        )
     if RESIT_SLOT_PATTERN.search(context):
         return "Nachklausur"
     if EXAM_SLOT_PATTERN.search(context):
@@ -282,21 +362,37 @@ def _appointment_slot_type(row: dict[str, Any]) -> str:
     return _safe_text(row.get("groupType")) or _safe_text(row.get("courseType")) or "Course"
 
 
-def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, str]]:
-    schedule: list[dict[str, str]] = []
+def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    schedule: list[dict[str, Any]] = []
+    source_indexes: dict[str, int] = {}
 
     for row in appointment_rows:
         day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
-        slot_type = _appointment_slot_type(row)
+        source_course_id = str(row.get("courseId") or "")
+        source_index = source_indexes.get(source_course_id, 0)
+        source_indexes[source_course_id] = source_index + 1
 
         schedule.append(
             {
+                "id": str(row.get("appointmentId") or row.get("id") or ""),
+                "sourceCourseId": source_course_id,
+                "sourceIndex": source_index,
+                "parallelGroupId": str(row.get("parallelGroupId") or ""),
+                "groupTitle": _safe_text(row.get("groupTitle")) or "",
+                "groupType": _safe_text(row.get("groupType")) or "",
                 "day": day,
                 "time": time_text,
                 "room": room_text,
-                "type": slot_type,
+                "type": _appointment_slot_type(row),
+                "rhythm": _safe_text(row.get("rhythm")) or "",
+                "startsOn": _safe_text(row.get("startsOn")),
+                "endsOn": _safe_text(row.get("endsOn")),
+                "timeNote": _safe_text(row.get("timeNote")),
+                "note": _safe_text(row.get("note")),
+                "cancellationDates": _json_list(row.get("cancellationDatesJson")),
+                "calendarRelevant": _is_calendar_relevant_appointment(row),
             }
         )
 
@@ -528,41 +624,90 @@ def _derive_term_type(period_labels: list[str]) -> str:
     return "unknown"
 
 
-def _collect_offering_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Group per-period course rows into one entry per distinct course.
+def _normalize_course_identity_title(title: str | None, course_key: str) -> str:
+    normalized = _safe_text(title) or ""
+    if course_key and normalized.casefold().startswith(course_key.casefold()):
+        normalized = normalized[len(course_key) :].lstrip(" -–—:/")
+    normalized = COURSE_FORMER_TITLE_PATTERN.sub("", normalized)
+    normalized = COURSE_ACTIVITY_PREFIX_PATTERN.sub("", normalized)
+    while True:
+        stripped = COURSE_TYPE_SUFFIX_PATTERN.sub("", normalized)
+        if stripped == normalized:
+            break
+        normalized = stripped
+    return " ".join(re.findall(r"[\w]+", normalized.casefold(), re.UNICODE))
 
-    Preserves the incoming row order for the result, picks the row from the
-    newest period as the representative, and collects the full offering history.
-    """
+
+def _course_identity_key(row: dict[str, Any]) -> str:
+    course_key = _safe_text(row.get("courseKey")) or str(row.get("id") or "")
+    normalized_title = _normalize_course_identity_title(
+        _safe_text(row.get("title")),
+        course_key,
+    )
+    return f"{course_key.casefold()}::{normalized_title}" if normalized_title else course_key.casefold()
+
+
+def _course_variant_rank(row: dict[str, Any]) -> tuple[int, str]:
+    title = _safe_text(row.get("title")) or ""
+    course_key = _safe_text(row.get("courseKey")) or ""
+    without_number = title[len(course_key) :].lstrip(" -–—:/") if course_key and title.casefold().startswith(course_key.casefold()) else title
+    is_exercise_variant = bool(COURSE_ACTIVITY_PREFIX_PATTERN.match(without_number))
+    course_type = (_safe_text(row.get("courseType")) or "").casefold()
+    is_exercise_only = bool(TUTORIAL_NOTE_PATTERN.search(course_type)) and not bool(
+        LECTURE_NOTE_PATTERN.search(course_type)
+    )
+    return (1 if is_exercise_variant or is_exercise_only else 0, title.casefold())
+
+
+def _collect_offering_groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group ALMA rows into logical courses without losing lecture/exercise pairs."""
     groups: dict[str, dict[str, Any]] = {}
     ordered_keys: list[str] = []
 
     for row in rows:
         if row.get("id") is None:
             continue
-        course_key = _safe_text(row.get("courseKey")) or str(row["id"])
+        row_id = int(row["id"])
+        course_key = _safe_text(row.get("courseKey")) or str(row_id)
+        identity_key = _course_identity_key(row)
         period_label = _safe_text(row.get("periodLabel")) or ""
         sort_key = _period_sort_key(period_label)
+        variant_rank = _course_variant_rank(row)
 
-        group = groups.get(course_key)
+        group = groups.get(identity_key)
         if group is None:
             group = {
+                "identityKey": identity_key,
                 "courseKey": course_key,
-                "representativeId": int(row["id"]),
+                "representativeId": row_id,
+                "representativeIds": [row_id],
+                "representativeRank": variant_rank,
                 "representativeSortKey": sort_key,
                 "offeredPeriods": [],
+                "allCourseIds": [],
+                "periodCourseIds": {},
             }
-            groups[course_key] = group
-            ordered_keys.append(course_key)
+            groups[identity_key] = group
+            ordered_keys.append(identity_key)
         elif sort_key > group["representativeSortKey"]:
-            group["representativeId"] = int(row["id"])
+            group["representativeId"] = row_id
+            group["representativeIds"] = [row_id]
+            group["representativeRank"] = variant_rank
             group["representativeSortKey"] = sort_key
+        elif sort_key == group["representativeSortKey"]:
+            group["representativeIds"].append(row_id)
+            if variant_rank < group["representativeRank"]:
+                group["representativeId"] = row_id
+                group["representativeRank"] = variant_rank
 
+        group["allCourseIds"].append(row_id)
+        group["periodCourseIds"].setdefault(period_label, []).append(row_id)
         if period_label and period_label not in group["offeredPeriods"]:
             group["offeredPeriods"].append(period_label)
 
     for group in groups.values():
         group["offeredPeriods"].sort(key=_period_sort_key, reverse=True)
+        del group["representativeRank"]
         del group["representativeSortKey"]
 
     return [groups[key] for key in ordered_keys]
@@ -682,13 +827,15 @@ async def _load_catalog_related_chunk(
             env,
             f"""
         SELECT
-            course_id AS courseId,
-            group_type AS groupType,
-            language,
-            semester_hours AS semesterHours
-        FROM parallel_groups
-        WHERE course_id IN ({placeholders})
-        ORDER BY course_id ASC, position ASC
+            pg.course_id AS courseId,
+            {PARALLEL_GROUP_TYPE_SQL} AS groupType,
+            {PARALLEL_GROUP_LANGUAGE_SQL} AS language,
+            pg.semester_hours AS semesterHours,
+            {PARALLEL_GROUP_MAX_PARTICIPANTS_SQL} AS maxParticipants,
+            {PARALLEL_GROUP_MIN_PARTICIPANTS_SQL} AS minParticipants
+        FROM parallel_groups AS pg
+        WHERE pg.course_id IN ({placeholders})
+        ORDER BY pg.course_id ASC, pg.position ASC
         """,
             chunk,
         ),
@@ -697,18 +844,32 @@ async def _load_catalog_related_chunk(
             f"""
         SELECT
             pg.course_id AS courseId,
+            a.id AS appointmentId,
+            pg.id AS parallelGroupId,
             pg.title AS groupTitle,
-            pg.group_type AS groupType,
+            {PARALLEL_GROUP_TYPE_SQL} AS groupType,
             c.course_type AS courseType,
+            a.rhythm,
             a.weekday,
             a.weekday_index AS weekdayIndex,
             a.time_text AS timeText,
             a.date_text AS dateText,
             a.start_time AS startTime,
+            a.end_time AS endTime,
+            a.starts_on AS startsOn,
+            a.ends_on AS endsOn,
             a.room_text AS roomText,
             a.time_note AS timeNote,
             a.note,
-            a.position
+            a.position,
+            COALESCE(
+                (
+                    SELECT json_group_array(ac.cancelled_on)
+                    FROM appointment_cancellations AS ac
+                    WHERE ac.appointment_id = a.id
+                ),
+                '[]'
+            ) AS cancellationDatesJson
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
         JOIN courses AS c ON c.id = pg.course_id
@@ -778,7 +939,9 @@ def _build_catalog_summary(
     parallel_group_rows: list[dict[str, Any]],
     appointment_rows: list[dict[str, Any]],
     option_rows: list[dict[str, Any]],
+    course_variants: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    variants = course_variants or [course]
     lecturer_names = _unique_preserve_order(
         [
             name
@@ -791,7 +954,7 @@ def _build_catalog_summary(
         [
             value
             for value in [
-                _safe_text(course.get("courseType")),
+                *[_safe_text(variant.get("courseType")) for variant in variants],
                 *[_safe_text(row.get("groupType")) for row in parallel_group_rows],
             ]
             if value
@@ -814,12 +977,62 @@ def _build_catalog_summary(
             if (ects_value := _normalize_ects(row.get("moduleEcts"))) is not None
         ),
         None,
-    ) or _extract_ects_from_text(_safe_text(course.get("shortComment")))
-    first_slot = schedule[0] if schedule else None
+    )
+    if ects is None:
+        ects = next(
+            (
+                extracted_ects
+                for variant in variants
+                if (
+                    extracted_ects := _extract_ects_from_text(
+                        _safe_text(variant.get("shortComment")),
+                    )
+                ) is not None
+            ),
+            None,
+        )
+    semester_hours = next(
+        (
+            value
+            for variant in variants
+            if (value := _normalize_ects(variant.get("semesterHours"))) is not None
+        ),
+        None,
+    )
+    if semester_hours is None:
+        semester_hours = next(
+            (
+                value
+                for row in parallel_group_rows
+                if (value := _normalize_ects(row.get("semesterHours"))) is not None
+            ),
+            None,
+        )
+    first_slot = next(
+        (slot for slot in schedule if slot["calendarRelevant"] and slot.get("rhythm") != "Einzeltermin"),
+        next((slot for slot in schedule if slot["calendarRelevant"]), None),
+    )
+    short_comment = next(
+        (
+            value
+            for variant in variants
+            if (value := _safe_text(variant.get("shortComment")))
+        ),
+        "",
+    )
+    frequency = next(
+        (
+            value
+            for variant in variants
+            if (value := _safe_text(variant.get("offeringFrequency")))
+        ),
+        "Unknown",
+    )
 
     return {
         "id": str(course["id"]),
         "numericId": int(course["id"]),
+        "sourceCourseIds": [str(variant["id"]) for variant in variants],
         "number": _safe_text(course.get("number")) or _safe_text(course.get("courseKey")) or "",
         "title": _safe_text(course.get("title")) or "Untitled course",
         "periodId": _safe_text(course.get("periodId")),
@@ -829,22 +1042,29 @@ def _build_catalog_summary(
         "room": first_slot["room"] if first_slot else "TBA",
         "types": types,
         "ects": ects,
-        "sws": _normalize_ects(course.get("semesterHours")),
+        "sws": semester_hours,
         "masterCats": _normalize_master_cats(option_rows),
         "studyAreaOptions": regulation_options,
         "weekdays": _unique_preserve_order([slot["day"] for slot in schedule]),
         "schedule": schedule,
-        "frequency": _safe_text(course.get("offeringFrequency")) or "Unknown",
+        "frequency": frequency,
         "language": language or "Unknown",
         "prerequisites": [],
-        "description": _safe_text(course.get("shortComment")) or "",
+        "description": short_comment,
         "exams": [],
-        "registrationPeriod": _safe_text(course.get("registrationPeriod")) or "",
+        "registrationPeriod": next(
+            (
+                value
+                for variant in variants
+                if (value := _safe_text(variant.get("registrationPeriod")))
+            ),
+            "",
+        ),
         "detailUrl": _safe_text(course.get("detailUrl")) or "",
         "detailPageUrl": _safe_text(course.get("detailPageUrl")) or "",
         "organisation": _safe_text(course.get("organisation")) or "",
-        "courseType": _safe_text(course.get("courseType")) or "",
-        "shortComment": _safe_text(course.get("shortComment")) or "",
+        "courseType": " / ".join(types),
+        "shortComment": short_comment,
         "moduleCode": _safe_text(first_matching_row.get("moduleCode")),
         "moduleTitle": _safe_text(first_matching_row.get("moduleTitle")),
         "hasRegulationMapping": bool(regulation_options),
@@ -889,27 +1109,55 @@ async def _list_all_catalog_courses(
 ) -> list[dict[str, Any]]:
     """Return the deduplicated multi-period catalog with offering history."""
     safe_limit = max(1, min(limit, 1000))
-    params: list[Any] = []
     sql = f"""
         SELECT
             c.id,
             {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            c.course_type AS courseType,
             {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
         WHERE {CATALOG_FILTER_SQL}
     """
 
+    sql += "\n        ORDER BY c.title ASC, c.id ASC"
+
     normalized_search = _safe_text(search)
     if normalized_search:
         where_clause, where_params = _build_search_where(_build_search_terms(normalized_search))
-        sql += "\n          AND " + where_clause
-        params.extend(where_params)
+        rows, matching_rows = await asyncio.gather(
+            fetch_all(env, sql),
+            fetch_all(
+                env,
+                f"""
+                SELECT c.id
+                FROM courses AS c
+                WHERE {CATALOG_FILTER_SQL}
+                  AND {where_clause}
+                """,
+                where_params,
+            ),
+        )
+        matching_ids = {int(row["id"]) for row in matching_rows}
+    else:
+        rows = await fetch_all(env, sql)
+        matching_ids = None
 
-    sql += "\n        ORDER BY c.title ASC, c.id ASC"
-
-    rows = await fetch_all(env, sql, params)
-    groups = _collect_offering_groups(rows)[:safe_limit]
-    representative_ids = [group["representativeId"] for group in groups]
+    groups = _collect_offering_groups(rows)
+    if matching_ids is not None:
+        groups = [
+            group
+            for group in groups
+            if any(course_id in matching_ids for course_id in group["allCourseIds"])
+        ]
+    groups = groups[:safe_limit]
+    representative_ids = list(
+        dict.fromkeys(
+            course_id
+            for group in groups
+            for course_id in group["representativeIds"]
+        )
+    )
 
     courses = await _fetch_catalog_courses_by_ids(env, representative_ids)
     courses_by_id = {int(course["id"]): course for course in courses}
@@ -920,15 +1168,21 @@ async def _list_all_catalog_courses(
     summaries: list[dict[str, Any]] = []
     for group in groups:
         course = courses_by_id.get(group["representativeId"])
-        if course is None:
+        variants = [
+            courses_by_id[course_id]
+            for course_id in group["representativeIds"]
+            if course_id in courses_by_id
+        ]
+        if course is None or not variants:
             continue
-        course_id = int(course["id"])
+        variant_ids = [int(variant["id"]) for variant in variants]
         summary = _build_catalog_summary(
             course,
-            lecturers_by_course.get(course_id, []),
-            groups_by_course.get(course_id, []),
-            appointments_by_course.get(course_id, []),
-            options_by_course.get(course_id, []),
+            [row for course_id in variant_ids for row in lecturers_by_course.get(course_id, [])],
+            [row for course_id in variant_ids for row in groups_by_course.get(course_id, [])],
+            [row for course_id in variant_ids for row in appointments_by_course.get(course_id, [])],
+            [row for course_id in variant_ids for row in options_by_course.get(course_id, [])],
+            variants,
         )
         summary["offeredPeriods"] = group["offeredPeriods"]
         summary["termType"] = _derive_term_type(group["offeredPeriods"])
@@ -1031,35 +1285,63 @@ async def list_catalog_courses(
     params.append(safe_limit)
 
     courses = await fetch_all(env, sql, params)
-    course_ids = [int(course["id"]) for course in courses]
+    offering_groups = _collect_offering_groups(courses)
+    courses_by_id = {int(course["id"]): course for course in courses}
+    course_ids = list(courses_by_id)
     lecturers_by_course, groups_by_course, appointments_by_course, options_by_course = (
         await _load_catalog_related(env, course_ids)
     )
 
-    return [
-        _build_catalog_summary(
-            course,
-            lecturers_by_course.get(int(course["id"]), []),
-            groups_by_course.get(int(course["id"]), []),
-            appointments_by_course.get(int(course["id"]), []),
-            options_by_course.get(int(course["id"]), []),
+    summaries: list[dict[str, Any]] = []
+    for offering_group in offering_groups:
+        primary = courses_by_id.get(offering_group["representativeId"])
+        variants = [
+            courses_by_id[course_id]
+            for course_id in offering_group["representativeIds"]
+            if course_id in courses_by_id
+        ]
+        if primary is None or not variants:
+            continue
+        variant_ids = [int(variant["id"]) for variant in variants]
+        summaries.append(
+            _build_catalog_summary(
+                primary,
+                [row for course_id in variant_ids for row in lecturers_by_course.get(course_id, [])],
+                [row for course_id in variant_ids for row in groups_by_course.get(course_id, [])],
+                [row for course_id in variant_ids for row in appointments_by_course.get(course_id, [])],
+                [row for course_id in variant_ids for row in options_by_course.get(course_id, [])],
+                variants,
+            )
         )
-        for course in courses
-    ]
+    return summaries
 
 
-async def _load_offering_history(env: Any, course_key: str | None) -> list[str]:
+async def _load_offering_history(
+    env: Any,
+    course_key: str | None,
+    title: str | None = None,
+) -> list[str]:
     if not course_key:
         return []
     rows = await fetch_all(
         env,
         f"""
-        SELECT {PERIOD_LABEL_SQL} AS periodLabel
+        SELECT
+            c.id,
+            {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            c.course_type AS courseType,
+            {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
         WHERE {COURSE_KEY_SQL} = ?
         """,
         [course_key],
     )
+    if title:
+        expected_identity = _course_identity_key(
+            {"courseKey": course_key, "title": title},
+        )
+        rows = [row for row in rows if _course_identity_key(row) == expected_identity]
     labels = _unique_preserve_order(
         [label for row in rows if (label := _safe_text(row.get("periodLabel")))]
     )
@@ -1231,74 +1513,188 @@ async def _load_illias_metadata(env: Any, course_id: int) -> dict[str, Any] | No
     }
 
 
-async def _resolve_newest_course_id(env: Any, course_id: int) -> int:
-    """Map a catalog course id to the newest period row for the same number."""
-    row = await fetch_one(
+async def _load_period_course_family(
+    env: Any,
+    course_id: int,
+) -> list[dict[str, Any]]:
+    source = await fetch_one(
         env,
         f"""
-        SELECT c.number, {PERIOD_LABEL_SQL} AS periodLabel
+        SELECT
+            c.id,
+            {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            c.course_type AS courseType,
+            c.period_id AS periodId,
+            {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
         WHERE c.id = ?
         LIMIT 1
         """,
         [course_id],
     )
-    if row is None:
-        return course_id
-
-    number = _safe_text(row.get("number"))
-    if not number:
-        return course_id
+    if source is None:
+        return []
 
     candidates = await fetch_all(
         env,
         f"""
-        SELECT c.id, {PERIOD_LABEL_SQL} AS periodLabel
+        SELECT
+            c.id,
+            {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            c.course_type AS courseType,
+            c.period_id AS periodId,
+            {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
-        WHERE c.number = ?
+        WHERE c.period_id = ?
+          AND {COURSE_KEY_SQL} = ?
           AND {CATALOG_FILTER_SQL}
+        ORDER BY c.title ASC, c.id ASC
         """,
-        [number],
+        [source["periodId"], source["courseKey"]],
     )
-    if not candidates:
-        return course_id
+    source_identity = _course_identity_key(source)
+    family = [row for row in candidates if _course_identity_key(row) == source_identity]
+    family.sort(key=_course_variant_rank)
+    return family or [source]
 
-    newest = max(
-        candidates,
-        key=lambda candidate: _period_sort_key(_safe_text(candidate.get("periodLabel")) or ""),
-    )
-    return int(newest["id"])
+
+def _merge_content_sections(raw_details: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for detail in raw_details:
+        for section in detail["contentSections"]:
+            title = _safe_text(section.get("title")) or ""
+            text = _safe_text(section.get("text")) or ""
+            key = (title.casefold(), text.casefold())
+            if not text or key in seen:
+                continue
+            seen.add(key)
+            sections.append(section)
+    return sections
+
+
+def _build_additional_fields(raw_details: list[dict[str, Any]]) -> list[dict[str, str]]:
+    hidden_keys = {
+        "angebotshäufigkeit",
+        "kurzkommentar",
+        "nummer",
+        "organisationseinheit",
+        "semesterwochenstunden",
+        "titel",
+        "veranstaltungsart",
+        "_categories_json",
+    }
+    values_by_key: dict[str, list[str]] = {}
+    labels_by_key: dict[str, str] = {}
+    for detail in raw_details:
+        for label, raw_value in detail["courseFields"].items():
+            normalized_label = str(label).strip().casefold()
+            value = _safe_text(raw_value)
+            if not value or normalized_label in hidden_keys:
+                continue
+            labels_by_key.setdefault(normalized_label, str(label).strip())
+            values = values_by_key.setdefault(normalized_label, [])
+            if value not in values:
+                values.append(value)
+    return [
+        {"label": labels_by_key[key], "value": " · ".join(values)}
+        for key, values in values_by_key.items()
+    ]
+
+
+def _build_assessment_exams(raw_details: list[dict[str, Any]]) -> list[dict[str, str]]:
+    exams: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for detail in raw_details:
+        for row in detail["assessmentDates"]:
+            exam_type = (
+                _safe_text(row.get("sourceTitle"))
+                or _safe_text(row.get("kind"))
+                or "Assessment"
+            )
+            date = _safe_text(row.get("dateValue")) or ""
+            key = (exam_type.casefold(), date)
+            if not date or key in seen:
+                continue
+            seen.add(key)
+            exams.append({"type": exam_type, "date": date, "duration": ""})
+    return exams
 
 
 async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
-    resolved_course_id = await _resolve_newest_course_id(env, course_id)
-    raw_detail = await get_course_detail(env, resolved_course_id)
-    if raw_detail is None:
+    family_rows = await _load_period_course_family(env, course_id)
+    if not family_rows:
+        return None
+    family_ids = [int(row["id"]) for row in family_rows]
+    courses = await _fetch_catalog_courses_by_ids(env, family_ids)
+    courses_by_id = {int(course["id"]): course for course in courses}
+    variants = [courses_by_id[family_id] for family_id in family_ids if family_id in courses_by_id]
+    if not variants:
+        return None
+    course = variants[0]
+    course_id_value = int(course["id"])
+
+    raw_detail_results = await asyncio.gather(
+        *(get_course_detail(env, family_id) for family_id in family_ids)
+    )
+    raw_details = [detail for detail in raw_detail_results if detail is not None]
+    if not raw_details:
         return None
 
-    course = raw_detail["course"]
-    course_id_value = int(course["id"])
     lecturers_by_course, groups_by_course, appointments_by_course, options_by_course = (
-        await _load_catalog_related(env, [course_id_value])
+        await _load_catalog_related(env, family_ids)
     )
-    content_sections = raw_detail["contentSections"]
+    lecturer_rows = [row for family_id in family_ids for row in lecturers_by_course.get(family_id, [])]
+    parallel_group_rows = [row for family_id in family_ids for row in groups_by_course.get(family_id, [])]
+    appointment_rows = [row for family_id in family_ids for row in appointments_by_course.get(family_id, [])]
+    option_rows = [row for family_id in family_ids for row in options_by_course.get(family_id, [])]
+    content_sections = _merge_content_sections(raw_details)
     summary = _build_catalog_summary(
         course,
-        lecturers_by_course.get(course_id_value, []),
-        groups_by_course.get(course_id_value, []),
-        appointments_by_course.get(course_id_value, []),
-        options_by_course.get(course_id_value, []),
+        lecturer_rows,
+        parallel_group_rows,
+        appointment_rows,
+        option_rows,
+        variants,
     )
 
-    offered_periods = await _load_offering_history(env, summary.get("number") or None)
-    description_entry = _pick_description_entry(summary.get("shortComment"), content_sections)
-    contents = _build_content_sections(content_sections, description_entry["text"])
-    external_links = await _load_external_links(
+    offered_periods = await _load_offering_history(
         env,
-        course_id_value,
-        _safe_text(course.get("number")),
+        summary.get("number") or None,
+        summary.get("title"),
     )
-    illias_metadata = await _load_illias_metadata(env, course_id_value)
+    description_entry: dict[str, Any] = {"text": "", "links": []}
+    for detail in raw_details:
+        candidate = _pick_description_entry(
+            _safe_text(detail["course"].get("shortComment")),
+            detail["contentSections"],
+        )
+        if candidate["text"] and not _is_ects_only_text(candidate["text"]):
+            description_entry = candidate
+            break
+        if not description_entry["text"]:
+            description_entry = candidate
+    contents = _build_content_sections(content_sections, description_entry["text"])
+
+    external_link_groups, illias_candidates = await asyncio.gather(
+        asyncio.gather(
+            *(
+                _load_external_links(
+                    env,
+                    family_id,
+                    _safe_text(courses_by_id.get(family_id, {}).get("number")),
+                )
+                for family_id in family_ids
+            )
+        ),
+        asyncio.gather(*(_load_illias_metadata(env, family_id) for family_id in family_ids)),
+    )
+    external_links = _dedupe_external_links(
+        [link for link_group in external_link_groups for link in link_group]
+    )
+    illias_metadata = next((metadata for metadata in illias_candidates if metadata), None)
     if illias_metadata and not any(
         (_safe_text(link.get("platform")) or "").lower() == "ilias"
         for link in external_links
@@ -1310,34 +1706,53 @@ async def get_catalog_course_detail(env: Any, course_id: int) -> dict[str, Any] 
                 "label": "Open ILIAS course",
             }
         )
+
+    all_parallel_groups = [
+        group
+        for detail in raw_details
+        for group in detail["parallelGroups"]
+    ]
+    all_lecturers = [lecturer for detail in raw_details for lecturer in detail["lecturers"]]
+    responsible_people = _unique_preserve_order(
+        [
+            value
+            for group in all_parallel_groups
+            if (value := _safe_text(group.get("responsibleText")))
+        ]
+    )
     summary.update(
         {
             "offeredPeriods": offered_periods,
             "termType": _derive_term_type(offered_periods),
             "externalLinks": external_links,
             "illias": illias_metadata,
-            "participantLimits": _build_participant_limits(raw_detail["parallelGroups"]),
+            "participantLimits": _build_participant_limits(all_parallel_groups),
+            "responsiblePeople": responsible_people,
+            "lecturerDetails": all_lecturers,
+            "additionalFields": _build_additional_fields(raw_details),
             "description": description_entry["text"],
             "descriptionLinks": description_entry["links"],
             "contents": contents,
             "contentsLinks": _extract_contents_links(content_sections) if contents else [],
             "prerequisites": _extract_prerequisites(content_sections),
-            "exams": [
-                {
-                    "type": _safe_text(row.get("sourceTitle"))
-                    or _safe_text(row.get("kind"))
-                    or "Assessment",
-                    "date": _safe_text(row.get("dateValue")) or "",
-                    "duration": "–",
-                }
-                for row in raw_detail["assessmentDates"]
-            ],
+            "exams": _build_assessment_exams(raw_details),
             "contentSections": content_sections,
-            "courseFields": raw_detail["courseFields"],
-            "rawLecturers": raw_detail["lecturers"],
-            "parallelGroups": raw_detail["parallelGroups"],
-            "appointments": raw_detail["appointments"],
-            "assessmentDates": raw_detail["assessmentDates"],
+            "courseFields": {
+                field["label"]: field["value"]
+                for field in _build_additional_fields(raw_details)
+            },
+            "rawLecturers": all_lecturers,
+            "parallelGroups": all_parallel_groups,
+            "appointments": [
+                appointment
+                for detail in raw_details
+                for appointment in detail["appointments"]
+            ],
+            "assessmentDates": [
+                assessment
+                for detail in raw_details
+                for assessment in detail["assessmentDates"]
+            ],
         }
     )
     return summary
@@ -1416,28 +1831,28 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
         WHERE cl.course_id = ?
         ORDER BY l.display_name ASC
     """
-    parallel_groups_sql = """
+    parallel_groups_sql = f"""
         SELECT
-            id,
-            position,
-            title,
-            group_type AS groupType,
-            language,
-            responsible_text AS responsibleText,
-            max_participants AS maxParticipants,
-            min_participants AS minParticipants,
-            semester_hours AS semesterHours,
-            raw_fields_json AS rawFieldsJson
-        FROM parallel_groups
-        WHERE course_id = ?
-        ORDER BY position ASC
+            pg.id,
+            pg.position,
+            pg.title,
+            {PARALLEL_GROUP_TYPE_SQL} AS groupType,
+            {PARALLEL_GROUP_LANGUAGE_SQL} AS language,
+            pg.responsible_text AS responsibleText,
+            {PARALLEL_GROUP_MAX_PARTICIPANTS_SQL} AS maxParticipants,
+            {PARALLEL_GROUP_MIN_PARTICIPANTS_SQL} AS minParticipants,
+            pg.semester_hours AS semesterHours,
+            pg.raw_fields_json AS rawFieldsJson
+        FROM parallel_groups AS pg
+        WHERE pg.course_id = ?
+        ORDER BY pg.position ASC
     """
-    appointments_sql = """
+    appointments_sql = f"""
         SELECT
             a.id,
             a.parallel_group_id AS parallelGroupId,
             pg.title AS groupTitle,
-            pg.group_type AS groupType,
+            {PARALLEL_GROUP_TYPE_SQL} AS groupType,
             c.course_type AS courseType,
             a.position,
             a.rhythm,
@@ -1454,7 +1869,15 @@ async def get_course_detail(env: Any, course_id: int) -> dict[str, Any] | None:
             a.instructors_text AS instructorsText,
             a.expected_participants AS expectedParticipants,
             a.note,
-            a.cancellation_text AS cancellationText
+            a.cancellation_text AS cancellationText,
+            COALESCE(
+                (
+                    SELECT json_group_array(ac.cancelled_on)
+                    FROM appointment_cancellations AS ac
+                    WHERE ac.appointment_id = a.id
+                ),
+                '[]'
+            ) AS cancellationDatesJson
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
         JOIN courses AS c ON c.id = pg.course_id

@@ -24,12 +24,6 @@ when they are resolved.
 
 ## Migrations / infrastructure
 
-- **`0019_testdata_multi_tag_courses.sql` must not reach production.**
-  It inserts 8 fake test courses; it has not been applied to
-  `studyplanner-db`, but the next `npm run db:migrate:remote` would run it.
-  Move it out of `backend/migrations/` (or guard it) before anyone migrates.
-  Until then, apply new migrations individually via
-  `wrangler d1 execute studyplanner-db --remote --file migrations/<file>.sql`.
 - **Delete `studyplaner-db-test`** (`297f7a28-9069-431d-b989-49acf2537513`)
   once the new database has been verified long enough
   (see `docs/cloudflare-runtime-config.md`).

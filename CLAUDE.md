@@ -44,8 +44,9 @@ Deliver a prioritized list: file, issue, and why it matters.
 ## Course catalog data (ALMA scraper → D1)
 
 The catalog is a **snapshot**. Course data flows:
-`data_collection/alma/scraper.py` (scrape ALMA) → `backend/data/Alma_courses.json` →
-`backend/scripts/import_alma_json_to_d1.py` (import into D1) → backend reads D1.
+`data_collection/alma/scraper.py` (scrape ALMA) → an ignored multi-semester JSON in
+`data_collection/output/` → `backend/scripts/import_alma_json_to_d1.py` (import into
+D1) → backend reads D1. Generated catalog exports are not tracked.
 
 - **A scraper change does NOT affect live data until someone re-scrapes and re-imports.**
   Editing `scraper.py` alone changes nothing users see; the data in D1 is whatever the

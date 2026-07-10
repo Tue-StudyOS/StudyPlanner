@@ -5,6 +5,7 @@ import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { CourseDetailBody } from '../../courses/components/CourseDetailBody'
 import { useCatalogCourseDetail } from '../../courses/hooks/useCatalogCourseDetail'
 import type { Course } from '../../courses'
+import { mergeCourseDetails } from '../../courses/utils/mergeCourseDetails.ts'
 
 interface PlannerCourseDetailModalProps {
   course: Course
@@ -12,6 +13,8 @@ interface PlannerCourseDetailModalProps {
   areaOptions: RegulationAreaOption[]
   assignedAreaCode: string | null
   suggestedAreaCode: string | null
+  hiddenSlotIds: string[]
+  onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
   onAdd: (courseId: string, areaCode: string | null) => void
   onRemove: (courseId: string) => void
   onSetAssignment: (courseId: string, areaCode: string | null) => void
@@ -29,6 +32,8 @@ export function PlannerCourseDetailModal({
   areaOptions,
   assignedAreaCode,
   suggestedAreaCode,
+  hiddenSlotIds,
+  onSelectTutorialSlot,
   onAdd,
   onRemove,
   onSetAssignment,
@@ -38,6 +43,7 @@ export function PlannerCourseDetailModal({
   const scrollRef = useRef<HTMLDivElement>(null)
   // The planner works on catalog summaries; load the full record for the body.
   const { course: detailCourse } = useCatalogCourseDetail(course.id)
+  const displayCourse = detailCourse ? mergeCourseDetails(course, detailCourse) : course
   // Reset the local selection during render when the modal switches courses.
   const [selection, setSelection] = useState<{ courseId: string; areaCode: string | null }>({
     courseId: course.id,
@@ -157,7 +163,14 @@ export function PlannerCourseDetailModal({
           ref={scrollRef}
           className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
         >
-          <CourseDetailBody course={detailCourse ?? course} footer={footer} />
+          <CourseDetailBody
+            course={displayCourse}
+            tutorialSelection={isPlanned ? {
+              hiddenSlotIds,
+              onSelect: (slotId) => onSelectTutorialSlot(course.id, slotId),
+            } : undefined}
+            footer={footer}
+          />
         </div>
       </div>
     </div>

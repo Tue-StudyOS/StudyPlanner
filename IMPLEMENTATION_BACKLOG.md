@@ -194,9 +194,9 @@ Use the current shared implementation branch unless a later review decides to sp
 **Primary files:** D1 seed/migration files, catalog service if sorting/pinning is needed, progress/category seed mapping, regulation mapping seed data if required
 
 - [x] **F-1 Decide the test-data storage path**
-  - Added via `0019_testdata_multi_tag_courses.sql` migration — reversible, not mixed into ALMA data.
-  - Titles prefixed "000 Test Course", source_note "Test data — non-official.", scrape_run source_url `test://testdata/multi-tag-catalog-2025`.
-  - Removable without side effects: `DELETE FROM scrape_runs WHERE source_url = 'test://testdata/multi-tag-catalog-2025'` cascades all rows.
+  - Kept outside production migrations in `backend/scripts/seed_test_courses.sql`; apply it only to an explicit local/test D1.
+  - Titles are prefixed "000 Test Course", with source_note "Test data — non-official." and scrape_run source_url `test://testdata/multi-tag-catalog-2025`.
+  - Removable without side effects: `DELETE FROM scrape_runs WHERE source_url = 'test://testdata/multi-tag-catalog-2025'` cascades all rows. Migration `0022_remove_test_courses.sql` cleans historical databases that previously applied the old test-data migration.
 
 - [x] **F-2 Add eight stable test courses**
   - Numbers `INFO0001-TEST` … `INFO0008-TEST` — pass the catalog filter (`INFO%`) and sort before all real `INFO4xxx` entries.
