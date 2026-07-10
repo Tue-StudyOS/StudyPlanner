@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import type { CompletedCourse, MasterCat } from '../../courses'
@@ -23,13 +24,7 @@ interface TranscriptProviderProps {
 }
 
 function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize completed courses.'
+  return getErrorMessage(error, 'Failed to synchronize completed courses.')
 }
 
 function emptySaveResult(): TranscriptSaveResult {
@@ -47,7 +42,7 @@ function shouldFallbackTranscriptImport(error: unknown): boolean {
 }
 
 export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.Element {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>(() =>
     readSessionCache<CompletedCourse[]>('private:completed-courses', userCacheKey) ?? [],
@@ -60,7 +55,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     let isActive = true
 
     async function loadCompletedCourses(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           invalidateSessionCache('private:', userCacheKey)
           setCompletedCourses([])
@@ -77,7 +72,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
       setIsLoadingCompletedCourses(!cachedCompletedCourses)
       setCompletedCoursesError(null)
       try {
-        const nextCompletedCourses = await fetchCompletedCourses(token)
+        const nextCompletedCourses = await fetchCompletedCourses()
         if (!isActive) {
           return
         }
@@ -100,13 +95,13 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return () => {
       isActive = false
     }
-  }, [token, userCacheKey])
+  }, [csrfToken, userCacheKey])
 
   async function persistCompletedCourses(nextCompletedCourses: CompletedCourse[]): Promise<{
     saved: boolean
     errorMessage: string | null
   }> {
-    if (!token) {
+    if (!csrfToken) {
       const errorMessage = 'Sign in to save completed courses and progress.'
       setCompletedCoursesError(errorMessage)
       return { saved: false, errorMessage }
@@ -119,7 +114,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     setIsSavingCompletedCourses(true)
 
     try {
-      const savedCompletedCourses = await saveCompletedCourses(token, nextCompletedCourses)
+      const savedCompletedCourses = await saveCompletedCourses(csrfToken, nextCompletedCourses)
       setCompletedCourses(savedCompletedCourses)
       writeSessionCache('private:completed-courses', savedCompletedCourses, userCacheKey)
       invalidateSessionCache('private:progress', userCacheKey)
@@ -236,7 +231,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
       }
     }
 
-    if (!token) {
+    if (!csrfToken) {
       setCompletedCoursesError('Sign in to save completed courses and progress.')
       return null
     }
@@ -244,7 +239,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     setCompletedCoursesError(null)
     setIsSavingCompletedCourses(true)
     try {
-      const result = await importCompletedCourses(token, items)
+      const result = await importCompletedCourses(csrfToken, items)
       setCompletedCourses(result.completedCourses)
       writeSessionCache('private:completed-courses', result.completedCourses, userCacheKey)
       invalidateSessionCache('private:progress', userCacheKey)
@@ -252,7 +247,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     } catch (error) {
       if (shouldFallbackTranscriptImport(error)) {
         try {
-          return await importCompletedCoursesViaFallback(token, items)
+          return await importCompletedCoursesViaFallback(csrfToken, items)
         } catch (fallbackError) {
           setCompletedCoursesError(normalizeErrorMessage(fallbackError))
           return null
@@ -287,7 +282,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
   }
 
   async function clearTranscriptData(): Promise<boolean> {
-    if (!token) {
+    if (!csrfToken) {
       const errorMessage = 'Sign in to clear transcript data.'
       setCompletedCoursesError(errorMessage)
       return false
@@ -300,7 +295,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     setIsSavingCompletedCourses(true)
 
     try {
-      const result = await clearTranscriptDataRequest(token)
+      const result = await clearTranscriptDataRequest(csrfToken)
       setCompletedCourses(result.completedCourses)
       writeSessionCache('private:completed-courses', result.completedCourses, userCacheKey)
       invalidateSessionCache('private:progress', userCacheKey)

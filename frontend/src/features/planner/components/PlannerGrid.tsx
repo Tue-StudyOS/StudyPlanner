@@ -107,7 +107,11 @@ export function PlannerGrid({
   exportCalendarTitle?: string
 }) {
   const blocks = useMemo(
-    () => buildPlannerBlocks(plannedCourses, manualSlots).filter((block) => !hiddenSlotIds.includes(block.slotId)),
+    () => buildPlannerBlocks(plannedCourses, manualSlots).filter(
+      (block) =>
+        !hiddenSlotIds.includes(block.slotId)
+        && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
+    ),
     [hiddenSlotIds, manualSlots, plannedCourses],
   )
   const unscheduledPlannedCourses = useMemo(() => {

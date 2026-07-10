@@ -1,15 +1,16 @@
 import { formatRegulationAreaShortLabel, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
 import { CAT_BADGE_CLASSES } from '../../../shared/components/catClasses'
 import { useAuth } from '../../auth'
+import type { ProgressSnapshot } from '../../dashboard/types'
 import { useOnboarding } from '../../onboarding'
 import { TOUR_CATALOG_OPEN_AREAS } from '../../onboarding/utils/tourPreviewData.ts'
-import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 
 function formatEctsValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
 interface CatalogProgressHintProps {
+  progressSnapshot: ProgressSnapshot | null
   isAreaActive?: (code: string) => boolean
   onSelectArea?: (code: string) => void
 }
@@ -18,10 +19,13 @@ interface CatalogProgressHintProps {
  * Slim reminder of regulation areas still open. Rendered above the catalog
  * scroll pane so it stays fixed while course cards scroll underneath.
  */
-export function CatalogProgressHint({ isAreaActive, onSelectArea }: CatalogProgressHintProps = {}) {
+export function CatalogProgressHint({
+  progressSnapshot,
+  isAreaActive,
+  onSelectArea,
+}: CatalogProgressHintProps) {
   const { isAuthenticated } = useAuth()
   const { isOpen: isOnboardingOpen } = useOnboarding()
-  const { progressSnapshot } = useProgressSnapshot()
 
   const realOpenAreas = (progressSnapshot?.regulationProgress ?? [])
     .filter(

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { useAuth } from '../../auth'
 import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
@@ -11,18 +11,8 @@ interface FavoritesProviderProps {
   children: ReactNode
 }
 
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize your interested courses.'
-}
-
 export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Element {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const [favoriteIds, setFavoriteIds] = useState<string[]>([])
   const [isLoadingFavorites, setIsLoadingFavorites] = useState<boolean>(false)
@@ -34,7 +24,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
     let isActive = true
 
     async function loadFavorites(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setFavoriteIds([])
           setFavoritesError(null)
@@ -46,7 +36,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       setIsLoadingFavorites(true)
       setFavoritesError(null)
       try {
-        const nextFavoriteIds = await fetchFavoriteCourseIds(token)
+        const nextFavoriteIds = await fetchFavoriteCourseIds()
         if (!isActive) {
           return
         }
@@ -54,7 +44,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       } catch (error) {
         if (isActive) {
           setFavoriteIds([])
-          setFavoritesError(normalizeErrorMessage(error))
+          setFavoritesError(getErrorMessage(error, 'Failed to synchronize your interested courses.'))
         }
       } finally {
         if (isActive) {
@@ -68,13 +58,13 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
     return () => {
       isActive = false
     }
-  }, [token])
+  }, [csrfToken])
 
   const isFavorite = (courseId: string): boolean => favoriteIds.includes(courseId)
   const isFavoriteSaving = (courseId: string): boolean => savingFavoriteCourseIds.includes(courseId)
 
   const toggleFavorite = (courseId: string): void => {
-    if (!token) {
+    if (!csrfToken) {
       setFavoritesError('Sign in to save interested courses across devices.')
       return
     }
@@ -91,20 +81,20 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
 
     const isAddingFavorite = nextFavoriteIds.length > previousFavoriteIds.length
 
-    void saveFavoriteCourseIds(token, nextFavoriteIds)
+    void saveFavoriteCourseIds(csrfToken, nextFavoriteIds)
       .then(async (savedFavoriteIds) => {
         setFavoriteIds(savedFavoriteIds)
         if (isAddingFavorite) {
           const addedCourseId = nextFavoriteIds.find((id) => !previousFavoriteIds.includes(id))
           if (addedCourseId) {
             // addCourseToCurrentSemesterPlan marks the semester badge itself.
-            await addCourseToCurrentSemesterPlan(token, userCacheKey, addedCourseId)
+            await addCourseToCurrentSemesterPlan(csrfToken, userCacheKey, addedCourseId)
           }
         }
       })
       .catch((error) => {
         setFavoriteIds(previousFavoriteIds)
-        setFavoritesError(normalizeErrorMessage(error))
+        setFavoritesError(getErrorMessage(error, 'Failed to synchronize your interested courses.'))
       })
       .finally(() => {
         setSavingFavoriteCourseIds((current) => updateSavingFavoriteIds(current, courseId, false))

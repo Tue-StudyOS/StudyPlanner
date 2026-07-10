@@ -50,7 +50,7 @@ function App() {
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route element={<Layout />}>
-                      <Route path="/" element={<Navigate to={LEGACY_CATALOG_ROUTE} replace />} />
+                      <Route path="/" element={<Navigate to={ROUTES.catalog} replace />} />
                       <Route path={ROUTES.planner} element={<SemesterHub />} />
                       <Route path={ROUTES.semesterDetail} element={<SemesterPlanPage />} />
                       <Route path={LEGACY_CATALOG_ROUTE} element={<Navigate to={ROUTES.catalog} replace />} />
@@ -69,6 +69,7 @@ function App() {
                       />
                     </Route>
                     <Route path={ROUTES.beta} element={<StudyPlanBeta />} />
+                    <Route path="*" element={<Navigate to={ROUTES.catalog} replace />} />
                   </Routes>
                 </Suspense>
               </OnboardingProvider>

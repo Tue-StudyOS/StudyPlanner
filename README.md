@@ -118,6 +118,8 @@ Useful docs:
 - `docs/cloudflare-development.md`
 - `docs/authentication.md`
 - `docs/mobile-testing.md`
+- `docs/repository-overhaul-2026-07.md`
+- `docs/code-simplification-audit-2026-07.md`
 - `backend/README.md`
 
 ## Simulated semester (live onboarding testing)

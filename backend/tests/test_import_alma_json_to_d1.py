@@ -8,8 +8,46 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.scripts.import_alma_json_to_d1 import (  # noqa: E402
     CURRICULUM_LINK_REBUILD_STATEMENTS,
     STUDY_AREA_CODE_ALIASES,
+    build_seed_plan,
     derive_parallel_group_role,
 )
+
+
+class ParallelGroupNormalizationTest(unittest.TestCase):
+    def test_reads_current_alma_parallel_group_field_labels(self) -> None:
+        plan = build_seed_plan(
+            {
+                "courses": [
+                    {
+                        "node_id": "course-1",
+                        "period_id": "236",
+                        "title": "Example course",
+                        "details": {
+                            "fields": {"Nummer": "INFO1234"},
+                            "parallel_groups": [
+                                {
+                                    "title": "Example group",
+                                    "fields": {
+                                        "Typ": "Übung",
+                                        "Lehrsprache": "deutsch",
+                                        "Verantwortliche/-r": "Prof. Example",
+                                        "Maximale Anzahl Teilnehmer/-innen": "30",
+                                        "Minimum der Teilnehmer/-innen für das Stattfinden der Veranstaltung": "5",
+                                    },
+                                    "appointments": [],
+                                }
+                            ],
+                        },
+                    }
+                ]
+            }
+        )
+
+        group = plan.parallel_groups[0]
+        self.assertEqual(group["group_type"], "Übung")
+        self.assertEqual(group["language"], "deutsch")
+        self.assertEqual(group["max_participants"], 30)
+        self.assertEqual(group["min_participants"], 5)
 
 
 def _study_area_link_statements() -> list[str]:
@@ -34,9 +72,13 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
                 PRIMARY KEY (course_id, study_area_id)
             );
 
-            INSERT INTO study_programs (id, code, name) VALUES (1, 'BSC_INFO_2021', 'B.Sc. Informatik');
+            INSERT INTO study_programs (id, code, name) VALUES
+                (1, 'BSC_INFO_2021', 'B.Sc. Informatik'),
+                (2, 'MSC_ML_2021', 'M.Sc. Machine Learning');
             INSERT INTO study_areas (id, program_id, code) VALUES
-                (10, 1, 'MATH'), (11, 1, 'PRAK');
+                (10, 1, 'MATH'), (11, 1, 'PRAK'),
+                (20, 2, 'ML-FOUND'), (21, 2, 'ML-DIVERSE'),
+                (22, 2, 'ML-CS'), (23, 2, 'ML-EXP');
             """
         )
         self.conn.commit()
@@ -104,6 +146,21 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
         self.assertEqual(
             math_aliases,
             {("ModulMath1", "MATH"), ("ModulMath2", "MATH"), ("ModulMath3", "MATH"), ("ModulMath4", "MATH")},
+        )
+
+    def test_machine_learning_mach_codes_link_to_the_confirmed_ml_areas(self) -> None:
+        self._add_course(500, ["MACH-FML", "MACH-DTML", "MACH-GCS", "MACH-EP"])
+
+        self._rebuild_links()
+
+        self.assertEqual(
+            self._links(500),
+            {
+                (20, "MACH-FML"),
+                (21, "MACH-DTML"),
+                (22, "MACH-GCS"),
+                (23, "MACH-EP"),
+            },
         )
 
 

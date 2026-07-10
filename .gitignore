@@ -170,10 +170,13 @@ venv.bak/
 # Cloudflare
 .wrangler/
 backend/.tmp/
+frontend/.tmp/
 backend/.dev.vars
 
-# Generated catalog seed (rebuild with backend/scripts/import_alma_json_to_d1.py)
+# Generated catalog data (rebuild with backend/scripts/import_alma_json_to_d1.py)
 backend/data/seed_alma_catalog.sql
+backend/data/Alma_courses.json
+backend/data/courses.json
 
 # Scraper run outputs
 data_collection/output/

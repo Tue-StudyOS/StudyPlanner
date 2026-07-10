@@ -120,9 +120,9 @@ public ALMA pages
 
 | Area | Repo-confirmed current state | Why it matters |
 | --- | --- | --- |
-| D1 remote safety | `studyplaner-db-test` is the active runtime DB, while `studyplanner-db` is reserved for a later production cutover | Remote rebuilds must back up both databases and avoid destructive D1 changes or DB switches without approval |
+| D1 remote safety | `studyplanner-db` is the active runtime DB; `studyplaner-db-test` is the previous test database | Remote rebuilds must preserve the active binding and avoid destructive D1 changes or DB switches without approval |
 | Cloudflare docs | Some docs still describe a migration/test setup instead of the current single active D1 direction | Open-testing guidance is harder to trust |
-| Legacy tracked data | `backend/data/courses.json`, `backend/data/Alma_courses.json`, and `backend/data/regulations/*` are still tracked | They add ambiguity around the real source of truth |
+| Legacy tracked data | The obsolete catalog JSON snapshots are removed; `backend/data/regulations/*` remains historical reference data | Generated scraper exports must stay ignored so D1 remains the runtime source of truth |
 | Live inventory proof | No checked-in dashboard export or Wrangler remote inventory | The repo alone cannot prove live resource names/domains |
 
 ## Current architectural reading
@@ -573,8 +573,8 @@ When the scraper/importer evolves, prefer this order:
 
 | Path | Current reading | Recommendation |
 | --- | --- | --- |
-| `backend/data/courses.json` | legacy tracked catalog export; no active runtime references found | Remove |
-| `backend/data/Alma_courses.json` | legacy tracked catalog export; no active runtime references found | Remove |
+| `backend/data/courses.json` | obsolete catalog export | Removed |
+| `backend/data/Alma_courses.json` | obsolete single-snapshot catalog export | Removed |
 | `backend/data/regulations/` | no active runtime/build references found; superseded by `einzupflegene_po/` and D1 seed logic | Remove after one last reference check |
 
 ### Keep for now

@@ -15,6 +15,8 @@ from services.user_data import dumps_json, ensure_user_progress, ensure_user_sta
 PASSWORD_PBKDF2_ITERATIONS = 310_000
 DEFAULT_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 AUTH_TOKEN_MAX_CLOCK_SKEW_SECONDS = 60
+AUTH_COOKIE_NAME = 'studyplanner_session'
+CSRF_HEADER_NAME = 'X-CSRF-Token'
 LOGIN_IDENTIFIER_MAX_LENGTH = 255
 SUPPORTED_REGULATION_SOURCE_STATUS = 'official'
 SUPPORTED_REGULATION_PO_VERSION = '2021'
@@ -32,6 +34,10 @@ class RegistrationError(ValueError):
 
 class AuthorizationError(PermissionError):
     """Raised when an authenticated action is not allowed."""
+
+
+class CsrfProtectionError(AuthorizationError):
+    """Raised when a state-changing request lacks the session CSRF proof."""
 
 
 class ProfileUpdateError(ValueError):
@@ -217,6 +223,64 @@ def _extract_bearer_token(request: Any) -> str | None:
         return None
     token = authorization_header[len(prefix) :].strip()
     return token or None
+
+
+def _extract_cookie_token(request: Any) -> str | None:
+    cookie_header = get_request_header(request, 'Cookie')
+    if not cookie_header:
+        return None
+
+    for part in cookie_header.split(';'):
+        name, separator, value = part.strip().partition('=')
+        if separator and name == AUTH_COOKIE_NAME:
+            token = value.strip()
+            return token or None
+    return None
+
+
+def _extract_auth_token(request: Any) -> str | None:
+    """Accept the secure session cookie and legacy bearer tokens during migration."""
+    return _extract_cookie_token(request) or _extract_bearer_token(request)
+
+
+def create_csrf_token(env: Any, token: str) -> str:
+    secret = _get_auth_token_secret(env)
+    return _sign_token_input(f'csrf:{token}', secret)
+
+
+def _is_local_http_request(request: Any) -> bool:
+    request_url = str(getattr(request, 'url', ''))
+    return request_url.startswith('http://localhost') or request_url.startswith('http://127.0.0.1')
+
+
+def create_auth_cookie(
+    env: Any,
+    request: Any,
+    token: str,
+    max_age_seconds: int | None = None,
+) -> str:
+    """Build an HttpOnly cookie without storing a bearer token in browser storage."""
+    max_age = _auth_token_ttl_seconds(env) if max_age_seconds is None else max_age_seconds
+    cookie_parts = [
+        f'{AUTH_COOKIE_NAME}={token}',
+        f'Max-Age={max(0, max_age)}',
+        'Path=/',
+        'HttpOnly',
+    ]
+    if _is_local_http_request(request):
+        cookie_parts.append('SameSite=Lax')
+    else:
+        cookie_parts.extend(['SameSite=None', 'Secure'])
+    return '; '.join(cookie_parts)
+
+
+def clear_auth_cookie(request: Any) -> str:
+    cookie_parts = [f'{AUTH_COOKIE_NAME}=', 'Max-Age=0', 'Path=/', 'HttpOnly']
+    if _is_local_http_request(request):
+        cookie_parts.append('SameSite=Lax')
+    else:
+        cookie_parts.extend(['SameSite=None', 'Secure'])
+    return '; '.join(cookie_parts)
 
 
 def _registration_identity(payload: dict[str, Any]) -> tuple[str, str, str]:
@@ -526,8 +590,9 @@ async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[st
     }
 
 
-async def get_authenticated_user(env: Any, request: Any) -> dict[str, Any] | None:
-    token = _extract_bearer_token(request)
+async def get_authenticated_session(env: Any, request: Any) -> dict[str, Any] | None:
+    """Resolve the authenticated user and the CSRF proof for the current session."""
+    token = _extract_auth_token(request)
     if not token:
         return None
 
@@ -535,7 +600,21 @@ async def get_authenticated_user(env: Any, request: Any) -> dict[str, Any] | Non
     if token_payload is None:
         return None
 
-    return await _get_user_profile(env, str(token_payload['username']))
+    user = await _get_user_profile(env, str(token_payload['username']))
+    if user is None:
+        return None
+
+    return {
+        'user': user,
+        'token': token,
+        'csrfToken': create_csrf_token(env, token),
+        'expiresAtUnix': int(token_payload['exp']),
+    }
+
+
+async def get_authenticated_user(env: Any, request: Any) -> dict[str, Any] | None:
+    session = await get_authenticated_session(env, request)
+    return session['user'] if session is not None else None
 
 
 async def require_authenticated_user(env: Any, request: Any) -> dict[str, Any]:
@@ -545,10 +624,21 @@ async def require_authenticated_user(env: Any, request: Any) -> dict[str, Any]:
     return user
 
 
+async def require_csrf_protection(env: Any, request: Any) -> dict[str, Any]:
+    session = await get_authenticated_session(env, request)
+    if session is None:
+        raise AuthorizationError('Authentication is required for this endpoint.')
+
+    provided_token = get_request_header(request, CSRF_HEADER_NAME)
+    expected_token = str(session['csrfToken'])
+    if not provided_token or not hmac.compare_digest(provided_token, expected_token):
+        raise CsrfProtectionError('The session security check failed. Refresh the page and try again.')
+    return session['user']
+
+
 async def logout_user(env: Any, request: Any) -> None:
     del env, request
-    # Stateless tokens cannot be revoked without reintroducing server-side token state.
-    # The frontend performs logout by deleting its stored bearer token.
+    # Tokens are stateless. Clearing the HttpOnly cookie ends the browser session.
     return None
 
 
@@ -824,7 +914,10 @@ async def update_user_credentials(
         state_updates['display_name'] = _derive_display_name(new_email)
 
     if 'newPassword' in payload:
-        new_password = _validate_password(payload.get('newPassword'))
+        try:
+            new_password = _validate_password(payload.get('newPassword'))
+        except RegistrationError as exc:
+            raise CredentialUpdateError(str(exc)) from exc
         pw_hash, pw_salt = _create_password_hash(new_password)
         auth_updates['password_hash'] = pw_hash
         auth_updates['password_salt'] = pw_salt

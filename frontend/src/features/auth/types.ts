@@ -25,7 +25,7 @@ export interface AuthUser {
 }
 
 export interface AuthPayload {
-  token: string
+  csrfToken: string
   user: AuthUser
 }
 
@@ -51,4 +51,5 @@ export interface StudyProgramOption {
 export interface AuthSessionResponse {
   authenticated: boolean
   user: AuthUser | null
+  csrfToken: string | null
 }

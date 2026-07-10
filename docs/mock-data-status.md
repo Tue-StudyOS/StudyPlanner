@@ -2,7 +2,10 @@
 
 ## Current runtime status
 
-The public course catalog no longer reads `backend/data/courses.json` at runtime.
+The public course catalog reads the Worker API and D1. The obsolete tracked
+`backend/data/courses.json` and `backend/data/Alma_courses.json` snapshots were
+removed; generated scraper output belongs in the ignored `data_collection/output/`
+directory.
 
 ### API-backed entry points
 
@@ -15,15 +18,11 @@ These entry points already load from the Worker API / D1 database:
 
 ### Remaining mock / bootstrap data
 
-The repository still contains a few non-catalog bootstrap sources:
-
-- `backend/data/courses.json`
-  - kept as a legacy reference file
-  - not used by the current frontend runtime anymore
-- `frontend/src/features/transcript/initialCompletedCourses.ts`
-  - still seeds example completed-course data for the transcript/progress area until the account-backed progress flow is fully wired
+The catalog has no tracked JSON mock. Personal progress is account-backed; tour
+preview records remain isolated under the onboarding feature and are never used as
+runtime account data.
 
 ## Practical conclusion
 
 - signed-out visitors now get the public catalog from the database-backed API
-- the remaining mock data is limited to temporary personal-progress bootstrap data, not the course catalog itself
+- generated catalog snapshots stay local and are never bundled into the frontend

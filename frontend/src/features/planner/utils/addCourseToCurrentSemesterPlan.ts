@@ -7,18 +7,18 @@ import { SEMESTER_PLAN_CHANGED_EVENT, markSemesterBadge } from './semesterTabBad
 import { getCurrentSemesterLabel } from './semesterLabels'
 
 export async function addCourseToCurrentSemesterPlan(
-  token: string,
+  csrfToken: string,
   userCacheKey: string,
   courseId: string,
 ): Promise<boolean> {
   const semesterLabel = getCurrentSemesterLabel()
-  const existingPlan = await fetchSemesterPlan(token, semesterLabel)
+  const existingPlan = await fetchSemesterPlan(semesterLabel)
   const courseIds = existingPlan?.courseIds ?? []
   if (courseIds.includes(courseId)) {
     return false
   }
 
-  const savedPlan = await saveSemesterPlan(token, semesterLabel, {
+  const savedPlan = await saveSemesterPlan(csrfToken, semesterLabel, {
     title: existingPlan?.title ?? null,
     notes: existingPlan?.notes ?? null,
     courseIds: [...courseIds, courseId],

@@ -557,6 +557,7 @@ export function CoursesOverview() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <CatalogProgressHint
+        progressSnapshot={progressSnapshot}
         isAreaActive={isAreaFilterActive}
         onSelectArea={handleAreaFilterSelect}
       />

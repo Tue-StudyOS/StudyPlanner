@@ -1,53 +1,62 @@
 import { useMemo } from 'react'
-import { DAY_LABELS, DAY_ORDER } from '../../planner/utils/plannerFeedback'
-import { buildDayLayout } from '../../planner/utils/plannerDayLayout'
-import {
-  buildMiniGridBlocks,
-  collapseMiniGridBlocksForCalendar,
-  compareMiniGridListEntries,
-  MINI_GRID_END_MINUTES,
-  MINI_GRID_LABEL_SEPARATOR,
-  MINI_GRID_START_MINUTES,
-} from '../utils/weeklyScheduleMiniGrid.ts'
-import {
-  scheduleSlotDotClasses,
-  scheduleSlotGridBlockClasses,
-  scheduleSlotListLabelClasses,
-} from '../utils/scheduleSlotKind.ts'
-import type { ScheduleSlot } from '../types'
+import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, isSingleDateSlot } from '../../planner/utils/plannerFeedback.ts'
+import { buildDayLayout } from '../../planner/utils/plannerDayLayout.ts'
+import { scheduleSlotGridBlockClasses } from '../utils/scheduleSlotKind.ts'
+import type { ScheduleSlot } from '../types.ts'
 
 const GRID_HEIGHT_PX = 120
+const MINI_GRID_START_MINUTES = 8 * 60
+const MINI_GRID_END_MINUTES = 20 * 60
 
 function toPercent(minutes: number): number {
   const clamped = Math.min(Math.max(minutes, MINI_GRID_START_MINUTES), MINI_GRID_END_MINUTES)
   return ((clamped - MINI_GRID_START_MINUTES) / (MINI_GRID_END_MINUTES - MINI_GRID_START_MINUTES)) * 100
 }
 
-/**
- * Compact Mon–Fri grid with distinct exam/resit coloring.
- */
+/** Compact Mon–Fri grid for recurring teaching appointments only. */
 export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] }) {
-  const blocks = useMemo(() => buildMiniGridBlocks(schedule), [schedule])
-  const calendarBlocks = useMemo(() => collapseMiniGridBlocksForCalendar(blocks), [blocks])
-
-  const listEntries = useMemo(
-    () => [...blocks].sort(compareMiniGridListEntries),
-    [blocks],
+  const weeklySchedule = useMemo(
+    () => schedule.filter(
+      (slot) => slot.calendarRelevant !== false && !isSingleDateSlot(slot.day),
+    ),
+    [schedule],
   )
-
+  const blocks = useMemo(
+    () => buildPlannerBlocks([
+      {
+        id: 'mini-grid',
+        number: '',
+        title: '',
+        lecturer: '',
+        room: '',
+        types: [],
+        ects: null,
+        sws: null,
+        masterCats: [],
+        weekdays: [],
+        schedule: weeklySchedule,
+        frequency: '',
+        language: '',
+        prerequisites: [],
+        description: '',
+        exams: [],
+      },
+    ]),
+    [weeklySchedule],
+  )
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
         DAY_ORDER.map((day) => [
           day,
-          buildDayLayout(calendarBlocks.filter((block) => block.day === day)),
+          buildDayLayout(blocks.filter((block) => block.day === day)),
         ]),
       ) as Record<(typeof DAY_ORDER)[number], ReturnType<typeof buildDayLayout>>,
-    [calendarBlocks],
+    [blocks],
   )
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="grid grid-cols-[1.75rem_repeat(5,minmax(0,1fr))] gap-1">
         <div />
         {DAY_ORDER.map((day) => (
@@ -103,35 +112,6 @@ export function WeeklyScheduleMiniGrid({ schedule }: { schedule: ScheduleSlot[] 
           </div>
         ))}
       </div>
-
-      {blocks.length === 0 ? (
-        <div className="mt-2 text-[12px] text-fg-muted">No weekly times published yet.</div>
-      ) : (
-        <ul className="mt-2.5 flex flex-col gap-1.5">
-          {listEntries.map((block) => {
-            const isExamSlot = block.slotKind === 'exam' || block.slotKind === 'resit'
-            const primaryLabel = block.label.split(MINI_GRID_LABEL_SEPARATOR)[0]
-            return (
-              <li key={block.blockId} className="flex items-start gap-2 text-[12px]">
-                <span
-                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${scheduleSlotDotClasses(block.slotKind)}`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-fg">{primaryLabel}</div>
-                  {block.room && block.room !== 'TBA' ? (
-                    <div className="text-fg-muted">{block.room}</div>
-                  ) : null}
-                  {isExamSlot ? (
-                    <div className={`text-[11px] leading-snug ${scheduleSlotListLabelClasses(block.slotKind)}`}>
-                      {block.slotType}
-                    </div>
-                  ) : null}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
     </div>
   )
 }

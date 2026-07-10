@@ -3,6 +3,7 @@ import type { ManualPlannerSlot } from '../types.ts'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import { getLecturePeriod } from './lecturePeriod.ts'
 import { DAY_ORDER, isSingleDateSlot, normalizeWeekday, parseTimeRange } from './plannerFeedback.ts'
+import { getScheduleSlotId, isScheduleSlotHidden } from './scheduleSlotIds.ts'
 
 type Weekday = (typeof DAY_ORDER)[number]
 
@@ -42,6 +43,15 @@ function escapeIcsText(value: string): string {
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n')
+}
+
+function parseIsoDate(value: string | null | undefined): Date | null {
+  const match = value?.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) {
+    return null
+  }
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function firstWeekdayOnOrAfter(start: Date, weekdayIndex: number): Date {
@@ -98,16 +108,21 @@ export function buildSemesterPlanIcs({
     return null
   }
 
-  const untilValue = `${formatIcsDate(lecturePeriod.end)}T215959Z`
+  const defaultUntilValue = `${formatIcsDate(lecturePeriod.end)}T215959Z`
   const events: string[] = []
 
   courses.forEach((course) => {
     const title = cleanCourseTitle(course.title, course.number)
+    const scheduledExamDates = new Set<string>()
 
     course.schedule.forEach((slot, index) => {
-      if (hiddenSlotIds.includes(`${course.id}:${index}`)) {
+      if (
+        slot.calendarRelevant === false
+        || isScheduleSlotHidden(hiddenSlotIds, course, slot, index)
+      ) {
         return
       }
+      const slotId = getScheduleSlotId(course, slot, index).replace(/[^a-zA-Z0-9.-]/g, '-')
       const timeRange = parseTimeRange(slot.time)
 
       // One-off appointments (exam dates) become a single event instead of a
@@ -117,9 +132,12 @@ export function buildSemesterPlanIcs({
         if (!slotDate || !timeRange) {
           return
         }
+        if (/klausur|pruefung|prüfung|exam|resit/i.test(slot.type)) {
+          scheduledExamDates.add(formatIcsDate(slotDate))
+        }
         const lines = [
           'BEGIN:VEVENT',
-          `UID:${course.id}-${index}@studyplanner`,
+          `UID:${slotId}@studyplanner`,
           `DTSTART;TZID=Europe/Berlin:${formatIcsDateTime(slotDate, timeRange.startMinutes)}`,
           `DTEND;TZID=Europe/Berlin:${formatIcsDateTime(slotDate, timeRange.endMinutes)}`,
           `SUMMARY:${escapeIcsText(title)}`,
@@ -137,16 +155,31 @@ export function buildSemesterPlanIcs({
         return
       }
 
-      const firstOccurrence = firstWeekdayOnOrAfter(lecturePeriod.start, JS_DAY_INDEX[weekday])
+      const firstOccurrence = parseIsoDate(slot.startsOn)
+        ?? firstWeekdayOnOrAfter(lecturePeriod.start, JS_DAY_INDEX[weekday])
+      const recurrenceEnd = parseIsoDate(slot.endsOn)
+      const untilValue = recurrenceEnd
+        ? `${formatIcsDate(recurrenceEnd)}T215959Z`
+        : defaultUntilValue
       const summary = slot.type && slot.type !== 'Course' ? `${title} (${slot.type})` : title
       const lines = [
         'BEGIN:VEVENT',
-        `UID:${course.id}-${index}@studyplanner`,
+        `UID:${slotId}@studyplanner`,
         `DTSTART;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.startMinutes)}`,
         `DTEND;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.endMinutes)}`,
         `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[weekday]};UNTIL=${untilValue}`,
         `SUMMARY:${escapeIcsText(summary)}`,
       ]
+      const cancellationDates = (slot.cancellationDates ?? [])
+        .map((value) => parseIsoDate(value))
+        .filter((value): value is Date => value !== null)
+      if (cancellationDates.length > 0) {
+        lines.push(
+          `EXDATE;TZID=Europe/Berlin:${cancellationDates
+            .map((date) => formatIcsDateTime(date, timeRange.startMinutes))
+            .join(',')}`,
+        )
+      }
       if (slot.room && slot.room !== 'TBA') {
         lines.push(`LOCATION:${escapeIcsText(slot.room)}`)
       }
@@ -156,7 +189,7 @@ export function buildSemesterPlanIcs({
 
     course.exams.forEach((exam, index) => {
       const examDate = parseExamDate(exam.date)
-      if (!examDate) {
+      if (!examDate || scheduledExamDates.has(formatIcsDate(examDate))) {
         return
       }
       const dayAfter = new Date(examDate)
@@ -197,7 +230,7 @@ export function buildSemesterPlanIcs({
       `UID:manual-${manualSlot.id}@studyplanner`,
       `DTSTART;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.startMinutes)}`,
       `DTEND;TZID=Europe/Berlin:${formatIcsDateTime(firstOccurrence, timeRange.endMinutes)}`,
-      `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[manualSlot.day]};UNTIL=${untilValue}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[manualSlot.day]};UNTIL=${defaultUntilValue}`,
       `SUMMARY:${escapeIcsText(title)}`,
     ]
     if (manualSlot.room) {
@@ -212,6 +245,8 @@ export function buildSemesterPlanIcs({
     'VERSION:2.0',
     'PRODID:-//StudyPlanner//Semester Plan//EN',
     'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeIcsText(`StudyPlanner ${semesterLabel}`)}`,
     ...events,
     'END:VCALENDAR',
     '',

@@ -250,23 +250,6 @@ def _normalize_stored_assignments(raw_assignments: Any, course_ids: list[str]) -
     return normalized_assignments
 
 
-def _normalize_stored_plan_course_ids(raw_course_ids: Any) -> list[str]:
-    if not isinstance(raw_course_ids, list):
-        return []
-    normalized_ids: list[str] = []
-    seen_ids: set[int] = set()
-    for raw_value in raw_course_ids:
-        try:
-            course_id = int(raw_value)
-        except (TypeError, ValueError):
-            continue
-        if course_id in seen_ids:
-            continue
-        seen_ids.add(course_id)
-        normalized_ids.append(str(course_id))
-    return normalized_ids
-
-
 def _coerce_unix(value: Any) -> int:
     try:
         return int(value)

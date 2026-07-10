@@ -12,6 +12,7 @@ export interface GatewayEnv {
 export interface GatewayContext {
   request: Request
   env: GatewayEnv
+  waitUntil?: (promise: Promise<unknown>) => void
 }
 
 export type GatewayTarget = 'api' | 'mcp'
@@ -61,6 +62,19 @@ export function buildUpstreamUrl(requestUrl: string, upstreamOrigin: string): st
   return url.toString()
 }
 
+export function isPublicCatalogRequest(request: Request, target: GatewayTarget): boolean {
+  return target === 'api'
+    && request.method === 'GET'
+    && new URL(request.url).pathname.startsWith('/api/catalog/')
+    && !request.headers.has('Authorization')
+    && !request.headers.has('Cookie')
+}
+
+function getDefaultCache(): Cache | null {
+  const cacheStorage = globalThis.caches as (CacheStorage & { default?: Cache }) | undefined
+  return cacheStorage?.default ?? null
+}
+
 function createGatewayErrorResponse(target: GatewayTarget): Response {
   return new Response(
     JSON.stringify({
@@ -78,21 +92,33 @@ function createGatewayErrorResponse(target: GatewayTarget): Response {
 }
 
 export async function proxyToGatewayTarget(context: GatewayContext, target: GatewayTarget): Promise<Response> {
+  const cache = isPublicCatalogRequest(context.request, target) ? getDefaultCache() : null
+  const cachedResponse = await cache?.match(context.request)
+  if (cachedResponse) {
+    return cachedResponse
+  }
+
   const fallbackOrigin = resolveFallbackOrigin(
     context.request.url,
     target,
     getConfiguredFallbackOrigin(context.env, target),
   )
-  if (fallbackOrigin) {
-    return await fetch(new Request(buildUpstreamUrl(context.request.url, fallbackOrigin), context.request))
-  }
-
   const binding = getServiceBinding(context.env, target)
-  if (binding) {
-    // Preserve the public Pages URL for the bound worker. The AI facade uses the
-    // request origin to build public OpenAPI links, so do not rewrite it here.
-    return await binding.fetch(context.request)
-  }
+  const response = fallbackOrigin
+    ? await fetch(new Request(buildUpstreamUrl(context.request.url, fallbackOrigin), context.request))
+    : binding
+      // Preserve the public Pages URL for the bound worker. The AI facade uses
+      // the request origin to build public OpenAPI links, so do not rewrite it.
+      ? await binding.fetch(context.request)
+      : createGatewayErrorResponse(target)
 
-  return createGatewayErrorResponse(target)
+  if (cache && response.ok) {
+    const cacheWrite = cache.put(context.request, response.clone())
+    if (context.waitUntil) {
+      context.waitUntil(cacheWrite)
+    } else {
+      await cacheWrite
+    }
+  }
+  return response
 }

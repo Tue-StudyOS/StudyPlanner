@@ -1,27 +1,17 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { useTranscript } from '../../transcript'
 import { fetchProgressSnapshot } from '../api'
 import type { ProgressSnapshot } from '../types'
 
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to load progress data.'
-}
-
 export function useProgressSnapshot(): {
   progressSnapshot: ProgressSnapshot | null
   isLoadingProgress: boolean
   progressError: string | null
 } {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const { completedCourses, isLoadingCompletedCourses } = useTranscript()
   const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(null)
@@ -32,7 +22,7 @@ export function useProgressSnapshot(): {
     let isActive = true
 
     async function loadProgressSnapshot(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setProgressSnapshot(null)
           setProgressError(null)
@@ -56,7 +46,7 @@ export function useProgressSnapshot(): {
       setIsLoadingProgress(!cachedSnapshot)
       setProgressError(null)
       try {
-        const snapshot = await fetchProgressSnapshot(token)
+        const snapshot = await fetchProgressSnapshot()
         if (!isActive) {
           return
         }
@@ -67,7 +57,7 @@ export function useProgressSnapshot(): {
           return
         }
         setProgressSnapshot(null)
-        setProgressError(normalizeErrorMessage(error))
+        setProgressError(getErrorMessage(error, 'Failed to load progress data.'))
       } finally {
         if (isActive) {
           setIsLoadingProgress(false)
@@ -80,7 +70,7 @@ export function useProgressSnapshot(): {
     return () => {
       isActive = false
     }
-  }, [completedCourses, isLoadingCompletedCourses, token, userCacheKey])
+  }, [completedCourses, isLoadingCompletedCourses, csrfToken, userCacheKey])
 
   return { progressSnapshot, isLoadingProgress, progressError }
 }

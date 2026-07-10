@@ -9,6 +9,7 @@ import { fetchStudyPrograms } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import type { StudyProgramOption } from '../types'
 import { normalizeAuthErrorMessage } from '../utils/authErrors.ts'
+import { getPasswordStrength } from '../utils/passwordStrength.ts'
 import { generateStartSemesters } from '../utils/studySetup.ts'
 
 type AuthMode = 'login' | 'register'
@@ -22,6 +23,27 @@ function normalizeErrorMessage(error: unknown): string {
 
 function toSelectValue(value: number | null | undefined): string {
   return value === null || value === undefined ? '' : String(value)
+}
+
+function PasswordStrengthHint({ password }: { password: string }) {
+  const { t } = useTranslation()
+  const strength = getPasswordStrength(password)
+
+  if (!strength) {
+    return null
+  }
+
+  return (
+    <p
+      className={
+        strength === 'strong'
+          ? 'text-[12px] text-[#187a45] dark:text-green-400'
+          : 'text-[12px] text-fg-muted'
+      }
+    >
+      {strength === 'strong' ? t('account.passwordStrong') : t('account.passwordWeak')}
+    </p>
+  )
 }
 
 export function AccountPage() {
@@ -330,6 +352,7 @@ export function AccountPage() {
                     autoComplete="new-password"
                     className={inputClass}
                   />
+                  <PasswordStrengthHint password={credNewPassword} />
                 </label>
                 {credNewPassword ? (
                   <label className="grid gap-1.5">
@@ -489,7 +512,15 @@ export function AccountPage() {
               </label>
               <label className="grid gap-1.5">
                 <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.password')}</span>
-                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} className={inputClass} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                  className={inputClass}
+                />
+                {mode === 'register' ? <PasswordStrengthHint password={password} /> : null}
               </label>
               {mode === 'register' ? (
                 <p className="text-[12px] text-fg-muted">

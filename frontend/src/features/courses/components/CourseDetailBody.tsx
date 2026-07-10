@@ -10,7 +10,10 @@ import { formatCourseLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
 import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
-import { WeeklyScheduleMiniGrid } from './WeeklyScheduleMiniGrid'
+import {
+  CourseScheduleDetails,
+  type TutorialSelectionProps,
+} from './CourseScheduleDetails.tsx'
 
 const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration period published'])
 
@@ -99,6 +102,7 @@ function learningPlatformLabel(
 
 interface CourseDetailBodyProps {
   course: Course
+  tutorialSelection?: TutorialSelectionProps
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
   footer?: ReactNode
 }
@@ -109,7 +113,7 @@ interface CourseDetailBodyProps {
  * with the deliberate exception of the Moodle/ILIAS slot, which shows an
  * explicit empty state.
  */
-export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
+export function CourseDetailBody({ course, tutorialSelection, footer }: CourseDetailBodyProps) {
   const { t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
@@ -145,6 +149,17 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
   if (hasValue(course.language)) factRows.push([t('courseDetail.language'), course.language])
   if (hasValue(course.frequency)) factRows.push([t('courseDetail.frequency'), course.frequency])
   if (hasValue(course.registrationPeriod)) factRows.push([t('courseDetail.registration'), course.registrationPeriod!])
+  if (hasValue(course.organisation)) factRows.push([t('courseDetail.organisation'), course.organisation!])
+  if (hasValue(course.moduleCode) || hasValue(course.moduleTitle)) {
+    factRows.push([
+      t('courseDetail.module'),
+      [course.moduleCode, course.moduleTitle].filter(hasValue).join(' · '),
+    ])
+  }
+  const responsiblePeople = (course.responsiblePeople ?? []).filter(hasValue)
+  if (responsiblePeople.length > 0) {
+    factRows.push([t('courseDetail.responsible'), responsiblePeople.join(', ')])
+  }
 
   const regulationOptions = (course.studyAreaOptions ?? []).filter(
     (option) => option.studyAreaCode,
@@ -181,7 +196,7 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
       </div>
 
       <Section title={t('courseDetail.weeklySchedule')}>
-        <WeeklyScheduleMiniGrid schedule={course.schedule} />
+        <CourseScheduleDetails course={course} tutorialSelection={tutorialSelection} />
       </Section>
 
       {hasValue(course.description) ? (
@@ -286,6 +301,21 @@ export function CourseDetailBody({ course, footer }: CourseDetailBodyProps) {
               </li>
             ))}
           </ul>
+        </Section>
+      ) : null}
+
+      {(course.additionalFields?.length ?? 0) > 0 ? (
+        <Section title={t('courseDetail.additionalInformation')}>
+          <div className="grid min-w-0 gap-2">
+            {(course.additionalFields ?? []).map((field) => (
+              <div key={field.label} className="min-w-0">
+                <div className="text-[11px] font-semibold text-fg-muted">{field.label}</div>
+                <div className="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-6 text-fg-mid">
+                  <LinkedText text={field.value} />
+                </div>
+              </div>
+            ))}
+          </div>
         </Section>
       ) : null}
 

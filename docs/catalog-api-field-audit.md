@@ -1,6 +1,6 @@
 # Catalog API Field Audit
 
-This note confirms which fields the frontend needs before the course catalog can stop reading `backend/data/courses.json`.
+This note records the database fields exposed by the API-backed course catalog. The obsolete tracked JSON catalog was removed after the D1 cutover.
 
 ## Current frontend usage
 
@@ -33,20 +33,9 @@ The detail flow needs these fields:
 - detail links
 - regulation-aware study-area options
 
-## Gap against the current Worker API
+## Current Worker API
 
-The old `GET /api/courses` route only returns lightweight D1 rows and does not yet provide:
-
-- aggregated lecturers
-- first room / first schedule slot
-- frontend-ready type labels
-- ECTS fallback from curriculum matches
-- regulation badges / study-area options
-- a frontend-focused response shape that can replace the old mock JSON directly
-
-## Resulting implementation target
-
-The API cutover should use these public catalog responses:
+The frontend uses these public catalog responses:
 
 1. `GET /api/catalog/courses`
    - frontend-ready list payload for the overview and favorites views
@@ -58,7 +47,19 @@ The API cutover should use these public catalog responses:
      `courseCount`), newest first; drives the semester selector in the catalog
      overview and the period-matched course list in the semester planner
 
-The frontend no longer needs `completedCourses` or `masterCategoryMeta` from the mock JSON once the catalog path is API-backed.
+The API returns frontend-ready lecturers, types, ECTS, regulation options, and
+complete schedule data. ALMA may store a lecture and its exercise/tutoriums as
+separate rows with the same course number. The catalog now treats those rows as
+one logical course per period, keeps every source id in `sourceCourseIds`, and
+merges all appointments instead of dropping the exercise row.
+
+Schedule entries retain appointment/group ids, recurrence bounds, cancellations,
+notes, and whether a date belongs in calendar exports. Course details also expose
+responsible staff, participant limits, and additional public ALMA fields. Until
+the next in-place catalog reseed, language and participant values fall back to
+`parallel_group_fields`; the importer now normalizes the current ALMA labels
+(`Lehrsprache`, `Maximale Anzahl Teilnehmer/-innen`, and the minimum-participant
+label) into their dedicated columns.
 
 ## Curriculum links (masterCats / module badges)
 

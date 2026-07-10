@@ -10,8 +10,8 @@
   - `frontend/tsconfig.app.json`
   - `frontend/tsconfig.node.json`
 - `npm run build` works after installing dependencies.
-- The public catalog now reads from the Worker API instead of `backend/data/courses.json`.
-- `backend/data/courses.json` remains only as a legacy reference file and is not part of the active frontend runtime path.
+- The public catalog reads from the Worker API and D1.
+- Legacy tracked catalog JSON snapshots were removed; scraper output is generated locally under the ignored `data_collection/output/` path.
 - `frontend/public/_redirects` was added for Cloudflare Pages SPA routing.
 
 ## Backend

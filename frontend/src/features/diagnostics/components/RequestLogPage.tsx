@@ -16,12 +16,13 @@ interface ServerLogEntry {
   detail?: string | null
   durationMs?: number | null
   pagePath?: string | null
-  userId?: number | null
+  userUsername?: string | null
   createdAtUnix: number
 }
 
 interface ClientErrorLogResponse {
   entries: ServerLogEntry[]
+  scope: 'all' | 'own'
 }
 
 function formatTimestamp(unixMs: number): string {
@@ -77,6 +78,7 @@ function LogEntryCard({
 export function RequestLogPage() {
   const [sessionEntries, setSessionEntries] = useState<ApiRequestLogEntry[]>(() => readApiRequestLog())
   const [serverEntries, setServerEntries] = useState<ServerLogEntry[]>([])
+  const [serverLogScope, setServerLogScope] = useState<'all' | 'own'>('own')
   const [serverLoadError, setServerLoadError] = useState<string | null>(null)
   const [isLoadingServer, setIsLoadingServer] = useState(true)
 
@@ -90,6 +92,7 @@ export function RequestLogPage() {
     try {
       const response = await fetchJson<ClientErrorLogResponse>('/api/client-errors')
       setServerEntries(response.entries)
+      setServerLogScope(response.scope)
     } catch (error) {
       setServerLoadError(error instanceof Error ? error.message : 'Failed to load server log.')
       setServerEntries([])
@@ -110,7 +113,7 @@ export function RequestLogPage() {
         <div>
           <h1 className="text-[18px] font-semibold text-fg">Request log</h1>
           <p className="mt-1 text-[13px] text-fg-muted">
-            API failures from this browser session and aggregated server history.
+            API failures from this browser session and your server-side history.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -173,7 +176,9 @@ export function RequestLogPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-[14px] font-semibold text-fg">Server (all users)</h2>
+        <h2 className="mb-3 text-[14px] font-semibold text-fg">
+          {serverLogScope === 'all' ? 'Server (all users)' : 'Server (your account)'}
+        </h2>
         {isLoadingServer ? (
           <div className="rounded-[10px] border border-border bg-surface px-6 py-8 text-center text-[13px] text-fg-muted">
             Loading server log…
@@ -205,7 +210,7 @@ export function RequestLogPage() {
                 detail={entry.detail ?? undefined}
                 durationMs={entry.durationMs ?? undefined}
                 meta={[
-                  entry.userId ? `User #${entry.userId}` : null,
+                  entry.userUsername ? `User: ${entry.userUsername}` : null,
                   entry.pagePath ? `Page: ${entry.pagePath}` : null,
                 ]
                   .filter(Boolean)

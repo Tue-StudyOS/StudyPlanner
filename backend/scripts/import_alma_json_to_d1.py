@@ -47,7 +47,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, TextIO
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT_DIR.parent
@@ -418,12 +418,19 @@ def _emit_course(
             "course_id": course_id,
             "position": group_position,
             "title": group.get("title"),
-            "group_type": group_fields.get("Veranstaltungsart")
+            "group_type": group_fields.get("Typ")
+            or group_fields.get("Veranstaltungsart")
             or derive_parallel_group_role(group.get("title")),
-            "language": group_fields.get("Sprache"),
+            "language": group_fields.get("Lehrsprache") or group_fields.get("Sprache"),
             "responsible_text": group_fields.get("Verantwortliche/-r"),
-            "max_participants": _maybe_int(group_fields.get("Maximale Teilnehmerzahl")),
-            "min_participants": _maybe_int(group_fields.get("Minimale Teilnehmerzahl")),
+            "max_participants": _maybe_int(
+                group_fields.get("Maximale Anzahl Teilnehmer/-innen")
+                or group_fields.get("Maximale Teilnehmerzahl")
+            ),
+            "min_participants": _maybe_int(
+                group_fields.get("Minimum der Teilnehmer/-innen für das Stattfinden der Veranstaltung")
+                or group_fields.get("Minimale Teilnehmerzahl")
+            ),
             "semester_hours": _maybe_float(group_fields.get("Semesterwochenstunden")),
             "raw_fields_json": json.dumps(group_fields, ensure_ascii=False),
             "raw_json": json.dumps(group, ensure_ascii=False),
@@ -632,12 +639,11 @@ SEEDED_TABLES_DELETE_ORDER = [
 # category codes (the _categories_json course field). Set-based so the seed
 # links against whatever study_areas / curriculum_modules the target DB holds.
 #
-# curriculum_modules itself is NOT rebuilt here: it was populated once from a
-# now-deleted source file plus manual seed migrations (e.g. 0030 for INFM2020),
-# so category codes without a module row silently produce no match. Planned
-# follow-up: derive curriculum_modules from the scraped program-tree module
-# nodes (catalog_nodes titles like "BSc-INFM2020-21 Veranstaltungen ...") so a
-# reseed refreshes modules without manual migrations.
+# curriculum_modules is reference data rather than a catalog scrape output. It
+# is seeded reproducibly by migrations 0030 and 0031, so the known program
+# modules survive a fresh D1 setup. Category codes that are not in that explicit
+# reference seed still intentionally produce no module match; deriving every
+# program module from catalog_nodes would be a separate source-data project.
 #
 # Kept as separate statements (not one blob) because D1's remote import
 # coalesces same-table INSERTs into one compound statement that overflows
@@ -814,7 +820,7 @@ def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> lis
     return chunks
 
 
-def _write_rows(handle, table: str, columns: list[str], rows: Iterable[dict[str, Any]]) -> None:
+def _write_rows(handle: TextIO, table: str, columns: list[str], rows: Iterable[dict[str, Any]]) -> None:
     rows = list(rows)
     if not rows:
         handle.write(f"-- (no rows for {table})\n\n")

@@ -7,6 +7,10 @@ import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion
 import { useAuth } from '../../auth'
 import type { Course } from '../../courses'
 import { ALL_CATALOG_PERIODS, findCatalogPeriodForSemesterLabel, useCatalogCourses, useCatalogPeriods } from '../../courses'
+import {
+  buildCatalogCourseLookup,
+  normalizeCatalogCourseIds,
+} from '../../courses/utils/catalogCourseLookup.ts'
 import { useFavorites } from '../../favorites'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
@@ -28,6 +32,7 @@ import {
   resolveChosenInfoAlternativeAreaCode,
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
+import { isStoredSlotIdForCourse } from '../utils/scheduleSlotIds.ts'
 import {
   defaultHiddenTutorialSlotIds,
   getTutorialSlotOptions,
@@ -65,7 +70,7 @@ export function SemesterPlanner({
 }: {
   initialSemesterLabel?: string
 } = {}) {
-  const { isAuthenticated, token, user } = useAuth()
+  const { isAuthenticated, csrfToken, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
   const { favoriteIds, isFavoriteSaving, toggleFavorite } = useFavorites()
@@ -126,14 +131,51 @@ export function SemesterPlanner({
   )
 
   const favoritesLayout = getPlannerFavoritesLayout(hasSidebarSpace)
-  const courseById = useMemo(() => new Map(courses.map((course) => [course.id, course])), [courses])
+  const courseById = useMemo(() => buildCatalogCourseLookup(courses), [courses])
   const allCourseById = useMemo(
-    () => new Map(allCatalogCourses.map((course) => [course.id, course])),
+    () => buildCatalogCourseLookup(allCatalogCourses),
     [allCatalogCourses],
   )
   const plannedCourses = plannedCourseIds
     .map((courseId) => courseById.get(courseId))
     .filter((course): course is Course => course !== undefined)
+
+  useEffect(() => {
+    if (courses.length === 0) {
+      return
+    }
+    const normalizedCourseIds = normalizeCatalogCourseIds(plannedCourseIds, courseById)
+    if (
+      normalizedCourseIds.length === plannedCourseIds.length
+      && normalizedCourseIds.every((courseId, index) => courseId === plannedCourseIds[index])
+    ) {
+      return
+    }
+
+    const normalizedAssignments: Record<string, string> = {}
+    for (const [savedCourseId, areaCode] of Object.entries(planAssignments)) {
+      const canonicalCourseId = courseById.get(savedCourseId)?.id ?? savedCourseId
+      normalizedAssignments[canonicalCourseId] = areaCode
+    }
+    setPlannedCourseIds(normalizedCourseIds)
+    setAssignments(normalizedAssignments)
+    setManualSlots(
+      manualSlots.map((slot) => ({
+        ...slot,
+        courseId: courseById.get(slot.courseId)?.id ?? slot.courseId,
+      })),
+    )
+  }, [
+    courseById,
+    courses.length,
+    manualSlots,
+    planAssignments,
+    plannedCourseIds,
+    setAssignments,
+    setManualSlots,
+    setPlannedCourseIds,
+  ])
+
   const historicalSemesterPlan = useMemo(
     () => buildHistoricalSemesterPlan(completedCourses, allCatalogCourses, activeSemesterLabel),
     [activeSemesterLabel, allCatalogCourses, completedCourses],
@@ -232,8 +274,13 @@ export function SemesterPlanner({
   }
 
   function clearHiddenSlotsForCourse(courseId: string): void {
+    const course = courseById.get(courseId) ?? allCourseById.get(courseId)
     setHiddenSlotIds(
-      hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+      hiddenSlotIds.filter((slotId) =>
+        course
+          ? !isStoredSlotIdForCourse(slotId, course)
+          : !slotId.startsWith(`${courseId}:`),
+      ),
     )
   }
 
@@ -246,7 +293,11 @@ export function SemesterPlanner({
       ? defaultHiddenTutorialSlotIds(getTutorialSlotOptions(course))
       : []
     setHiddenSlotIds([
-      ...hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+      ...hiddenSlotIds.filter((slotId) =>
+        course
+          ? !isStoredSlotIdForCourse(slotId, course)
+          : !slotId.startsWith(`${courseId}:`),
+      ),
       ...defaultHiddenTutorialSlots,
     ])
     setAssignment(courseId, resolveExplicitAddAssignment(courseId, preferredAreaCode))
@@ -269,7 +320,7 @@ export function SemesterPlanner({
     const tutorialSlotIds = getTutorialSlotOptions(course).map((option) => option.slotId)
     const nextHiddenForCourse = hiddenSlotIdsForTutorialSelection(tutorialSlotIds, selectedSlotId)
     setHiddenSlotIds([
-      ...hiddenSlotIds.filter((slotId) => !slotId.startsWith(`${courseId}:`)),
+      ...hiddenSlotIds.filter((slotId) => !isStoredSlotIdForCourse(slotId, course)),
       ...nextHiddenForCourse,
     ])
   }
@@ -326,7 +377,7 @@ export function SemesterPlanner({
   const showPastSemesterCourses = isPastSemester || usesCompletedCourseFallback
 
   async function handleAutoBalanceAssignments(): Promise<void> {
-    if (!token) {
+    if (!csrfToken) {
       setBalanceMessage(t('planner.signInToBalance'))
       return
     }
@@ -338,7 +389,7 @@ export function SemesterPlanner({
     setIsBalancingAssignments(true)
     setBalanceMessage(null)
     try {
-      const result = await balanceSemesterPlan(token, activeSemesterLabel, {
+      const result = await balanceSemesterPlan(csrfToken, activeSemesterLabel, {
         courseIds: plannedCourseIds,
         courseAssignments: planAssignments,
       })
@@ -612,6 +663,8 @@ export function SemesterPlanner({
           areaOptions={openCourseOptions}
           assignedAreaCode={openCourseAssignment}
           suggestedAreaCode={openCourseSuggestion}
+          hiddenSlotIds={displayHiddenSlotIds}
+          onSelectTutorialSlot={handleTutorialSlotSelect}
           onAdd={(courseId, areaCode) => {
             handleAddCourse(courseId, areaCode)
             setIsAddDrawerOpen(false)

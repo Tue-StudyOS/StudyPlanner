@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError } from '../../../shared/utils/api'
+import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
@@ -15,16 +15,6 @@ import {
 } from '../utils/semesterLabels'
 
 const AUTO_SAVE_DEBOUNCE_MS = 900
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Failed to synchronize your semester plan.'
-}
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
@@ -91,7 +81,7 @@ interface UseSemesterPlannerResult {
  * explicit save or delete action.
  */
 export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPlannerResult {
-  const { token, user } = useAuth()
+  const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
   const profileSemesterLabel = user?.profile.currentSemesterLabel ?? null
   const [savedPlans, setSavedPlans] = useState<SemesterPlanSummary[]>([])
@@ -150,7 +140,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     let isActive = true
 
     async function loadPlanIndex(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         if (isActive) {
           setSavedPlans([])
           setSavedPlan(null)
@@ -171,7 +161,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
       }
       setIsLoadingPlanIndex(!cachedSavedPlans)
       try {
-        const nextSavedPlans = await fetchSemesterPlans(token)
+        const nextSavedPlans = await fetchSemesterPlans()
         if (!isActive) {
           return
         }
@@ -179,7 +169,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         setSavedPlans(nextSavedPlans)
       } catch (error) {
         if (isActive) {
-          setPlannerError(normalizeErrorMessage(error))
+          setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
         }
       } finally {
         if (isActive) {
@@ -193,13 +183,13 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     return () => {
       isActive = false
     }
-  }, [token, userCacheKey])
+  }, [csrfToken, userCacheKey])
 
   useEffect(() => {
     let isActive = true
 
     async function loadSemesterPlan(): Promise<void> {
-      if (!token) {
+      if (!csrfToken) {
         return
       }
 
@@ -215,7 +205,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
       setIsLoadingSemesterPlan(cachedSemesterPlan === null)
       setPlannerError(null)
       try {
-        const nextSavedPlan = await fetchSemesterPlan(token, normalizedActiveSemesterLabel)
+        const nextSavedPlan = await fetchSemesterPlan(normalizedActiveSemesterLabel)
         if (!isActive) {
           return
         }
@@ -232,7 +222,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
           setHiddenSlotIds([])
           setManualSlots([])
           setPlanAssignments({})
-          setPlannerError(normalizeErrorMessage(error))
+          setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
         }
       } finally {
         if (isActive) {
@@ -246,7 +236,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     return () => {
       isActive = false
     }
-  }, [normalizedActiveSemesterLabel, planReloadToken, token, userCacheKey])
+  }, [normalizedActiveSemesterLabel, planReloadToken, csrfToken, userCacheKey])
 
   useEffect(() => {
     function handleSemesterPlanChanged(event: Event): void {
@@ -281,14 +271,14 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   )
 
   async function persistPlan(semesterLabel: string): Promise<void> {
-    if (!token) {
+    if (!csrfToken) {
       return
     }
 
     setIsSavingSemesterPlan(true)
     setPlannerError(null)
     try {
-      const nextSavedPlan = await saveSemesterPlan(token, semesterLabel, {
+      const nextSavedPlan = await saveSemesterPlan(csrfToken, semesterLabel, {
         title: null,
         notes: null,
         courseIds: plannedCourseIds,
@@ -302,12 +292,12 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         semesterLabel === nextSavedPlan.semesterLabel ? nextSavedPlan : currentSavedPlan,
       )
       writeSessionCache(`private:planner:plan:${semesterLabel}`, nextSavedPlan, userCacheKey)
-      const nextSavedPlans = await fetchSemesterPlans(token)
+      const nextSavedPlans = await fetchSemesterPlans()
       writeSessionCache('private:planner:index', nextSavedPlans, userCacheKey)
       invalidateSessionCache('private:progress', userCacheKey)
       setSavedPlans(nextSavedPlans)
     } catch (error) {
-      setPlannerError(normalizeErrorMessage(error))
+      setPlannerError(getErrorMessage(error, 'Failed to synchronize your semester plan.'))
     } finally {
       setIsSavingSemesterPlan(false)
     }
@@ -325,7 +315,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   })
 
   useEffect(() => {
-    if (!token || !hasUnsavedChanges || isLoadingSemesterPlan) {
+    if (!csrfToken || !hasUnsavedChanges || isLoadingSemesterPlan) {
       return
     }
     const timeoutId = window.setTimeout(
@@ -342,7 +332,7 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
     normalizedActiveSemesterLabel,
     planAssignments,
     plannedCourseIds,
-    token,
+    csrfToken,
   ])
 
   // Flush a pending change when the planner unmounts so quick navigation

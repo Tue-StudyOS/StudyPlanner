@@ -3,10 +3,23 @@ export type MasterCat = 'TECH' | 'THEO' | 'PRAK' | 'INFO' | 'BASIS'
 export type MasterCategoryMeta = Record<MasterCat, { fullLabel: string }>
 
 export interface ScheduleSlot {
+  id?: string
+  sourceCourseId?: string
+  sourceIndex?: number
+  parallelGroupId?: string
+  groupTitle?: string
+  groupType?: string
   day: string
   time: string
   room: string
   type: string
+  rhythm?: string
+  startsOn?: string | null
+  endsOn?: string | null
+  timeNote?: string | null
+  note?: string | null
+  cancellationDates?: string[]
+  calendarRelevant?: boolean
 }
 
 export interface CourseExam {
@@ -75,6 +88,20 @@ export interface CourseContentSection {
   links?: CourseTextLink[]
 }
 
+export interface CourseLecturerDetail {
+  id?: number
+  displayName?: string | null
+  title?: string | null
+  name?: string | null
+  email?: string | null
+  department?: string | null
+}
+
+export interface CourseAdditionalField {
+  label: string
+  value: string
+}
+
 export interface CourseParticipantLimit {
   parallelGroupId: string
   title: string | null
@@ -104,6 +131,7 @@ export interface CourseIliasMetadata {
 export interface Course {
   id: string
   numericId?: number
+  sourceCourseIds?: string[]
   number: string
   title: string
   periodId?: string | null
@@ -140,5 +168,8 @@ export interface Course {
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]
   participantLimits?: CourseParticipantLimit[]
+  responsiblePeople?: string[]
+  lecturerDetails?: CourseLecturerDetail[]
+  additionalFields?: CourseAdditionalField[]
   illias?: CourseIliasMetadata | null
 }
