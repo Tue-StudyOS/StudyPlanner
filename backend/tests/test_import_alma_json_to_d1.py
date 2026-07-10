@@ -72,9 +72,13 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
                 PRIMARY KEY (course_id, study_area_id)
             );
 
-            INSERT INTO study_programs (id, code, name) VALUES (1, 'BSC_INFO_2021', 'B.Sc. Informatik');
+            INSERT INTO study_programs (id, code, name) VALUES
+                (1, 'BSC_INFO_2021', 'B.Sc. Informatik'),
+                (2, 'MSC_ML_2021', 'M.Sc. Machine Learning');
             INSERT INTO study_areas (id, program_id, code) VALUES
-                (10, 1, 'MATH'), (11, 1, 'PRAK');
+                (10, 1, 'MATH'), (11, 1, 'PRAK'),
+                (20, 2, 'ML-FOUND'), (21, 2, 'ML-DIVERSE'),
+                (22, 2, 'ML-CS'), (23, 2, 'ML-EXP');
             """
         )
         self.conn.commit()
@@ -142,6 +146,21 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
         self.assertEqual(
             math_aliases,
             {("ModulMath1", "MATH"), ("ModulMath2", "MATH"), ("ModulMath3", "MATH"), ("ModulMath4", "MATH")},
+        )
+
+    def test_machine_learning_mach_codes_link_to_the_confirmed_ml_areas(self) -> None:
+        self._add_course(500, ["MACH-FML", "MACH-DTML", "MACH-GCS", "MACH-EP"])
+
+        self._rebuild_links()
+
+        self.assertEqual(
+            self._links(500),
+            {
+                (20, "MACH-FML"),
+                (21, "MACH-DTML"),
+                (22, "MACH-GCS"),
+                (23, "MACH-EP"),
+            },
         )
 
 
