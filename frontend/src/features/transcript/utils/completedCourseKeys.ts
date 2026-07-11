@@ -1,5 +1,18 @@
 import type { CompletedCourse } from '../../courses'
 
+export function isTranscriptImportedCourse(
+  course: Pick<CompletedCourse, 'id' | 'source'>,
+): boolean {
+  const normalizedSource = course.source?.trim().toLowerCase() ?? ''
+  const normalizedId = course.id.trim().toLowerCase()
+  return (
+    normalizedSource === 'transcript_import'
+    || normalizedSource === 'transcript'
+    || normalizedId.startsWith('import-')
+    || normalizedId.startsWith('transcript-')
+  )
+}
+
 export function normalizeCompletedCourseKey(
   course: Pick<CompletedCourse, 'courseId' | 'title' | 'semester' | 'ects' | 'grade'>,
 ): string {

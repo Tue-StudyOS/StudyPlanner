@@ -176,9 +176,13 @@ export function SemesterPlanner({
     setPlannedCourseIds,
   ])
 
+  // Historical schedules must use only the selected semester's catalog slice.
+  // The all-period catalog merges offering history and would otherwise make an
+  // old timetable appear much fuller than that semester actually was.
+  const historicalCatalogCourses = activePeriodId ? courses : allCatalogCourses
   const historicalSemesterPlan = useMemo(
-    () => buildHistoricalSemesterPlan(completedCourses, allCatalogCourses, activeSemesterLabel),
-    [activeSemesterLabel, allCatalogCourses, completedCourses],
+    () => buildHistoricalSemesterPlan(completedCourses, historicalCatalogCourses, activeSemesterLabel),
+    [activeSemesterLabel, completedCourses, historicalCatalogCourses],
   )
   // Past semesters that have no saved plan fall back to the transcript so old
   // courses still appear on their card and weekly grid, even without exact times.

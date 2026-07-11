@@ -42,6 +42,16 @@ export function getLatestSelectableSemesterLabel(now: Date = new Date()): string
   return currentSemesterLabel
 }
 
+export function findOldestSemesterLabel(labels: string[]): string | null {
+  return labels.reduce<string | null>(
+    (oldestLabel, label) =>
+      oldestLabel === null || compareSemesterLabels(label, oldestLabel) < 0
+        ? label
+        : oldestLabel,
+    null,
+  )
+}
+
 export function filterSemesterHubOptions(
   labels: string[],
   keepLabels: Array<string | null | undefined> = [],

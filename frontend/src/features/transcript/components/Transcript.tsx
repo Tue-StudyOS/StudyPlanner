@@ -297,15 +297,21 @@ function AuthenticatedTranscript() {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
 
-      // The newest upload is the source of truth: it replaces the current
-      // review, saved-for-later rows, and previously imported transcript data.
+      // The newest upload is the source of truth. Do not claim replacement or
+      // discard the old review until legacy transcript rows were removed.
+      const removedPreviousImports = await removeTranscriptImports()
+      if (!removedPreviousImports) {
+        throw new Error(
+          'Your previous transcript import could not be replaced. Nothing new was imported; please try again.',
+        )
+      }
+
       setImportCandidates(nextCandidates)
       setImportPhase('parsed')
       setPersistedIssues([])
       if (persistedIssues.length > 0) {
         void persistTranscriptIssues([])
       }
-      await removeTranscriptImports()
 
       setImportNotice(
         `Extracted ${nextCandidates.length} course(s) — this upload replaces your previous transcript import. Review, fix, or discard anything before importing.`,
