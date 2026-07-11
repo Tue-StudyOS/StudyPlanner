@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  findOldestSemesterLabel,
   getLatestSelectableSemesterLabel,
   getUpcomingSemesterHubVisibilityDate,
   isUpcomingSemesterHubVisible,
@@ -12,6 +13,11 @@ function formatLocalIsoDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
   return `${date.getFullYear()}-${month}-${day}`
 }
+
+test('findOldestSemesterLabel finds the oldest card independent of display order', () => {
+  assert.equal(findOldestSemesterLabel(['SS 2026', 'WS 2024/25', 'SS 2025']), 'WS 2024/25')
+  assert.equal(findOldestSemesterLabel([]), null)
+})
 
 test('getUpcomingSemesterHubVisibilityDate is two months before lecture start', () => {
   assert.equal(

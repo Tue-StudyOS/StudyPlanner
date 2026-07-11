@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { RemoveIcon } from '../../../shared/components/icons'
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
 import { scheduleSlotBlockClasses, scheduleSlotListLabelClasses } from '../../courses/utils/scheduleSlotKind.ts'
-import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks } from '../utils/plannerFeedback'
+import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, markPlannerBlockOverlaps } from '../utils/plannerFeedback'
 import type { ManualPlannerSlot } from '../types.ts'
 import {
   END_HOUR,
-  MAX_VISIBLE_OVERLAP_COLUMNS,
   MINUTES_PER_HOUR,
   PIXELS_PER_HOUR,
   START_HOUR,
@@ -16,12 +15,7 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
-import { PlannerOverflowDialog, type PlannerOverflowState } from './PlannerDialogs'
 
-// Narrow phone columns cannot fit three side-by-side blocks legibly, so mobile
-// shows fewer overlap columns (the rest collapse into the "+n" dialog) and uses
-// a tighter gutter to keep each visible block as wide as possible.
-const MOBILE_MAX_OVERLAP_COLUMNS = 2
 const MOBILE_BLOCK_GAP_REM = 0.25
 const DESKTOP_BLOCK_GAP_REM = 0.5
 
@@ -107,10 +101,12 @@ export function PlannerGrid({
   exportCalendarTitle?: string
 }) {
   const blocks = useMemo(
-    () => buildPlannerBlocks(plannedCourses, manualSlots).filter(
-      (block) =>
-        !hiddenSlotIds.includes(block.slotId)
-        && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
+    () => markPlannerBlockOverlaps(
+      buildPlannerBlocks(plannedCourses, manualSlots).filter(
+        (block) =>
+          !hiddenSlotIds.includes(block.slotId)
+          && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
+      ),
     ),
     [hiddenSlotIds, manualSlots, plannedCourses],
   )
@@ -118,19 +114,17 @@ export function PlannerGrid({
     const scheduledCourseIds = new Set(blocks.map((block) => block.courseId))
     return plannedCourses.filter((course) => !scheduledCourseIds.has(course.id))
   }, [blocks, plannedCourses])
-  const [activeOverflow, setActiveOverflow] = useState<PlannerOverflowState | null>(null)
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
-  const maxVisibleColumns = isMobilePlanner ? MOBILE_MAX_OVERLAP_COLUMNS : MAX_VISIBLE_OVERLAP_COLUMNS
   const blockGapRem = isMobilePlanner ? MOBILE_BLOCK_GAP_REM : DESKTOP_BLOCK_GAP_REM
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
         DAY_ORDER.map((day) => [
           day,
-          buildDayLayout(blocks.filter((block) => block.day === day), maxVisibleColumns),
+          buildDayLayout(blocks.filter((block) => block.day === day)),
         ]),
       ) as Record<(typeof DAY_ORDER)[number], ReturnType<typeof buildDayLayout>>,
-    [blocks, maxVisibleColumns],
+    [blocks],
   )
 
   function handleEmptyAreaClick(event: React.MouseEvent<HTMLDivElement>): void {
@@ -155,19 +149,18 @@ export function PlannerGrid({
           }
         }}
       >
-        {!isPastSemester ? (
-          <div className="mb-2 flex justify-end gap-1 px-0.5 sm:px-0">
-            <button
-              type="button"
-              data-tour="planner-manual-slot"
-              onClick={onRequestManualSlot}
-              title="Add manual time slot"
-              aria-label="Add manual time slot"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
-            >
-              <AddSlotIcon />
-            </button>
-            {onExportCalendar ? (
+        <div className="mb-2 flex justify-end gap-1 px-0.5 sm:px-0">
+          <button
+            type="button"
+            data-tour="planner-manual-slot"
+            onClick={onRequestManualSlot}
+            title="Add manual time slot"
+            aria-label="Add manual time slot"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
+          >
+            <AddSlotIcon />
+          </button>
+          {!isPastSemester && onExportCalendar ? (
               <button
                 type="button"
                 data-tour="planner-export"
@@ -179,9 +172,8 @@ export function PlannerGrid({
               >
                 <ExportCalendarIcon />
               </button>
-            ) : null}
-          </div>
-        ) : null}
+          ) : null}
+        </div>
         <div
           data-tour="planner-grid"
           className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2'}`}
@@ -212,7 +204,7 @@ export function PlannerGrid({
             {DAY_ORDER.map((day) => (
               <div
                 key={day}
-                onClick={isMobilePlanner && !isPastSemester ? handleEmptyAreaClick : undefined}
+                onClick={isMobilePlanner ? handleEmptyAreaClick : undefined}
                 className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
                 style={{ height: `${totalHeight}px` }}
               >
@@ -254,7 +246,7 @@ export function PlannerGrid({
                         onClick={() => onOpenCourse(block.courseId)}
                         aria-label={`Show details for ${block.courseTitle}`}
                         title={block.courseTitle}
-                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-primary sm:px-2 sm:py-1 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap)}`}
+                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 sm:px-2 sm:py-1 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
                       >
                         <div
                           className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
@@ -267,8 +259,8 @@ export function PlannerGrid({
                         >
                           {block.courseTitle}
                         </div>
-                        {block.slotType && (block.slotKind === 'exam' || block.slotKind === 'resit') ? (
-                          <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind)}`}>
+                        {block.slotType ? (
+                          <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
                             {block.slotType}
                           </div>
                         ) : null}
@@ -290,23 +282,6 @@ export function PlannerGrid({
                     </div>
                   )
                 })}
-
-                {dayLayouts[day].overflowIndicators.map((indicator) => (
-                  <button
-                    key={indicator.overlapGroupKey}
-                    type="button"
-                    onClick={() =>
-                      setActiveOverflow({
-                        title: `${DAY_LABELS[indicator.day]} · ${indicator.hiddenBlocks[0]?.label ?? 'Overlap'}`,
-                        blocks: indicator.hiddenBlocks,
-                      })
-                    }
-                    className="absolute right-1 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-1 text-[9px] font-semibold text-primary shadow-sm sm:px-2 sm:text-[10px]"
-                    style={{ top: `${indicator.top + 4}px` }}
-                  >
-                    +{indicator.hiddenBlocks.length}
-                  </button>
-                ))}
 
                 {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
                   <EmptyDayHint isMobilePlanner={isMobilePlanner} />
@@ -335,15 +310,13 @@ export function PlannerGrid({
                   </div>
                 </button>
               ))}
-              {!isPastSemester ? (
-                <button
-                  type="button"
-                  onClick={onRequestManualSlot}
-                  className="inline-flex min-h-[2.75rem] items-center justify-center rounded-md border border-dashed border-border px-3 py-2 text-[12px] font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
-                >
-                  + Add slot
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={onRequestManualSlot}
+                className="inline-flex min-h-[2.75rem] items-center justify-center rounded-md border border-dashed border-border px-3 py-2 text-[12px] font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
+              >
+                + Add slot
+              </button>
             </div>
           </div>
         ) : null}
@@ -369,17 +342,6 @@ export function PlannerGrid({
           </div>
         ) : null}
       </div>
-
-      {activeOverflow ? (
-        <PlannerOverflowDialog
-          overflow={activeOverflow}
-          onClose={() => setActiveOverflow(null)}
-          onOpenCourse={(courseId) => {
-            setActiveOverflow(null)
-            onOpenCourse(courseId)
-          }}
-        />
-      ) : null}
     </>
   )
 }

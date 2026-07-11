@@ -49,6 +49,7 @@ const DAY_ALIASES: Record<string, (typeof DAY_ORDER)[number]> = {
 
 const GERMAN_DATE_PATTERN = /\b(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/
 const GERMAN_DATE_PATTERN_GLOBAL = /\b\d{1,2}\.\d{1,2}\.(?:\d{2}|\d{4})\b/g
+const ISO_DATE_PATTERN_GLOBAL = /\b\d{4}-\d{1,2}-\d{1,2}\b/g
 const DATE_WEEKDAYS: Array<(typeof DAY_ORDER)[number] | null> = [
   null,
   'Monday',
@@ -58,6 +59,8 @@ const DATE_WEEKDAYS: Array<(typeof DAY_ORDER)[number] | null> = [
   'Friday',
   null,
 ]
+
+export type PlannerSessionRole = 'lecture' | 'tutorial' | 'other'
 
 export interface PlannerBlock {
   blockId: string
@@ -72,6 +75,7 @@ export interface PlannerBlock {
   room: string
   slotType: string
   slotKind: ScheduleSlotKind
+  sessionRole: PlannerSessionRole
   hasOverlap: boolean
   isManual: boolean
 }
@@ -86,7 +90,9 @@ export function isSingleDateSlot(value: string): boolean {
   if (DAY_ALIASES[normalizedValue.toLowerCase()]) {
     return false
   }
-  const dates = normalizedValue.match(GERMAN_DATE_PATTERN_GLOBAL) ?? []
+  const dates = normalizedValue.match(GERMAN_DATE_PATTERN_GLOBAL)
+    ?? normalizedValue.match(ISO_DATE_PATTERN_GLOBAL)
+    ?? []
   if (dates.length === 0) {
     return false
   }
@@ -135,6 +141,21 @@ export function parseTimeRange(timeText: string): { startMinutes: number; endMin
   }
 }
 
+export function getPlannerSessionRole(slot: Course['schedule'][number]): PlannerSessionRole {
+  const roleText = [slot.type, slot.groupType, slot.groupTitle, slot.note]
+    .filter(Boolean)
+    .join(' ')
+  const hasLectureRole = /vorlesung|lecture/i.test(roleText)
+  const hasTutorialRole = /tutorium|tutorial|übung|uebung|exercise/i.test(roleText)
+  if (hasTutorialRole && !hasLectureRole) {
+    return 'tutorial'
+  }
+  if (hasLectureRole) {
+    return 'lecture'
+  }
+  return 'other'
+}
+
 function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
   const blocks: PlannerBlock[] = []
 
@@ -170,6 +191,7 @@ function buildCatalogBlocks(courses: Course[]): PlannerBlock[] {
         room: slot.room,
         slotType: getScheduleSlotTypeLabel(slot),
         slotKind,
+        sessionRole: getPlannerSessionRole(slot),
         hasOverlap: false,
         isManual: false,
       })
@@ -211,6 +233,7 @@ function buildManualBlocks(
       room: manualSlot.room ?? '',
       slotType: manualSlot.label ?? 'Manual',
       slotKind: 'weekly',
+      sessionRole: 'other',
       hasOverlap: false,
       isManual: true,
     })
@@ -219,30 +242,36 @@ function buildManualBlocks(
   return blocks
 }
 
+export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[] {
+  return blocks.map((block) => {
+    const hasOverlap = blocks.some((candidate) => {
+      if (candidate.blockId === block.blockId || candidate.day !== block.day) {
+        return false
+      }
+      if (
+        candidate.courseId === block.courseId
+        && candidate.startMinutes === block.startMinutes
+        && candidate.endMinutes === block.endMinutes
+      ) {
+        return false
+      }
+      return candidate.startMinutes < block.endMinutes && block.startMinutes < candidate.endMinutes
+    })
+    return { ...block, hasOverlap }
+  })
+}
+
 export function buildPlannerBlocks(
   courses: Course[],
   manualSlots: readonly ManualPlannerSlot[] = [],
 ): PlannerBlock[] {
   const coursesById = new Map(courses.map((course) => [course.id, course]))
-  const blocks = [...buildCatalogBlocks(courses), ...buildManualBlocks(manualSlots, coursesById)]
+  const blocks = markPlannerBlockOverlaps([
+    ...buildCatalogBlocks(courses),
+    ...buildManualBlocks(manualSlots, coursesById),
+  ])
 
   return blocks
-    .map((block) => {
-      const hasOverlap = blocks.some((candidate) => {
-        if (candidate.blockId === block.blockId || candidate.day !== block.day) {
-          return false
-        }
-        if (
-          candidate.courseId === block.courseId
-          && candidate.startMinutes === block.startMinutes
-          && candidate.endMinutes === block.endMinutes
-        ) {
-          return false
-        }
-        return candidate.startMinutes < block.endMinutes && block.startMinutes < candidate.endMinutes
-      })
-      return { ...block, hasOverlap }
-    })
     .sort((left, right) => {
       const dayDifference = DAY_ORDER.indexOf(left.day) - DAY_ORDER.indexOf(right.day)
       if (dayDifference !== 0) {

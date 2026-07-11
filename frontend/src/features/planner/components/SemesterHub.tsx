@@ -14,7 +14,7 @@ import { ALL_CATALOG_PERIODS, useCatalogCourses } from '../../courses'
 import { fetchSemesterPlan } from '../api'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { buildSemesterCardStats, type SemesterCardPlanDetails } from '../utils/semesterCardStats.ts'
-import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
+import { findOldestSemesterLabel } from '../utils/semesterHubVisibility.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
@@ -34,10 +34,10 @@ export function SemesterHub() {
   const { completedCourses } = useTranscript()
   const { courses: catalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
   const isMobileSemesterList = useMediaQuery('(max-width: 960px)')
-  const currentSemesterLabel = getCurrentSemesterLabel()
   const displayedSemesterOptions = isMobileSemesterList
     ? [...semesterOptions].reverse()
     : semesterOptions
+  const oldestSemesterLabel = findOldestSemesterLabel(semesterOptions)
   const savedPlanLabels = useMemo(() => {
     const labels = new Set<string>()
     for (const plan of savedPlans) {
@@ -179,7 +179,7 @@ export function SemesterHub() {
               key={semesterLabel}
               semesterLabel={semesterLabel}
               to={semesterPath(semesterLabel)}
-              tourAnchorId={semesterLabel === currentSemesterLabel ? 'semester-hub-card' : undefined}
+              tourAnchorId={semesterLabel === oldestSemesterLabel ? 'semester-hub-card' : undefined}
               stats={buildSemesterCardStats(
                 semesterLabel,
                 savedPlans,

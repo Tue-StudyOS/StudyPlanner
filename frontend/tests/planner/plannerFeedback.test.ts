@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Course, ScheduleSlot } from '../../src/features/courses/index.ts'
-import { buildPlannerBlocks } from '../../src/features/planner/utils/plannerFeedback.ts'
+import {
+  buildPlannerBlocks,
+  markPlannerBlockOverlaps,
+} from '../../src/features/planner/utils/plannerFeedback.ts'
 
 function createCourse(id: string, schedule: ScheduleSlot[]): Course {
   return {
@@ -41,6 +44,7 @@ test('buildPlannerBlocks parses day aliases and time ranges', () => {
     ],
   )
   assert.ok(blocks.every((block) => !block.hasOverlap))
+  assert.deepEqual(blocks.map((block) => block.sessionRole), ['lecture', 'tutorial'])
 })
 
 test('buildPlannerBlocks parses German ALMA weekday labels', () => {
@@ -133,6 +137,21 @@ test('buildPlannerBlocks flags overlapping blocks on the same day only', () => {
   assert.equal(overlapByBlockId.get('course-a-0'), true)
   assert.equal(overlapByBlockId.get('course-b-0'), true)
   assert.equal(overlapByBlockId.get('course-b-1'), false)
+})
+
+test('markPlannerBlockOverlaps ignores hidden tutorial alternatives', () => {
+  const visibleCourse = createCourse('visible', [
+    { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
+  ])
+  const tutorialCourse = createCourse('tutorials', [
+    { day: 'Mo', time: '09:00 - 11:00', room: 'B1', type: 'exercise' },
+    { day: 'Mo', time: '12:00 - 14:00', room: 'B2', type: 'exercise' },
+  ])
+  const allBlocks = buildPlannerBlocks([visibleCourse, tutorialCourse])
+  const visibleBlocks = allBlocks.filter((block) => block.blockId !== 'tutorials-0')
+
+  assert.ok(allBlocks.find((block) => block.blockId === 'visible-0')?.hasOverlap)
+  assert.ok(markPlannerBlockOverlaps(visibleBlocks).every((block) => !block.hasOverlap))
 })
 
 test('buildPlannerBlocks does not flag the same course in parallel rooms as a conflict', () => {

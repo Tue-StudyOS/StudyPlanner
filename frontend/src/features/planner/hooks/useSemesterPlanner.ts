@@ -4,6 +4,7 @@ import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../
 import { useAuth } from '../../auth'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { ManualPlannerSlot, SemesterPlan, SemesterPlanSummary } from '../types'
+import { reconcileSavedPlanAssignments } from '../utils/semesterPlanAssignments.ts'
 import { SEMESTER_PLAN_CHANGED_EVENT } from '../utils/semesterTabBadge.ts'
 import {
   filterSemesterHubOptions,
@@ -290,6 +291,16 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
         // A semester switch can race the save response; only adopt the result
         // when the response still belongs to the selected semester.
         semesterLabel === nextSavedPlan.semesterLabel ? nextSavedPlan : currentSavedPlan,
+      )
+      // The backend removes stale regulation assignments instead of rejecting
+      // the whole plan. Adopt that normalization only if the user has not made
+      // a newer assignment change while this save was in flight.
+      setPlanAssignments((currentAssignments) =>
+        reconcileSavedPlanAssignments(
+          currentAssignments,
+          planAssignments,
+          nextSavedPlan.courseAssignments,
+        ),
       )
       writeSessionCache(`private:planner:plan:${semesterLabel}`, nextSavedPlan, userCacheKey)
       const nextSavedPlans = await fetchSemesterPlans()

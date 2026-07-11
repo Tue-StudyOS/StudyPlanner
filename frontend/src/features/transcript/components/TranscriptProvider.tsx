@@ -17,7 +17,7 @@ import type {
   BulkCompletedCourseImportResult,
   TranscriptSaveResult,
 } from '../types'
-import { normalizeCompletedCourseKey } from '../utils/completedCourseKeys'
+import { isTranscriptImportedCourse, normalizeCompletedCourseKey } from '../utils/completedCourseKeys'
 
 interface TranscriptProviderProps {
   children: ReactNode
@@ -268,11 +268,11 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return persistResult.saved
   }
 
-  // A new transcript upload is the source of truth: previously imported
-  // transcript courses are dropped before the new rows come in.
+  // A new transcript upload is the source of truth. Legacy imports predate the
+  // source marker, so their stable import id prefix is recognized as well.
   async function removeTranscriptImports(): Promise<boolean> {
     const remainingCourses = completedCourses.filter(
-      (course) => course.source !== 'transcript_import',
+      (course) => !isTranscriptImportedCourse(course),
     )
     if (remainingCourses.length === completedCourses.length) {
       return true

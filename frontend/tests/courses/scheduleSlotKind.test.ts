@@ -1,7 +1,23 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { getScheduleSlotKind, getScheduleSlotTypeLabel } from '../../src/features/courses/utils/scheduleSlotKind.ts'
+import {
+  getScheduleSlotKind,
+  getScheduleSlotTypeLabel,
+  scheduleSlotBlockClasses,
+} from '../../src/features/courses/utils/scheduleSlotKind.ts'
+
+test('uses one stable color per session role, including during overlaps', () => {
+  const lectureClasses = scheduleSlotBlockClasses('weekly', false, 'lecture')
+  const tutorialClasses = scheduleSlotBlockClasses('weekly', false, 'tutorial')
+
+  assert.match(lectureClasses, /bg-surface/)
+  assert.match(tutorialClasses, /surface-hover/)
+  assert.doesNotMatch(lectureClasses, /primary|danger|sky/)
+  assert.doesNotMatch(tutorialClasses, /primary|danger|sky/)
+  assert.equal(scheduleSlotBlockClasses('weekly', true, 'lecture'), lectureClasses)
+  assert.equal(scheduleSlotBlockClasses('weekly', true, 'tutorial'), tutorialClasses)
+})
 
 test('classifies recurring date ranges as weekly slots', () => {
   assert.equal(

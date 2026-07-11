@@ -13,7 +13,9 @@ import { formatSemesterLabelShort } from '../utils/semesterLabels'
 import {
   getTutorialSlotOptions,
   resolveVisibleTutorialSlotId,
+  type TutorialSlotSelectLayout,
 } from '../utils/plannerSlotSelection.ts'
+import { TutorialSlotSelect } from './TutorialSlotSelect.tsx'
 
 function formatPlannerTypeLabel(types: string[]): string {
   return formatCourseTypeLabel(types).replace(/\s*\/\s*/g, ' + ')
@@ -24,6 +26,7 @@ function CandidateCard({
   studyProgramCode,
   activeSemesterLabel,
   hiddenSlotIds,
+  tutorialSlotSelectLayout,
   onAddCourse,
   onOpenCourse,
   onToggleFavorite,
@@ -34,6 +37,7 @@ function CandidateCard({
   studyProgramCode: string | null
   activeSemesterLabel: string
   hiddenSlotIds: string[]
+  tutorialSlotSelectLayout: TutorialSlotSelectLayout
   onAddCourse: (courseId: string, areaCode: string | null) => void
   onOpenCourse: (courseId: string) => void
   onToggleFavorite: (courseId: string) => void
@@ -126,25 +130,12 @@ function CandidateCard({
               <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                 {t('planner.favorites.chooseTutorialSlot')}
               </span>
-              <div className="flex flex-wrap gap-1">
-                {tutorialSlotOptions.map((option) => {
-                  const isSelected = option.slotId === selectedTutorialSlotId
-                  return (
-                    <button
-                      key={option.slotId}
-                      type="button"
-                      onClick={() => onSelectTutorialSlot(course.id, option.slotId)}
-                      className={`max-w-full rounded-md border px-2 py-1 text-left text-[10.5px] leading-snug transition-colors ${
-                        isSelected
-                          ? 'border-primary bg-primary/10 font-medium text-primary'
-                          : 'border-border bg-surface text-fg-mid hover:border-primary/30'
-                      }`}
-                    >
-                      <span className="block break-words">{option.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
+              <TutorialSlotSelect
+                options={tutorialSlotOptions}
+                selectedSlotId={selectedTutorialSlotId}
+                layout={tutorialSlotSelectLayout}
+                onSelect={(slotId) => onSelectTutorialSlot(course.id, slotId)}
+              />
             </div>
           ) : null}
         </div>
@@ -190,6 +181,7 @@ interface PlannerFavoritesPanelProps {
   onToggleFavorite: (courseId: string) => void
   isFavoriteSaving: (courseId: string) => boolean
   hiddenSlotIds: string[]
+  tutorialSlotSelectLayout: TutorialSlotSelectLayout
   onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }
 
@@ -214,6 +206,7 @@ export function PlannerFavoritesPanel({
   onToggleFavorite,
   isFavoriteSaving,
   hiddenSlotIds,
+  tutorialSlotSelectLayout,
   onSelectTutorialSlot,
 }: PlannerFavoritesPanelProps) {
   const { t } = useTranslation()
@@ -270,6 +263,7 @@ export function PlannerFavoritesPanel({
                   studyProgramCode={studyProgramCode}
                   activeSemesterLabel={activeSemesterLabel}
                   hiddenSlotIds={hiddenSlotIds}
+                  tutorialSlotSelectLayout={tutorialSlotSelectLayout}
                   onAddCourse={onAddCourse}
                   onOpenCourse={onOpenCourse}
                   onToggleFavorite={onToggleFavorite}

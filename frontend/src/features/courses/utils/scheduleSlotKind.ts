@@ -38,16 +38,19 @@ export function getScheduleSlotTypeLabel(slot: ScheduleSlot): string {
 
 export function scheduleSlotBlockClasses(
   slotKind: ScheduleSlotKind,
-  hasOverlap: boolean,
+  _hasOverlap: boolean,
+  sessionRole: 'lecture' | 'tutorial' | 'other' = 'other',
 ): string {
   if (slotKind === 'exam' || slotKind === 'resit') {
-    return hasOverlap
-      ? 'border-amber-500/70 bg-amber-500/25 text-amber-950 dark:text-amber-50'
-      : 'border-amber-500/55 bg-amber-500/20 text-amber-950 dark:text-amber-50'
+    return 'border-amber-500/55 bg-amber-500/20 text-amber-950 dark:text-amber-50'
   }
-  return hasOverlap
-    ? 'border-primary/40 bg-primary/10 text-primary'
-    : 'border-border bg-surface text-fg dark:bg-surface-hover'
+  if (sessionRole === 'lecture') {
+    return 'border-border-light bg-surface text-fg dark:bg-surface-hover/35'
+  }
+  if (sessionRole === 'tutorial') {
+    return 'border-border bg-surface-hover/60 text-fg dark:bg-surface-hover/75'
+  }
+  return 'border-border bg-surface text-fg dark:bg-surface-hover'
 }
 
 export function scheduleSlotDotClasses(slotKind: ScheduleSlotKind): string {
@@ -60,7 +63,12 @@ export function scheduleSlotGridBlockClasses(slotKind: ScheduleSlotKind): string
   return 'border-primary/70 bg-primary/35'
 }
 
-export function scheduleSlotListLabelClasses(slotKind: ScheduleSlotKind): string {
+export function scheduleSlotListLabelClasses(
+  slotKind: ScheduleSlotKind,
+  sessionRole: 'lecture' | 'tutorial' | 'other' = 'other',
+): string {
   if (slotKind === 'exam' || slotKind === 'resit') return 'text-amber-600 dark:text-amber-400'
+  if (sessionRole === 'lecture') return 'text-fg-mid'
+  if (sessionRole === 'tutorial') return 'text-fg-muted'
   return 'text-fg-muted'
 }

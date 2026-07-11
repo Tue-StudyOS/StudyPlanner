@@ -10,6 +10,7 @@ import { formatCourseLecturerName } from '../utils/lecturerName.ts'
 import { buildIliasMetadataRows } from '../utils/illiasMetadata.ts'
 import { buildLearningPlatformLinks } from '../utils/learningPlatformLinks.ts'
 import { buildLinkedTextSegments, type TextLink } from '../utils/linkifyText.ts'
+import { dedupeStudyAreaOptions } from '../utils/studyAreaOptions.ts'
 import {
   CourseScheduleDetails,
   type TutorialSelectionProps,
@@ -161,9 +162,7 @@ export function CourseDetailBody({ course, tutorialSelection, footer }: CourseDe
     factRows.push([t('courseDetail.responsible'), responsiblePeople.join(', ')])
   }
 
-  const regulationOptions = (course.studyAreaOptions ?? []).filter(
-    (option) => option.studyAreaCode,
-  )
+  const regulationOptions = dedupeStudyAreaOptions(course.studyAreaOptions ?? [])
 
   return (
     <div className="min-w-0">

@@ -270,6 +270,18 @@ function AuthenticatedTranscript() {
       return
     }
 
+    if (isLoadingRegulationVersion) {
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
+      setImportError('Your examination regulation is still loading. Please wait a moment and try the import again.')
+      return
+    }
+
+    if (regulationVersionError || !regulationVersion) {
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
+      setImportError('Your active examination regulation could not be loaded, so regulation-specific matching is unavailable.')
+      return
+    }
+
     if (catalogError) {
       setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(
@@ -297,15 +309,21 @@ function AuthenticatedTranscript() {
         throw new Error('No transcript rows could be prepared for review. Please add courses manually below.')
       }
 
-      // The newest upload is the source of truth: it replaces the current
-      // review, saved-for-later rows, and previously imported transcript data.
+      // The newest upload is the source of truth. Do not claim replacement or
+      // discard the old review until legacy transcript rows were removed.
+      const removedPreviousImports = await removeTranscriptImports()
+      if (!removedPreviousImports) {
+        throw new Error(
+          'Your previous transcript import could not be replaced. Nothing new was imported; please try again.',
+        )
+      }
+
       setImportCandidates(nextCandidates)
       setImportPhase('parsed')
       setPersistedIssues([])
       if (persistedIssues.length > 0) {
         void persistTranscriptIssues([])
       }
-      await removeTranscriptImports()
 
       setImportNotice(
         `Extracted ${nextCandidates.length} course(s) — this upload replaces your previous transcript import. Review, fix, or discard anything before importing.`,
@@ -519,7 +537,7 @@ function AuthenticatedTranscript() {
         <div className="min-w-0 aspect-square" data-tour="transcript-upload">
           <TranscriptUploadCard
             isDragActive={isDragActive}
-            disabled={isLoadingCatalog}
+            disabled={isLoadingCatalog || isLoadingRegulationVersion}
             phase={displayImportPhase}
             error={displayImportError}
             maxFileSizeLabel={`${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB`}

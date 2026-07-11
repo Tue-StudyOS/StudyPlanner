@@ -2,17 +2,29 @@ import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import { AreaBadge } from '../../../shared/components/AreaBadge'
 import { buildCourseAreaTags } from '../../courses/utils/courseCardDisplay.ts'
+import {
+  getTutorialSlotOptions,
+  resolveVisibleTutorialSlotId,
+  type TutorialSlotSelectLayout,
+} from '../utils/plannerSlotSelection.ts'
+import { TutorialSlotSelect } from './TutorialSlotSelect.tsx'
 
 interface PastSemesterCourseListProps {
   courses: Course[]
   studyProgramCode: string | null
   assignments: Record<string, string>
+  hiddenSlotIds: string[]
+  tutorialSlotSelectLayout: TutorialSlotSelectLayout
+  onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
 }
 
 export function PastSemesterCourseList({
   courses,
   studyProgramCode,
   assignments,
+  hiddenSlotIds,
+  tutorialSlotSelectLayout,
+  onSelectTutorialSlot,
 }: PastSemesterCourseListProps) {
   if (courses.length === 0) {
     return null
@@ -32,6 +44,11 @@ export function PastSemesterCourseList({
         {courses.map((course) => {
           const areaTags = buildCourseAreaTags(course, studyProgramCode)
           const assignedAreaCode = assignments[course.id]
+          const tutorialSlotOptions = getTutorialSlotOptions(course)
+          const selectedTutorialSlotId = resolveVisibleTutorialSlotId(
+            tutorialSlotOptions,
+            hiddenSlotIds,
+          )
           const assignedTag = assignedAreaCode
             ? areaTags.find((tag) => tag.key === assignedAreaCode) ?? { key: assignedAreaCode, label: assignedAreaCode, masterCat: null }
             : null
@@ -56,6 +73,19 @@ export function PastSemesterCourseList({
                     <AreaBadge key={tag.key} label={tag.label} masterCat={tag.masterCat} />
                   ))}
               </div>
+              {tutorialSlotOptions.length > 1 && selectedTutorialSlotId ? (
+                <label className="mt-2 grid min-w-0 gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                    Tutorial
+                  </span>
+                  <TutorialSlotSelect
+                    options={tutorialSlotOptions}
+                    selectedSlotId={selectedTutorialSlotId}
+                    layout={tutorialSlotSelectLayout}
+                    onSelect={(slotId) => onSelectTutorialSlot(course.id, slotId)}
+                  />
+                </label>
+              ) : null}
             </li>
           )
         })}
