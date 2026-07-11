@@ -1,5 +1,6 @@
 import type { CompletedCourse, Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
+import type { ManualPlannerSlot } from '../types.ts'
 
 type HistoricalCompletedCourse = Pick<
   CompletedCourse,
@@ -10,6 +11,24 @@ export interface HistoricalSemesterPlan {
   courses: Course[]
   assignments: Record<string, string>
   matchedCompletedCourseCount: number
+}
+
+export function buildHistoricalPlanWriteState(
+  plan: HistoricalSemesterPlan,
+  manualSlots: ManualPlannerSlot[] = [],
+): {
+  courseIds: string[]
+  courseAssignments: Record<string, string>
+  manualSlots: ManualPlannerSlot[]
+} {
+  return {
+    courseIds: plan.courses.map((course) => course.id),
+    // Transcript assignments may refer to superseded regulation mappings. The
+    // backend can safely infer a current assignment later; the timetable write
+    // must not fail because of unrelated historical metadata.
+    courseAssignments: {},
+    manualSlots,
+  }
 }
 
 function normalizeIdentifier(value: string | number | null | undefined): string | null {

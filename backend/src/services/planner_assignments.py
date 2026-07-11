@@ -136,16 +136,15 @@ async def validate_plan_course_assignments(
     validated_assignments: dict[str, str] = {}
 
     for course_id_text, area_code in relevant_assignments.items():
+        # Assignments are optional planner metadata. Catalog refreshes and
+        # regulation changes can make a previously stored suggestion stale; in
+        # that case keep the semester plan and simply drop the stale assignment.
         if area_code not in rule_groups:
-            raise PlannerAssignmentError(
-                'The selected regulation area is not part of your active examination regulation.'
-            )
+            continue
         course_id = int(course_id_text)
         compatible_area_codes = {option.area_code for option in course_options.get(course_id, [])}
         if area_code not in compatible_area_codes:
-            raise PlannerAssignmentError(
-                'A planned course was assigned to a regulation area where it cannot be credited.'
-            )
+            continue
         validated_assignments[course_id_text] = area_code
 
     return validated_assignments

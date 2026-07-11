@@ -42,6 +42,18 @@ def _safe_text(value: Any) -> str | None:
     return text or None
 
 
+def _normalize_course_source(source: Any, course_id: Any) -> str:
+    normalized_source = (_safe_text(source) or '').lower()
+    normalized_id = (_safe_text(course_id) or '').lower()
+    if (
+        normalized_source in {'transcript', 'transcript_import'}
+        or normalized_id.startswith('import-')
+        or normalized_id.startswith('transcript-')
+    ):
+        return 'transcript_import'
+    return normalized_source or 'manual'
+
+
 def _normalize_float(value: Any, *, field_name: str) -> float:
     try:
         normalized_value = float(value)
@@ -176,7 +188,7 @@ def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
         studyAreaCode=_normalize_study_area_code(payload.get('studyAreaCode')),
         grade=grade,
         semester=semester,
-        source=_safe_text(payload.get('source')) or 'manual',
+        source=_normalize_course_source(payload.get('source'), payload.get('id')),
     )
 
 
@@ -338,7 +350,7 @@ def _coerce_stored_completed_course(raw_course: Any, fallback_id: str) -> Stored
         studyAreaCode=study_area_code,
         grade=_optional_float(raw_course.get('grade')),
         semester=semester,
-        source=_safe_text(raw_course.get('source')) or 'manual',
+        source=_normalize_course_source(raw_course.get('source'), raw_course.get('id') or fallback_id),
         createdAtUnix=_optional_unix(raw_course.get('createdAtUnix')),
         updatedAtUnix=_optional_unix(raw_course.get('updatedAtUnix')),
     )
@@ -635,8 +647,12 @@ async def import_current_user_completed_courses(
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, incoming_course_ids)
     existing_stored_courses = await _load_stored_completed_courses(env, username)
-    seen_keys = {_normalize_completed_course_key(course) for course in existing_stored_courses}
     next_stored_courses = list(existing_stored_courses)
+    stored_index_by_key = {
+        _normalize_completed_course_key(course): index
+        for index, course in enumerate(next_stored_courses)
+    }
+    processed_import_keys: set[str] = set()
     imported: list[dict[str, str]] = []
     skipped_duplicates: list[dict[str, str]] = []
     current_unix = _now_unix()
@@ -664,7 +680,29 @@ async def import_current_user_completed_courses(
             masterCat=resolved_master_cat,
         )
         course_key = _normalize_completed_course_key(normalized_course)
-        if course_key in seen_keys:
+        if course_key in processed_import_keys:
+            skipped_duplicates.append(
+                {'id': item_id, 'message': 'The selected course data is already part of this import.'}
+            )
+            continue
+
+        existing_index = stored_index_by_key.get(course_key)
+        if existing_index is not None:
+            existing_course = next_stored_courses[existing_index]
+            if (
+                normalized_course.get('source') == 'transcript_import'
+                and _normalize_course_source(existing_course.get('source'), existing_course.get('id')) == 'transcript_import'
+            ):
+                normalized_course['id'] = existing_course.get('id')
+                next_stored_courses[existing_index] = _build_stored_completed_course(
+                    normalized_course,
+                    current_unix=current_unix,
+                    existing_created_at_unix=int(existing_course.get('createdAtUnix') or 0),
+                )
+                processed_import_keys.add(course_key)
+                imported.append({'id': item_id, 'message': 'Updated transcript import successfully.'})
+                continue
+
             skipped_duplicates.append(
                 {'id': item_id, 'message': 'The selected course data is already stored in your completed-course list.'}
             )
@@ -677,7 +715,8 @@ async def import_current_user_completed_courses(
                 existing_created_at_unix=None,
             )
         )
-        seen_keys.add(course_key)
+        stored_index_by_key[course_key] = len(next_stored_courses) - 1
+        processed_import_keys.add(course_key)
         imported.append({'id': item_id, 'message': 'Imported successfully.'})
 
     await _persist_stored_completed_courses(env, username, next_stored_courses)

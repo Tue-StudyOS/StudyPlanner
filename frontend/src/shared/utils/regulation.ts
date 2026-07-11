@@ -238,7 +238,44 @@ export function buildAssignableRegulationAreaOptions(
   ruleGroups: RegulationRuleGroup[],
   fallbackMasterCats: MasterCat[] = [],
 ): RegulationAreaOption[] {
-  const mappedAreaOptions = buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
+  const allMappedAreaOptions = buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode)
+  const activeRuleGroupCodes = new Set(
+    ruleGroups.map((ruleGroup) => ruleGroup.code.trim().toUpperCase()),
+  )
+  let mappedAreaOptions = ruleGroups.length > 0
+    ? allMappedAreaOptions.filter((option) => activeRuleGroupCodes.has(option.code.trim().toUpperCase()))
+    : allMappedAreaOptions
+
+  // Some catalog modules still carry a legacy required area such as MATH,
+  // while the active BSc Informatik regulation combines it into INF (shown as
+  // MAIN). Resolve that legacy mapping against the selected regulation rather
+  // than leaking an area from another examination-regulation structure.
+  const hasRequiredLegacyMapping = (studyAreaOptions ?? []).some(
+    (option) =>
+      (!studyProgramCode || option.programCode === studyProgramCode)
+      && option.optionStatus.trim().toLowerCase() === 'required',
+  )
+  if (mappedAreaOptions.length === 0 && hasRequiredLegacyMapping) {
+    const mandatoryRuleGroups = ruleGroups.filter((ruleGroup) =>
+      isMandatoryRegulationAreaCode(ruleGroup.code, ruleGroups),
+    )
+    if (mandatoryRuleGroups.length === 1) {
+      const mandatoryRuleGroup = mandatoryRuleGroups[0]
+      const labels = buildAreaLabel(
+        mandatoryRuleGroup.code,
+        mandatoryRuleGroup.name,
+        mandatoryRuleGroup.groupType,
+      )
+      mappedAreaOptions = [{
+        code: mandatoryRuleGroup.code,
+        label: labels.label,
+        shortLabel: labels.shortLabel,
+        masterCat: studyAreaCodeToMasterCat(mandatoryRuleGroup.code),
+        isFlexible: false,
+      }]
+    }
+  }
+
   // Courses without an explicit regulation mapping may only go into elective
   // areas; compulsory parts are reserved for their explicitly mapped modules.
   // übK is open to everything regardless of category tags.

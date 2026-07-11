@@ -22,7 +22,10 @@ import {
 import { useTranscript } from '../../transcript'
 import { ROUTES } from '../../routes'
 import { balanceSemesterPlan } from '../api'
-import { buildHistoricalSemesterPlan } from '../utils/historicalSemesterPlan.ts'
+import {
+  buildHistoricalPlanWriteState,
+  buildHistoricalSemesterPlan,
+} from '../utils/historicalSemesterPlan.ts'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import type { ManualPlannerSlot } from '../types'
 import {
@@ -32,8 +35,11 @@ import {
   resolveChosenInfoAlternativeAreaCode,
 } from '../utils/plannerAssignments'
 import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
+import { shouldLoadPlannerAllCatalogCourses } from '../utils/plannerCatalogLoading.ts'
 import { isStoredSlotIdForCourse } from '../utils/scheduleSlotIds.ts'
 import {
+  applyDefaultTutorialSlotSelection,
+  buildTutorialSlotSelectLayout,
   defaultHiddenTutorialSlotIds,
   getTutorialSlotOptions,
   hiddenSlotIdsForTutorialSelection,
@@ -120,11 +126,19 @@ export function SemesterPlanner({
     [periods, activeSemesterLabel],
   )
   const { courses, isLoading, error } = useCatalogCourses('', 500, activePeriodId)
+  const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
+  const isCurrentSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) === 0
 
-  // Favorites can include courses from other terms (e.g. dashed "likely"
-  // catalog cards). Resolve their data from the full multi-period catalog so
-  // they still surface here instead of silently disappearing.
-  const { courses: allCatalogCourses } = useCatalogCourses('', 1000, ALL_CATALOG_PERIODS)
+  // The all-period response is about 1.5 MB and is only needed to resolve
+  // favorites from other terms. Past semesters and accounts without favorites
+  // stay on the much smaller selected-period catalog.
+  const shouldLoadAllCatalogCourses = shouldLoadPlannerAllCatalogCourses(favoriteIds, isPastSemester)
+  const { courses: allCatalogCourses } = useCatalogCourses(
+    '',
+    1000,
+    ALL_CATALOG_PERIODS,
+    shouldLoadAllCatalogCourses,
+  )
   const activeTerm = useMemo(
     () => parseSemesterLabel(activeSemesterLabel)?.term ?? null,
     [activeSemesterLabel],
@@ -179,15 +193,16 @@ export function SemesterPlanner({
   // Historical schedules must use only the selected semester's catalog slice.
   // The all-period catalog merges offering history and would otherwise make an
   // old timetable appear much fuller than that semester actually was.
-  const historicalCatalogCourses = activePeriodId ? courses : allCatalogCourses
   const historicalSemesterPlan = useMemo(
-    () => buildHistoricalSemesterPlan(completedCourses, historicalCatalogCourses, activeSemesterLabel),
-    [activeSemesterLabel, completedCourses, historicalCatalogCourses],
+    () => buildHistoricalSemesterPlan(
+      completedCourses,
+      activePeriodId ? courses : [],
+      activeSemesterLabel,
+    ),
+    [activePeriodId, activeSemesterLabel, completedCourses, courses],
   )
   // Past semesters that have no saved plan fall back to the transcript so old
   // courses still appear on their card and weekly grid, even without exact times.
-  const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
-  const isCurrentSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) === 0
   // Read-only and past-semester views hide the favorites panel, so the
   // planner grid must also reclaim the sidebar column.
   const showFavoritesPanel = !isPastSemester
@@ -198,7 +213,13 @@ export function SemesterPlanner({
     && historicalSemesterPlan.courses.length > 0
   const effectivePlannedCourses = usesCompletedCourseFallback ? historicalSemesterPlan.courses : plannedCourses
   const effectivePlannedCourseIds = effectivePlannedCourses.map((course) => course.id)
-  const effectiveHiddenSlotIds = usesCompletedCourseFallback ? [] : hiddenSlotIds
+  const effectiveHiddenSlotIds = useMemo(
+    () => applyDefaultTutorialSlotSelection(
+      effectivePlannedCourses,
+      usesCompletedCourseFallback ? [] : hiddenSlotIds,
+    ),
+    [effectivePlannedCourses, hiddenSlotIds, usesCompletedCourseFallback],
+  )
   const effectiveManualSlots = usesCompletedCourseFallback ? [] : manualSlots
   const effectivePlanAssignments = usesCompletedCourseFallback ? historicalSemesterPlan.assignments : planAssignments
   const plannerStudyProgramCode = user?.profile.studyProgramCode ?? null
@@ -229,6 +250,10 @@ export function SemesterPlanner({
     [plannerRuleGroups, plannerStudyProgramCode, activeStepId],
   )
   const displayPlannedCourses = isPlannerTourPreview ? plannerTourPreview.plannedCourses : effectivePlannedCourses
+  const tutorialSlotSelectLayout = useMemo(
+    () => buildTutorialSlotSelectLayout(displayPlannedCourses),
+    [displayPlannedCourses],
+  )
   const displayPlannedCourseIds = isPlannerTourPreview
     ? plannerTourPreview.plannedCourses.map((course) => course.id)
     : effectivePlannedCourseIds
@@ -321,10 +346,21 @@ export function SemesterPlanner({
     if (!course) {
       return
     }
+
+    // A transcript-only historical semester starts as a derived, read-only
+    // view. Materialize that exact semester once the student chooses their old
+    // tutorial so the selection can be persisted without borrowing newer data.
+    const baseHiddenSlotIds = usesCompletedCourseFallback ? [] : hiddenSlotIds
+    if (usesCompletedCourseFallback) {
+      const writeState = buildHistoricalPlanWriteState(historicalSemesterPlan)
+      setPlannedCourseIds(writeState.courseIds)
+      setAssignments(writeState.courseAssignments)
+    }
+
     const tutorialSlotIds = getTutorialSlotOptions(course).map((option) => option.slotId)
     const nextHiddenForCourse = hiddenSlotIdsForTutorialSelection(tutorialSlotIds, selectedSlotId)
     setHiddenSlotIds([
-      ...hiddenSlotIds.filter((slotId) => !isStoredSlotIdForCourse(slotId, course)),
+      ...baseHiddenSlotIds.filter((slotId) => !isStoredSlotIdForCourse(slotId, course)),
       ...nextHiddenForCourse,
     ])
   }
@@ -353,6 +389,13 @@ export function SemesterPlanner({
   }
 
   function handleAddManualSlot(slot: ManualPlannerSlot): void {
+    if (usesCompletedCourseFallback) {
+      const writeState = buildHistoricalPlanWriteState(historicalSemesterPlan, [slot])
+      setPlannedCourseIds(writeState.courseIds)
+      setAssignments(writeState.courseAssignments)
+      setManualSlots(writeState.manualSlots)
+      return
+    }
     if (!plannedCourseIds.includes(slot.courseId)) {
       setPlannedCourseIds([...plannedCourseIds, slot.courseId])
     }
@@ -518,6 +561,7 @@ export function SemesterPlanner({
       onToggleFavorite={toggleFavorite}
       isFavoriteSaving={isFavoriteSaving}
       hiddenSlotIds={displayHiddenSlotIds}
+      tutorialSlotSelectLayout={tutorialSlotSelectLayout}
       onSelectTutorialSlot={handleTutorialSlotSelect}
     />
   )
@@ -591,6 +635,9 @@ export function SemesterPlanner({
                 courses={displayPlannedCourses}
                 studyProgramCode={displayStudyProgramCode}
                 assignments={displayPlanAssignments}
+                hiddenSlotIds={displayHiddenSlotIds}
+                tutorialSlotSelectLayout={tutorialSlotSelectLayout}
+                onSelectTutorialSlot={handleTutorialSlotSelect}
               />
             ) : null}
             {!isPlannerTourPreview && isLoadingSemesterPlan && !savedPlan && plannedCourseIds.length === 0 ? (
@@ -610,7 +657,13 @@ export function SemesterPlanner({
                 onDropCourse={handleAddCourse}
                 onRemoveCourse={isPastSemester ? undefined : handleRemoveCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}
-                onRequestAdd={() => setIsAddDrawerOpen(true)}
+                onRequestAdd={() => {
+                  if (isPastSemester) {
+                    setIsManualSlotDialogOpen(true)
+                  } else {
+                    setIsAddDrawerOpen(true)
+                  }
+                }}
                 onRequestManualSlot={() => setIsManualSlotDialogOpen(true)}
                 onOpenCompletionDialog={() => {
                   clearCompletedCoursesError()
@@ -652,7 +705,7 @@ export function SemesterPlanner({
         </MobilePlannerFavoritesDrawer>
       ) : null}
 
-      {isManualSlotDialogOpen && !isPastSemester ? (
+      {isManualSlotDialogOpen ? (
         <ManualSlotDialog
           courses={displayPlannedCourses.length > 0 ? displayPlannedCourses : displayFavoriteCourses}
           onClose={() => setIsManualSlotDialogOpen(false)}
@@ -668,6 +721,7 @@ export function SemesterPlanner({
           assignedAreaCode={openCourseAssignment}
           suggestedAreaCode={openCourseSuggestion}
           hiddenSlotIds={displayHiddenSlotIds}
+          allowTutorialSelection={!isPastSemester}
           onSelectTutorialSlot={handleTutorialSlotSelect}
           onAdd={(courseId, areaCode) => {
             handleAddCourse(courseId, areaCode)

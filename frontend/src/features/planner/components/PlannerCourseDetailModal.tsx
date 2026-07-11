@@ -14,6 +14,7 @@ interface PlannerCourseDetailModalProps {
   assignedAreaCode: string | null
   suggestedAreaCode: string | null
   hiddenSlotIds: string[]
+  allowTutorialSelection?: boolean
   onSelectTutorialSlot: (courseId: string, selectedSlotId: string) => void
   onAdd: (courseId: string, areaCode: string | null) => void
   onRemove: (courseId: string) => void
@@ -33,6 +34,7 @@ export function PlannerCourseDetailModal({
   assignedAreaCode,
   suggestedAreaCode,
   hiddenSlotIds,
+  allowTutorialSelection = true,
   onSelectTutorialSlot,
   onAdd,
   onRemove,
@@ -43,7 +45,8 @@ export function PlannerCourseDetailModal({
   const scrollRef = useRef<HTMLDivElement>(null)
   // The planner works on catalog summaries; load the full record for the body.
   const { course: detailCourse } = useCatalogCourseDetail(course.id)
-  const displayCourse = detailCourse ? mergeCourseDetails(course, detailCourse) : course
+  const matchingDetailCourse = detailCourse?.id === course.id ? detailCourse : null
+  const displayCourse = matchingDetailCourse ? mergeCourseDetails(course, matchingDetailCourse) : course
   // Reset the local selection during render when the modal switches courses.
   const [selection, setSelection] = useState<{ courseId: string; areaCode: string | null }>({
     courseId: course.id,
@@ -56,7 +59,7 @@ export function PlannerCourseDetailModal({
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
-  }, [course.id, detailCourse?.id])
+  }, [course.id, matchingDetailCourse?.id])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -165,7 +168,7 @@ export function PlannerCourseDetailModal({
         >
           <CourseDetailBody
             course={displayCourse}
-            tutorialSelection={isPlanned ? {
+            tutorialSelection={isPlanned && allowTutorialSelection ? {
               hiddenSlotIds,
               onSelect: (slotId) => onSelectTutorialSlot(course.id, slotId),
             } : undefined}

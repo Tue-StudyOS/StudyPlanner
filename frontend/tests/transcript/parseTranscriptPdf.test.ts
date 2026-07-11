@@ -618,6 +618,81 @@ test('compulsory transcript rows auto-assign to the MAIN area even without a cat
   assert.equal(canImportTranscriptCandidate(candidate), true)
 })
 
+test('required math modules use the active regulation area instead of a legacy catalog area', () => {
+  const entry = createEntry({
+    sourceSection: 'Unzugeordnete Elemente',
+    extractedTitle: 'Mathematik für Informatik 4: Stochastik',
+    titleCandidates: ['Mathematik für Informatik 4: Stochastik'],
+    extractedEcts: 6,
+    defaultMasterCat: 'BASIS',
+  })
+  const course = createCourse({
+    id: 'course-stochastik',
+    number: 'MAT-95-42',
+    title: 'Mathematik für Informatik 4: Stochastik',
+    ects: 6,
+    masterCats: ['BASIS'],
+    studyAreaOptions: [{
+      programCode: 'BSC_INFO_2021',
+      programName: 'B.Sc. Informatik',
+      studyAreaCode: 'MATH',
+      studyAreaName: 'Pflichtstudienbereich Mathematik',
+      areaType: 'mandatory',
+      optionStatus: 'required',
+      ectsCounted: 6,
+      moduleCode: 'INFM2020',
+      moduleTitle: 'Mathematik fuer Informatik 4: Numerik oder Stochastik',
+    }],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: BSC_INFO_RULE_GROUPS,
+  })
+
+  assert.equal(candidate.studyAreaCode, 'INF')
+  assert.ok(candidate.matchedCourse?.regulationAreaCodes?.includes('INF'))
+  assert.ok(!candidate.matchedCourse?.regulationAreaCodes?.includes('MATH'))
+})
+
+test('required math modules stay in MATH when the active regulation contains MATH', () => {
+  const entry = createEntry({
+    sourceSection: 'Unzugeordnete Elemente',
+    extractedTitle: 'Mathematik für Informatik 4: Numerik',
+    titleCandidates: ['Mathematik für Informatik 4: Numerik'],
+    extractedEcts: 6,
+    defaultMasterCat: 'BASIS',
+  })
+  const course = createCourse({
+    id: 'course-numerik',
+    number: 'MAT-95-41',
+    title: 'Mathematik für Informatik 4: Numerik',
+    ects: 6,
+    masterCats: ['BASIS'],
+    studyAreaOptions: [{
+      programCode: 'BSC_BIOINFO_2021',
+      programName: 'B.Sc. Bioinformatik',
+      studyAreaCode: 'MATH',
+      studyAreaName: 'Mathematik (Pflicht)',
+      areaType: 'mandatory',
+      optionStatus: 'required',
+      ectsCounted: 6,
+      moduleCode: 'INFM2020',
+      moduleTitle: 'Mathematik fuer Informatik 4: Numerik oder Stochastik',
+    }],
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [course], {
+    studyProgramCode: 'BSC_BIOINFO_2021',
+    regulationRuleGroups: [
+      { code: 'MATH', name: 'Mathematik (Pflicht)', groupType: 'study_area', sortOrder: 1 },
+      { code: 'INF', name: 'Informatik (Pflicht)', groupType: 'study_area', sortOrder: 2 },
+    ],
+  })
+
+  assert.equal(candidate.studyAreaCode, 'MATH')
+})
+
 test('elective transcript rows auto-assign to the section area instead of staying ambiguous', () => {
   const entry = createEntry({
     sourceSection: 'Wahlpflichtfach Praktische Informatik',

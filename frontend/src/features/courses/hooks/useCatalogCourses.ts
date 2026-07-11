@@ -19,37 +19,44 @@ function buildCacheKey(search: string, limit: number, periodId?: string): string
   return `catalog:courses:${search}::${limit}::${periodId ?? ''}`
 }
 
-export function useCatalogCourses(search: string, limit: number = 200, periodId?: string): {
+export function useCatalogCourses(
+  search: string,
+  limit: number = 200,
+  periodId?: string,
+  enabled: boolean = true,
+): {
   courses: Course[]
   isLoading: boolean
   error: string | null
   refreshWarning: string | null
 } {
-  const cacheKey = buildCacheKey(search, limit, periodId)
+  const cacheKey = enabled
+    ? buildCacheKey(search, limit, periodId)
+    : 'catalog:courses:disabled'
   const [state, setState] = useState<CatalogQueryState>(() => {
-    const cached = readSessionCache<Course[]>(cacheKey)
+    const cached = enabled ? readSessionCache<Course[]>(cacheKey) : null
     return {
       cacheKey,
       courses: cached ?? [],
-      isLoading: !cached,
+      isLoading: enabled && !cached,
       error: null,
       refreshWarning: null,
     }
   })
 
   if (state.cacheKey !== cacheKey) {
-    const cached = readSessionCache<Course[]>(cacheKey)
+    const cached = enabled ? readSessionCache<Course[]>(cacheKey) : null
     setState({
       cacheKey,
-      courses: cached ?? state.courses,
-      isLoading: !cached,
+      courses: cached ?? (enabled ? state.courses : []),
+      isLoading: enabled && !cached,
       error: null,
       refreshWarning: null,
     })
   }
 
   useEffect(() => {
-    if (readSessionCache<Course[]>(cacheKey)) {
+    if (!enabled || readSessionCache<Course[]>(cacheKey)) {
       return
     }
 
@@ -92,7 +99,7 @@ export function useCatalogCourses(search: string, limit: number = 200, periodId?
       isActive = false
       window.clearTimeout(timeoutId)
     }
-  }, [cacheKey, limit, periodId, search])
+  }, [cacheKey, enabled, limit, periodId, search])
 
   return {
     courses: state.courses,

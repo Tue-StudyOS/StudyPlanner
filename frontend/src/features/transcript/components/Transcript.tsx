@@ -270,6 +270,18 @@ function AuthenticatedTranscript() {
       return
     }
 
+    if (isLoadingRegulationVersion) {
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
+      setImportError('Your examination regulation is still loading. Please wait a moment and try the import again.')
+      return
+    }
+
+    if (regulationVersionError || !regulationVersion) {
+      setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
+      setImportError('Your active examination regulation could not be loaded, so regulation-specific matching is unavailable.')
+      return
+    }
+
     if (catalogError) {
       setImportPhase(importCandidates.length > 0 ? 'parsed' : 'failed')
       setImportError(
@@ -525,7 +537,7 @@ function AuthenticatedTranscript() {
         <div className="min-w-0 aspect-square" data-tour="transcript-upload">
           <TranscriptUploadCard
             isDragActive={isDragActive}
-            disabled={isLoadingCatalog}
+            disabled={isLoadingCatalog || isLoadingRegulationVersion}
             phase={displayImportPhase}
             error={displayImportError}
             maxFileSizeLabel={`${Math.round(MAX_TRANSCRIPT_FILE_SIZE_BYTES / 1024 / 1024)} MB`}

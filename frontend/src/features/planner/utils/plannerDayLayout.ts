@@ -6,7 +6,6 @@ export const MINUTES_PER_HOUR = 60
 const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
 const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
 export const PIXELS_PER_HOUR = 64
-export const MAX_VISIBLE_OVERLAP_COLUMNS = 3
 
 interface PositionedPlannerBlock extends PlannerBlock {
   columnIndex: number
@@ -14,16 +13,8 @@ interface PositionedPlannerBlock extends PlannerBlock {
   overlapGroupKey: string
 }
 
-interface OverflowIndicator {
-  overlapGroupKey: string
-  day: PlannerBlock['day']
-  top: number
-  hiddenBlocks: PlannerBlock[]
-}
-
 interface PlannerDayLayout {
   visibleBlocks: PositionedPlannerBlock[]
-  overflowIndicators: OverflowIndicator[]
 }
 
 export function clampPlannerTimeRange(
@@ -38,15 +29,12 @@ export function clampPlannerTimeRange(
   return { startMinutes: clampedStartMinutes, endMinutes: clampedEndMinutes }
 }
 
-// Greedy interval-graph coloring per overlap cluster: blocks that overlap in
-// time share columns; anything beyond the visible column limit is collapsed
-// into a "+n" overflow indicator instead of shrinking blocks unreadably.
-export function buildDayLayout(
-  dayBlocks: PlannerBlock[],
-  maxVisibleColumns: number = MAX_VISIBLE_OVERLAP_COLUMNS,
-): PlannerDayLayout {
+// Greedy interval-graph coloring per overlap cluster: every overlapping block
+// remains directly visible in its own column instead of being hidden behind a
+// disruptive "+n" badge.
+export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
   if (dayBlocks.length === 0) {
-    return { visibleBlocks: [], overflowIndicators: [] }
+    return { visibleBlocks: [] }
   }
 
   const sortedBlocks = [...dayBlocks].sort(
@@ -71,7 +59,6 @@ export function buildDayLayout(
   })
 
   const visibleBlocks: PositionedPlannerBlock[] = []
-  const overflowIndicators: OverflowIndicator[] = []
 
   clusters.forEach((cluster, clusterIndex) => {
     const columnEndMinutes: number[] = []
@@ -89,36 +76,19 @@ export function buildDayLayout(
       positionedClusterBlocks.push({ ...block, columnIndex })
     })
 
-    const visibleColumnCount = Math.min(columnEndMinutes.length, maxVisibleColumns)
-    const hiddenBlocks = positionedClusterBlocks.filter(
-      (block) => block.columnIndex >= maxVisibleColumns,
-    )
+    const visibleColumnCount = columnEndMinutes.length
     const overlapGroupKey = `${cluster[0].day}-${cluster[0].startMinutes}-${clusterIndex}`
 
-    positionedClusterBlocks
-      .filter((block) => block.columnIndex < maxVisibleColumns)
-      .forEach((block) => {
-        visibleBlocks.push({
-          ...block,
-          visibleColumnCount,
-          overlapGroupKey,
-        })
-      })
-
-    if (hiddenBlocks.length > 0) {
-      overflowIndicators.push({
+    positionedClusterBlocks.forEach((block) => {
+      visibleBlocks.push({
+        ...block,
+        visibleColumnCount,
         overlapGroupKey,
-        day: cluster[0].day,
-        top:
-          ((Math.min(...cluster.map((block) => block.startMinutes)) - START_HOUR * MINUTES_PER_HOUR)
-            / MINUTES_PER_HOUR)
-          * PIXELS_PER_HOUR,
-        hiddenBlocks,
       })
-    }
+    })
   })
 
-  return { visibleBlocks, overflowIndicators }
+  return { visibleBlocks }
 }
 
 export function buildBlockWidth(visibleColumnCount: number, gapRem: number = 0.5): string {

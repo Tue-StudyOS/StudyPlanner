@@ -3,8 +3,6 @@ import test from 'node:test'
 import type { PlannerBlock } from '../../src/features/planner/utils/plannerFeedback.ts'
 import {
   END_HOUR,
-  MAX_VISIBLE_OVERLAP_COLUMNS,
-  PIXELS_PER_HOUR,
   buildDayLayout,
   clampPlannerTimeRange,
 } from '../../src/features/planner/utils/plannerDayLayout.ts'
@@ -13,6 +11,7 @@ function createBlock(id: string, startMinutes: number, endMinutes: number): Plan
   return {
     blockId: id,
     slotId: id,
+    legacySlotIds: [],
     courseId: id,
     courseTitle: id,
     day: 'Monday',
@@ -22,7 +21,9 @@ function createBlock(id: string, startMinutes: number, endMinutes: number): Plan
     room: '',
     slotType: '',
     slotKind: 'weekly',
+    sessionRole: 'other',
     hasOverlap: false,
+    isManual: false,
   }
 }
 
@@ -32,7 +33,6 @@ test('buildDayLayout keeps sequential blocks in a single column', () => {
     createBlock('b', 9 * 60, 10 * 60),
   ])
 
-  assert.equal(layout.overflowIndicators.length, 0)
   assert.deepEqual(
     layout.visibleBlocks.map((block) => [block.blockId, block.columnIndex, block.visibleColumnCount]),
     [
@@ -74,25 +74,19 @@ test('buildDayLayout reuses a freed column for a later block in the same cluster
   assert.ok(layout.visibleBlocks.every((block) => block.visibleColumnCount === 2))
 })
 
-test('buildDayLayout collapses blocks beyond the visible column limit into an overflow indicator', () => {
-  const blocks = Array.from({ length: MAX_VISIBLE_OVERLAP_COLUMNS + 2 }, (_, index) =>
+test('buildDayLayout keeps every overlapping block directly visible', () => {
+  const blocks = Array.from({ length: 5 }, (_, index) =>
     createBlock(`block-${index}`, 10 * 60, 12 * 60),
   )
 
   const layout = buildDayLayout(blocks)
 
-  assert.equal(layout.visibleBlocks.length, MAX_VISIBLE_OVERLAP_COLUMNS)
-  assert.equal(layout.overflowIndicators.length, 1)
-  assert.deepEqual(
-    layout.overflowIndicators[0].hiddenBlocks.map((block) => block.blockId),
-    ['block-3', 'block-4'],
-  )
-  // Overflow indicator is positioned at the cluster start (10:00 with an 8:00 grid start).
-  assert.equal(layout.overflowIndicators[0].top, 2 * PIXELS_PER_HOUR)
+  assert.equal(layout.visibleBlocks.length, 5)
+  assert.ok(layout.visibleBlocks.every((block) => block.visibleColumnCount === 5))
 })
 
 test('buildDayLayout returns empty results for an empty day', () => {
-  assert.deepEqual(buildDayLayout([]), { visibleBlocks: [], overflowIndicators: [] })
+  assert.deepEqual(buildDayLayout([]), { visibleBlocks: [] })
 })
 
 test('planner visible boundary ends at 20:00', () => {

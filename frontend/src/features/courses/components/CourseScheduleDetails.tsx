@@ -7,6 +7,8 @@ import {
 import type { Course, ScheduleSlot } from '../types.ts'
 import {
   buildExamDisplayEntries,
+  buildScheduleSlotSecondaryDetails,
+  formatCancellationDates,
   partitionCourseSchedule,
   type IndexedScheduleSlot,
 } from '../utils/courseSchedule.ts'
@@ -22,10 +24,8 @@ function hasPublishedValue(value: string | null | undefined): value is string {
 }
 
 function SlotDetails({ slot }: { slot: ScheduleSlot }) {
-  const { t } = useTranslation()
-  const secondary = [slot.groupTitle, slot.timeNote, slot.note]
-    .filter(hasPublishedValue)
-    .filter((value, index, values) => values.indexOf(value) === index)
+  const { t, language } = useTranslation()
+  const secondary = buildScheduleSlotSecondaryDetails(slot)
   return (
     <div className="min-w-0">
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -42,7 +42,9 @@ function SlotDetails({ slot }: { slot: ScheduleSlot }) {
       ) : null}
       {(slot.cancellationDates?.length ?? 0) > 0 ? (
         <div className="mt-0.5 break-words text-[11px] text-amber-600 dark:text-amber-400">
-          {t('courseDetail.cancellationDates', { dates: slot.cancellationDates?.join(', ') ?? '' })}
+          {t('courseDetail.cancellationDates', {
+            dates: formatCancellationDates(slot.cancellationDates ?? [], language),
+          })}
         </div>
       ) : null}
     </div>

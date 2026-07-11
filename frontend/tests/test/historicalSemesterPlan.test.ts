@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Course } from '../../src/features/courses/types.ts'
-import { buildHistoricalSemesterPlan, findCompletedCourseForCatalogCourse } from '../../src/features/planner/utils/historicalSemesterPlan.ts'
+import {
+  buildHistoricalPlanWriteState,
+  buildHistoricalSemesterPlan,
+  findCompletedCourseForCatalogCourse,
+} from '../../src/features/planner/utils/historicalSemesterPlan.ts'
 
 function course(overrides: Partial<Course> & Pick<Course, 'id' | 'number' | 'title'>): Course {
   return {
@@ -24,6 +28,32 @@ function course(overrides: Partial<Course> & Pick<Course, 'id' | 'number' | 'tit
     ...overrides,
   }
 }
+
+test('buildHistoricalPlanWriteState keeps all old courses and accepts manual slots', () => {
+  const historicalCourses = [
+    course({ id: 'course-a', number: 'INF-101', title: 'Algorithms I' }),
+    course({ id: 'course-b', number: 'INF-102', title: 'Data Structures' }),
+  ]
+  const manualSlot = {
+    id: 'manual-1',
+    courseId: 'course-b',
+    day: 'Monday' as const,
+    time: '10:00 - 12:00',
+  }
+
+  assert.deepEqual(
+    buildHistoricalPlanWriteState({
+      courses: historicalCourses,
+      assignments: { 'course-a': 'REMOVED-AREA' },
+      matchedCompletedCourseCount: 2,
+    }, [manualSlot]),
+    {
+      courseIds: ['course-a', 'course-b'],
+      courseAssignments: {},
+      manualSlots: [manualSlot],
+    },
+  )
+})
 
 test('buildHistoricalSemesterPlan maps completed courses in the selected semester to catalog courses', () => {
   const catalogCourses = [
