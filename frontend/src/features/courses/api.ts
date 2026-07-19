@@ -1,4 +1,4 @@
-import { ApiError, fetchJson } from '../../shared/utils/api'
+import { fetchJson } from '../../shared/utils/api'
 import type { CatalogPeriod, Course } from './types'
 
 interface CatalogCoursesResponse {
@@ -11,19 +11,8 @@ interface CatalogPeriodsResponse {
   periods: CatalogPeriod[]
 }
 
-// Worker cold starts and flaky connections occasionally fail a single request;
-// retry transient failures before surfacing an error to the user.
-const RETRY_DELAYS_MS = [600, 1800, 4000]
-
 // Requests the deduplicated multi-period catalog instead of one semester slice.
 export const ALL_CATALOG_PERIODS = 'all'
-
-function isTransientError(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.status === 0 || error.status >= 500
-  }
-  return true
-}
 
 export async function fetchCatalogCourses(
   search?: string,
@@ -38,17 +27,8 @@ export async function fetchCatalogCourses(
     query.set('period', periodId.trim())
   }
 
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      const response = await fetchJson<CatalogCoursesResponse>(`/api/catalog/courses?${query.toString()}`)
-      return response.courses
-    } catch (error) {
-      if (attempt >= RETRY_DELAYS_MS.length || !isTransientError(error)) {
-        throw error
-      }
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]))
-    }
-  }
+  const response = await fetchJson<CatalogCoursesResponse>(`/api/catalog/courses?${query.toString()}`)
+  return response.courses
 }
 
 export async function fetchCatalogPeriods(): Promise<CatalogPeriod[]> {

@@ -44,7 +44,7 @@ test('Pages gateway caches only public catalog reads', () => {
       }),
       'api',
     ),
-    false,
+    true,
   )
 })
 

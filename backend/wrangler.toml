@@ -8,6 +8,8 @@ workers_dev = true
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
 AUTH_TOKEN_TTL_SECONDS = "2592000"
+# Operators listed here can inspect aggregated client errors from every account.
+DIAGNOSTICS_ADMIN_USERNAMES = "test"
 
 # Active runtime D1 for the current deployed app.
 # studyplanner-db is the approved production database (multi-period ALMA catalog, integrate_new_db cutover).

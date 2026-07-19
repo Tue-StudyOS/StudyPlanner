@@ -641,6 +641,29 @@ class SearchWhereTest(unittest.TestCase):
         self.assertTrue(all('%müller%' in param for param in params))
 
 
+class AllPeriodCatalogSearchTest(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_immediately_when_search_has_no_matches(self) -> None:
+        fetch_all = AsyncMock(return_value=[])
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            result = await course_catalog._list_all_catalog_courses({}, 1000, "missing")
+
+        self.assertEqual(result, [])
+        fetch_all.assert_awaited_once()
+
+    async def test_loads_only_period_rows_for_matching_course_keys(self) -> None:
+        fetch_all = AsyncMock(side_effect=[
+            [{"id": 7, "courseKey": "INFO7"}],
+            [],
+        ])
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            result = await course_catalog._list_all_catalog_courses({}, 1000, "parallel")
+
+        self.assertEqual(result, [])
+        family_query = fetch_all.await_args_list[1]
+        self.assertIn("IN (SELECT value FROM json_each(?))", family_query.args[1])
+        self.assertEqual(family_query.args[2], ['["INFO7"]'])
+
+
 class IliasMetadataTest(unittest.TestCase):
     def test_json_list_ignores_non_list_payloads(self) -> None:
         self.assertEqual(_json_list('{"name": "not a list"}'), [])
