@@ -1098,6 +1098,28 @@ async def _list_all_catalog_courses(
 ) -> list[dict[str, Any]]:
     """Return the deduplicated multi-period catalog with offering history."""
     safe_limit = max(1, min(limit, 1000))
+    normalized_search = _safe_text(search)
+    matching_ids: set[int] | None = None
+    matching_keys: list[str] = []
+    if normalized_search:
+        where_clause, where_params = _build_search_where(_build_search_terms(normalized_search))
+        matching_rows = await fetch_all(
+            env,
+            f"""
+            SELECT
+                c.id,
+                {COURSE_KEY_SQL} AS courseKey
+            FROM courses AS c
+            WHERE {CATALOG_FILTER_SQL}
+              AND {where_clause}
+            """,
+            where_params,
+        )
+        if not matching_rows:
+            return []
+        matching_ids = {int(row["id"]) for row in matching_rows}
+        matching_keys = list(dict.fromkeys(str(row["courseKey"]) for row in matching_rows))
+
     sql = f"""
         SELECT
             c.id,
@@ -1108,29 +1130,12 @@ async def _list_all_catalog_courses(
         FROM courses AS c
         WHERE {CATALOG_FILTER_SQL}
     """
-
+    sql_params: list[Any] = []
+    if matching_keys:
+        sql += f"\n          AND {COURSE_KEY_SQL} IN (SELECT value FROM json_each(?))"
+        sql_params.append(json.dumps(matching_keys, separators=(",", ":")))
     sql += "\n        ORDER BY c.title ASC, c.id ASC"
-
-    normalized_search = _safe_text(search)
-    if normalized_search:
-        where_clause, where_params = _build_search_where(_build_search_terms(normalized_search))
-        rows, matching_rows = await asyncio.gather(
-            fetch_all(env, sql),
-            fetch_all(
-                env,
-                f"""
-                SELECT c.id
-                FROM courses AS c
-                WHERE {CATALOG_FILTER_SQL}
-                  AND {where_clause}
-                """,
-                where_params,
-            ),
-        )
-        matching_ids = {int(row["id"]) for row in matching_rows}
-    else:
-        rows = await fetch_all(env, sql)
-        matching_ids = None
+    rows = await fetch_all(env, sql, sql_params)
 
     groups = _collect_offering_groups(rows)
     if matching_ids is not None:

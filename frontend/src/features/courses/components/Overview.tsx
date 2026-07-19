@@ -275,7 +275,8 @@ export function CoursesOverview() {
   const { user } = useAuth()
   const studyProgramCode = user?.profile.studyProgramCode ?? null
   const { periods, periodsError } = useCatalogPeriods()
-  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(search, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
+  const catalogSearch = search.trim().length >= 2 ? search : ''
+  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(catalogSearch, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(user?.profile.regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
