@@ -37,6 +37,7 @@ import {
   toSavedIssue,
 } from '../utils/transcriptReview'
 import { parseTranscriptPdf } from '../utils/parseTranscriptPdf'
+import { persistTranscriptImportCandidates } from '../utils/transcriptImportSession.ts'
 import { AlmaImportGuide } from './AlmaImportGuide'
 import { ManualCompletedCourseForm } from './ManualCompletedCourseForm'
 import { PersonalCourseCollection } from './PersonalCourseCollection'
@@ -191,11 +192,7 @@ function AuthenticatedTranscript() {
   }, [restoredImportCandidates, csrfToken])
 
   useEffect(() => {
-    if (importCandidates.length > 0) {
-      sessionStorage.setItem(importCandidatesSessionKey, JSON.stringify(importCandidates))
-    } else {
-      sessionStorage.removeItem(importCandidatesSessionKey)
-    }
+    persistTranscriptImportCandidates(window, importCandidatesSessionKey, importCandidates)
   }, [importCandidates, importCandidatesSessionKey])
 
   const persistTranscriptIssues = useCallback(async (nextIssues: SavedTranscriptIssue[]): Promise<boolean> => {
