@@ -1,0 +1,80 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="StudyOS architecture" id="studyos-arch-dark">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="720" math="0" shadow="0" background="#23262D">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="lbl-ai" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter;fontSize=13;fontStyle=1;fontColor=#9B8CFF;" value="AI" vertex="1">
+          <mxGeometry x="40" y="24" width="40" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-app" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter;fontSize=13;fontStyle=1;fontColor=#4AA8A6;" value="APP" vertex="1">
+          <mxGeometry x="40" y="168" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-cf" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter;fontSize=13;fontStyle=1;fontColor=#D14060;" value="CLOUDFLARE" vertex="1">
+          <mxGeometry x="360" y="168" width="110" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-data" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter;fontSize=13;fontStyle=1;fontColor=#4AA8A6;" value="COURSE DATA" vertex="1">
+          <mxGeometry x="40" y="508" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gpt" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2A2640;strokeColor=#9B8CFF;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="STUDYOS BOT / GPT&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;ChatGPT or any MCP client&lt;/font&gt;" vertex="1">
+          <mxGeometry x="40" y="50" width="240" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="e-mcp" edge="1" parent="1" source="gpt" target="mcp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#9B8CFF;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#9B8CFF;labelBackgroundColor=#23262D;" value="MCP">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2A2640;strokeColor=#9B8CFF;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="MCP ENDPOINT&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;studyplaner.pages.dev/mcp&lt;br&gt;search · resolve · detail&lt;/font&gt;" vertex="1">
+          <mxGeometry x="360" y="50" width="260" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="e-mcp-api" edge="1" parent="1" source="mcp" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;strokeWidth=2.5;strokeColor=#9B8CFF;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#9B8CFF;labelBackgroundColor=#23262D;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="reads">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="165" />
+              <mxPoint x="850" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="student" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E323A;strokeColor=#5A606C;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="STUDENT&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;phone or laptop&lt;/font&gt;" vertex="1">
+          <mxGeometry x="40" y="200" width="240" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="e-uses" edge="1" parent="1" source="student" target="frontend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#5A606C;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#A8ABB2;labelBackgroundColor=#23262D;" value="uses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3A2228;strokeColor=#D14060;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="REACT FRONTEND&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;course search&lt;br&gt;planner and progress&lt;/font&gt;" vertex="1">
+          <mxGeometry x="360" y="190" width="260" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="e-req" edge="1" parent="1" source="frontend" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#D14060;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#D14060;labelBackgroundColor=#23262D;" value="requests">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F3333;strokeColor=#4AA8A6;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="API WORKER&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;authentication&lt;br&gt;catalog · plans · progress&lt;/font&gt;" vertex="1">
+          <mxGeometry x="720" y="190" width="260" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="e-rw" edge="1" parent="1" source="api" target="d1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#4AA8A6;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#4AA8A6;labelBackgroundColor=#23262D;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="reads + writes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#1A2228;strokeColor=#4AA8A6;strokeWidth=2.5;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;" value="CLOUDFLARE D1&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;courses + schedules&lt;br&gt;degree progress&lt;br&gt;single source of truth&lt;/font&gt;" vertex="1">
+          <mxGeometry x="720" y="390" width="260" height="145" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uni" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#332C1E;strokeColor=#C9A24A;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="UNIVERSITY SOURCES&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;ALMA · Moodle · ILIAS&lt;/font&gt;" vertex="1">
+          <mxGeometry x="40" y="540" width="260" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="e-courses" edge="1" parent="1" source="uni" target="scraper" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#5A606C;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#A8ABB2;labelBackgroundColor=#23262D;" value="courses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="scraper" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E323A;strokeColor=#5A606C;strokeWidth=2;fontFamily=Inter;fontSize=17;fontStyle=1;fontColor=#ECECEC;arcSize=8;" value="SCRAPER + MATCHER&lt;br&gt;&lt;font style=&quot;font-size:12px;font-weight:normal;color:#A8ABB2&quot;&gt;collects and combines data&lt;/font&gt;" vertex="1">
+          <mxGeometry x="380" y="530" width="280" height="128" as="geometry" />
+        </mxCell>
+        <mxCell id="e-publish" edge="1" parent="1" source="scraper" target="d1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;strokeWidth=2.5;strokeColor=#4AA8A6;endArrow=block;endFill=1;fontFamily=Inter;fontSize=12;fontColor=#4AA8A6;labelBackgroundColor=#23262D;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" value="publish">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="594" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -249,3 +249,13 @@ __marimo__/
 
 # Generated D1 seed chunk files (backend/scripts/import_alma_json_to_d1.py)
 backend/data/seed_chunks/
+
+# Local capture worktree for presentation screenshots
+.capture-worktree/
+
+.capture-worktree-early/
+.capture-worktree-clear/
+
+# Claude Design extract for presentation screenshots
+.compass-extract/
+StudyOs.zip
