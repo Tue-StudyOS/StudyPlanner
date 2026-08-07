@@ -100,31 +100,8 @@ export function CourseReviewsSection({ courseId }: CourseReviewsSectionProps) {
 
   return (
     <div className="grid min-w-0 gap-4">
-      <SummaryHeadline summary={data.summary} />
-
-      {subRatingRows.length > 0 ? (
-        <div className="grid min-w-0 gap-1.5">
-          {subRatingRows.map((row) => (
-            <div
-              key={row.key}
-              className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px]"
-            >
-              <span className="min-w-0 break-words text-fg-mid">
-                {t(SUB_RATING_LABEL_KEYS[row.key])}
-              </span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                <StarRating
-                  value={Math.round(row.average)}
-                  label={t(SUB_RATING_LABEL_KEYS[row.key])}
-                  size="sm"
-                />
-                <span className="text-fg-muted">{formatAverageRating(row.average)}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
+      {/* The write action leads the section so it stays reachable without
+          scrolling past the summary and the whole review list. */}
       {!isAuthenticated ? (
         <div className="rounded-[10px] border border-dashed border-border bg-surface px-3 py-2.5 text-[12.5px] text-fg-muted">
           {t('reviews.signInPrompt')}{' '}
@@ -163,6 +140,31 @@ export function CourseReviewsSection({ courseId }: CourseReviewsSectionProps) {
           {data.viewerReview ? t('reviews.editReview') : t('reviews.writeReview')}
         </button>
       )}
+
+      <SummaryHeadline summary={data.summary} />
+
+      {subRatingRows.length > 0 ? (
+        <div className="grid min-w-0 gap-1.5">
+          {subRatingRows.map((row) => (
+            <div
+              key={row.key}
+              className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px]"
+            >
+              <span className="min-w-0 break-words text-fg-mid">
+                {t(SUB_RATING_LABEL_KEYS[row.key])}
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <StarRating
+                  value={Math.round(row.average)}
+                  label={t(SUB_RATING_LABEL_KEYS[row.key])}
+                  size="sm"
+                />
+                <span className="text-fg-muted">{formatAverageRating(row.average)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <ReviewList reviews={data.reviews} />
 

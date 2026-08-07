@@ -13,6 +13,7 @@ import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
 import { useOnboarding } from '../../onboarding'
+import { shouldShowRatingChip } from '../../reviews'
 import {
   TOUR_SAMPLE_COURSES,
   getCatalogTourSampleVariant,
@@ -220,6 +221,7 @@ export function CoursesOverview() {
   const [selectedTerms, setSelectedTerms] = useState<Array<'summer' | 'winter'>>([])
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
+  const [showOnlyReviewed, setShowOnlyReviewed] = useState<boolean>(false)
   const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
@@ -233,6 +235,7 @@ export function CoursesOverview() {
         selectedStudyAreaCodes.join('|'),
         selectedTerms.join('|'),
         showOnlyOpenMandatory,
+        showOnlyReviewed,
         showUnconfirmedOfferings,
         sortOption,
         timeFromDigits,
@@ -246,6 +249,7 @@ export function CoursesOverview() {
       selectedStudyAreaCodes,
       selectedTerms,
       showOnlyOpenMandatory,
+      showOnlyReviewed,
       showUnconfirmedOfferings,
       sortOption,
       timeFromDigits,
@@ -454,6 +458,11 @@ export function CoursesOverview() {
           ) {
             return false
           }
+          // Same "has a displayable rating" test the card chip uses, so the
+          // filter can never disagree with what the cards show.
+          if (showOnlyReviewed && !shouldShowRatingChip(course.rating)) {
+            return false
+          }
           if (
             !shouldShowUnconfirmedOfferings
             && !isDefaultVisibleOfferingStatus(offeringStatusByCourseId.get(course.id))
@@ -481,6 +490,7 @@ export function CoursesOverview() {
       selectedTerms,
       shouldShowUnconfirmedOfferings,
       showOnlyOpenMandatory,
+      showOnlyReviewed,
       sortOption,
       studyProgramCode,
       timeWindow,
@@ -498,6 +508,7 @@ export function CoursesOverview() {
     + selectedTerms.length
     + selectedCourseTypes.length
     + (showOnlyOpenMandatory ? 1 : 0)
+    + (showOnlyReviewed ? 1 : 0)
     + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
@@ -535,6 +546,7 @@ export function CoursesOverview() {
     setSelectedTerms([])
     setSelectedCourseTypes([])
     setShowOnlyOpenMandatory(false)
+    setShowOnlyReviewed(false)
     setShowUnconfirmedOfferings(false)
   }
 
@@ -743,6 +755,16 @@ export function CoursesOverview() {
                       onClick={() => setSelectedTerms((prev) => toggleInSelection(prev, option.value))}
                     />
                   ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup label="Reviews">
+                <div className="flex flex-wrap gap-2">
+                  <FilterChip
+                    label="Has reviews"
+                    active={showOnlyReviewed}
+                    onClick={() => setShowOnlyReviewed((current) => !current)}
+                  />
                 </div>
               </FilterGroup>
             </div>
