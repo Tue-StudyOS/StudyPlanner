@@ -1,0 +1,21 @@
+{
+  "source": "placeholder",
+  "note": "Partly real: the firstLoad GETs and their durations were observed on https://studyplaner.pages.dev on 2026-08-07 as an ANONYMOUS visitor. The authenticated steps and all of steadyState are still assumed, derived from frontend/src. Replace by walking the app logged in and running `node load-test/build-scenario.mjs <dump.json>`. scenario.js warns while this stays a placeholder.",
+  "recordedAt": "2026-08-07T08:30:00.000Z",
+  "apiOrigin": "https://studyplanner-api.ben-tischberger.workers.dev",
+  "firstLoad": [
+    { "method": "GET", "path": "/api/config", "observedStatus": 200, "observedDurationMs": 3516 },
+    { "method": "GET", "path": "/api/auth/session", "observedStatus": 200, "observedDurationMs": 1758 },
+    { "method": "GET", "path": "/api/catalog/periods", "observedStatus": 200, "observedDurationMs": 1582 },
+    { "method": "GET", "path": "/api/catalog/courses?limit=1000&period=all", "observedStatus": 200, "observedDurationMs": 12693 },
+    { "method": "GET", "path": "/api/me/profile", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/study-programs", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/favorites", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/completed-courses", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/semester-plans", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/progress", "observedStatus": 200, "observedDurationMs": null }
+  ],
+  "steadyState": [
+    { "method": "PUT", "path": "/api/me/semester-plans/WiSe%202026%2F27", "observedStatus": 200, "observedDurationMs": null }
+  ]
+}

@@ -1,5 +1,15 @@
 name = "studyplanner-api"
 main = "src/main.py"
+# Pyodide and the Python Workers runtime are selected by this date. Do not raise
+# it without re-running the check below.
+#
+# Raising it to 2026-04-01 was tried as a candidate fix for cloudflare/workerd#6624
+# (the GIL fault behind the production 500s — see docs/load-test-2026-08.md) and
+# reverted: on a cold `wrangler dev --remote` every request failed 500 with
+#   PythonWorkersInternalError: Received non-dedicated snapshot but compat flag
+#   for dedicated snapshots is enabled
+# 60/60 requests, no exceptions. It also flips entrypoint dispatch, so local
+# `wrangler dev` then wants `fetch` where the deployed runtime wants `on_fetch`.
 compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
 workers_dev = true

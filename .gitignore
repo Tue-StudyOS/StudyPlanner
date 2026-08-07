@@ -249,3 +249,9 @@ __marimo__/
 
 # Generated D1 seed chunk files (backend/scripts/import_alma_json_to_d1.py)
 backend/data/seed_chunks/
+
+# Stress-test harness (load-test/README.md).
+# Generated account credentials and live session cookies must never be committed.
+backend/data/seed_load_test_users.sql
+load-test/sessions.json
+load-test/results/
