@@ -1,0 +1,19 @@
+{
+  "source": "placeholder",
+  "note": "Derived from endpoint usage in frontend/src, NOT from a real browser session. Replace it with a real recording before trusting any results: see load-test/README.md, then run `node load-test/build-scenario.mjs <dump.json>`. scenario.js warns while this stays a placeholder.",
+  "recordedAt": null,
+  "stepCount": 11,
+  "steps": [
+    { "method": "GET", "path": "/api/auth/session", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/config", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/profile", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/catalog/periods", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/catalog/courses?limit=100&period=all", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/study-programs", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/favorites", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/completed-courses", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/semester-plans", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "GET", "path": "/api/me/progress", "observedStatus": 200, "observedDurationMs": null },
+    { "method": "PUT", "path": "/api/me/semester-plans/WiSe%202026%2F27", "observedStatus": 200, "observedDurationMs": null }
+  ]
+}

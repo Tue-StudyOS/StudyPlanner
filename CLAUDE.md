@@ -40,6 +40,9 @@ Deliver a prioritized list: file, issue, and why it matters.
   `debug-onboarding-*@example.com` (e.g. `debug-onboarding-1781713357@example.com`).
   They are intentionally kept (not deleted) for future debugging. Ignore them in user
   counts; remove with an explicit `DELETE ... WHERE username = '<exact>'` only if asked.
+- Stress-test accounts follow the same rule under `loadtest-NN@example.com`, seeded by
+  `backend/scripts/seed_load_test_users.py`. They are retained between runs (sessions stay
+  valid 30 days) and must also be ignored in user counts. See `load-test/README.md`.
 
 ## Course catalog data (ALMA scraper → D1)
 
