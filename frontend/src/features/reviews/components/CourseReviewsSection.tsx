@@ -46,7 +46,9 @@ function SummaryHeadline({ summary }: { summary: CourseReviewSummary }) {
             size="sm"
           />
           <span className="text-[11.5px] text-fg-muted">
-            {t('reviews.count', { count: String(summary.count) })}
+            {summary.count === 1
+              ? t('reviews.countOne')
+              : t('reviews.count', { count: String(summary.count) })}
           </span>
         </div>
       </div>
