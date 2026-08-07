@@ -8,6 +8,7 @@ import { buildCourseSeasonIconTitle } from '../../features/courses/utils/courseO
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
+import { formatAverageRating, shouldShowRatingChip } from '../../features/reviews'
 import { AreaBadge } from './AreaBadge'
 import { SeasonGlyphWatermark } from './SeasonGlyphWatermark.tsx'
 import { SeasonSymbol } from './SeasonSymbol.tsx'
@@ -99,6 +100,10 @@ export function CourseCard({
   }`
   const accessibleLabel = `Open course details: ${title}`
 
+  // Most of the ~1000 catalog courses have no reviews yet, so the chip stays
+  // absent rather than rendering an empty placeholder on every card.
+  const rating = shouldShowRatingChip(course.rating) ? course.rating : undefined
+
   const resolvedSeasonTermType = seasonTermType ?? course.termType
   const glyphTermType = (() => {
     if (resolvedSeasonTermType && resolvedSeasonTermType !== 'unknown') {
@@ -179,8 +184,23 @@ export function CourseCard({
             )}
           </span>
         ) : null}
-        {hasSeasonIcon || ectsLabel ? (
+        {hasSeasonIcon || ectsLabel || rating ? (
           <span className="flex shrink-0 items-center justify-end gap-1 text-[13px] font-bold text-fg sm:ml-auto sm:justify-start">
+            {rating ? (
+              <span
+                className="mr-0.5 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[12.5px] font-semibold text-fg"
+                aria-label={t('reviews.ratingChipLabel', {
+                  average: formatAverageRating(rating.average) ?? '',
+                  count: rating.count,
+                })}
+              >
+                <span aria-hidden="true" className="text-primary">
+                  ★
+                </span>
+                {formatAverageRating(rating.average)}
+                <span className="text-[11px] font-normal text-fg-muted">({rating.count})</span>
+              </span>
+            ) : null}
             {hasSeasonIcon ? (
               <span
                 className="inline-flex shrink-0"

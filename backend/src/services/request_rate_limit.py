@@ -25,6 +25,9 @@ AUTH_REGISTRATION_POLICY = RateLimitPolicy('auth_registration', maximum_requests
 FEEDBACK_POLICY = RateLimitPolicy('feedback', maximum_requests=5, window_seconds=60 * 60)
 AI_CATALOG_POLICY = RateLimitPolicy('ai_catalog', maximum_requests=30, window_seconds=60)
 CLIENT_ERROR_POLICY = RateLimitPolicy('client_error', maximum_requests=30, window_seconds=60 * 60)
+# Reviews already require an account, which is the real defence against skewed
+# averages; this only stops a runaway client from hammering the write path.
+COURSE_REVIEW_POLICY = RateLimitPolicy('course_review', maximum_requests=20, window_seconds=60 * 60)
 
 
 class RateLimitError(PermissionError):

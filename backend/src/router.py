@@ -43,6 +43,16 @@ from services.course_catalog import (
     list_catalog_periods,
     list_courses,
 )
+from services.course_reviews import (
+    CourseReviewAccessError,
+    CourseReviewError,
+    CourseReviewNotFoundError,
+    delete_course_review,
+    get_course_reviews,
+    list_reviews_for_moderation,
+    save_course_review,
+    set_review_visibility,
+)
 from services.app_settings import get_simulated_semester_label
 from services.progress import get_current_user_progress
 from services.client_error_log import ClientErrorLogError, list_client_errors, report_client_error
@@ -51,6 +61,7 @@ from services.request_rate_limit import (
     AUTH_LOGIN_POLICY,
     AUTH_REGISTRATION_POLICY,
     CLIENT_ERROR_POLICY,
+    COURSE_REVIEW_POLICY,
     FEEDBACK_POLICY,
     RateLimitError,
     enforce_failed_attempt_limit,
@@ -214,6 +225,13 @@ def _method_not_allowed_response(request: Any, env: Any) -> Any:
     )
 
 
+def _parse_numeric_path_id(value: str) -> int | None:
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
 def _new_session_response(auth_payload: dict[str, Any], request: Any, env: Any, status: int = 200) -> Any:
     token = str(auth_payload['token'])
     return json_response(
@@ -244,7 +262,9 @@ async def route_request(request: Any, env: Any) -> Any:
 
     try:
         if method in {'POST', 'PUT', 'PATCH', 'DELETE'} and (
-            path == '/api/auth/logout' or path.startswith('/api/me/')
+            path == '/api/auth/logout'
+            or path.startswith('/api/me/')
+            or path.startswith('/api/admin/')
         ):
             await require_csrf_protection(env, request)
 
@@ -408,6 +428,75 @@ async def route_request(request: Any, env: Any) -> Any:
                 return json_response(favorites, request=request, env=env)
             return _method_not_allowed_response(request, env)
 
+        if path.startswith("/api/me/course-reviews/"):
+            own_review_course_id = _parse_numeric_path_id(
+                path.removeprefix("/api/me/course-reviews/")
+            )
+            if own_review_course_id is None:
+                return error_response(
+                    code="invalid_course_id",
+                    message="Course ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+
+            if method == "PUT":
+                await enforce_rate_limit(env, request, COURSE_REVIEW_POLICY)
+                return json_response(
+                    await save_course_review(
+                        env,
+                        request,
+                        own_review_course_id,
+                        await read_json_object(request),
+                    ),
+                    request=request,
+                    env=env,
+                )
+            if method == "DELETE":
+                return json_response(
+                    await delete_course_review(env, request, own_review_course_id),
+                    request=request,
+                    env=env,
+                )
+            return _method_not_allowed_response(request, env)
+
+        if path == "/api/admin/course-reviews":
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+            return json_response(
+                await list_reviews_for_moderation(env, request),
+                request=request,
+                env=env,
+            )
+
+        if path.startswith("/api/admin/course-reviews/"):
+            if method != "PATCH":
+                return _method_not_allowed_response(request, env)
+
+            moderated_review_id = _parse_numeric_path_id(
+                path.removeprefix("/api/admin/course-reviews/")
+            )
+            if moderated_review_id is None:
+                return error_response(
+                    code="invalid_review_id",
+                    message="Review ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+
+            return json_response(
+                await set_review_visibility(
+                    env,
+                    request,
+                    moderated_review_id,
+                    await read_json_object(request),
+                ),
+                request=request,
+                env=env,
+            )
+
         if path == "/api/me/completed-courses":
             if method == "GET":
                 completed_courses = await get_current_user_completed_courses(env, request)
@@ -566,6 +655,8 @@ async def route_request(request: Any, env: Any) -> Any:
                         "catalogPeriods": "/api/catalog/periods",
                         "catalogCourses": "/api/catalog/courses?limit=100&period=<periodId|all>",
                         "catalogCourseDetail": "/api/catalog/courses/<id>",
+                        "catalogCourseReviews": "/api/catalog/courses/<id>/reviews",
+                        "ownCourseReview": "/api/me/course-reviews/<courseId>",
                         "regulationVersions": "/api/regulation-versions",
                         "regulationCatalog": "/api/regulation-versions/<code>/courses?limit=100",
                         "studyPrograms": "/api/study-programs",
@@ -648,6 +739,32 @@ async def route_request(request: Any, env: Any) -> Any:
                 request=request,
                 env=env,
                 extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+            )
+
+        # Must precede the catalog detail branch below, which would otherwise
+        # swallow the reviews sub-path.
+        if path.startswith("/api/catalog/courses/") and path.endswith("/reviews"):
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+
+            review_course_id = _parse_numeric_path_id(
+                path.removeprefix("/api/catalog/courses/").removesuffix("/reviews")
+            )
+            if review_course_id is None:
+                return error_response(
+                    code="invalid_course_id",
+                    message="Course ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+
+            # Deliberately uncached: the public catalog cache headers would hide
+            # a new review behind a 15-minute edge cache.
+            return json_response(
+                await get_course_reviews(env, request, review_course_id),
+                request=request,
+                env=env,
             )
 
         if path.startswith("/api/catalog/courses/"):
@@ -867,6 +984,30 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=400,
+        )
+    except CourseReviewError as exc:
+        return error_response(
+            code="course_review_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except CourseReviewNotFoundError as exc:
+        return error_response(
+            code="course_review_not_found",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=404,
+        )
+    except CourseReviewAccessError as exc:
+        return error_response(
+            code="course_review_forbidden",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=403,
         )
     except RateLimitError as exc:
         return error_response(

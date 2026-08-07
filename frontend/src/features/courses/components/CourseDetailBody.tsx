@@ -104,6 +104,11 @@ function learningPlatformLabel(
 interface CourseDetailBodyProps {
   course: Course
   tutorialSelection?: TutorialSelectionProps
+  /**
+   * Course reviews, rendered as the last section. Opt-in so the planner's
+   * detail modal keeps showing catalog facts only.
+   */
+  reviewsSlot?: ReactNode
   /** Rendered at the very bottom, e.g. add/remove plan actions. */
   footer?: ReactNode
 }
@@ -114,7 +119,12 @@ interface CourseDetailBodyProps {
  * with the deliberate exception of the Moodle/ILIAS slot, which shows an
  * explicit empty state.
  */
-export function CourseDetailBody({ course, tutorialSelection, footer }: CourseDetailBodyProps) {
+export function CourseDetailBody({
+  course,
+  tutorialSelection,
+  reviewsSlot,
+  footer,
+}: CourseDetailBodyProps) {
   const { t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
@@ -366,6 +376,8 @@ export function CourseDetailBody({ course, tutorialSelection, footer }: CourseDe
           </div>
         </Section>
       ) : null}
+
+      {reviewsSlot ? <Section title={t('reviews.title')}>{reviewsSlot}</Section> : null}
 
       {footer ? <div className="mt-6">{footer}</div> : null}
     </div>

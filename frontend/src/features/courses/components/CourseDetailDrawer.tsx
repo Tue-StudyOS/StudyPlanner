@@ -4,6 +4,7 @@ import { CloseIcon } from '../../../shared/components/icons'
 import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { useMediaQuery } from '../../../shared/hooks/useMediaQuery'
 import { useTranslation } from '../../i18n'
+import { CourseReviewsSection } from '../../reviews'
 import { useCatalogCourseDetail } from '../hooks/useCatalogCourseDetail'
 import { mergeCourseDetails } from '../utils/mergeCourseDetails.ts'
 import type { Course } from '../types'
@@ -103,7 +104,10 @@ export function CourseDetailDrawer({
           className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-5"
         >
           {displayCourse ? (
-            <CourseDetailBody course={displayCourse} />
+            <CourseDetailBody
+              course={displayCourse}
+              reviewsSlot={<CourseReviewsSection courseId={courseId} />}
+            />
           ) : (
             <div className="px-4 py-10 text-center text-[13.5px] text-fg-muted">
               {isLoading ? t('courseDetail.loading') : `${t('courseDetail.failed')}${error ? ` ${error}` : ''}`}
