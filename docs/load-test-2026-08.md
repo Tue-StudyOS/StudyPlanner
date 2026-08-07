@@ -23,11 +23,29 @@ its design live in [`load-test/README.md`](../load-test/README.md).
 
 ### Bottom line so far
 
-The production 500s are **not a concurrency problem**. They reproduced during
-plain sequential session minting, and the dominant cause is a Pyodide runtime
-fault (`Attempted to use PyProxy when Python GIL not held`) that is not
-load-dependent at all. Phase C would quantify how often it bites under load, but
-it will not change the diagnosis or the fix.
+The production 500s come from a Pyodide runtime fault
+(`Attempted to use PyProxy when Python GIL not held`), tracked upstream as
+[cloudflare/workerd#6624](https://github.com/cloudflare/workerd/issues/6624) and
+still open. The upstream report describes it as a race in isolate re-use that
+needs only 3–5 concurrent requests, which is well below the "20 users" this test
+was built for — so it is a *low*-concurrency bug, not a scale bug.
+
+> Correction to the first draft of this report, which said the fault was "not
+> load-dependent at all". That was read off a run of sequential logins, but a
+> browser was open against the same Worker throughout, so the run was never
+> actually free of concurrency.
+
+### What was fixed (2026-08-07)
+
+See [Fixes](#fixes) for the detail and the verification of each.
+
+| Fault | Status |
+| --- | --- |
+| Login CPU cost (Mode A) | **Fixed** — PBKDF2 moved to native WebCrypto |
+| Shared-IP login lockout | **Fixed** — keyed per account, ceiling raised to 500 |
+| Outages consuming login budget | **Fixed** — only real failed attempts are charged |
+| `/api/client-errors` storm | **Fixed** — retries absorb transients, reports capped |
+| GIL fault (Mode B) | **Upstream, unfixed** — mitigated, not resolved |
 
 ### Setup state
 
@@ -135,9 +153,10 @@ returns `429`. If it does not, the limiter is keying on `'unknown'` for every
 request, which is a different and more severe problem — one global bucket for
 all users.
 
-**Fix (out of scope here, separate branch):** key `auth_login` on the submitted
-identifier, or on identifier+IP, so one account's failed attempts cannot lock
-out everyone sharing an egress IP.
+**Fixed** — `auth_login` is now keyed on the submitted identifier and charges
+only genuine failed attempts. See [Fixes](#2-the-login-rate-limiter-stopped-punishing-bystanders).
+The table above describes the pre-fix behaviour and is kept as the record of
+what was found.
 
 ---
 
@@ -266,6 +285,113 @@ The compounding effect is the part worth fixing: `enforce_rate_limit` runs
 retry, each retry burns login budget, and users are locked out for 15 minutes by
 an outage that was never their fault. During this run, 20 logins plus 3 retries
 exhausted two full windows.
+
+---
+
+## Fixes
+
+### 1. Login no longer burns half a CPU budget
+
+`_hash_password` ran PBKDF2-HMAC-SHA256 at 310,000 iterations through
+`hashlib`, i.e. as interpreted Pyodide bytecode, for 421–538 ms of CPU per
+login. That is Mode A on its own, and it holds the interpreter for long enough
+to widen the window for Mode B.
+
+[`backend/src/password_hashing.py`](../backend/src/password_hashing.py) now
+derives the same digest with `crypto.subtle.deriveBits`, which runs natively.
+`hashlib` stays as a fallback so a broken fast path degrades into slow logins
+rather than failed ones.
+
+**No hash migration is needed, and that is the load-bearing claim.** Same
+algorithm, same salt, same iteration count, same 32-byte output. Verified in the
+runtime rather than argued from the spec — a temporary probe route returned:
+
+```json
+{"webcryptoUsable": true, "matchesHashlib": true}
+```
+
+so a hash written by `hashlib` (including every account seeded by
+`seed_load_test_users.py`) verifies unchanged under WebCrypto. A full
+register → login → wrong-password → login round trip was then run against the
+remote preview and returned 201 / 200 / 401 / 200.
+
+**It also does not make Mode B worse**, which was worth checking: WebCrypto adds
+an `await` to the login path, and the `await` boundary is exactly where the
+upstream race lives. Twenty sequential logins one second apart, cold isolate,
+each implementation forced:
+
+| | Succeeded | Failed |
+| --- | --- | --- |
+| WebCrypto | 3 / 20 | 17 |
+| `hashlib` (forced) | 2 / 20 | 18 |
+
+Indistinguishable — the wedging is the upstream fault either way. Note that this
+~90% failure rate is a property of `wrangler dev --remote` preview isolates, not
+of production, where the app is broadly usable; use it to compare the two
+columns, not as a production figure.
+
+The CPU saving itself is inferred rather than measured post-fix: wall-clock
+times here are dominated by remote D1 round-trips (median 642 ms vs 694 ms), so
+confirming the drop from ~450 ms of CPU needs `wrangler tail` against a deployed
+build.
+
+### 2. The login rate limiter stopped punishing bystanders
+
+Three changes in
+[`request_rate_limit.py`](../backend/src/services/request_rate_limit.py):
+
+- **Keyed on the account, not the client IP.** Twenty students behind one campus
+  NAT are twenty different accounts, so they no longer share a budget. This is
+  the shared-IP failure from Phase A, fixed.
+- **Only genuine failed attempts are charged.** `enforce_failed_attempt_limit`
+  reads; `record_failed_attempt` writes, and only after an `AuthenticationError`.
+  A successful login costs nothing, and neither does a 5xx from a wedged
+  isolate — which is what turned an outage into a 15-minute lockout.
+- **Ceiling raised to 500 per 15 minutes** (registration 5 → 50 per hour), an
+  explicit product call: frustrated users are the likelier harm here.
+
+Keying on the account would normally invite a targeted lockout — burn someone
+else's budget and they cannot sign in. Counting *only failures* is what removes
+that: a user with the right password never touches the counter.
+
+### 3. A partial outage no longer feeds itself
+
+24 of the 43 captured failures were `POST /api/client-errors`, the frontend's own
+reporter, failing against the same wedged Worker it was reporting on.
+
+- [`api.ts`](../frontend/src/shared/utils/api.ts) retries `GET`/`HEAD` up to
+  three times on 5xx and transport errors. The GIL fault wedges one request and
+  serves the next normally, so this converts most of Mode B into latency the user
+  never sees. Mutations are not retried — a `POST` that timed out may still have
+  been applied.
+- Only the final attempt is reported, so recovered blips generate no traffic.
+- [`reportClientError.ts`](../frontend/src/shared/utils/reportClientError.ts)
+  caps reports at 10 per page load and drops 401/429 entirely (every anonymous
+  session check is a 401; a 429 is the limiter working).
+
+### 4. Bumping the compatibility date: tried, reverted
+
+The upstream issue speculates that a newer `compatibility_date` might help. It
+does not — it breaks the Worker outright. At `2026-04-01`, a **cold**
+`wrangler dev --remote` failed **60 out of 60** requests:
+
+```text
+PythonWorkersInternalError: Received non-dedicated snapshot but compat flag
+for dedicated snapshots is enabled
+    at checkSnapshotType (pyodide-internal:snapshot:560:15)
+    at maybeRestoreSnapshot (pyodide-internal:snapshot:586:5)
+```
+
+That date also flips entrypoint dispatch: local `wrangler dev` then requires
+`fetch` where the deployed runtime still requires `on_fetch`, so the two
+environments cannot run the same code. Both findings are recorded in
+[`backend/wrangler.toml`](../backend/wrangler.toml) so the experiment is not
+repeated blind.
+
+**Mode B therefore remains open upstream.** Nothing in this repo can fix a race
+inside `preparePython`. What is fixed is everything the fault used to drag down
+with it: the retry absorbs it, the reporter no longer amplifies it, and it no
+longer locks anyone out of their account.
 
 ---
 
