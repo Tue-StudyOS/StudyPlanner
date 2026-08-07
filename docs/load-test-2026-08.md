@@ -15,14 +15,25 @@ its design live in [`load-test/README.md`](../load-test/README.md).
 
 | Phase | What it establishes | Status |
 | --- | --- | --- |
-| 0 — live reconnaissance | Which origin users actually hit; single-user latency | **Done (2026-08-07, anonymous)** |
-| A — rate-limit arithmetic | Whether 20 users behind one IP can even sign in | Confirmed by code reading; live check pending |
+| 0 — live reconnaissance | Which origin users actually hit; single-user latency | **Done (2026-08-07)** |
+| A — rate-limit arithmetic | Whether 20 users behind one IP can even sign in | **Done — confirmed live** |
 | B — baseline | Uncontended per-endpoint latency, authenticated | Not run |
 | C — 20 concurrent users | 5xx under isolate fan-out; p95 under load | Not run |
-| D — login burst | How CPU-bound logins queue | Not run |
+| D — login burst | How CPU-bound logins queue | **Superseded — the 500s reproduced without concurrency** |
 
-Phases B–D need the one-time setup in the harness README (seed accounts, record
-an authenticated session, mint sessions).
+### Bottom line so far
+
+The production 500s are **not a concurrency problem**. They reproduced during
+plain sequential session minting, and the dominant cause is a Pyodide runtime
+fault (`Attempted to use PyProxy when Python GIL not held`) that is not
+load-dependent at all. Phase C would quantify how often it bites under load, but
+it will not change the diagnosis or the fix.
+
+### Setup state
+
+Accounts seeded and 20 sessions minted (`load-test/sessions.json`, gitignored,
+valid 30 days). Phases B–C additionally need a recorded authenticated session —
+`load-test/recorded-session.json` is still a partial placeholder.
 
 ---
 
@@ -195,17 +206,66 @@ That is `_hash_password` running PBKDF2-HMAC-SHA256 at
 ([`authentication.py:15`](../backend/src/services/authentication.py)) inside
 Pyodide. A typical Worker request costs single-digit milliseconds.
 
-**Working hypothesis (not yet confirmed):** a warm isolate absorbs the ~500 ms,
-but a login landing on a cold isolate also pays Pyodide initialisation, and the
-two together breach the limit. This is consistent with the Phase 0 cold/warm gap
-(12.7 s vs 3.3 s). Confirming it needs the exception text from
-`wrangler tail --status error` on a failing request.
+### Confirmed: there are TWO separate failure modes
 
-If confirmed, the fix is not a load-balancing or scaling change — it is reducing
-the per-login CPU cost. Options to weigh: lowering the iteration count (weakens
-password hashing), or moving the hash to WebCrypto's native
-`crypto.subtle.deriveBits`, which is not subject to the Python interpreter's
-overhead and would need a migration path for existing stored hashes.
+`wrangler tail --status error` over the full minting run plus concurrent real
+browser traffic captured 43 failing requests. They are not one bug.
+
+| | Mode A — CPU exhaustion | Mode B — Pyodide GIL fault |
+| --- | --- | --- |
+| Exception | `Worker exceeded CPU time limit.` | `Attempted to use PyProxy when Python GIL not held` |
+| Occurrences | 2 | 20 (+3 `code had hung`) |
+| cpuTime | 421–538 ms | 0–20 ms (median 2 ms) |
+| wallTime | ~500 ms | 2.2–2.8 s |
+| Endpoint | `/api/auth/login` only | every endpoint |
+| Trigger | PBKDF2 at 310k iterations | not load-dependent |
+
+**Mode B is the one that matters, and it is the source of the production 500s.**
+`Attempted to use PyProxy when Python GIL not held` is the known workerd
+Python-Workers defect. Note the shape: median CPU of **2 ms** with a 2.5 s wall
+time. These requests are not doing work and running out of budget — the Python
+event loop wedges (`Exception in callback PyodideTask.task_wakeup(<PyodideFuture...>)`),
+the request never completes, and Cloudflare eventually kills it and reports
+`exceededCpu`. **The `exceededCpu` outcome is misleading**; it is a symptom of
+the hang, not CPU pressure.
+
+One correction to prior notes: this was believed to be specific to the Pages
+service-binding path. It is not. Every observation here is on direct
+`workers.dev` ingress, so moving to direct ingress does not avoid it.
+
+Mode A is real but rare and confined to login. Fixing it means reducing
+per-login CPU: lower the iteration count (weakens hashing), or move to
+WebCrypto's native `crypto.subtle.deriveBits`, which needs a migration path for
+existing stored hashes.
+
+### `/api/client-errors` amplifies the failure
+
+24 of the 43 failing requests were `POST /api/client-errors` — the frontend's
+own error reporter. When the Worker starts failing, the browser reports each
+failure, those reports hit the same wedged Worker and fail too. A partial outage
+becomes a self-sustaining request storm against the endpoint least able to
+absorb it.
+
+### Why "too many requests" appears on login and nowhere else
+
+Only five endpoints have any rate limit
+([`request_rate_limit.py:19-23`](../backend/src/services/request_rate_limit.py)),
+and each policy has its **own** counter keyed by `(scope, client_key)`:
+
+- `/api/auth/login` — 10 / 15 min
+- `/api/auth/register` — 5 / hour, a **separate bucket**, which is why
+  registering still works when login is locked out
+- `/api/feedback`, `/api/ai/catalog/*`, `/api/client-errors` — own buckets
+
+Everything else — all of `/api/me/*`, the whole catalog — has **no rate limit at
+all**. So "login 429s but everything else is fine" is exactly the designed
+behaviour, not a fault.
+
+The compounding effect is the part worth fixing: `enforce_rate_limit` runs
+*before* authentication, so **failed attempts count**. Mode B causes 5xx, clients
+retry, each retry burns login budget, and users are locked out for 15 minutes by
+an outage that was never their fault. During this run, 20 logins plus 3 retries
+exhausted two full windows.
 
 ---
 
