@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const OUTPUT_PATH = join(SCRIPT_DIR, 'sessions.json')
 
-const DEFAULT_ORIGIN = 'https://studyplaner.pages.dev'
+const DEFAULT_ORIGIN = 'https://studyplanner-api.ben-tischberger.workers.dev'
 const DEFAULT_COUNT = 20
 const ACCOUNT_TEMPLATE = (index) => `loadtest-${String(index).padStart(2, '0')}@example.com`
 

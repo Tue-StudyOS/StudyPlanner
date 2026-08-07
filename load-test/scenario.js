@@ -8,11 +8,17 @@
  *   - load-test/sessions.json        (node load-test/mint-sessions.mjs)
  *   - load-test/recorded-session.json (node load-test/build-scenario.mjs)
  *
- * Targets the Pages origin, not the Worker origin. Requests must pass through
- * the Pages Function and its service binding
- * (frontend/functions/_shared/proxy.ts) — that is the path where the Pyodide
- * cold-start 500s appear. Hitting studyplanner-api.*.workers.dev directly
- * bypasses it and cannot reproduce them.
+ * Targets the Worker origin, because that is what the deployed frontend calls:
+ * VITE_API_BASE_URL is baked into the Pages build, so browsers go straight to
+ * studyplanner-api.*.workers.dev and the same-origin /api/* Pages Function is
+ * not in the user path at all. Verified against the live bundle — see
+ * docs/load-test-2026-08.md.
+ *
+ * Shape of the run: each VU does one expensive first load (the app caches
+ * catalog, progress and planner data in sessionStorage for 24h), then loops a
+ * lighter steady state. That mirrors the scenario under test — twenty people
+ * opening the app at the start of a lecture — rather than sustained traffic no
+ * real user generates.
  */
 
 import http from 'k6/http'
@@ -21,7 +27,7 @@ import { Counter, Trend } from 'k6/metrics'
 import { scenario } from 'k6/execution'
 
 const AUTH_COOKIE_NAME = 'studyplanner_session'
-const DEFAULT_ORIGIN = 'https://studyplaner.pages.dev'
+const DEFAULT_ORIGIN = 'https://studyplanner-api.ben-tischberger.workers.dev'
 
 // Think time between steps. A hot loop is not a user simulation: it changes
 // both the arrival pattern and how many isolates the requests fan across,
@@ -32,7 +38,7 @@ const MAX_THINK_SECONDS = 8
 const sessionsFile = JSON.parse(open('./sessions.json'))
 const recording = JSON.parse(open('./recorded-session.json'))
 
-const ORIGIN = (__ENV.LOADTEST_ORIGIN || sessionsFile.origin || DEFAULT_ORIGIN).replace(/\/$/, '')
+const ORIGIN = (__ENV.LOADTEST_ORIGIN || recording.apiOrigin || DEFAULT_ORIGIN).replace(/\/$/, '')
 
 // The finding we care about is 5xx, and an average hides a handful of them.
 const serverErrors = new Counter('server_errors')
@@ -71,8 +77,11 @@ export function setup() {
         'See load-test/README.md.',
     )
   }
-  console.log(`[scenario] origin=${ORIGIN} steps=${recording.steps.length} sessions=${sessionsFile.sessions.length}`)
-  return { stepCount: recording.steps.length }
+  console.log(
+    `[scenario] origin=${ORIGIN} firstLoad=${recording.firstLoad.length} ` +
+      `steadyState=${recording.steadyState.length} sessions=${sessionsFile.sessions.length}`,
+  )
+  return { firstLoadSteps: recording.firstLoad.length }
 }
 
 function thinkTime() {
@@ -125,14 +134,15 @@ function collectCourseIds(response) {
   }
 }
 
-export default function runUserSession() {
-  const session = pickSession()
-  let courseIds = []
+// Course ids survive across a VU's iterations, the way a browser keeps the
+// cached catalog after the first load.
+let cachedCourseIds = []
 
-  for (const step of recording.steps) {
+function runSteps(steps, session) {
+  for (const step of steps) {
     const pathWithoutQuery = step.path.split('?')[0]
     const isWrite = step.method !== 'GET' && step.method !== 'HEAD'
-    const body = isWrite ? buildWriteBody(courseIds) : null
+    const body = isWrite ? buildWriteBody(cachedCourseIds) : null
 
     const response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
       headers: buildHeaders(session, step.method),
@@ -161,11 +171,24 @@ export default function runUserSession() {
     }, { endpoint: pathWithoutQuery })
 
     if (pathWithoutQuery === '/api/catalog/courses' && response.status === 200) {
-      courseIds = collectCourseIds(response)
+      cachedCourseIds = collectCourseIds(response)
     }
 
     sleep(thinkTime())
   }
+}
+
+export default function runUserSession() {
+  const session = pickSession()
+
+  // __ITER is per-VU, so iteration 0 is this virtual user's session start: the
+  // one time the catalog, progress and planner payloads actually cross the
+  // network. Every later iteration is a returning view served from cache.
+  if (__ITER === 0) {
+    runSteps(recording.firstLoad, session)
+  }
+
+  runSteps(recording.steadyState, session)
 }
 
 function counterValue(data, metricName) {

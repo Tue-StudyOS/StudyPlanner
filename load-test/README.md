@@ -36,14 +36,19 @@ Four design decisions follow from that:
 - **Sessions are pre-minted.** Logging in inside the test would hit the 10/15min
   limit at VU 11 and measure the limiter. `mint-sessions.mjs` collects cookies
   out of band; they last 30 days.
-- **The target is the Pages origin** (`https://studyplaner.pages.dev`), not
-  `studyplanner-api.*.workers.dev`. The Worker origin bypasses the Pages
-  Function and its service binding (`frontend/functions/_shared/proxy.ts`) and
-  structurally cannot reproduce risk 2.
-
-Note that unauthenticated `GET /api/catalog/*` is served from `caches.default`
-(`proxy.ts:65`). An anonymous test would measure a CDN cache, which is why every
-step runs authenticated.
+- **The target is the Worker origin**
+  (`https://studyplanner-api.ben-tischberger.workers.dev`), because that is what
+  the deployed frontend calls. `VITE_API_BASE_URL` is baked into the Pages
+  build, so browsers skip the same-origin `/api/*` Pages Function entirely.
+  Verified against the live bundle — see `docs/load-test-2026-08.md` Phase 0.
+  (The `caches.default` catalog cache in `proxy.ts:65` consequently never runs
+  for web users.)
+- **Each VU does one expensive first load, then a lighter steady state.** The
+  frontend caches the catalog, progress and planner payloads in `sessionStorage`
+  for 24 h (`frontend/src/shared/utils/sessionCache.ts`), so a real user fetches
+  the 1.43 MB catalog once per browser session. Replaying it every iteration
+  would invent load that does not exist. `scenario.js` runs the first-load steps
+  on `__ITER === 0` only.
 
 ## Prerequisites
 

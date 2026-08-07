@@ -5,7 +5,8 @@ its design live in [`load-test/README.md`](../load-test/README.md).
 
 | | |
 | --- | --- |
-| Target | `https://studyplaner.pages.dev` (production Pages origin) |
+| Target | `https://studyplanner-api.ben-tischberger.workers.dev` (see Phase 0) |
+| Frontend | Pages `studyplaner.pages.dev` |
 | Backend | Worker `studyplanner-api`, D1 `studyplanner-db` |
 | Harness | k6 (standalone binary, not an npm dependency) |
 | Accounts | `loadtest-01@example.com` … `loadtest-20@example.com` |
@@ -14,14 +15,75 @@ its design live in [`load-test/README.md`](../load-test/README.md).
 
 | Phase | What it establishes | Status |
 | --- | --- | --- |
-| A — rate-limit arithmetic | Whether 20 users behind one IP can even sign in | **Confirmed by code reading; live check pending** |
-| B — baseline | Uncontended per-endpoint latency | Not run |
+| 0 — live reconnaissance | Which origin users actually hit; single-user latency | **Done (2026-08-07, anonymous)** |
+| A — rate-limit arithmetic | Whether 20 users behind one IP can even sign in | Confirmed by code reading; live check pending |
+| B — baseline | Uncontended per-endpoint latency, authenticated | Not run |
 | C — 20 concurrent users | 5xx under isolate fan-out; p95 under load | Not run |
 | D — login burst | How CPU-bound logins queue | Not run |
 
 Phases B–D need the one-time setup in the harness README (seed accounts, record
-a session, mint sessions). Until then `load-test/recorded-session.json` is a
-placeholder derived from `frontend/src`, not a real recording.
+an authenticated session, mint sessions).
+
+---
+
+## Phase 0 — live reconnaissance
+
+Measured against production on 2026-08-07 from a browser, anonymous, one user.
+Timings come from the app's own request log
+(`sessionStorage['studyplanner:api-request-log']`).
+
+### The frontend does not use the Pages API proxy
+
+Every API call from the deployed app goes to
+`https://studyplanner-api.ben-tischberger.workers.dev` directly. The origin is
+baked into the Pages build (`VITE_API_BASE_URL`, resolved by
+[`apiBaseUrl.ts`](../frontend/src/shared/utils/apiBaseUrl.ts)) and appears in the
+shipped bundle chunk.
+
+Two consequences:
+
+- **The load test must target the Worker origin**, not the Pages origin. An
+  earlier draft of this plan had it backwards.
+- **`functions/api/[[path]].ts` and its `caches.default` catalog caching are not
+  in the production user path.** The `isPublicCatalogRequest` cache in
+  [`proxy.ts:65`](../frontend/functions/_shared/proxy.ts) never runs for web
+  users. The same-origin path still responds correctly if called directly, so
+  this is dead weight rather than breakage — but it means an optimisation
+  believed to be active is not.
+
+### Single-user latency is the headline problem
+
+| Request | Cold | Warm (browser cache bypassed) | Browser-cached |
+| --- | --- | --- | --- |
+| `GET /api/catalog/courses?limit=1000&period=all` (1.43 MB) | 12,693 ms | 3,280 ms | 26 ms |
+| `GET /api/catalog/periods` | 1,582 ms | — | 23 ms |
+| `GET /api/config` | 5,699 ms | 2,698 ms | — |
+| `GET /api/auth/session` | 1,943 ms | 1,080 ms | — |
+
+These are seconds, at **one** user with no contention. `/api/config` returns
+`{"simulatedSemesterLabel": null}` and still took 2.7 s warm. Concurrency is not
+the first problem here; baseline per-request cost is.
+
+Sample sizes are small (1–2 observations per cell) — treat them as an order of
+magnitude, not a measurement. Phase B replaces them with real percentiles.
+
+### The catalog is cached, twice
+
+Public catalog responses carry
+`Cache-Control: public, max-age=300, s-maxage=900, stale-while-revalidate=86400`,
+and the frontend additionally stores them in `sessionStorage` for 24 h
+([`sessionCache.ts`](../frontend/src/shared/utils/sessionCache.ts)) — the
+observed 1.43 MB entry.
+
+So a real user fetches the 1.43 MB catalog **once per browser session**, not per
+page view. A load scenario that re-requests it every iteration would invent
+backend load that does not exist. `build-scenario.mjs` therefore splits the
+recording into a first-load phase (run once per VU) and a steady state.
+
+That split also reframes the test: twenty people opening the app at the start of
+a lecture is a burst of twenty expensive session starts, not sustained traffic.
+Whether the second through twentieth of those hit an edge cache or all pay the
+~3.3 s origin cost is exactly what Phase C should answer.
 
 ---
 
@@ -85,12 +147,11 @@ Expected pressure points, from reading the code:
 - `/api/me/progress` issues ~7 sequential D1 queries
   ([`progress.py`](../backend/src/services/progress.py)); the catalog service
   ~19. Latency is additive per request and D1 has one primary region.
-- Authenticated requests bypass the Pages `caches.default` layer that serves
-  anonymous `GET /api/catalog/*`
-  ([`proxy.ts:65`](../frontend/functions/_shared/proxy.ts)), so every step here
-  reaches the Worker.
+- Authenticated endpoints carry no `Cache-Control`, so unlike the public catalog
+  they reach the Worker on every request.
 - Pyodide init on cold isolates is the suspected source of the previously
-  observed production 500s.
+  observed production 500s, and Phase 0 measured a 12.7 s cold catalog request
+  against 3.3 s warm — consistent with an expensive init on the cold path.
 
 ## Phase D — login burst
 

@@ -20,7 +20,7 @@ import http from 'k6/http'
 import { check } from 'k6'
 import { Counter } from 'k6/metrics'
 
-const DEFAULT_ORIGIN = 'https://studyplaner.pages.dev'
+const DEFAULT_ORIGIN = 'https://studyplanner-api.ben-tischberger.workers.dev'
 const ORIGIN = (__ENV.LOADTEST_ORIGIN || DEFAULT_ORIGIN).replace(/\/$/, '')
 const PASSWORD = __ENV.LOADTEST_PASSWORD
 

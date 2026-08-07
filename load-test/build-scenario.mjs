@@ -24,6 +24,41 @@ import { dirname, join } from 'node:path'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const OUTPUT_PATH = join(SCRIPT_DIR, 'recorded-session.json')
 
+// The deployed frontend calls the Worker directly (VITE_API_BASE_URL is baked
+// into the Pages build), so this is the origin real users hit — not the
+// same-origin /api/* path served by the Pages Function.
+const DEFAULT_API_ORIGIN = 'https://studyplanner-api.ben-tischberger.workers.dev'
+
+/**
+ * Endpoints the frontend caches in sessionStorage for 24h
+ * (frontend/src/shared/utils/sessionCache.ts). A real user hits these once when
+ * the browser session starts and then reads from cache, so replaying them every
+ * iteration would invent backend load that does not exist.
+ *
+ * They are split into a first-load phase that each VU runs once. That also
+ * happens to be the realistic shape of the scenario under test: twenty people
+ * opening the app at the start of a lecture is a burst of expensive session
+ * starts, not sustained traffic.
+ */
+/** Fetched once when the app boots, not on every view change. */
+const BOOTSTRAP_PATHS = new Set([
+  '/api/config',
+  '/api/auth/session',
+  '/api/me/profile',
+  '/api/study-programs',
+  '/api/me/favorites',
+])
+
+const SESSION_CACHED_PATHS = new Set([
+  '/api/catalog/courses',
+  '/api/catalog/periods',
+  '/api/me/progress',
+  '/api/me/semester-plans',
+  '/api/me/completed-courses',
+  '/api/me/transcript-data',
+  '/api/me/transcript-issues',
+])
+
 /**
  * Endpoints that must never be replayed under load, with the reason.
  * Keep in sync with the policies in backend/src/services/request_rate_limit.py.
@@ -45,10 +80,20 @@ function toPath(rawUrl) {
   }
 }
 
+function isSessionCached(pathWithoutQuery) {
+  if (SESSION_CACHED_PATHS.has(pathWithoutQuery)) {
+    return true
+  }
+  // Course detail is cached per course id.
+  return pathWithoutQuery.startsWith('/api/catalog/courses/')
+}
+
 function buildSteps(entries) {
   const chronological = [...entries].sort((left, right) => left.timestamp - right.timestamp)
-  const steps = []
+  const firstLoad = []
+  const steadyState = []
   const skipped = []
+  const seenCachedPaths = new Set()
 
   for (const entry of chronological) {
     const path = toPath(entry.url)
@@ -63,15 +108,32 @@ function buildSteps(entries) {
       continue
     }
 
-    steps.push({
+    const step = {
       method: (entry.method ?? 'GET').toUpperCase(),
       path,
       observedStatus: entry.status,
       observedDurationMs: entry.durationMs ?? null,
-    })
+    }
+
+    const isRead = step.method === 'GET'
+    const runsOncePerSession = isRead
+      && (BOOTSTRAP_PATHS.has(pathWithoutQuery) || isSessionCached(pathWithoutQuery))
+
+    if (runsOncePerSession) {
+      // Only the first occurrence reaches the network in a real session; later
+      // ones come from sessionStorage or are simply not re-requested.
+      if (!seenCachedPaths.has(path)) {
+        seenCachedPaths.add(path)
+        firstLoad.push(step)
+      }
+      continue
+    }
+
+    // Uncached reads and every write happen throughout the session.
+    steadyState.push(step)
   }
 
-  return { steps, skipped }
+  return { firstLoad, steadyState, skipped }
 }
 
 function main() {
@@ -86,22 +148,32 @@ function main() {
     throw new Error('Input must be the sessionStorage array, or an object with an `entries` array.')
   }
 
-  const { steps, skipped } = buildSteps(entries)
-  if (steps.length === 0) {
+  const { firstLoad, steadyState, skipped } = buildSteps(entries)
+  if (firstLoad.length === 0 && steadyState.length === 0) {
     throw new Error('No /api/ requests found in the dump — was the log captured after a page reload?')
   }
 
   const recording = {
     source: 'recorded',
     recordedAt: new Date().toISOString(),
-    stepCount: steps.length,
-    steps,
+    apiOrigin: DEFAULT_API_ORIGIN,
+    firstLoad,
+    steadyState,
   }
 
   writeFileSync(OUTPUT_PATH, `${JSON.stringify(recording, null, 2)}\n`, 'utf8')
-  console.log(`[build-scenario] wrote ${OUTPUT_PATH} (${steps.length} steps)`)
+  console.log(
+    `[build-scenario] wrote ${OUTPUT_PATH} ` +
+      `(${firstLoad.length} first-load steps, ${steadyState.length} steady-state steps)`,
+  )
   for (const { path, reason } of skipped) {
     console.log(`[build-scenario] excluded ${path} — ${reason}`)
+  }
+  if (steadyState.length === 0) {
+    console.warn(
+      '[build-scenario] no steady-state steps: the recording only covers a session start. ' +
+        'Walk further through the app (open courses, edit a plan) and re-record.',
+    )
   }
 }
 
