@@ -155,7 +155,57 @@ Expected pressure points, from reading the code:
 
 ## Phase D — login burst
 
-_Not run. Record here: 8 simultaneous login timings, and whether they serialise._
+_Formal burst not run yet. But the failure it was meant to look for already
+reproduced during session minting, without any concurrency._
+
+### The 503 reproduced on sequential logins
+
+While minting sessions one at a time, login 9 returned:
+
+```
+HTTP 503 | Worker exceeded resource limits | ray=a275225218a7dc82-FRA
+```
+
+This is Cloudflare killing the Worker for exceeding its resource budget, not an
+application exception — the response is a Cloudflare HTML interstitial, so
+clients get no JSON error body.
+
+Three properties worth recording:
+
+- **No concurrency was involved.** The requests were strictly sequential.
+- **It is intermittent.** The immediate retry succeeded. So it depends on
+  isolate state or load, not on the request itself.
+- **Retries consume rate-limit budget.** 9 logins plus 1 retry hit the
+  10-per-15-minute ceiling, which makes the Phase A shared-IP problem worse
+  than the raw policy numbers suggest.
+
+### Login costs ~0.5 s of CPU
+
+`wrangler tail` on the *successful* logins:
+
+| Request | wallTime | cpuTime |
+| --- | --- | --- |
+| login 1 | 1005 ms | 529 ms |
+| login 2 | 701 ms | 538 ms |
+| login 3 | 566 ms | 457 ms |
+| login 4 | 523 ms | 421 ms |
+
+That is `_hash_password` running PBKDF2-HMAC-SHA256 at
+`PASSWORD_PBKDF2_ITERATIONS = 310_000`
+([`authentication.py:15`](../backend/src/services/authentication.py)) inside
+Pyodide. A typical Worker request costs single-digit milliseconds.
+
+**Working hypothesis (not yet confirmed):** a warm isolate absorbs the ~500 ms,
+but a login landing on a cold isolate also pays Pyodide initialisation, and the
+two together breach the limit. This is consistent with the Phase 0 cold/warm gap
+(12.7 s vs 3.3 s). Confirming it needs the exception text from
+`wrangler tail --status error` on a failing request.
+
+If confirmed, the fix is not a load-balancing or scaling change — it is reducing
+the per-login CPU cost. Options to weigh: lowering the iteration count (weakens
+password hashing), or moving the hash to WebCrypto's native
+`crypto.subtle.deriveBits`, which is not subject to the Python interpreter's
+overhead and would need a migration path for existing stored hashes.
 
 ---
 
