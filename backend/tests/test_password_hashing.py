@@ -16,8 +16,9 @@ import password_hashing  # noqa: E402
 
 class PasswordHashingTest(unittest.IsolatedAsyncioTestCase):
     SALT_HEX = "0123456789abcdef0123456789abcdef"
-    # 310,000 iterations takes seconds in CPython; the equivalence being tested
-    # is a property of PBKDF2, not of the iteration count.
+    # Under WEBCRYPTO_MAX_PBKDF2_ITERATIONS, so the WebCrypto path is reachable
+    # at all. The equivalence being tested is a property of PBKDF2, not of the
+    # iteration count.
     ITERATIONS = 1_000
 
     def setUp(self) -> None:
@@ -83,6 +84,41 @@ class PasswordHashingTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(recomputed, stored.hex())
+
+
+class WebCryptoIterationCapTest(unittest.IsolatedAsyncioTestCase):
+    """The production iteration count is above what workerd will accept."""
+
+    SALT_HEX = "0123456789abcdef0123456789abcdef"
+
+    def setUp(self) -> None:
+        password_hashing._webcrypto_usable = None
+
+    def tearDown(self) -> None:
+        password_hashing._webcrypto_usable = None
+
+    def test_the_production_iteration_count_exceeds_the_runtime_cap(self) -> None:
+        # workerd: "Pbkdf2 failed: iteration counts above 100000 are not
+        # supported". Lowering PASSWORD_PBKDF2_ITERATIONS to reach the fast path
+        # weakens hashing and needs a rehash-on-login migration, so this asserts
+        # the constraint rather than assuming anyone remembers it.
+        self.assertGreater(
+            password_hashing.PASSWORD_PBKDF2_ITERATIONS,
+            password_hashing.WEBCRYPTO_MAX_PBKDF2_ITERATIONS,
+        )
+
+    async def test_webcrypto_is_not_even_attempted_above_the_cap(self) -> None:
+        derive = AsyncMock()
+
+        with patch.object(password_hashing, "_hash_password_with_webcrypto", derive):
+            digest = await password_hashing.hash_password_hex(
+                "correct horse",
+                self.SALT_HEX,
+                password_hashing.WEBCRYPTO_MAX_PBKDF2_ITERATIONS + 1,
+            )
+
+        derive.assert_not_awaited()
+        self.assertEqual(len(digest), 64)
 
 
 if __name__ == "__main__":

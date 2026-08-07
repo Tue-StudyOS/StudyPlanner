@@ -41,10 +41,10 @@ See [Fixes](#fixes) for the detail and the verification of each.
 
 | Fault | Status |
 | --- | --- |
-| Login CPU cost (Mode A) | **Fixed** — PBKDF2 moved to native WebCrypto |
 | Shared-IP login lockout | **Fixed** — keyed per account, ceiling raised to 500 |
 | Outages consuming login budget | **Fixed** — only real failed attempts are charged |
 | `/api/client-errors` storm | **Fixed** — retries absorb transients, reports capped |
+| Login CPU cost (Mode A) | **Not fixed** — workerd caps PBKDF2 at 100k iterations |
 | GIL fault (Mode B) | **Upstream, unfixed** — mitigated, not resolved |
 
 ### Setup state
@@ -290,50 +290,80 @@ exhausted two full windows.
 
 ## Fixes
 
-### 1. Login no longer burns half a CPU budget
+### 1. Login CPU — attempted, blocked by a runtime cap
 
-`_hash_password` ran PBKDF2-HMAC-SHA256 at 310,000 iterations through
-`hashlib`, i.e. as interpreted Pyodide bytecode, for 421–538 ms of CPU per
-login. That is Mode A on its own, and it holds the interpreter for long enough
-to widen the window for Mode B.
+**This one is not fixed.** Recorded in full because the blocker is undocumented
+and cost real time to find.
 
-[`backend/src/password_hashing.py`](../backend/src/password_hashing.py) now
-derives the same digest with `crypto.subtle.deriveBits`, which runs natively.
-`hashlib` stays as a fallback so a broken fast path degrades into slow logins
-rather than failed ones.
+`_hash_password` runs PBKDF2-HMAC-SHA256 at 310,000 iterations through
+`hashlib`, costing 421–538 ms of CPU per login. `/api/auth/login` is the only
+endpoint observed failing with "Worker exceeded CPU time limit" (Mode A).
 
-**No hash migration is needed, and that is the load-bearing claim.** Same
-algorithm, same salt, same iteration count, same 32-byte output. Verified in the
-runtime rather than argued from the spec — a temporary probe route returned:
+Moving it to `crypto.subtle.deriveBits` does not work. workerd refuses it:
 
-```json
-{"webcryptoUsable": true, "matchesHashlib": true}
+```text
+NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are not
+supported (requested 310000).
 ```
 
-so a hash written by `hashlib` (including every account seeded by
-`seed_load_test_users.py`) verifies unchanged under WebCrypto. A full
-register → login → wrong-password → login round trip was then run against the
-remote preview and returned 201 / 200 / 401 / 200.
+The limit appears nowhere in the Workers Web Crypto documentation. It was found
+by timing the two implementations inside the Worker at the *real* iteration
+count — an earlier probe used 1,000 iterations, which is under the cap and so
+passed, proving only that the FFI plumbing works.
 
-**It also does not make Mode B worse**, which was worth checking: WebCrypto adds
-an `await` to the login path, and the `await` boundary is exactly where the
-upstream race lives. Twenty sequential logins one second apart, cold isolate,
-each implementation forced:
+[`password_hashing.py`](../backend/src/password_hashing.py) therefore keeps the
+WebCrypto path but gates it on `WEBCRYPTO_MAX_PBKDF2_ITERATIONS`, so it is
+explicitly dormant rather than throwing once per isolate. Behaviour today is
+unchanged: every login still goes through `hashlib`.
 
-| | Succeeded | Failed |
-| --- | --- | --- |
-| WebCrypto | 3 / 20 | 17 |
-| `hashlib` (forced) | 2 / 20 | 18 |
+#### How much was on the table anyway
 
-Indistinguishable — the wedging is the upstream fault either way. Note that this
-~90% failure rate is a property of `wrangler dev --remote` preview isolates, not
-of production, where the app is broadly usable; use it to compare the two
-columns, not as a production figure.
+Less than it first looked. The same 310,000 iterations, measured:
 
-The CPU saving itself is inferred rather than measured post-fix: wall-clock
-times here are dominated by remote D1 round-trips (median 642 ms vs 694 ms), so
-confirming the drop from ~450 ms of CPU needs `wrangler tail` against a deployed
-build.
+| Implementation | Time |
+| --- | --- |
+| Native OpenSSL (`hashlib`, CPython on the dev machine) | 313 ms |
+| Pyodide `hashlib` in the Worker | 421–538 ms |
+| Pure-Python PBKDF2 loop (extrapolated) | ~4,300 ms |
+
+Pyodide's `hashlib` is **compiled C running in WASM at roughly 1.5× native**,
+not interpreted bytecode — the pure-Python figure is 10× further away. So native
+WebCrypto was worth something like a third, not an order of magnitude. PBKDF2 is
+expensive by design; no implementation makes 310,000 iterations cheap.
+
+#### What it would take
+
+Dropping to ≤100,000 iterations. That is a **security decision, not a
+performance one** — it weakens the hash against offline attack by 3×, and
+310,000 is already below OWASP's current PBKDF2-SHA256 guidance. It also needs a
+per-user iteration count plus rehash-on-successful-login, because existing
+hashes cannot be recomputed without the plaintext.
+
+Weighed against the benefit, this looks like a poor trade: Mode A was **2 of 43**
+observed failures, against 20+ for the GIL fault. Recommend leaving the
+iteration count alone unless CPU-limit failures become common.
+
+#### What was verified
+
+- The two implementations agree byte for byte below the cap
+  (`{"webcryptoUsable": true, "matchesHashlib": true}`), so a future switch
+  would be a change of executor, not a hash migration.
+- The gated code does not make Mode B worse. This was worth checking, since
+  WebCrypto adds an `await` to the login path and the `await` boundary is where
+  the upstream race lives. Twenty sequential logins one second apart on a cold
+  isolate, each implementation forced:
+
+  | | Succeeded | Failed |
+  | --- | --- | --- |
+  | WebCrypto | 3 / 20 | 17 |
+  | `hashlib` (forced) | 2 / 20 | 18 |
+
+  Indistinguishable. That ~90% failure rate is a property of
+  `wrangler dev --remote` preview isolates, not of production where the app is
+  broadly usable — compare the two columns, do not read it as a production
+  figure.
+- Register → login → wrong password → login against the remote preview returned
+  201 / 200 / 401 / 200.
 
 ### 2. The login rate limiter stopped punishing bystanders
 
