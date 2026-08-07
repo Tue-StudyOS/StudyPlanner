@@ -714,5 +714,62 @@ class LoadIliasMetadataTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metadata["match"]["confidence"], 0.95)
 
 
+class AttachReviewSummariesTest(unittest.IsolatedAsyncioTestCase):
+    async def test_folds_the_average_into_matching_courses_only(self) -> None:
+        summaries = [
+            {"id": "1", "number": "INF-01"},
+            {"id": "2", "number": "INF-02"},
+        ]
+        fetch_all = AsyncMock(
+            return_value=[{"courseKey": "inf-01", "reviewCount": 3, "averageRating": 4.3333}]
+        )
+
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            await course_catalog._attach_review_summaries(object(), summaries)
+
+        self.assertEqual(summaries[0]["rating"], {"average": 4.33, "count": 3})
+        self.assertNotIn("rating", summaries[1])
+
+    async def test_matches_the_stored_key_regardless_of_course_number_casing(self) -> None:
+        summaries = [{"id": "1", "number": "Inf-01"}]
+        fetch_all = AsyncMock(
+            return_value=[{"courseKey": "inf-01", "reviewCount": 1, "averageRating": 5}]
+        )
+
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            await course_catalog._attach_review_summaries(object(), summaries)
+
+        self.assertEqual(summaries[0]["rating"], {"average": 5.0, "count": 1})
+
+    async def test_skips_the_query_when_no_course_has_a_number(self) -> None:
+        summaries = [{"id": "1", "number": ""}]
+        fetch_all = AsyncMock()
+
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            await course_catalog._attach_review_summaries(object(), summaries)
+
+        fetch_all.assert_not_awaited()
+
+    async def test_catalog_still_renders_when_the_reviews_table_is_missing(self) -> None:
+        """The worker can ship before migration 0034 is applied."""
+        summaries = [{"id": "1", "number": "INF-01"}]
+        fetch_all = AsyncMock(side_effect=D1ExecutionError("no such table: course_reviews"))
+
+        with patch.object(course_catalog, "fetch_all", fetch_all):
+            await course_catalog._attach_review_summaries(object(), summaries)
+
+        self.assertNotIn("rating", summaries[0])
+
+    async def test_other_database_errors_still_surface(self) -> None:
+        summaries = [{"id": "1", "number": "INF-01"}]
+        fetch_all = AsyncMock(side_effect=D1ExecutionError("no such table: courses"))
+
+        with (
+            patch.object(course_catalog, "fetch_all", fetch_all),
+            self.assertRaises(D1ExecutionError),
+        ):
+            await course_catalog._attach_review_summaries(object(), summaries)
+
+
 if __name__ == "__main__":
     unittest.main()

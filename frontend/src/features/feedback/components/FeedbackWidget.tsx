@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
+import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import { submitFeedback } from '../api.ts'
@@ -41,33 +42,6 @@ function writeStorageValue(storage: Storage | undefined, key: string): void {
 
 function buildPagePath(location: { pathname: string }): string {
   return location.pathname.slice(0, 512) || '/'
-}
-
-function StarRating({ value, onChange }: { value: number; onChange: (rating: number) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Feedback rating">
-      {[1, 2, 3, 4, 5].map((rating) => {
-        const isActive = rating <= value
-        return (
-          <button
-            key={rating}
-            type="button"
-            role="radio"
-            aria-checked={value === rating}
-            aria-label={`${rating} star${rating === 1 ? '' : 's'}`}
-            onClick={() => onChange(rating)}
-            className={`flex h-9 w-9 items-center justify-center rounded-md border text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-              isActive
-                ? 'border-primary bg-primary-soft text-primary'
-                : 'border-border bg-surface text-fg-muted hover:bg-surface-hover hover:text-fg'
-            }`}
-          >
-            ★
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 export function FeedbackWidget() {
@@ -225,7 +199,11 @@ export function FeedbackWidget() {
                     <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                       {t('feedback.ratingLabel')}
                     </span>
-                    <StarRating value={rating} onChange={setRating} />
+                    <StarRating
+                      value={rating}
+                      label={t('feedback.ratingLabel')}
+                      onChange={setRating}
+                    />
                   </label>
 
                   <label className="block">

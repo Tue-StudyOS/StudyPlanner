@@ -51,6 +51,7 @@ Every new frontend feature must work on both phone and desktop.
 - The D1 database name and UUID are public Cloudflare binding config and may be committed; never commit `AUTH_TOKEN_SECRET` or any generated secret value.
 - Run `npm run db:verify-config` before deploys or after touching Cloudflare/Pages config. The GitHub workflow with the same check should be required on `main` branch protection.
 - To refresh the ALMA catalog, re-seed the existing D1 **in place** — do not create/swap a DB: `py backend/scripts/import_alma_json_to_d1.py --input <courses_multi_semester.json> --apply --skip-create --skip-swap --skip-migrate`. The seed DELETEs all catalog rows and reinserts only the periods present in the JSON, so keep every period you want to retain in the input. See that script's docstring for the D1 remote-import limits (compound-SELECT coalescing, Durable-Object reset) it works around.
+- **User-generated data must never be keyed on `courses.id`.** The importer reassigns course ids from 1 on every in-place re-seed, so an id-keyed row silently re-points to a different course. Key on the ALMA course number instead — `COALESCE(courses.number, courses.unit_id)`, exposed as `course_catalog.normalize_review_key()`. `course_reviews` (migration 0034) and `course_external_links` (0021) both follow this; neither belongs in the importer's `SEEDED_TABLES_DELETE_ORDER`.
 
 ## Workflow
 

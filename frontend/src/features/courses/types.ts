@@ -128,6 +128,12 @@ export interface CourseIliasMetadata {
   }
 }
 
+/** Headline review numbers the catalog list ships alongside each course. */
+export interface CourseRatingSummary {
+  average: number
+  count: number
+}
+
 export interface Course {
   id: string
   numericId?: number
@@ -172,4 +178,5 @@ export interface Course {
   lecturerDetails?: CourseLecturerDetail[]
   additionalFields?: CourseAdditionalField[]
   illias?: CourseIliasMetadata | null
+  rating?: CourseRatingSummary
 }
