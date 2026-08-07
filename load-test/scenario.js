@@ -43,9 +43,39 @@ const ORIGIN = (__ENV.LOADTEST_ORIGIN || recording.apiOrigin || DEFAULT_ORIGIN).
 // The finding we care about is 5xx, and an average hides a handful of them.
 const serverErrors = new Counter('server_errors')
 const rateLimited = new Counter('rate_limited_429')
+const clientErrors = new Counter('client_errors_4xx')
 const stepDuration = new Trend('step_duration', true)
 
+/**
+ * A semester plan that was never saved returns 404, and that is the app working
+ * correctly: whether a plan exists is per-account state, not app health. The
+ * recording came from an account that had a WS 2026/27 plan; the loadtest
+ * accounts do not. Treated as expected so it neither fails the run nor silently
+ * inflates http_req_failed.
+ */
+function expectsNotFound(method, pathWithoutQuery) {
+  return method === 'GET' && pathWithoutQuery.startsWith('/api/me/semester-plans/')
+}
+
+/**
+ * k6 only materialises a tagged sub-metric in the summary when some threshold
+ * references it, so tagging step_duration by endpoint is not enough on its own —
+ * the per-endpoint numbers the report needs were being collected and then
+ * dropped. These thresholds exist to surface the breakdown, not to gate the run,
+ * so the condition is one that always holds.
+ */
+function perEndpointThresholds() {
+  const endpoints = new Set(
+    [...recording.firstLoad, ...recording.steadyState].map((step) => step.path.split('?')[0]),
+  )
+  return Object.fromEntries(
+    [...endpoints].map((endpoint) => [`step_duration{endpoint:${endpoint}}`, ['p(95)>=0']]),
+  )
+}
+
 export const options = {
+  // k6 reports avg/min/med/p(90)/p(95)/max by default; the report quotes p(99).
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     concurrent_users: {
       executor: 'ramping-vus',
@@ -64,8 +94,11 @@ export const options = {
     // A 429 here means the pre-minted sessions were not enough to keep the
     // rate limiter out of the measurement — the run is invalid, not the app.
     rate_limited_429: ['count<1'],
+    // A 4xx means the replayed request was malformed — a rig bug, not a finding.
+    client_errors_4xx: ['count<1'],
     http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<1500'],
+    ...perEndpointThresholds(),
   },
 }
 
@@ -144,30 +177,46 @@ function runSteps(steps, session) {
     const isWrite = step.method !== 'GET' && step.method !== 'HEAD'
     const body = isWrite ? buildWriteBody(cachedCourseIds) : null
 
+    const notFoundIsExpected = expectsNotFound(step.method, pathWithoutQuery)
+
     const response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
       headers: buildHeaders(session, step.method),
       // Group metrics by endpoint rather than by unique URL.
       tags: { endpoint: pathWithoutQuery, method: step.method },
       redirects: 0,
+      // Drives http_req_failed, so an expected 404 does not read as a failure.
+      responseCallback: notFoundIsExpected
+        ? http.expectedStatuses(404, { min: 200, max: 299 })
+        : http.expectedStatuses({ min: 200, max: 299 }),
     })
 
     stepDuration.add(response.timings.duration, { endpoint: pathWithoutQuery })
 
+    const isExpected =
+      (response.status >= 200 && response.status < 300)
+      || (notFoundIsExpected && response.status === 404)
+
     if (response.status >= 500) {
       serverErrors.add(1, { endpoint: pathWithoutQuery })
+    } else if (response.status === 429) {
+      rateLimited.add(1, { endpoint: pathWithoutQuery })
+    } else if (!isExpected) {
+      // Previously only 5xx was logged, so a 4xx from a malformed replay body
+      // was invisible in the output and only showed up as a threshold breach.
+      clientErrors.add(1, { endpoint: pathWithoutQuery })
+    }
+
+    if (!isExpected) {
       console.error(
         `[scenario] ${response.status} ${step.method} ${pathWithoutQuery} ` +
           `vu=${__VU} iter=${scenario.iterationInTest} body=${String(response.body).slice(0, 200)}`,
       )
     }
-    if (response.status === 429) {
-      rateLimited.add(1, { endpoint: pathWithoutQuery })
-    }
 
     check(response, {
       'status is not 5xx': (r) => r.status < 500,
       'status is not 429': (r) => r.status !== 429,
-      'status is 2xx': (r) => r.status >= 200 && r.status < 300,
+      'status is expected': () => isExpected,
     }, { endpoint: pathWithoutQuery })
 
     if (pathWithoutQuery === '/api/catalog/courses' && response.status === 200) {
@@ -198,7 +247,9 @@ function counterValue(data, metricName) {
 
 function formatLatency(data, metricName) {
   const metric = data.metrics[metricName]
-  if (!metric || metric.values.p95 === undefined) {
+  // k6 names the percentile keys 'p(95)', not 'p95'. Guarding on the wrong key
+  // made this print n/a on every run while the numbers were sitting right there.
+  if (!metric || metric.values['p(95)'] === undefined) {
     return `${metricName}: n/a`
   }
   const { med, 'p(95)': p95, 'p(99)': p99, max } = metric.values
@@ -214,6 +265,7 @@ function formatLatency(data, metricName) {
 export function handleSummary(data) {
   const serverErrorCount = counterValue(data, 'server_errors')
   const rateLimitedCount = counterValue(data, 'rate_limited_429')
+  const clientErrorCount = counterValue(data, 'client_errors_4xx')
   const failedRate = data.metrics.http_req_failed
     ? (data.metrics.http_req_failed.values.rate * 100).toFixed(2)
     : 'n/a'
@@ -225,6 +277,7 @@ export function handleSummary(data) {
     `failed:          ${failedRate}%`,
     `server_errors:   ${serverErrorCount}${serverErrorCount > 0 ? '   <-- FAIL: 5xx observed' : ''}`,
     `rate_limited:    ${rateLimitedCount}${rateLimitedCount > 0 ? '   <-- run invalid: limiter was hit' : ''}`,
+    `client_errors:   ${clientErrorCount}${clientErrorCount > 0 ? '   <-- rig bug: replayed request was malformed' : ''}`,
     formatLatency(data, 'http_req_duration'),
     formatLatency(data, 'step_duration'),
     'full per-endpoint data: load-test/results/summary.json',

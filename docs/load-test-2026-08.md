@@ -17,8 +17,8 @@ its design live in [`load-test/README.md`](../load-test/README.md).
 | --- | --- | --- |
 | 0 — live reconnaissance | Which origin users actually hit; single-user latency | **Done (2026-08-07)** |
 | A — rate-limit arithmetic | Whether 20 users behind one IP can even sign in | **Done — confirmed live** |
-| B — baseline | Uncontended per-endpoint latency, authenticated | Not run |
-| C — 20 concurrent users | 5xx under isolate fan-out; p95 under load | Not run |
+| B — baseline | Uncontended per-endpoint latency, authenticated | **Done (2026-08-07)** |
+| C — 20 concurrent users | 5xx under isolate fan-out; p95 under load | **Done — run twice, see below** |
 | D — login burst | How CPU-bound logins queue | **Superseded — the 500s reproduced without concurrency** |
 
 ### Bottom line so far
@@ -47,11 +47,32 @@ See [Fixes](#fixes) for the detail and the verification of each.
 | Login CPU cost (Mode A) | **Not fixed** — workerd caps PBKDF2 at 100k iterations |
 | GIL fault (Mode B) | **Upstream, unfixed** — mitigated, not resolved |
 
+### Answering the original question
+
+**Does the app stay correct and usable at 20 concurrent users, and where does it
+start to hurt?**
+
+Correct: yes. Across both Phase C runs, every failure was the runtime killing a
+hung request — no wrong answers, no data corruption, no rate-limit lockouts, no
+4xx. The application logic holds.
+
+Usable: **conditionally**. In a good window it is fine. In a bad window roughly
+1 request in 20 fails outright, and the p95 sits near 3 s in both. For a
+20-person lecture demo that means a handful of visible errors and a
+consistently sluggish feel — not an outage.
+
+Where it hurts is **not** where the plan predicted. Concurrency is not the
+problem: the median at 20 VUs (118 ms) is *better* than at 1 VU (2620 ms),
+because sustained traffic keeps isolates warm. The problem is Python Worker
+cold start, which a realistically-paced single user pays on nearly every
+request.
+
 ### Setup state
 
 Accounts seeded and 20 sessions minted (`load-test/sessions.json`, gitignored,
-valid 30 days). Phases B–C additionally need a recorded authenticated session —
-`load-test/recorded-session.json` is still a partial placeholder.
+valid 30 days). `load-test/recorded-session.json` is now generated from a real
+authenticated browser session (75 logged requests, 2026-08-07), replacing the
+earlier placeholder.
 
 ---
 
@@ -162,26 +183,113 @@ what was found.
 
 ## Phase B — baseline
 
-_Not run. Record here: single-VU per-endpoint p50, and a single cold login
-timing (PBKDF2 at 310,000 iterations inside Pyodide,
-[`authentication.py:15`](../backend/src/services/authentication.py))._
+Run against the deployed Worker (version `ff27e541`) from the real recording,
+1 VU, 1 iteration, 43 requests.
+
+```
+requests: 43   failed: 0.00%   server_errors: 0   rate_limited: 0   client_errors: 0
+http_req_duration: med=2620ms p95=3880ms p99=6793ms max=8115ms
+```
+
+Correct, and slow. **Median latency at one user with no contention is 2.6 s.**
+
+The interesting part is that this is *worse* than hammering the same endpoints.
+Tight bursts earlier the same hour measured p50 of 138-425 ms. The difference is
+think time: the scenario waits 3-8 s between steps, the isolate gets recycled in
+the gap, and nearly every request pays Pyodide start-up again. Hammering keeps
+the isolate warm and hides exactly the cost a real user pays. **Realistic pacing
+is the pessimal case, not the optimistic one.**
 
 ## Phase C — 20 concurrent users
 
-_Not run. Record here: raw k6 summary, per-endpoint p50/p95/p99, every 5xx with
-the matching `wrangler tail` output, and whether the canary browser stayed
-usable._
+Run twice, back to back, same script and same deployed version. The two runs
+disagree, and that disagreement is the finding.
 
-Expected pressure points, from reading the code:
+| | Run 1 (15:12) | Run 2 (15:20) |
+| --- | --- | --- |
+| Requests | 1158 | 1154 |
+| Failed | **0.00 %** | **4.85 %** |
+| `server_errors` (5xx) | **0** | **56** |
+| `rate_limited` (429) | 0 | 0 |
+| `client_errors` (4xx) | 0 | 0 |
+| med / p95 / p99 / max | 122 / 3054 / 5993 / 27633 ms | 118 / 3073 / 6350 / 9011 ms |
 
-- `/api/me/progress` issues ~7 sequential D1 queries
-  ([`progress.py`](../backend/src/services/progress.py)); the catalog service
-  ~19. Latency is additive per request and D1 has one primary region.
-- Authenticated endpoints carry no `Cache-Control`, so unlike the public catalog
-  they reach the Worker on every request.
-- Pyodide init on cold isolates is the suspected source of the previously
-  observed production 500s, and Phase 0 measured a 12.7 s cold catalog request
-  against 3.3 s warm — consistent with an expensive init on the cold path.
+Nothing changed between them. The fault is **episodic**: it is not provoked
+reliably by concurrency, and it is not absent either.
+
+> Correction to an assessment made earlier the same day, before Run 2 existed.
+> On the strength of 380 clean probe requests and Run 1, this report said the
+> fault "is not load-triggered at our scale — 20 concurrent users don't provoke
+> it". Run 2 refutes that. Twenty concurrent users *can* provoke it; the
+> evidence for the negative claim was a run that happened to land in a good
+> window. One clean run proves nothing about an intermittent fault.
+
+### What the 56 failures were
+
+`wrangler tail --status error` captured **exactly 56 events**, matching k6's
+count one for one.
+
+| Outcome | Count | Exception |
+| --- | --- | --- |
+| `exception` | 54 | "The Workers runtime canceled this request because it detected that your Worker's code had hung" |
+| `exceededCpu` | 2 | "Worker exceeded CPU time limit." |
+
+Median `cpuTime` **1 ms**, median `wallTime` **2 ms**. These requests did no
+work before the runtime killed them, which is the same signature recorded in
+Phase D: the Python event loop wedges and the request never completes. The
+`exceededCpu` outcome on the other two is misleading in the same way — 125 ms of
+CPU is not a CPU-limit breach.
+
+Note that the literal strings `GIL` and `PyProxy` appear **zero** times in this
+capture. The behavioural fingerprint matches cloudflare/workerd#6624 but the
+underlying message did not surface this time, so attribution rests on the
+signature rather than on the exception text.
+
+Failures were spread across **9 different endpoints** — heaviest on
+`/api/me/semester-plans/SS%202026` (31), which is simply the most-requested path
+in the scenario. Nothing endpoint-specific.
+
+### Per-endpoint latency (Run 2)
+
+```
+endpoint                                    med       p95       p99       max
+/api/catalog/courses                      925ms    5727ms    7874ms    8884ms
+/api/me/semester-plans/SS 2026/balance    145ms    3528ms    7535ms    8537ms
+/api/me/profile                           206ms    3252ms    8094ms    8465ms
+/api/me/favorites                         179ms    2900ms    4104ms    5962ms
+/api/me/semester-plans/SS 2026            103ms    2894ms    7382ms    9011ms
+/api/me/completed-courses                 124ms    2881ms    3515ms    3673ms
+/api/catalog/courses/1115                 402ms    2878ms    2922ms    2933ms
+/api/me/transcript-issues                 100ms    2813ms    2985ms    3028ms
+/api/regulation-versions/MSC_INFO_2021     73ms    2774ms    4145ms    5987ms
+/api/me/progress                          250ms    2746ms    2945ms    2995ms
+/api/config                                61ms    2695ms    2870ms    2914ms
+/api/me/semester-plans/WS 2026/27          94ms    2633ms    5979ms    6899ms
+/api/study-programs                        50ms    2593ms    2720ms    2752ms
+/api/auth/session                          61ms    2530ms    3718ms    4015ms
+/api/me/semester-plans                    110ms    2369ms    3077ms    3253ms
+/api/catalog/periods                       56ms    2326ms    2426ms    2451ms
+```
+
+**Read the two columns separately — they are different phenomena.**
+
+- **Medians track real work.** `/api/config` returns one null field in 61 ms.
+  `/api/catalog/courses` ships 1.43 MB in 925 ms. `/api/me/progress` and its ~7
+  sequential D1 queries land at 250 ms. All defensible.
+- **p95 is a flat ~2.3-2.9 s on every endpoint regardless of what it does.**
+  `/api/catalog/periods`, which returns a short list, has a p95 of 2326 ms —
+  within 25 % of `/api/me/profile`. A cost that is identical across endpoints
+  doing wildly different amounts of work is not per-endpoint work. It is a fixed
+  entry cost: Pyodide start-up.
+
+The consequence for optimisation is direct: **tuning individual endpoints cannot
+fix the tail.** Collapsing `/api/me/progress`'s 7 queries into 1 would move its
+250 ms median, not its 2746 ms p95. Only reducing cold starts — fewer Python
+isolate initialisations, or moving hot paths off Python — touches the p95.
+
+The one endpoint worth optimising on its own merits is
+`/api/catalog/courses`: a 925 ms median and 5727 ms p95 for a 1.43 MB payload is
+real work, and it is the single most expensive thing in a session start.
 
 ## Phase D — login burst
 
@@ -424,6 +532,26 @@ with it: the retry absorbs it, the reporter no longer amplifies it, and it no
 longer locks anyone out of their account.
 
 ---
+
+## Harness corrections found by the Phase B gate
+
+The "1 VU must pass before any multi-VU run" gate earned its place — the first
+Phase B run failed, and all three failures were rig bugs, not app faults. A
+20-VU run started blind would have reported them as findings.
+
+| Bug | Symptom | Fix |
+| --- | --- | --- |
+| `buildWriteBody` sent one body shape for every write | `POST /api/me/completed-courses/import` and `PUT /api/me/transcript-issues` both 400 | Excluded both writes in `build-scenario.mjs`; exclusions are now method-aware so the legitimate `GET /api/me/transcript-issues` survives |
+| Only 5xx was logged | Three 4xx were invisible; the run failed a threshold with no indication why | Log every unexpected status; added a `client_errors_4xx` counter and threshold |
+| `formatLatency` guarded on `values.p95` | Every run printed `http_req_duration: n/a` while the numbers were present under `values['p(95)']` | Corrected the key; added `summaryTrendStats` so p(99) is collected at all |
+| Tagged sub-metrics never materialised | Per-endpoint p50/p95/p99 was collected and silently dropped | k6 only emits a tagged sub-metric when a threshold references it, so `scenario.js` now generates one permissive threshold per recorded endpoint |
+
+A fourth failure was not a bug: `GET /api/me/semester-plans/WS%202026%2F27`
+returns 404 because the recording came from an account that had that plan and
+the `loadtest-*` accounts do not. Whether a saved plan exists is per-account
+state, not app health, so semester-plan reads now treat 404 as expected via a
+per-request `responseCallback` — which keeps it out of `http_req_failed` instead
+of quietly inflating it.
 
 ## Notes
 
