@@ -30,10 +30,6 @@ const RequestLogPage = lazy(() =>
     default: module.RequestLogPage,
   })),
 )
-const StudyPlanBeta = lazy(() =>
-  import('./features/newui').then((module) => ({ default: module.StudyPlanPage })),
-)
-
 function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
 }
@@ -68,7 +64,6 @@ function App() {
                         element={<Navigate to={ROUTES.planner} replace />}
                       />
                     </Route>
-                    <Route path={ROUTES.beta} element={<StudyPlanBeta />} />
                     <Route path="*" element={<Navigate to={ROUTES.catalog} replace />} />
                   </Routes>
                 </Suspense>
