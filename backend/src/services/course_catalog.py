@@ -1182,6 +1182,7 @@ async def _list_all_catalog_courses(
         summary["termType"] = _derive_term_type(group["offeredPeriods"])
         summaries.append(summary)
 
+    await _attach_review_summaries(env, summaries)
     return summaries
 
 
@@ -1307,6 +1308,7 @@ async def list_catalog_courses(
                 variants,
             )
         )
+    await _attach_review_summaries(env, summaries)
     return summaries
 
 
@@ -1341,6 +1343,136 @@ async def _load_offering_history(
     )
     labels.sort(key=_period_sort_key, reverse=True)
     return labels
+
+
+def normalize_review_key(value: Any) -> str:
+    """Normalize the stable course identity that reviews are stored against.
+
+    Reviews outlive the catalog rows they describe: the importer reassigns
+    courses.id on every in-place re-seed, so the ALMA course number is the only
+    identity that survives. Casefolding keeps lookups stable if ALMA ever
+    changes the casing of a number.
+    """
+    return (_safe_text(value) or "").casefold()
+
+
+async def get_course_review_key(env: Any, course_id: int) -> str | None:
+    """Map a catalog course id to the stable key its reviews are stored under."""
+    row = await fetch_one(
+        env,
+        f"""
+        SELECT {COURSE_KEY_SQL} AS courseKey
+        FROM courses AS c
+        WHERE c.id = ?
+        """,
+        [course_id],
+    )
+    if row is None:
+        return None
+    return normalize_review_key(row.get("courseKey")) or None
+
+
+async def load_course_review_options(env: Any, course_id: int) -> dict[str, list[str]]:
+    """Return the semesters and lecturers a reviewer can pick for this course.
+
+    Both lists come from the course's real offering history across every period,
+    so the review form can only reference semesters and people that actually
+    taught it, with manual entry as the escape hatch.
+    """
+    course_row = await fetch_one(
+        env,
+        f"""
+        SELECT {COURSE_KEY_SQL} AS courseKey, c.title
+        FROM courses AS c
+        WHERE c.id = ?
+        """,
+        [course_id],
+    )
+    if course_row is None:
+        return {"periodLabels": [], "lecturers": []}
+
+    course_key = _safe_text(course_row.get("courseKey"))
+    if not course_key:
+        return {"periodLabels": [], "lecturers": []}
+
+    rows = await fetch_all(
+        env,
+        f"""
+        SELECT
+            c.id,
+            {COURSE_KEY_SQL} AS courseKey,
+            c.title,
+            {PERIOD_LABEL_SQL} AS periodLabel,
+            l.display_name AS lecturerName
+        FROM courses AS c
+        LEFT JOIN course_lecturers AS cl ON cl.course_id = c.id
+        LEFT JOIN lecturers AS l ON l.id = cl.lecturer_id
+        WHERE {COURSE_KEY_SQL} = ?
+        """,
+        [course_key],
+    )
+
+    expected_identity = _course_identity_key(
+        {"courseKey": course_key, "title": course_row.get("title")},
+    )
+    matching_rows = [row for row in rows if _course_identity_key(row) == expected_identity]
+
+    period_labels = _unique_preserve_order(
+        [label for row in matching_rows if (label := _safe_text(row.get("periodLabel")))]
+    )
+    period_labels.sort(key=_period_sort_key, reverse=True)
+    lecturers = _unique_preserve_order(
+        [name for row in matching_rows if (name := _safe_text(row.get("lecturerName")))]
+    )
+    lecturers.sort(key=str.casefold)
+    return {"periodLabels": period_labels, "lecturers": lecturers}
+
+
+async def _attach_review_summaries(env: Any, summaries: list[dict[str, Any]]) -> None:
+    """Fold the public review average into catalog summaries, in place.
+
+    Read directly rather than through services.course_reviews so the catalog
+    keeps its one-way dependency; this is a single grouped read of one table.
+    """
+    keys_by_summary = [normalize_review_key(summary.get("number")) for summary in summaries]
+    review_keys = _unique_preserve_order([key for key in keys_by_summary if key])
+    if not review_keys:
+        return
+
+    try:
+        rows = await fetch_all(
+            env,
+            """
+            SELECT
+                course_key AS courseKey,
+                COUNT(*) AS reviewCount,
+                AVG(overall_rating) AS averageRating
+            FROM course_reviews
+            WHERE is_hidden = 0
+              AND course_key IN (SELECT value FROM json_each(?))
+            GROUP BY course_key
+            """,
+            [json.dumps(review_keys, separators=(",", ":"))],
+        )
+    except D1ExecutionError as exc:
+        # The catalog must keep rendering if the worker ships ahead of migration 0034.
+        message = str(exc).lower()
+        if "no such table" not in message or "course_reviews" not in message:
+            raise
+        return
+    ratings_by_key = {
+        key: {
+            "average": round(float(row["averageRating"]), 2),
+            "count": int(row["reviewCount"]),
+        }
+        for row in rows
+        if (key := _safe_text(row.get("courseKey"))) and row.get("averageRating") is not None
+    }
+
+    for summary, review_key in zip(summaries, keys_by_summary):
+        rating = ratings_by_key.get(review_key)
+        if rating is not None:
+            summary["rating"] = rating
 
 
 def _dedupe_external_links(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
