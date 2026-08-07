@@ -7,16 +7,18 @@ run go in `docs/load-test-<yyyy-mm>.md`.
 
 Three risks motivated this harness. Only two need a load generator:
 
-1. **Shared-IP rate limiting.** `enforce_rate_limit` keys every policy on
-   `sha256(CF-Connecting-IP)` (`backend/src/services/request_rate_limit.py:36`).
-   Login allows 10 requests / 15 min and registration 5 / hour. Twenty students
-   behind one campus NAT share one key, so users 11–20 get `429`. This needs no
-   load test — it is arithmetic — but it also constrains how the harness works
-   (see *pre-minted sessions* below).
-2. **Pyodide cold start under isolate fan-out.** Concurrent arrivals spread
-   across fresh isolates, and Pyodide init has crashed there before. This is the
-   primary thing the run is looking for, and it only reproduces through the
-   Pages origin.
+1. **Shared-IP rate limiting.** *Confirmed, then fixed* — see
+   `docs/load-test-2026-08.md`. Login used to allow 10 requests / 15 min keyed on
+   `sha256(CF-Connecting-IP)`, so twenty students behind one campus NAT shared
+   one budget and users 11–20 got `429`. Login is now keyed per account, counts
+   only failed attempts, and allows 500 per 15 min. The remaining volume
+   policies (feedback, AI catalog, client errors) are still per IP.
+2. **The Pyodide GIL fault.** `Attempted to use PyProxy when Python GIL not held`
+   — [cloudflare/workerd#6624](https://github.com/cloudflare/workerd/issues/6624),
+   open. This is the source of the production 500s. It needs only 3–5 concurrent
+   requests, so it is a low-concurrency bug rather than a scale one, and no
+   change in this repo can fix it. What the run measures now is how often it
+   bites and whether the frontend's retry hides it.
 3. **Sequential D1 round-trips.** `/api/me/progress` issues ~7 sequential
    queries, the catalog service ~19. Expect p95 to degrade before anything
    errors.
@@ -33,9 +35,11 @@ Four design decisions follow from that:
   tests an assumption about what the app does. `build-scenario.mjs` derives it
   from `sessionStorage['studyplanner:api-request-log']`, which the app already
   maintains (`frontend/src/shared/utils/apiRequestLog.ts`).
-- **Sessions are pre-minted.** Logging in inside the test would hit the 10/15min
-  limit at VU 11 and measure the limiter. `mint-sessions.mjs` collects cookies
-  out of band; they last 30 days.
+- **Sessions are pre-minted.** This predates the limiter fix, when logging in
+  inside the test would have hit the 10/15min ceiling at VU 11 and measured the
+  limiter instead of the app. It is still worth keeping: a run that spends its
+  first 20 iterations on PBKDF2 measures registration cost, not steady-state
+  traffic. `mint-sessions.mjs` collects cookies out of band; they last 30 days.
 - **The target is the Worker origin**
   (`https://studyplanner-api.ben-tischberger.workers.dev`), because that is what
   the deployed frontend calls. `VITE_API_BASE_URL` is baked into the Pages

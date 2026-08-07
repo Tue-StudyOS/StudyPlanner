@@ -23,6 +23,7 @@ from services.authentication import (
     get_current_user_profile,
     login_user,
     logout_user,
+    read_login_identifier,
     register_user,
     require_csrf_protection,
     update_current_user_profile,
@@ -52,7 +53,9 @@ from services.request_rate_limit import (
     CLIENT_ERROR_POLICY,
     FEEDBACK_POLICY,
     RateLimitError,
+    enforce_failed_attempt_limit,
     enforce_rate_limit,
+    record_failed_attempt,
 )
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.planner_assignments import (
@@ -324,8 +327,21 @@ async def route_request(request: Any, env: Any) -> Any:
             if method != "POST":
                 return _method_not_allowed_response(request, env)
 
-            await enforce_rate_limit(env, request, AUTH_LOGIN_POLICY)
-            auth_payload = await login_user(env, await read_json_object(request), request)
+            login_payload = await read_json_object(request)
+            login_identifier = read_login_identifier(login_payload)
+            await enforce_failed_attempt_limit(
+                env, request, AUTH_LOGIN_POLICY, identifier=login_identifier
+            )
+            try:
+                auth_payload = await login_user(env, login_payload, request)
+            except AuthenticationError:
+                # Only a genuinely wrong credential costs budget. A 5xx from a
+                # wedged isolate, and the retries it provokes, must not lock the
+                # account out of an outage it did not cause.
+                await record_failed_attempt(
+                    env, request, AUTH_LOGIN_POLICY, identifier=login_identifier
+                )
+                raise
             return _new_session_response(auth_payload, request, env)
 
         if path == "/api/auth/logout":

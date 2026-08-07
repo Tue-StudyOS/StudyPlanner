@@ -17,8 +17,11 @@ backend/src/services/authentication.py produces:
 
   * user_auth  — username/email/password_hash/password_salt. The hash format is
     PBKDF2-HMAC-SHA256 at PASSWORD_PBKDF2_ITERATIONS, hex-encoded, exactly as
-    _hash_password() computes it. If that constant ever changes, logins for
-    these accounts break until this script is re-run.
+    backend/src/password_hashing.py computes it. The Worker derives the same
+    digest through WebCrypto rather than hashlib, which is byte-for-byte
+    identical for these parameters — so hashes written here verify there. If the
+    iteration count ever changes, logins for these accounts break until this
+    script is re-run.
   * user_state — display name plus the supported PO 2021 study program and its
     default regulation version, resolved by subselect. login_user() would
     backfill a bare user_state row on its own, but seeding the study program
@@ -54,8 +57,8 @@ DEFAULT_COUNT = 20
 DEFAULT_ACCOUNT_TEMPLATE = "loadtest-{index:02d}@example.com"
 
 # Must stay in sync with PASSWORD_PBKDF2_ITERATIONS in
-# backend/src/services/authentication.py — a mismatch produces accounts that
-# exist but can never log in.
+# backend/src/password_hashing.py — a mismatch produces accounts that exist but
+# can never log in.
 PASSWORD_PBKDF2_ITERATIONS = 310_000
 
 # Mirrors SUPPORTED_REGULATION_SOURCE_STATUS / SUPPORTED_REGULATION_PO_VERSION.
@@ -64,7 +67,7 @@ SUPPORTED_PO_VERSION = "2021"
 
 
 def hash_password(password: str, salt_hex: str) -> str:
-    """Hash exactly as authentication._hash_password does."""
+    """Hash exactly as password_hashing.hash_password_hex does."""
     password_hash = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),

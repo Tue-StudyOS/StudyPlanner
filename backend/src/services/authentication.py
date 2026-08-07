@@ -10,9 +10,9 @@ from typing import Any
 from db.d1 import execute, fetch_one
 from env_config import get_env_value
 from http_utils import get_request_header
+from password_hashing import PASSWORD_PBKDF2_ITERATIONS, hash_password_hex
 from services.user_data import dumps_json, ensure_user_progress, ensure_user_state, now_unix, parse_json_object
 
-PASSWORD_PBKDF2_ITERATIONS = 310_000
 DEFAULT_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 AUTH_TOKEN_MAX_CLOCK_SKEW_SECONDS = 60
 AUTH_COOKIE_NAME = 'studyplanner_session'
@@ -89,20 +89,13 @@ def _get_auth_token_secret(env: Any) -> str:
     return token_secret
 
 
-def _hash_password(password: str, salt_hex: str) -> str:
-    salt_bytes = bytes.fromhex(salt_hex)
-    password_hash = hashlib.pbkdf2_hmac(
-        'sha256',
-        password.encode('utf-8'),
-        salt_bytes,
-        PASSWORD_PBKDF2_ITERATIONS,
-    )
-    return password_hash.hex()
+async def _hash_password(password: str, salt_hex: str) -> str:
+    return await hash_password_hex(password, salt_hex, PASSWORD_PBKDF2_ITERATIONS)
 
 
-def _create_password_hash(password: str) -> tuple[str, str]:
+async def _create_password_hash(password: str) -> tuple[str, str]:
     salt_hex = secrets.token_hex(16)
-    return _hash_password(password, salt_hex), salt_hex
+    return await _hash_password(password, salt_hex), salt_hex
 
 
 def _base64url_encode(value: bytes) -> str:
@@ -484,7 +477,7 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
     if email != username and await _get_user_by_identifier(env, email) is not None:
         raise RegistrationError('An account already exists for this email or username.')
 
-    password_hash, password_salt = _create_password_hash(password)
+    password_hash, password_salt = await _create_password_hash(password)
     current_unix = now_unix()
 
     await execute(
@@ -561,19 +554,28 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
     }
 
 
-async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
-    del request
+def read_login_identifier(payload: dict[str, Any]) -> Any:
+    """Return the account a login body is aimed at, whichever field carries it.
+
+    The router needs the same answer as login_user so that failed attempts are
+    charged against the account actually being tried, not against a fallback key.
+    """
     raw_identifier = payload.get('identifier')
     if raw_identifier in (None, ''):
         raw_identifier = payload.get('email') or payload.get('username')
-    identifier = _validate_login_identifier(_safe_text(raw_identifier))
+    return raw_identifier
+
+
+async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
+    del request
+    identifier = _validate_login_identifier(_safe_text(read_login_identifier(payload)))
     password = _validate_password(payload.get('password'))
 
     user_row = await _get_user_by_identifier(env, identifier)
     if user_row is None:
         raise AuthenticationError('Invalid credentials.')
 
-    expected_hash = _hash_password(password, str(user_row['passwordSalt']))
+    expected_hash = await _hash_password(password, str(user_row['passwordSalt']))
     if not hmac.compare_digest(str(user_row['passwordHash']), expected_hash):
         raise AuthenticationError('Invalid credentials.')
 
@@ -897,7 +899,7 @@ async def update_user_credentials(
     if user_row is None:
         raise CredentialUpdateError('User not found.')
 
-    expected_hash = _hash_password(current_password, str(user_row['passwordSalt']))
+    expected_hash = await _hash_password(current_password, str(user_row['passwordSalt']))
     if not hmac.compare_digest(str(user_row['passwordHash']), expected_hash):
         raise CredentialUpdateError('Current password is incorrect.')
 
@@ -918,7 +920,7 @@ async def update_user_credentials(
             new_password = _validate_password(payload.get('newPassword'))
         except RegistrationError as exc:
             raise CredentialUpdateError(str(exc)) from exc
-        pw_hash, pw_salt = _create_password_hash(new_password)
+        pw_hash, pw_salt = await _create_password_hash(new_password)
         auth_updates['password_hash'] = pw_hash
         auth_updates['password_salt'] = pw_salt
 

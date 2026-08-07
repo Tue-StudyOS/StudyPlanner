@@ -16,8 +16,12 @@ class RateLimitPolicy:
     window_seconds: int
 
 
-AUTH_LOGIN_POLICY = RateLimitPolicy('auth_login', maximum_requests=10, window_seconds=15 * 60)
-AUTH_REGISTRATION_POLICY = RateLimitPolicy('auth_registration', maximum_requests=5, window_seconds=60 * 60)
+# Login is limited per account and counts only failed attempts, so the ceiling
+# exists to slow password guessing rather than to shape traffic. It is kept
+# deliberately high: locking out a whole lecture hall behind one campus NAT is a
+# far more likely outcome than an actual brute-force attempt.
+AUTH_LOGIN_POLICY = RateLimitPolicy('auth_login', maximum_requests=500, window_seconds=15 * 60)
+AUTH_REGISTRATION_POLICY = RateLimitPolicy('auth_registration', maximum_requests=50, window_seconds=60 * 60)
 FEEDBACK_POLICY = RateLimitPolicy('feedback', maximum_requests=5, window_seconds=60 * 60)
 AI_CATALOG_POLICY = RateLimitPolicy('ai_catalog', maximum_requests=30, window_seconds=60)
 CLIENT_ERROR_POLICY = RateLimitPolicy('client_error', maximum_requests=30, window_seconds=60 * 60)
@@ -37,20 +41,36 @@ def _client_key(request: Any) -> str:
     return hashlib.sha256(client_ip.encode('utf-8')).hexdigest()
 
 
+def _account_key(request: Any, identifier: Any) -> str:
+    """Return a non-reversible storage key for the account being signed into.
+
+    Keying failed logins on the account rather than the client IP is what keeps
+    twenty students behind one campus NAT independent of each other. The prefix
+    keeps this key space disjoint from _client_key's.
+    """
+    normalized_identifier = str(identifier or '').strip().lower()
+    if not normalized_identifier:
+        # A request with no identifier can never authenticate; fall back to the
+        # IP so a flood of malformed bodies is still bounded.
+        return _client_key(request)
+    return hashlib.sha256(f'account:{normalized_identifier}'.encode('utf-8')).hexdigest()
+
+
 def _window_start(now_unix: int, window_seconds: int) -> int:
     return now_unix - (now_unix % window_seconds)
 
 
-async def enforce_rate_limit(
+def _retry_after_seconds(window_start_unix: int, policy: RateLimitPolicy, current_unix: int) -> int:
+    return max(1, window_start_unix + policy.window_seconds - current_unix)
+
+
+async def _increment_window(
     env: Any,
-    request: Any,
     policy: RateLimitPolicy,
-    *,
-    now_unix: int | None = None,
-) -> None:
-    """Atomically record a request and reject it once its fixed window is full."""
-    current_unix = int(time.time()) if now_unix is None else now_unix
-    window_start_unix = _window_start(current_unix, policy.window_seconds)
+    client_key: str,
+    window_start_unix: int,
+) -> int:
+    """Atomically add one request to the window and return the new count."""
     row = await fetch_one(
         env,
         """
@@ -65,9 +85,91 @@ async def enforce_rate_limit(
             END
         RETURNING request_count AS requestCount
         """,
-        [policy.scope, _client_key(request), window_start_unix],
+        [policy.scope, client_key, window_start_unix],
     )
-    request_count = int(row.get('requestCount', 0)) if row else 0
+    return int(row.get('requestCount', 0)) if row else 0
+
+
+async def _read_window_count(
+    env: Any,
+    policy: RateLimitPolicy,
+    client_key: str,
+    window_start_unix: int,
+) -> int:
+    """Return the count already recorded for this window, ignoring stale windows."""
+    row = await fetch_one(
+        env,
+        """
+        SELECT request_count AS requestCount
+        FROM request_rate_limits
+        WHERE scope = ? AND client_key = ? AND window_started_at_unix = ?
+        """,
+        [policy.scope, client_key, window_start_unix],
+    )
+    return int(row.get('requestCount', 0)) if row else 0
+
+
+async def enforce_rate_limit(
+    env: Any,
+    request: Any,
+    policy: RateLimitPolicy,
+    *,
+    now_unix: int | None = None,
+) -> None:
+    """Atomically record a request and reject it once its fixed window is full.
+
+    Every call costs budget, so this suits volume limits (feedback, AI, client
+    error reports) where the request itself is the thing being bounded. Login
+    uses the failed-attempt pair below instead.
+    """
+    current_unix = int(time.time()) if now_unix is None else now_unix
+    window_start_unix = _window_start(current_unix, policy.window_seconds)
+    request_count = await _increment_window(env, policy, _client_key(request), window_start_unix)
     if request_count > policy.maximum_requests:
-        retry_after_seconds = max(1, window_start_unix + policy.window_seconds - current_unix)
-        raise RateLimitError(retry_after_seconds)
+        raise RateLimitError(_retry_after_seconds(window_start_unix, policy, current_unix))
+
+
+async def enforce_failed_attempt_limit(
+    env: Any,
+    request: Any,
+    policy: RateLimitPolicy,
+    *,
+    identifier: Any,
+    now_unix: int | None = None,
+) -> None:
+    """Reject a login only once the account's window is full of failed attempts.
+
+    This read is deliberately non-charging. Attempts were previously counted
+    before authentication ran, so a server-side 5xx — and every client retry it
+    provoked — burned the same budget as a wrong password, and an outage locked
+    users out for the rest of the window. Pair it with record_failed_attempt().
+    """
+    current_unix = int(time.time()) if now_unix is None else now_unix
+    window_start_unix = _window_start(current_unix, policy.window_seconds)
+    failure_count = await _read_window_count(
+        env,
+        policy,
+        _account_key(request, identifier),
+        window_start_unix,
+    )
+    if failure_count >= policy.maximum_requests:
+        raise RateLimitError(_retry_after_seconds(window_start_unix, policy, current_unix))
+
+
+async def record_failed_attempt(
+    env: Any,
+    request: Any,
+    policy: RateLimitPolicy,
+    *,
+    identifier: Any,
+    now_unix: int | None = None,
+) -> None:
+    """Charge one failed authentication against the account's window."""
+    current_unix = int(time.time()) if now_unix is None else now_unix
+    window_start_unix = _window_start(current_unix, policy.window_seconds)
+    await _increment_window(
+        env,
+        policy,
+        _account_key(request, identifier),
+        window_start_unix,
+    )
