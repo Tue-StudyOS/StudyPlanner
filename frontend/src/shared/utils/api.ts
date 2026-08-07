@@ -60,99 +60,132 @@ export function createLegacyBearerHeaders(token: string | null | undefined): Hea
   return { Authorization: `Bearer ${token}` }
 }
 
+const RETRY_SAFE_METHODS = new Set(['GET', 'HEAD'])
+const MAX_ATTEMPTS = 3
+const RETRY_BACKOFF_MS = 300
+
+/**
+ * A Python isolate that faults with the workerd GIL race (cloudflare/workerd#6624)
+ * hangs that one request and then serves the next one normally, so a single
+ * retry turns a visible error into a little extra latency. Status 0 is a
+ * transport failure, which behaves the same way.
+ *
+ * Only methods that are safe to repeat are retried; a POST that timed out may
+ * still have been applied server-side.
+ */
+export function isRetryableFailure(method: string, status: number): boolean {
+  return RETRY_SAFE_METHODS.has(method.toUpperCase()) && (status === 0 || status >= 500)
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+}
+
+interface RequestFailure {
+  status: number
+  code?: string
+  message: string
+  detail?: string
+}
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const apiBaseUrl = getApiBaseUrl()
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const requestUrl = `${apiBaseUrl}${normalizedPath}`
   const method = init?.method ?? 'GET'
-  const startedAt = Date.now()
-  let response: Response
 
-  try {
-    response = await fetch(requestUrl, {
-      ...init,
-      credentials: init?.credentials ?? 'include',
-    })
-  } catch (cause) {
-    const detail = cause instanceof Error ? cause.message : String(cause)
-    appendApiRequestLog({
-      timestamp: Date.now(),
-      method,
-      url: requestUrl,
-      status: 0,
-      code: 'network_error',
-      message: 'Network request failed',
-      detail,
-      durationMs: Date.now() - startedAt,
-    })
-    reportClientErrorToServer({
-      method,
-      url: requestUrl,
-      status: 0,
-      code: 'network_error',
-      message: 'Network request failed',
-      detail,
-      durationMs: Date.now() - startedAt,
-    })
-    throw new ApiError(
-      'The service is temporarily unavailable. Please try again shortly.',
-      0,
-      'network_error',
-    )
-  }
+  for (let attempt = 1; ; attempt += 1) {
+    const startedAt = Date.now()
+    let response: Response | null = null
+    let failure: RequestFailure | null = null
 
-  if (!response.ok) {
-    let bodyText = ''
     try {
-      bodyText = await response.text()
-    } catch {
-      // Ignore unreadable bodies; the status-based fallback message is used.
+      response = await fetch(requestUrl, {
+        ...init,
+        credentials: init?.credentials ?? 'include',
+      })
+    } catch (cause) {
+      failure = {
+        status: 0,
+        code: 'network_error',
+        message: 'Network request failed',
+        detail: cause instanceof Error ? cause.message : String(cause),
+      }
     }
 
-    const { message, code } = parseApiErrorBody(bodyText, response.status)
+    if (response && !response.ok) {
+      let bodyText = ''
+      try {
+        bodyText = await response.text()
+      } catch {
+        // Ignore unreadable bodies; the status-based fallback message is used.
+      }
+      const { message, code } = parseApiErrorBody(bodyText, response.status)
+      failure = { status: response.status, code, message, detail: bodyText || undefined }
+    }
+
+    if (failure) {
+      // Every attempt is logged locally — the retries are themselves a signal —
+      // but only the final one is reported to the backend.
+      appendApiRequestLog({
+        timestamp: Date.now(),
+        method,
+        url: requestUrl,
+        status: failure.status,
+        code: failure.code,
+        message: failure.message,
+        detail: failure.detail,
+        durationMs: Date.now() - startedAt,
+      })
+
+      if (attempt < MAX_ATTEMPTS && isRetryableFailure(method, failure.status)) {
+        await delay(RETRY_BACKOFF_MS * attempt)
+        continue
+      }
+
+      reportClientErrorToServer({
+        method,
+        url: requestUrl,
+        status: failure.status,
+        code: failure.code,
+        message: failure.message,
+        detail: failure.detail,
+        durationMs: Date.now() - startedAt,
+      })
+      throw new ApiError(
+        failure.status === 0
+          ? 'The service is temporarily unavailable. Please try again shortly.'
+          : failure.message,
+        failure.status,
+        failure.code,
+      )
+    }
+
+    const okResponse = response as Response
     appendApiRequestLog({
       timestamp: Date.now(),
       method,
       url: requestUrl,
-      status: response.status,
-      code,
-      message,
-      detail: bodyText || undefined,
+      status: okResponse.status,
+      message: 'OK',
       durationMs: Date.now() - startedAt,
     })
-    reportClientErrorToServer({
-      method,
-      url: requestUrl,
-      status: response.status,
-      code,
-      message,
-      detail: bodyText || undefined,
-      durationMs: Date.now() - startedAt,
-    })
-    throw new ApiError(message, response.status, code)
-  }
 
-  appendApiRequestLog({
-    timestamp: Date.now(),
-    method,
-    url: requestUrl,
-    status: response.status,
-    message: 'OK',
-    durationMs: Date.now() - startedAt,
-  })
+    if (okResponse.status === 204) {
+      return undefined as T
+    }
 
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  const bodyText = await response.text()
-  try {
-    return JSON.parse(bodyText) as T
-  } catch {
-    throw new ApiError(
-      'Something went wrong on our side. Please try again shortly.',
-      response.status,
-      'invalid_json',
-    )
+    const bodyText = await okResponse.text()
+    try {
+      return JSON.parse(bodyText) as T
+    } catch {
+      throw new ApiError(
+        'Something went wrong on our side. Please try again shortly.',
+        okResponse.status,
+        'invalid_json',
+      )
+    }
   }
 }
