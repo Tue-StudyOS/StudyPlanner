@@ -38,15 +38,6 @@ export function TopBar() {
     </a>
   )
 
-  const betaButton = (
-    <Link
-      to={ROUTES.beta}
-      className="flex h-10 items-center justify-center rounded-md border border-white/10 bg-sidebar-hover px-2.5 text-[12px] font-semibold text-white/85 transition-colors hover:text-white sm:px-3"
-    >
-      Test UI
-    </Link>
-  )
-
   const themeToggleButton = (
     <button
       type="button"
@@ -94,7 +85,6 @@ export function TopBar() {
 
         {isMobileNavigation ? (
           <div className="flex min-w-0 shrink items-center gap-2">
-            {betaButton}
             {askGptButton}
             <HelpButton />
             {themeToggleButton}
@@ -139,7 +129,6 @@ export function TopBar() {
             </nav>
 
             <div className="flex min-w-0 shrink items-center gap-2">
-              {betaButton}
               {askGptButton}
               <HelpButton />
               {themeToggleButton}
