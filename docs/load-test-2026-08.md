@@ -653,6 +653,69 @@ longer locks anyone out of their account.
 
 ---
 
+## The capacity ceiling: 40 VUs took production down, and it stayed down
+
+**Run 5 (2026-08-08, 40 VUs, 8 min) caused a real production outage.** This was
+run against production deliberately and the consequence was not anticipated;
+recording it in full because it is the most operationally significant result of
+the whole exercise.
+
+### What happened
+
+At 12:56:19, ~8 minutes in, **every VU began failing at once** — vu=1, 3, 5, 7,
+9, 11, 12, 14, 15, 16, 21, 24, 26, 27, 31, 34, 37 within a 15-second window.
+This is categorically not the connection-scoped mode below; it is global.
+
+```
+[scenario] 500 GET /api/catalog/courses vu=7  iter=6  attempts=3 isolate=(none)/seq?/age? body=error code: 1101
+[scenario] 500 GET /api/auth/session    vu=34 iter=12 attempts=3 isolate=(none)/seq?/age?
+                                        lastHealthy=90ecae11e9bfb312/seq125/age751378
+```
+
+- **`error code: 1101`** — Cloudflare's "Worker threw an exception" page, not a
+  JSON error from the app.
+- **`isolate=(none)`** — no `x-isolate-*` headers, so execution never reached
+  header construction. The Worker died during Python start-up.
+- **`attempts=3`** — the retry policy exhausted itself against it.
+- The last healthy isolates were old and productive: seq 125 at 751 s, seq 188 at
+  535 s, seq 68 at 546 s. So healthy isolates were being reused heavily right up
+  to the failure.
+
+### It did not recover on its own
+
+After the load stopped, production kept alternating almost exactly:
+
+```
+1: 200  x-isolate-id: 1d8ded6e05e6fdc9      2: 500  error code: 1101
+3: 200  x-isolate-id: 221cd42aa842005a      4: 500  error code: 1101
+5: 200  x-isolate-id: 6bb6bc12bf71b97b      6: 500  error code: 1101
+```
+
+**Every success carried a different isolate id** — zero reuse — and roughly every
+other *isolate spawn* failed Pyodide initialisation. The Worker was not
+overloaded at this point; there was no load. It was stuck in a state where new
+isolates could not reliably start.
+
+`wrangler deploy` cleared it immediately (8/8 clean afterwards). That matches the
+existing operational note that production 500s are unwedged by a redeploy — and
+it means **the historical production 500s users have reported are most likely
+this mode**, not the connection-scoped one.
+
+### Why this matters more than anything else in this report
+
+- **There is a concurrency ceiling between 20 and 40 users.** 20 VUs is fine
+  across four runs. 40 VUs broke it.
+- **Exceeding the ceiling is not self-limiting.** It does not shed load and
+  recover; it degrades and stays degraded until someone redeploys by hand.
+- **This is exactly the original scenario.** The plan was written around "twenty
+  students in a lecture". Twenty is fine. A full lecture hall is not, and the
+  failure mode is a manual-intervention outage.
+
+**Not yet established:** where between 20 and 40 the ceiling sits, whether it is
+concurrency or total isolate count that matters, and whether the trigger is
+memory. A bisect (25, 30, 35 VUs) would find it — **but not against production.**
+Staging (`studyplaner-api`) runs the same build and should be used for this.
+
 ## Root cause: a connection pinned to a wedged isolate
 
 The failure model assumed until now — "a race in isolate re-use, scattering ~5 %
