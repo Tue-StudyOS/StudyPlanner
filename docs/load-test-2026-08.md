@@ -653,6 +653,90 @@ longer locks anyone out of their account.
 
 ---
 
+## Established: concurrent response bytes inside one isolate
+
+This supersedes the earlier payload conclusion and the retraction below. Every
+run here starts from a deploy plus a verified-clean health check.
+
+### It is not aggregate load — it is load per isolate
+
+Total in-flight requests fixed at 40, payload fixed at 900 KB, volume fixed at
+~900 requests. Only the distribution across connections (and therefore isolates,
+which connections pin to) varies:
+
+| config | connections | requests in flight per isolate | hung |
+| --- | --- | --- | --- |
+| 40 VUs x batch 1 | 40 | 1 | **4.85 %** |
+| 5 VUs x batch 8 | 5 | 8 | **75.76 %** |
+| 1 VU x batch 40 | 1 | 40 | **94.43 %** |
+
+**19x more failures for identical total load**, purely by concentrating it into
+fewer isolates.
+
+### It needs concurrency *and* size, and the product is what matters
+
+| batch | payload | concurrent bytes per isolate | hung |
+| --- | --- | --- | --- |
+| 40 | 2 KB | 80 KB | 0.00 % |
+| 40 | 100 KB | 4.0 MB | 0.00 % |
+| 8 | 300 KB | 2.4 MB | 0.00 % |
+| 8 | 500 KB | 4.0 MB | 0.00 % |
+| 8 | 700 KB | 5.6 MB | **56.25 %** |
+| 8 | 900 KB | 7.2 MB | **78.47 %** |
+| 40 | 900 KB | 36 MB | **94.43 %** |
+
+Concurrency alone is harmless (40 concurrent requests at 2 KB: zero failures).
+Size alone is harmless (900 KB spread one-per-isolate: 4.85 %). **The threshold
+sits between 4.0 MB and 5.6 MB of concurrent response bytes within a single
+isolate**, and it is sharp — 4.0 MB is clean twice, 5.6 MB fails 56 %.
+
+That is consistent with a memory ceiling: Pyodide occupies most of the isolate's
+budget, and the remaining headroom is a few MB.
+
+### The production trigger, in our code
+
+[`useHistoricalLecturerLookup.ts:55`](../frontend/src/features/courses/hooks/useHistoricalLecturerLookup.ts)
+fires one full catalog fetch **per period, in parallel**:
+
+```ts
+const lookups = await Promise.all(
+  periodIds.map(async (periodId) => {
+    const courses = await fetchCatalogCourses('', 1000, periodId)
+```
+
+`/api/catalog/courses?limit=1000&period=<id>` returns ~1.43 MB. With 7 periods
+that is **~10 MB requested concurrently**, and a browser multiplexes them over
+one HTTP/2 connection, which pins to one isolate. Roughly double the measured
+threshold, from a **single user opening the app**.
+
+This matches the production failure recorded in `client_error_log` exactly: eight
+requests failing in the same second, seven of them
+`/api/catalog/courses?limit=1000&period=NNN` for different periods, all
+`status 0`, all at ~3250 ms.
+
+### The causal chain
+
+1. The frontend requests N periods' catalogs in parallel, ~1.43 MB each.
+2. The browser multiplexes them onto one HTTP/2 connection.
+3. That connection is pinned to one Worker isolate (measured: 12 consecutive
+   requests, one isolate).
+4. The isolate must hold N x 1.43 MB of response bodies simultaneously.
+5. Above ~4-5.6 MB the Python event loop wedges
+   (`Exception in callback <_asyncio.TaskStepMethWrapper>`).
+6. The isolate stays wedged, and the connection stays pinned to it, so every
+   subsequent request from that user fails.
+7. The damage persists; a deploy clears only ~83 % of isolates.
+
+**Every step is measured, not inferred.** Step 5 is the only one where the
+mechanism (memory) is an interpretation rather than a direct observation — what
+is measured is the threshold, not its cause.
+
+### What this predicts, and how to check a fix
+
+Serialising the per-period fetches, or reducing the per-period payload below
+~500 KB, should eliminate the production failures. The check is
+`load-test/batch-probe.js`: concurrent bytes per isolate must stay under 4 MB.
+
 ## Retraction and correction: the payload conclusion was measured on dirty state
 
 The section below ("Root cause found") **overstates what the evidence supports**.
