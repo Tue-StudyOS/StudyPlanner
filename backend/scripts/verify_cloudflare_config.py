@@ -2,9 +2,22 @@ from __future__ import annotations
 
 import json
 import sys
-import tomllib
 from pathlib import Path
 from typing import Any
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11; tomli is the same parser, backported.
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError as exc:
+        # This runs as predeploy:backend. A bare ImportError here aborts the
+        # deploy before a single check runs, which reads like a broken script
+        # rather than a missing dependency.
+        raise SystemExit(
+            'verify_cloudflare_config needs a TOML parser: use Python 3.11+ '
+            '(stdlib tomllib) or run `pip install tomli`.'
+        ) from exc
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
