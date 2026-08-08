@@ -3,6 +3,7 @@ import type { CatalogPeriod, CompletedCourse } from '../types.ts'
 import { fetchCatalogCourses } from '../api.ts'
 import { findCatalogPeriodForSemesterLabel } from '../utils/periods.ts'
 import { buildPeriodLecturerLookup, mergePeriodLecturerLookups } from '../utils/completedCourseLecturer.ts'
+import { mapWithConcurrency } from '../../../shared/utils/mapWithConcurrency.ts'
 
 interface LookupState {
   cacheKey: string
@@ -52,12 +53,15 @@ export function useHistoricalLecturerLookup(
 
     async function loadHistoricalLecturers(): Promise<void> {
       try {
-        const lookups = await Promise.all(
-          periodIds.map(async (periodId) => {
-            const courses = await fetchCatalogCourses('', 1000, periodId)
-            return buildPeriodLecturerLookup(periodId, courses)
-          }),
-        )
+        // Bounded rather than Promise.all: each period returns ~1.43 MB, and
+        // requesting all of them at once put ~10 MB of concurrent response
+        // bodies into a single backend isolate, which hung it and every later
+        // request on the same connection. Two in flight is ~2.9 MB, under the
+        // ~4 MB measured threshold. See docs/load-test-2026-08.md.
+        const lookups = await mapWithConcurrency(periodIds, 2, async (periodId) => {
+          const courses = await fetchCatalogCourses('', 1000, periodId)
+          return buildPeriodLecturerLookup(periodId, courses)
+        })
         if (cancelled) {
           return
         }
