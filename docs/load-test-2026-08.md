@@ -179,6 +179,30 @@ limit/period keys all returned the right course counts, so keys do not collide.
 > builds staging hosted that day, but it is recorded here because it was not
 > positively explained.
 
+### What is still over the line
+
+The cache only helps the public catalog. Per-user endpoints cannot be cached this
+way — the data is user-specific and changes on edit, so stale answers would be a
+correctness bug rather than a slow response. Measured on **production** (staging
+cannot validate production-minted sessions; the two Workers have different
+`AUTH_TOKEN_SECRET`s, which is why `/api/me/*` returns 401 there while the public
+catalog still answers):
+
+| endpoint | CPU | isolate dies after |
+| --- | --- | --- |
+| `/api/me/progress` | **81 ms** | ~28 requests |
+| `/api/me/favorites` | **57 ms** | ~42 requests |
+| `/api/me/semester-plans` | 9 ms | never |
+| `/api/study-programs` | 4 ms | never |
+
+A single user's first load now costs roughly 18 ms (catalog, cached) + 81 + 57 +
+small change ≈ **160 ms of debt**, so one isolate still tolerates only about a
+dozen first loads. That is far better than the five it managed before, but it is
+not "fixed" — it is the same arithmetic with a bigger constant.
+
+`/api/me/progress` issues ~7 sequential D1 queries; batching them and trimming the
+per-row work is the obvious next lever if the account stays on Free.
+
 ### Contamination control (important)
 
 A dead isolate can outlive a deploy, and a live one carries whatever debt earlier
