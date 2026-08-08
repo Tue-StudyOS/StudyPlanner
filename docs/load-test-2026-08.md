@@ -653,7 +653,79 @@ longer locks anyone out of their account.
 
 ---
 
-## Root cause found: serialising a large response body in Python
+## Retraction and correction: the payload conclusion was measured on dirty state
+
+The section below ("Root cause found") **overstates what the evidence supports**.
+Follow-up experiments with a reset between runs contradict it. Read this first.
+
+### The measurement error
+
+Probes were run back to back without resetting the Worker, and **this fault
+persists and accumulates**. Every comparison across consecutive runs was
+therefore contaminated by damage from the previous run.
+
+How bad: a payload sweep at fixed 45 VUs, run consecutively, produced
+
+| payload | hung |
+| --- | --- |
+| 100 KB | 95.67 % |
+| 300 KB | 95.07 % |
+| 600 KB | 95.84 % |
+
+Flat at ~95 % regardless of size, and *lower* at 900 KB (38 %) than at 100 KB.
+That is not a dose-response, it is a worker that was already broken. Confirmed
+directly: with **no load at all**, staging then served 5 of 6 requests as 500.
+
+### What survives, with a reset before each run
+
+| payload | mode | hung |
+| --- | --- | --- |
+| 10 KB | build | **0.00 %** (0/729) |
+| 100 KB | build | 0.55 % (4/732) |
+| 900 KB | build | 5.36 % (36/672) |
+| 900 KB | cached | 13.43 % (92/685) |
+
+A real dose-response with a clean zero floor — so **payload size does
+contribute**. But the magnitude is ~5 %, not the ~95 % the dirty runs suggested.
+
+**Caching the serialised body is not a fix — it is worse** (13.43 % vs 5.36 % at
+the same size). Cached responses are faster, so throughput rises and more bytes
+are in flight, and each isolate additionally retains ~1 MB permanently. This
+falsifies the cheapest proposed fix, which was to memoise the catalog body.
+
+### What actually dominates: progressive, persistent degradation
+
+One deploy, then three consecutive 45 VU runs with no reset between them:
+
+| run | requests | 5xx | user-visible |
+| --- | --- | --- | --- |
+| 1 | 1861 | 835 (44.9 %) | 349 |
+| 2 | 2034 | 1094 (53.8 %) | 441 |
+| 3 | 2577 | 2044 (79.3 %) | 823 |
+
+It gets monotonically worse, and it does not recover on its own. This is a much
+larger effect than payload size and is the thing worth explaining.
+
+### The methodological wall
+
+Two runs with **identical** configuration (45 VUs, 3 min, fresh deploy, health
+check passed) produced 0 failures and 835 failures. The difference was what had
+happened *before* the deploy.
+
+`wrangler deploy` does **not** immediately evict running isolates, and a health
+check of five sequential requests only touches one or two of them. So "deploy,
+see 200s, start measuring" is not a reset, and every cross-run comparison in this
+document that relies on one is suspect — including the probe 1 / probe 2 /
+probe 3 bisect below.
+
+**A validated reset procedure is a prerequisite for any further conclusion.**
+Candidates: wait for isolate rotation after deploy (duration unknown); verify
+with a wide concurrent burst rather than sequential requests, so many isolates
+are sampled; or find a way to force eviction. Until one exists and is shown to
+produce repeatable clean baselines, further A/B runs will keep producing
+contradictions like the one above.
+
+## Superseded: "root cause found" — serialising a large response body in Python
 
 Bisected on the staging Worker (`studyplaner-api`), same compatibility date and
 same Pyodide build as production, 45 VUs for 5 minutes each.

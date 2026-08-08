@@ -217,9 +217,20 @@ function collectCourseIds(response) {
 // cached catalog after the first load.
 let cachedCourseIds = []
 
+/**
+ * `-e SKIP_CATALOG=1` drops the catalog list endpoint, the 1.43 MB response.
+ * Everything else stays identical, so comparing two runs isolates that one
+ * payload as the cause of the hangs rather than inferring it from a synthetic
+ * probe. See docs/load-test-2026-08.md.
+ */
+const SKIP_CATALOG = __ENV.SKIP_CATALOG === '1'
+
 function runSteps(steps, session) {
   for (const step of steps) {
     const pathWithoutQuery = step.path.split('?')[0]
+    if (SKIP_CATALOG && pathWithoutQuery === '/api/catalog/courses') {
+      continue
+    }
     const isWrite = step.method !== 'GET' && step.method !== 'HEAD'
     const body = isWrite ? buildWriteBody(cachedCourseIds) : null
 
