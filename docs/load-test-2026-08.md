@@ -712,11 +712,25 @@ Two runs with **identical** configuration (45 VUs, 3 min, fresh deploy, health
 check passed) produced 0 failures and 835 failures. The difference was what had
 happened *before* the deploy.
 
-`wrangler deploy` does **not** immediately evict running isolates, and a health
-check of five sequential requests only touches one or two of them. So "deploy,
-see 200s, start measuring" is not a reset, and every cross-run comparison in this
-document that relies on one is suspect — including the probe 1 / probe 2 /
+**A deploy is a partial reset — measured, not assumed.** Sampling `x-isolate-id`
+across 18 requests before a deploy and 20 after:
+
+| | distinct isolates |
+| --- | --- |
+| before | 12 |
+| after | 14 |
+| **present in both** | **2** (`c0861e58…`, `fcc0210a…`) |
+
+The ids are 64-bit random values generated per isolate, so these are the same
+isolates, not collisions. About 17 % survived in this sample. So "deploy, see
+200s, start measuring" does not guarantee a clean slate, and cross-run
+comparisons relying on it are suspect — including the probe 1 / probe 2 /
 probe 3 bisect below.
+
+**But 17 % survival does not by itself explain 0 versus 835 failures** under
+identical configuration. Either damaged isolates draw a disproportionate share of
+traffic, or something beyond isolate carry-over is involved. That gap is
+unresolved, and it is the reason no further conclusion is drawn here.
 
 **A validated reset procedure is a prerequisite for any further conclusion.**
 Candidates: wait for isolate rotation after deploy (duration unknown); verify
