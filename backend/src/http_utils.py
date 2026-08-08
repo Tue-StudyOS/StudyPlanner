@@ -70,7 +70,15 @@ def json_response(
     if extra_headers:
         headers.update(extra_headers)
 
-    body = json.dumps(payload, ensure_ascii=False)
+    # Encoded here rather than handed over as `str`. Returning a Python string
+    # makes Pyodide convert it at the JS boundary, and that conversion dominates
+    # this Worker's CPU: measured on the real catalog endpoint, a ~500 KB
+    # response cost 98.6 ms of CPU as a `str` and the same bytes cost a small
+    # fraction of that pre-encoded. Since an isolate is killed (1102) once it has
+    # burned roughly two seconds of CPU in total, and then serves 1101s to
+    # everything routed to it afterwards, that conversion was the app's main
+    # source of production 5xx. See docs/load-test-2026-08.md.
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     return Response(body, status=status, headers=headers)
 
 

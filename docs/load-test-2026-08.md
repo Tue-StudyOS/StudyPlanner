@@ -3,71 +3,115 @@
 > **HANDOFF — read this first.** The sections below are a chronological record and
 > contain claims that were later retracted. This block is the current state.
 
-## Where the investigation stands (2026-08-08)
+## Where the investigation stands (2026-08-08, second session)
 
 **Goal:** find and fix the cause of production 5xx so the app is dependable for
 multiple concurrent users.
+
+**Headline:** the fault is **CPU**, not payload size, concurrency, or memory. An
+isolate that does sustained CPU-heavy work is killed with `exceededCpu` (HTTP
+1102) and is then *permanently* dead — every later request routed to it returns
+1101 `code had hung` with 0–2 ms CPU. The app's dominant CPU cost was handing
+JSON response bodies to the runtime as Python `str`, which Pyodide converts at
+the JS boundary at roughly **112 ms of CPU per MB**.
 
 ### Established, with measurements
 
 | Finding | Evidence |
 | --- | --- |
-| A keep-alive connection pins to one isolate | 12 consecutive requests, one `x-isolate-id`, then rotation |
-| A deploy is only a **partial** reset | 12 distinct isolates before, 14 after, **2 present in both** |
-| The fault is **concurrent response bytes within one isolate**, not aggregate load | 40 in-flight fixed: 40 connections 4.85 %, 5 connections 75.76 %, 1 connection 94.43 % |
-| It needs concurrency **and** size | 40 concurrent x 2 KB = 0 %; 900 KB one-per-isolate = 4.85 % |
-| Minimal-probe threshold | 4.0 MB clean, 5.6 MB 56 % hung, 7.2 MB 78 % |
-| **Real-app threshold is ~4x lower** | 2 concurrent catalog fetches (~1.1 MB) = **30 % hung** |
-| Failure signature | `code had hung`; logs `Exception in callback <_asyncio.TaskStepMethWrapper>`; cpuTime 0-2 ms; no `x-isolate-*` headers |
-| Damage persists and accumulates | consecutive runs 44.9 % -> 53.8 % -> 79.3 %, no self-recovery |
-| Production trigger | `useHistoricalLecturerLookup` fetched every period's catalog via unbounded `Promise.all`; matches the `client_error_log` cluster of 7 simultaneous per-period failures |
+| Sequential requests pin to one isolate; the **first concurrent batch forks** to a second, then sticks | 30/30 one isolate sequentially; batch 0 split 1/5, batches 1–4 all on the new one |
+| Returning a body as `str` costs ~112 ms CPU per MB | 2 MB probe: 193 ms as `str` |
+| Returning the **same bytes pre-encoded** is ~4x cheaper | same probe: 44 ms (`.encode()` first); real catalog 98.6 ms -> 67.7 ms |
+| Building the payload is cheap; **sending** it is the cost | 4 MB built and discarded: 33 ms, survived 60 rounds. 4 MB sent: ~480 ms, dead in 5 |
+| The kill is `exceededCpu` / 1102, and the victim signature is different | causing request: `exceededCpu`; every later request on that isolate: `code had hung`, cpu 0–2 ms |
+| **A response body is not required at all** | pure arithmetic at 136 ms/req died at round 10 (1906 ms cumulative) |
+| Per-**request** CPU cap is 2020 ms | an accidental infinite loop hit exactly `cpu=2020ms` on every repetition |
+| Idle time does **not** restore capacity | gap 0 ms -> died round 10; gap 5000 ms -> died rounds 7 and 11; gap 3000 ms -> round 12 |
+| A dead isolate poisons its connection permanently | after the kill, even 1 KB requests fail forever on that connection |
 
-Per-period catalog payload is **~530 KB** (`period=all` is 1.43 MB). A course
-object is ~1.2 KB across ~30 fields.
+Deaths cluster near **~1.9–2.4 s of cumulative CPU on one isolate** whenever
+per-request CPU is high (≥ ~66 ms):
 
-### Retracted — do not rebuild on these
+| workload | CPU/request | died at round | cumulative CPU |
+| --- | --- | --- | --- |
+| probe 4000 KB `str` | ~480 ms | 5 | ~2400 ms |
+| probe 2000 KB `str` | 193 ms | 10–11 | 2123 ms |
+| pure CPU spin, no body | 136 ms | 10 | 1906 ms |
+| real catalog, `str` | 98.6 ms | 23 | 2268 ms |
+| real catalog, pre-encoded | 67.7 ms | 33 | 2234 ms |
 
-- **"It's cloudflare/workerd#6624 / the GIL fault."** That issue describes a
-  different mode; `GIL` and `PyProxy` appear zero times in our captures.
-- **"p95 is a flat ~2.5 s, so Pyodide start-up is a chronic per-request cost."**
-  Artefact of measuring minutes after a deploy. Settled p95 is ~300 ms.
-- **"Not our code."** Wrong; inferred from 0-1 ms CPU. The victim request and the
-  causing requests are different requests.
-- **"Root cause is serialising a large body in Python"** (commit `d03dfe2`).
-  Measured on dirty state.
-- **Caching the serialised body is not a fix** — it is worse (13.43 % vs 5.36 %).
+…but low-CPU workloads **exceed that and survive**, which no single threshold
+explains:
+
+| workload | CPU/request | outcome |
+| --- | --- | --- |
+| `/health` | 2.9 ms | 1400 requests, one isolate, **3603 ms**, no failure |
+| probe 2000 KB pre-encoded | 44 ms | 120 rounds, **249 MB**, ~5.3 s, no failure |
+
+### Falsified this session — do not rebuild on these
+
+- **"The fault is concurrent response bytes within one isolate."** A single
+  sequential stream kills an isolate just as well (batch=1, 4 MB, dead in 5), and
+  pure CPU with no body kills it too.
+- **"It needs concurrency and size."** Neither is required.
+- **Isolate memory / total resident bytes.** Ballast of 0/16/32/64 MB moved the
+  threshold not at all (7.0 MB concurrent in every condition, heap verified at
+  49.9/59.9/103.5 MB). Separately an isolate tolerated **179 MB** of resident
+  ballast before dying.
+- **A fixed per-isolate lifetime CPU budget.** Predicted death at round ~690 for
+  `/health`; it survived 1400 rounds and 3603 ms.
+- **Cumulative bytes sent.** Pre-encoded mode served 249 MB and survived, while
+  `str` mode died at 21.5 MB.
+- **A CPU rate / duty-cycle limit.** A 4 % duty cycle died as fast as 92 %.
+- **"Probe thresholds don't transfer / the real app is ~4x more fragile."** The
+  earlier probe numbers were measured with a broken protocol — see below.
+
+### Still open
+
+The exact accounting rule that decides *when* the runtime kills an isolate. High
+per-request CPU dies at ~2 s cumulative; low per-request CPU survives well past
+it. Memory, bytes, duty cycle, flat CPU budget and per-request size are all
+falsified. **The fix does not depend on resolving this** — lowering CPU per
+request moves the app from the dying regime into the surviving one.
 
 ### Traps that invalidated real work here
 
-1. **A health gate must abort, not warn.** Mine retried 6x then proceeded anyway,
-   so runs started dirty and produced 100 %-hung results with `med=0ms`.
-2. **Never compare runs without a verified clean start.** Damage carries over.
-3. **After a deploy, stale isolates briefly serve the old code.** Verify the new
-   version is actually live before measuring.
-4. **Probe thresholds do not transfer to the real app.** Measure in situ.
+1. **A health gate must abort, not warn** — now enforced by `health-gate.mjs`.
+   Beware `gate | tail`: the pipe masks the exit code and `&&` will not stop.
+2. **Priming an isolate then measuring on a batch measures a different isolate**,
+   because the first concurrent batch forks. Re-assert per-isolate state on
+   *every* request and verify it in the response headers. This invalidated the
+   first ballast run, which returned a meaningless flat result.
+3. **After a deploy, stale isolates briefly serve the old code**, and a deploy is
+   only a partial reset. Verify the version before measuring.
+4. **`time.monotonic()` never advances inside a Worker** — time is frozen between
+   I/O as a timing-attack mitigation, so a clock-bounded loop runs forever.
+5. **Git Bash rewrites `--path /health`** into a Windows path. Use
+   `MSYS_NO_PATHCONV=1`.
 
 ### Next steps
 
-1. Fix the health gate so it aborts; re-measure the real-app threshold with it.
-2. Set `mapWithConcurrency`'s limit from that number. **The shipped limit of 2 is
-   likely too high** — 2 concurrent period fetches is ~1.1 MB, the configuration
-   that hung 30 %. Limit 1 may be required.
-3. Consider the server-side fix: the lecturer lookup needs only `id` and
-   `lecturer`, so a projection or dedicated endpoint would cut ~530 KB to ~20 KB
-   and remove the fragility rather than route around it.
-4. Open question: why is the real app's headroom so much smaller than the
-   minimal probe's? Untested guess is resident memory (28 modules, D1).
+1. Cut CPU per request further. The catalog endpoint is still ~67.7 ms and still
+   in the dying regime (dead at round 33). `useHistoricalLecturerLookup` needs
+   only `id` and `lecturer`, so a projection would cut ~530 KB to ~20 KB.
+2. Re-derive `mapWithConcurrency`'s limit once that lands. Concurrency is **not**
+   the trigger, so the earlier reasoning for lowering it to 1 no longer applies.
+3. Deploy the `json_response` fix to production (verified on staging only).
 
 ### Tools
 
-- `load-test/batch-probe.js` — `BATCH`, `VUS`, `KB`, `PROBE_ORIGIN`, `PROBE_PATH`.
-  Varying `BATCH` at fixed `VUS` isolates intra-isolate concurrency.
-- `load-test/payload-probe/` — standalone Python Worker, `/?kb=N&mode=build|cached`.
-  Deploy over staging (`studyplaner-api`), restore with `wrangler deploy --name studyplaner-api` from `backend/`.
-- `load-test/scenario.js` — `SKIP_CATALOG=1` drops the large payload.
-- `x-isolate-id` / `x-isolate-seq` / `x-isolate-age-ms` response headers
-  ([`isolate_identity.py`](../backend/src/isolate_identity.py)).
-- Workers observability is enabled; errors group under fingerprint `df7a881e9b7fba95fcdb4776fd36e90b`.
+- `load-test/health-gate.mjs` — aborting preflight; exits non-zero.
+- `load-test/isolate-probe.mjs` — one HTTP/2 session = one isolate. Commands:
+  `heap`, `isolate-map`, `ramp-ballast`, `threshold`, `ballast-effect`, `shape`,
+  `single-shot`, `cumulative`, `autopsy`. Supports `--auth 1` (reuses
+  `sessions.json`) and `--path` so it can drive the real backend.
+- `load-test/payload-probe/` — Python Worker: `/?kb=N&mode=build|cached|bytes`,
+  `&discard=1`, `&ballast_mb=N`, `&spin_k=N`, `/heap`. Deploy over staging
+  (`studyplaner-api`); restore with `wrangler deploy --name studyplaner-api` from
+  `backend/`.
+- Correlate with `npx wrangler tail studyplaner-api --format json` — `cpuTime`
+  and `outcome` are what actually distinguish the failure modes.
+- `x-isolate-id` / `x-probe-*` response headers.
 
 ### Caveat on production data
 
