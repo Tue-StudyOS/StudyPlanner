@@ -1,5 +1,83 @@
 # Load test: ~20 concurrent users (August 2026)
 
+> **HANDOFF — read this first.** The sections below are a chronological record and
+> contain claims that were later retracted. This block is the current state.
+
+## Where the investigation stands (2026-08-08)
+
+**Goal:** find and fix the cause of production 5xx so the app is dependable for
+multiple concurrent users.
+
+### Established, with measurements
+
+| Finding | Evidence |
+| --- | --- |
+| A keep-alive connection pins to one isolate | 12 consecutive requests, one `x-isolate-id`, then rotation |
+| A deploy is only a **partial** reset | 12 distinct isolates before, 14 after, **2 present in both** |
+| The fault is **concurrent response bytes within one isolate**, not aggregate load | 40 in-flight fixed: 40 connections 4.85 %, 5 connections 75.76 %, 1 connection 94.43 % |
+| It needs concurrency **and** size | 40 concurrent x 2 KB = 0 %; 900 KB one-per-isolate = 4.85 % |
+| Minimal-probe threshold | 4.0 MB clean, 5.6 MB 56 % hung, 7.2 MB 78 % |
+| **Real-app threshold is ~4x lower** | 2 concurrent catalog fetches (~1.1 MB) = **30 % hung** |
+| Failure signature | `code had hung`; logs `Exception in callback <_asyncio.TaskStepMethWrapper>`; cpuTime 0-2 ms; no `x-isolate-*` headers |
+| Damage persists and accumulates | consecutive runs 44.9 % -> 53.8 % -> 79.3 %, no self-recovery |
+| Production trigger | `useHistoricalLecturerLookup` fetched every period's catalog via unbounded `Promise.all`; matches the `client_error_log` cluster of 7 simultaneous per-period failures |
+
+Per-period catalog payload is **~530 KB** (`period=all` is 1.43 MB). A course
+object is ~1.2 KB across ~30 fields.
+
+### Retracted — do not rebuild on these
+
+- **"It's cloudflare/workerd#6624 / the GIL fault."** That issue describes a
+  different mode; `GIL` and `PyProxy` appear zero times in our captures.
+- **"p95 is a flat ~2.5 s, so Pyodide start-up is a chronic per-request cost."**
+  Artefact of measuring minutes after a deploy. Settled p95 is ~300 ms.
+- **"Not our code."** Wrong; inferred from 0-1 ms CPU. The victim request and the
+  causing requests are different requests.
+- **"Root cause is serialising a large body in Python"** (commit `d03dfe2`).
+  Measured on dirty state.
+- **Caching the serialised body is not a fix** — it is worse (13.43 % vs 5.36 %).
+
+### Traps that invalidated real work here
+
+1. **A health gate must abort, not warn.** Mine retried 6x then proceeded anyway,
+   so runs started dirty and produced 100 %-hung results with `med=0ms`.
+2. **Never compare runs without a verified clean start.** Damage carries over.
+3. **After a deploy, stale isolates briefly serve the old code.** Verify the new
+   version is actually live before measuring.
+4. **Probe thresholds do not transfer to the real app.** Measure in situ.
+
+### Next steps
+
+1. Fix the health gate so it aborts; re-measure the real-app threshold with it.
+2. Set `mapWithConcurrency`'s limit from that number. **The shipped limit of 2 is
+   likely too high** — 2 concurrent period fetches is ~1.1 MB, the configuration
+   that hung 30 %. Limit 1 may be required.
+3. Consider the server-side fix: the lecturer lookup needs only `id` and
+   `lecturer`, so a projection or dedicated endpoint would cut ~530 KB to ~20 KB
+   and remove the fragility rather than route around it.
+4. Open question: why is the real app's headroom so much smaller than the
+   minimal probe's? Untested guess is resident memory (28 modules, D1).
+
+### Tools
+
+- `load-test/batch-probe.js` — `BATCH`, `VUS`, `KB`, `PROBE_ORIGIN`, `PROBE_PATH`.
+  Varying `BATCH` at fixed `VUS` isolates intra-isolate concurrency.
+- `load-test/payload-probe/` — standalone Python Worker, `/?kb=N&mode=build|cached`.
+  Deploy over staging (`studyplaner-api`), restore with `wrangler deploy --name studyplaner-api` from `backend/`.
+- `load-test/scenario.js` — `SKIP_CATALOG=1` drops the large payload.
+- `x-isolate-id` / `x-isolate-seq` / `x-isolate-age-ms` response headers
+  ([`isolate_identity.py`](../backend/src/isolate_identity.py)).
+- Workers observability is enabled; errors group under fingerprint `df7a881e9b7fba95fcdb4776fd36e90b`.
+
+### Caveat on production data
+
+Heavy load was run against production on 2026-08-07/08 and it entered the
+degraded state several times. Today's `client_error_log` is contaminated with
+test traffic and must not be read as user impact.
+
+---
+
+
 Report for the concurrent-user stress test. The harness and the reasoning behind
 its design live in [`load-test/README.md`](../load-test/README.md).
 
