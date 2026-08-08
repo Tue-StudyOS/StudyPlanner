@@ -53,11 +53,14 @@ export function useHistoricalLecturerLookup(
 
     async function loadHistoricalLecturers(): Promise<void> {
       try {
-        // Bounded rather than Promise.all: each period returns ~1.43 MB, and
-        // requesting all of them at once put ~10 MB of concurrent response
-        // bodies into a single backend isolate, which hung it and every later
-        // request on the same connection. Two in flight is ~2.9 MB, under the
-        // ~4 MB measured threshold. See docs/load-test-2026-08.md.
+        // Bounded rather than Promise.all. The original reason given here — that
+        // concurrent response *bytes* overwhelm one backend isolate — turned out
+        // to be wrong: the fault is CPU, and a purely sequential stream kills an
+        // isolate just as well (docs/load-test-2026-08.md). The real cost is that
+        // each period costs the backend ~70-100 ms of CPU, so firing every period
+        // at once concentrates that burst. Bounding still helps by spreading the
+        // work, but the durable fix is to stop asking for a ~530 KB payload when
+        // only id, number and lecturer are used.
         const lookups = await mapWithConcurrency(periodIds, 2, async (periodId) => {
           const courses = await fetchCatalogCourses('', 1000, periodId)
           return buildPeriodLecturerLookup(periodId, courses)

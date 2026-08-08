@@ -157,6 +157,7 @@ class IsolateSession {
           body: Buffer.concat(chunks).toString('utf8'),
           isolate: headers['x-probe-isolate'] ?? headers['x-isolate-id'] ?? null,
           heapBytes: headers['x-probe-heap'] ? Number(headers['x-probe-heap']) : null,
+          seq: Number(headers['x-probe-seq'] ?? headers['x-isolate-seq'] ?? 0),
           ballastMb: headers['x-probe-ballast-mb'] ? Number(headers['x-probe-ballast-mb']) : null,
         })
       })
@@ -490,6 +491,18 @@ async function commandCumulative(args) {
     // Rotation matters: a run that quietly moves to a second isolate spreads its
     // CPU across two budgets, which would look like tolerance that is not there.
     const isolatesSeen = new Map()
+
+    // A dead isolate can outlive a deploy, and a live one carries whatever CPU
+    // debt earlier traffic left on it. Either makes a "requests until death"
+    // figure meaningless, so the isolate's own request counter is recorded and
+    // a run that does not start near-fresh is reported as suspect rather than
+    // quietly averaged in.
+    const opening = await session.request(smallPath)
+    const startingSeq = opening.seq ?? 0
+    console.log(
+      `[cumulative] starting isolate ${opening.isolate?.slice(0, 8) ?? '?'} ` +
+        `seq=${startingSeq}${startingSeq > 40 ? '  <<< NOT FRESH, treat result as suspect' : ' (fresh)'}`,
+    )
     for (let round = 1; round <= args.rounds; round += 1) {
       // eslint-disable-next-line no-await-in-loop -- rounds must not overlap
       const responses = await session.batch(loadPath, args.batch)
@@ -561,9 +574,60 @@ async function commandCumulative(args) {
   })
 }
 
+/**
+ * Many independent users rather than one hot connection. Each session is its own
+ * connection and therefore lands on its own isolate, which is what a real
+ * cohort looks like — the single-session commands deliberately concentrate load
+ * on one isolate to find a limit, and that is not how users arrive.
+ *
+ * Reports failures per session, because the failure mode is per-isolate: a
+ * couple of users seeing everything fail while the rest are fine is the shape to
+ * look for, and an aggregate error rate hides it.
+ */
+async function commandFleet(args) {
+  const loadPath = args.path ?? `/?kb=${args.kb}&mode=build`
+  const started = Date.now()
+  const sessions = await Promise.all(
+    Array.from({ length: args.batch }, async (_unused, index) => {
+      const session = await new IsolateSession(args.origin, sharedCookie).open()
+      const outcome = { index, ok: 0, failed: 0, isolates: new Set() }
+      for (let round = 0; round < args.rounds; round += 1) {
+        // eslint-disable-next-line no-await-in-loop -- one user acts in sequence
+        const response = await session.request(loadPath)
+        if (response.ok) {
+          outcome.ok += 1
+          if (response.isolate) outcome.isolates.add(response.isolate)
+        } else {
+          outcome.failed += 1
+        }
+        // eslint-disable-next-line no-await-in-loop -- think time between views
+        await new Promise((resolve) => setTimeout(resolve, args.gapMs))
+      }
+      session.close()
+      return outcome
+    }),
+  )
+
+  const totalOk = sessions.reduce((sum, session) => sum + session.ok, 0)
+  const totalFailed = sessions.reduce((sum, session) => sum + session.failed, 0)
+  const brokenSessions = sessions.filter((session) => session.failed > 0)
+  console.log(
+    `[fleet] ${args.batch} users x ${args.rounds} requests in ` +
+      `${((Date.now() - started) / 1000).toFixed(0)}s: ${totalOk} ok, ${totalFailed} failed ` +
+      `(${((totalFailed / (totalOk + totalFailed)) * 100).toFixed(2)}%)`,
+  )
+  console.log(
+    `[fleet] users affected: ${brokenSessions.length}/${args.batch}` +
+      (brokenSessions.length
+        ? ` — ${brokenSessions.map((s) => `#${s.index}:${s.failed}`).join(' ')}`
+        : ''),
+  )
+}
+
 const COMMANDS = {
   heap: commandHeap,
   shape: commandShape,
+  fleet: commandFleet,
   'single-shot': commandSingleShot,
   cumulative: commandCumulative,
   autopsy: commandAutopsy,

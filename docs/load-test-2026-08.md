@@ -25,12 +25,14 @@ the JS boundary at roughly **112 ms of CPU per MB**.
 | Building the payload is cheap; **sending** it is the cost | 4 MB built and discarded: 33 ms, survived 60 rounds. 4 MB sent: ~480 ms, dead in 5 |
 | The kill is `exceededCpu` / 1102, and the victim signature is different | causing request: `exceededCpu`; every later request on that isolate: `code had hung`, cpu 0–2 ms |
 | **A response body is not required at all** | pure arithmetic at 136 ms/req died at round 10 (1906 ms cumulative) |
-| Per-**request** CPU cap is 2020 ms | an accidental infinite loop hit exactly `cpu=2020ms` on every repetition |
+| The 2020 ms an infinite loop burns is not a per-request cap but the **whole isolate allowance**, spent at once | see "The rule" below |
 | Idle time does **not** restore capacity | gap 0 ms -> died round 10; gap 5000 ms -> died rounds 7 and 11; gap 3000 ms -> round 12 |
 | A dead isolate poisons its connection permanently | after the kill, even 1 KB requests fail forever on that connection |
 
-Deaths cluster near **~1.9–2.4 s of cumulative CPU on one isolate** whenever
-per-request CPU is high (≥ ~66 ms):
+Deaths looked like they clustered near ~1.9–2.4 s of *cumulative* CPU whenever
+per-request CPU was high — which turned out to be a coincidence of these
+workloads, not the rule. See "The rule (resolved)" below; the real invariant is
+the overage above 10 ms per request.
 
 | workload | CPU/request | died at round | cumulative CPU |
 | --- | --- | --- | --- |
@@ -40,8 +42,8 @@ per-request CPU is high (≥ ~66 ms):
 | real catalog, `str` | 98.6 ms | 23 | 2268 ms |
 | real catalog, pre-encoded | 67.7 ms | 33 | 2234 ms |
 
-…but low-CPU workloads **exceed that and survive**, which no single threshold
-explains:
+Low-CPU workloads exceed that same cumulative figure and survive, which is what
+ruled the cumulative reading out:
 
 | workload | CPU/request | outcome |
 | --- | --- | --- |
@@ -66,13 +68,69 @@ explains:
 - **"Probe thresholds don't transfer / the real app is ~4x more fragile."** The
   earlier probe numbers were measured with a broken protocol — see below.
 
-### Still open
+### The rule (resolved)
 
-The exact accounting rule that decides *when* the runtime kills an isolate. High
-per-request CPU dies at ~2 s cumulative; low per-request CPU survives well past
-it. Memory, bytes, duty cycle, flat CPU budget and per-request size are all
-falsified. **The fix does not depend on resolving this** — lowering CPU per
-request moves the app from the dying regime into the surviving one.
+**This account is on the Workers _Free_ plan, where the documented CPU limit is
+10 ms per invocation**, with "built-in flexibility to allow for cases where your
+Worker infrequently runs over the configured limit" and termination on
+"consistent overages"
+([limits](https://developers.cloudflare.com/workers/platform/limits/)).
+
+Measured, that flexibility is a fixed allowance:
+
+> An isolate is terminated once **`Σ max(0, cpu_per_request − 10 ms)` reaches
+> ≈ 2000 ms**. It is then permanently dead.
+
+The allowance is spendable either way, which is why one number explains both
+shapes of failure:
+
+| how it was spent | debt at death |
+| --- | --- |
+| one runaway request (accidental infinite loop) | **2020 ms** |
+| catalog `str`, 98.6 ms x 23 | 2038 ms |
+| catalog pre-encoded, 67.7 ms x 33 | 1904 ms |
+| probe 2000 KB `str`, 193 ms x 10.5 | 1921 ms |
+| probe 1000 KB `str`, 66 ms x 35 | 1960 ms |
+| catalog `limit=50`, 44.9 ms x 55, **verified-fresh isolate** | **1917 ms** |
+
+The decisive pair, both on verified-fresh isolates (`x-isolate-seq` = 2):
+
+| run | CPU/request | total CPU | outcome |
+| --- | --- | --- | --- |
+| catalog `limit=5` | **10.1 ms** | **3032 ms** | survived 300 requests |
+| catalog `limit=50` | 44.9 ms | 2467 ms | **dead at 55** |
+
+Less total CPU killed it. **Per-request CPU is the only thing that matters;
+cumulative CPU is irrelevant.** Work split into requests that each stay under
+10 ms accrues *zero* debt and runs indefinitely — which is why `/health`
+(2.9 ms) survived 1400 requests and 3603 ms.
+
+### What this means for the fix
+
+Anything above 10 ms of CPU per request kills an isolate eventually; the CPU cost
+only sets how fast. Encoding the body (98.6 -> 67.7 ms) slowed the bleed by ~35 %
+and extended isolate life from 23 to 33 requests — necessary, **not sufficient**.
+A 10-user cohort still saw 17.3 % failures with it applied.
+
+Two ways out, and they are not equivalent:
+
+1. **Move the account to Workers Paid.** The per-invocation limit goes from 10 ms
+   to 30 s (5 min max), which removes this entire failure class with no code
+   change. Getting a 131-course catalog response under 10 ms of CPU in Pyodide is
+   likely infeasible, so this is the robust answer.
+2. **Keep every response under 10 ms of CPU.** Real, because debt is per-request:
+   the same work split into sub-10 ms responses costs nothing. Needs both the
+   lecturer projection (drop `_build_catalog_summary`, ~0.83 ms/course) *and*
+   pagination — a projection alone lands near ~25 ms, still over the line.
+
+### Contamination control (important)
+
+A dead isolate can outlive a deploy, and a live one carries whatever debt earlier
+traffic left on it, so "requests until death" is meaningless without knowing the
+isolate started fresh. `cumulative` now prints the serving isolate's
+`x-isolate-seq` and flags a non-fresh start. The one badly-fitting data point in
+the table above (500 KB `str` appearing to die at only ~600 ms of debt) is
+believed to be exactly this.
 
 ### Traps that invalidated real work here
 
@@ -91,12 +149,15 @@ request moves the app from the dying regime into the surviving one.
 
 ### Next steps
 
-1. Cut CPU per request further. The catalog endpoint is still ~67.7 ms and still
-   in the dying regime (dead at round 33). `useHistoricalLecturerLookup` needs
-   only `id` and `lecturer`, so a projection would cut ~530 KB to ~20 KB.
-2. Re-derive `mapWithConcurrency`'s limit once that lands. Concurrency is **not**
-   the trigger, so the earlier reasoning for lowering it to 1 no longer applies.
+1. **Decide on Workers Paid.** It is the only option that removes the failure
+   class outright, and it is a billing decision rather than an engineering one.
+2. If staying on Free: projection **and** pagination for the catalog, targeting
+   <10 ms CPU per response. Verify with `cumulative` on a fresh isolate — the
+   pass condition is that mean CPU/request stays under 10 ms, not that a given
+   run survives.
 3. Deploy the `json_response` fix to production (verified on staging only).
+4. Concurrency is **not** the trigger, so `mapWithConcurrency`'s limit is not
+   load-bearing; do not tighten it to 1 on the old reasoning.
 
 ### Tools
 
