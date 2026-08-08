@@ -31,16 +31,27 @@ it.
 
 from __future__ import annotations
 
-# Bounded so a hostile or buggy caller cannot grow this without limit. The real
-# key space is small: a handful of period/limit combinations, and searches are
-# not cached at all.
-_MAX_ENTRIES = 8
+# Searches are cached too, so the key space is caller-controlled and the bound
+# has to be on bytes rather than entries: one entry can be 1.5 MB and another
+# 20 KB. Isolates tolerate far more than this (measured: 179 MB of resident
+# allocation), so the budget is set for politeness, not survival.
+_MAX_BYTES = 16 * 1024 * 1024
+_MAX_ENTRIES = 64
 
 _entries: dict[str, bytes] = {}
+_total_bytes = 0
 
 
-def build_key(limit: int, period_id: str | None) -> str:
-    return f"{limit}|{period_id or ''}"
+def build_key(limit: int, period_id: str | None, search: str | None = None) -> str:
+    """Identify one cacheable response.
+
+    Search terms are normalised the way the query is, so that `Info`, `info ` and
+    `info` share an entry — broad prefixes are both the most expensive responses
+    to build and the ones most users type, which is what makes caching them
+    worthwhile.
+    """
+    normalized_search = (search or "").strip().lower()
+    return f"{limit}|{period_id or ''}|{normalized_search}"
 
 
 def get(key: str) -> bytes | None:
@@ -48,19 +59,39 @@ def get(key: str) -> bytes | None:
 
 
 def put(key: str, body: bytes) -> None:
-    """Store one encoded response, evicting the oldest entry when full.
+    """Store one encoded response, evicting oldest-first to stay within budget.
 
-    Insertion order is dict order in CPython, so the first key is the oldest.
+    Insertion order is dict order in CPython, so the first key is the oldest. A
+    body larger than the whole budget is simply not cached, rather than being
+    stored and immediately evicting everything else.
     """
-    if key not in _entries and len(_entries) >= _MAX_ENTRIES:
-        oldest = next(iter(_entries))
-        del _entries[oldest]
+    global _total_bytes
+    if len(body) > _MAX_BYTES:
+        return
+
+    existing = _entries.pop(key, None)
+    if existing is not None:
+        _total_bytes -= len(existing)
+
     _entries[key] = body
+    _total_bytes += len(body)
+
+    while _entries and (_total_bytes > _MAX_BYTES or len(_entries) > _MAX_ENTRIES):
+        oldest = next(iter(_entries))
+        if oldest == key:
+            break
+        _total_bytes -= len(_entries.pop(oldest))
 
 
 def clear() -> None:
+    global _total_bytes
     _entries.clear()
+    _total_bytes = 0
 
 
 def size() -> int:
     return len(_entries)
+
+
+def total_bytes() -> int:
+    return _total_bytes

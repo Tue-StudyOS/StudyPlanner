@@ -55,6 +55,8 @@ function parseArgs(argv) {
     // Idle time between rounds, for testing whether the CPU budget refills.
     gapMs: 0,
     rounds: 60,
+    // Refuse to measure on an isolate that has already served this many.
+    maxSeq: 40,
     // 1 returns the body pre-encoded as bytes instead of as a str.
     bytesMode: 0,
     // Point the load at a real backend endpoint instead of the probe.
@@ -501,8 +503,16 @@ async function commandCumulative(args) {
     const startingSeq = opening.seq ?? 0
     console.log(
       `[cumulative] starting isolate ${opening.isolate?.slice(0, 8) ?? '?'} ` +
-        `seq=${startingSeq}${startingSeq > 40 ? '  <<< NOT FRESH, treat result as suspect' : ' (fresh)'}`,
+        `seq=${startingSeq}${startingSeq > args.maxSeq ? '  <<< NOT FRESH' : ' (fresh)'}`,
     )
+    if (startingSeq > args.maxSeq) {
+      console.log(
+        '[cumulative] ABORT — this isolate already carries CPU debt from earlier traffic, ' +
+          'so "requests until death" would be meaningless. Retry, or redeploy to get new isolates.',
+      )
+      process.exitCode = 1
+      return
+    }
     for (let round = 1; round <= args.rounds; round += 1) {
       // eslint-disable-next-line no-await-in-loop -- rounds must not overlap
       const responses = await session.batch(loadPath, args.batch)

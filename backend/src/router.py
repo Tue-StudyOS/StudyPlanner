@@ -733,22 +733,18 @@ async def route_request(request: Any, env: Any) -> Any:
             except ValueError:
                 limit = 100
 
-            # Searches are not cached: the key space is unbounded and each search
-            # is usually seen once, so caching them would only cost memory.
-            cache_key = (
-                catalog_response_cache.build_key(limit, period_value)
-                if not (search_value or "").strip()
-                else None
-            )
-            if cache_key is not None:
-                cached_body = catalog_response_cache.get(cache_key)
-                if cached_body is not None:
-                    return encoded_json_response(
-                        cached_body,
-                        request=request,
-                        env=env,
-                        extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
-                    )
+            # Searches are cached too. A broad two-character prefix against the
+            # whole catalog costs ~230 ms of CPU, and those prefixes are exactly
+            # what users type first, so they are the entries most worth keeping.
+            cache_key = catalog_response_cache.build_key(limit, period_value, search_value)
+            cached_body = catalog_response_cache.get(cache_key)
+            if cached_body is not None:
+                return encoded_json_response(
+                    cached_body,
+                    request=request,
+                    env=env,
+                    extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+                )
 
             courses = await list_catalog_courses(
                 env,
@@ -760,14 +756,6 @@ async def route_request(request: Any, env: Any) -> Any:
                 "count": len(courses),
                 "courses": courses,
             }
-            if cache_key is None:
-                return json_response(
-                    payload,
-                    request=request,
-                    env=env,
-                    extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
-                )
-
             # Rebuilding this answer is what kills isolates on the Free plan: it
             # is the same bytes every time, and it costs ~350-500 ms of CPU for
             # the unfiltered catalog. See services/catalog_response_cache.

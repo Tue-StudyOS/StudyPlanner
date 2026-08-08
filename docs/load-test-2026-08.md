@@ -150,8 +150,11 @@ Two ways out, and they are not equivalent:
 ### The fix, measured end to end
 
 `/api/catalog/courses` now caches the **encoded** response bytes per isolate
-(`services/catalog_response_cache.py`), keyed on limit and period; searches are
-not cached. Almost all of the endpoint's CPU was rebuilding an identical answer —
+(`services/catalog_response_cache.py`), keyed on limit, period and normalised
+search term. Searches are cached because a broad two-character prefix against the
+whole catalog costs ~230 ms and those prefixes are what users type first; the
+cache is bounded by **bytes** (16 MB) rather than entry count, since one entry can
+be 1.5 MB and another 20 KB. Almost all of the endpoint's CPU was rebuilding an identical answer —
 D1 round-trips plus `_build_catalog_summary` per course — for a catalog that only
 changes on re-import.
 
@@ -160,6 +163,7 @@ changes on re-import.
 | `period=all`, requests until a fresh isolate dies | **5, 7, 6** | **survived 120**; one isolate served 240+ |
 | implied CPU per request | ~350–500 ms | **≤18 ms** |
 | 10-user cohort on `period=all`, 30 requests each | — | **300/300 ok, 0 users affected** |
+| broad search `q=in&period=all` (worst case a user can type) | dies at 10 | **survived 100** |
 
 For comparison, the same cohort shape against the *lighter* `period=229`
 endpoint, with only the encoding fix applied, failed 17.3 % across 7 of 10 users.
