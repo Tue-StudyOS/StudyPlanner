@@ -105,6 +105,30 @@ cumulative CPU is irrelevant.** Work split into requests that each stay under
 10 ms accrues *zero* debt and runs indefinitely — which is why `/health`
 (2.9 ms) survived 1400 requests and 3603 ms.
 
+### Which endpoints actually accrue debt
+
+Measured by death rate on **verified-fresh** isolates, which doubles as a CPU
+meter: `cpu ≈ 10 ms + 2000/rounds_to_death`. No `wrangler tail` needed, and it is
+cheapest for exactly the endpoints that are dangerous.
+
+| endpoint | CPU/request | isolate dies after |
+| --- | --- | --- |
+| `/api/catalog/courses?limit=1000&period=all` (**first load**) | **~350–500 ms** | **5, 7, 6 requests** (three runs) |
+| `/api/catalog/courses?limit=500&period=229` | 67.7 ms | 33 requests |
+| `/api/catalog/courses?limit=50` | 44.9 ms | 55 requests |
+| `/api/catalog/courses?limit=5` | 10.1 ms | survived 300 |
+| `/api/catalog/periods` (warm) | 2.8 ms | survived 700 |
+| `/health` | 2.9 ms | survived 1400 |
+
+**This is the operational headline.** Every user's first page load fetches the
+whole 1.43 MB catalog, which costs ~50x the free-plan per-request CPU limit, so
+roughly **every fifth first-load destroys a backend isolate** — permanently. That
+is the whole "20 concurrent users" fragility in one line, and it is unrelated to
+concurrency.
+
+Note `/api/catalog/periods` measured 58 ms on its *first* request and 2.8 ms warm:
+single-shot samples measure cold-start cost, so warm medians are required.
+
 ### What this means for the fix
 
 Anything above 10 ms of CPU per request kills an isolate eventually; the CPU cost
@@ -151,8 +175,9 @@ believed to be exactly this.
 
 1. **Decide on Workers Paid.** It is the only option that removes the failure
    class outright, and it is a billing decision rather than an engineering one.
-2. If staying on Free: projection **and** pagination for the catalog, targeting
-   <10 ms CPU per response. Verify with `cumulative` on a fresh isolate — the
+2. **Stop fetching `period=all` on first load** — highest-impact single change,
+   and it is a frontend one. Then projection **and** pagination for the catalog,
+   targeting <10 ms CPU per response. Verify with `cumulative` on a fresh isolate — the
    pass condition is that mean CPU/request stays under 10 ms, not that a given
    run survives.
 3. Deploy the `json_response` fix to production (verified on staging only).
