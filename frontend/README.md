@@ -37,11 +37,15 @@ npm run dev
 Now `http://localhost:5173` talks to the same production API Worker as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
 
 Production builds call the Worker's public URL directly instead of the Pages
-`/api` proxy: Cloudflare-internal invocation paths (service bindings) can crash
-Python Workers during isolate initialization
-([workerd#6624](https://github.com/cloudflare/workerd/issues/6624)), while
-external HTTP ingress is unaffected. The Pages Functions proxy remains in place
-as a fallback path.
+`/api` proxy. The Pages Functions proxy remains in place as a fallback path.
+
+> The reason previously given here — that service bindings crash Python Workers
+> during isolate initialization while external HTTP ingress is unaffected
+> ([workerd#6624](https://github.com/cloudflare/workerd/issues/6624)) — **is not
+> supported by later measurement.** Every isolate hang recorded in
+> `docs/load-test-2026-08.md` was observed on direct `workers.dev` ingress, so
+> the ingress path is not what distinguishes them. Calling directly is still
+> reasonable (one hop fewer), but not for that reason.
 
 ## Full local auth testing
 

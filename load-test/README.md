@@ -13,12 +13,18 @@ Three risks motivated this harness. Only two need a load generator:
    one budget and users 11–20 got `429`. Login is now keyed per account, counts
    only failed attempts, and allows 500 per 15 min. The remaining volume
    policies (feedback, AI catalog, client errors) are still per IP.
-2. **The Pyodide GIL fault.** `Attempted to use PyProxy when Python GIL not held`
-   — [cloudflare/workerd#6624](https://github.com/cloudflare/workerd/issues/6624),
-   open. This is the source of the production 500s. It needs only 3–5 concurrent
-   requests, so it is a low-concurrency bug rather than a scale one, and no
-   change in this repo can fix it. What the run measures now is how often it
-   bites and whether the frontend's retry hides it.
+2. **Isolates hanging under concurrent large responses.** *Cause identified —
+   see the handoff at the top of `docs/load-test-2026-08.md`.* A keep-alive
+   connection pins to one Worker isolate, and that isolate hangs when too many
+   large response bodies are in flight at once; it then stays hung, so every
+   later request from that user fails.
+
+   > This was previously attributed here to the Pyodide GIL fault
+   > ([workerd#6624](https://github.com/cloudflare/workerd/issues/6624)) and
+   > described as unfixable in this repo. **Both claims were wrong.** The
+   > captured signature differs from that issue (`GIL` and `PyProxy` never
+   > appear in our logs), and the production trigger turned out to be
+   > application code requesting many large payloads in parallel.
 3. **Sequential D1 round-trips.** `/api/me/progress` issues ~7 sequential
    queries, the catalog service ~19. Expect p95 to degrade before anything
    errors.
