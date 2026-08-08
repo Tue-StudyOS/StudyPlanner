@@ -731,6 +731,46 @@ requests failing in the same second, seven of them
 mechanism (memory) is an interpretation rather than a direct observation — what
 is measured is the threshold, not its cause.
 
+### Two corrections to the numbers above
+
+**The per-period payload is ~530 KB, not 1.43 MB.** `limit=1000&period=229`
+returns 530 KB; 1.43 MB is the `period=all` response. So seven periods is
+~3.7 MB, not ~10 MB. The mechanism is unchanged but the margin is much tighter
+than stated, and the "~10 MB" figure in the commit message is wrong.
+
+**The threshold measured on the minimal probe does not transfer to the real
+app.** Running the same batch probe against production's own catalog endpoint:
+
+| batch | concurrent bytes | hung |
+| --- | --- | --- |
+| 2 | ~1.1 MB | **30.00 %** |
+| 4 | ~2.1 MB | 62.50 % |
+| 7 | ~3.7 MB | 64.29 % |
+
+The real app hangs at **1.1 MB** where the minimal probe was clean at 4.0 MB —
+roughly 4x less headroom. Plausibly because the real isolate already holds 28
+modules, D1 and more resident memory, but that is an interpretation; what is
+measured is the difference.
+
+**Consequence: the concurrency limit of 2 shipped in `mapWithConcurrency` is
+probably not conservative enough.** Two concurrent period fetches is ~1.1 MB,
+which is exactly the configuration that hung 30 % of requests here. A limit of 1
+(fully sequential), or a smaller per-period payload, is likely required. This
+needs re-measuring before the fix can be called sufficient.
+
+### Unreliable results, recorded so they are not reused
+
+An attempt to separate payload size from D1 work returned 100 % hung with
+`med=0ms max=0ms` for `/api/config` and `/api/catalog/periods` at batch=7. A zero
+duration means the requests did not execute normally, and production tested
+healthy both before and after. **These two measurements are not trustworthy and
+no conclusion is drawn from them.**
+
+The cause was a broken gate in the test harness: the "wait until healthy" loop
+tried six times and then **proceeded regardless**, so it could not actually block
+a run. Any result produced through it — including parts of the sweeps above — may
+have started from a dirty state. The gate must abort, not warn.
+
 ### What this predicts, and how to check a fix
 
 Serialising the per-period fetches, or reducing the per-period payload below
