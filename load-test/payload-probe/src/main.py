@@ -52,6 +52,9 @@ _ONE_MEGABYTE = 1024 * 1024
 # Populated on first use, per isolate. The point of `cached` mode.
 _cached_bodies: dict[int, str] = {}
 
+# Built once per isolate and kept already encoded, for mode=cachedbytes.
+_cached_encoded: dict[int, bytes] = {}
+
 # Resident, never sent. Each entry is one megabyte.
 _ballast: list[bytearray] = []
 
@@ -199,6 +202,8 @@ class Default(WorkerEntrypoint):
         mode = "cached" if "mode=cached" in url else "build"
         if "mode=bytes" in url:
             mode = "bytes"
+        if "mode=cachedbytes" in url:
+            mode = "cachedbytes"
         return await self._respond(kilobytes, mode)
 
     async def _respond(self, kilobytes: int, mode: str) -> Any:
@@ -215,6 +220,26 @@ class Default(WorkerEntrypoint):
                         "content-type": "application/json",
                         "x-probe-mode": "bytes",
                         "x-probe-kb": str(kilobytes),
+                        "x-probe-bytes": str(len(encoded)),
+                    }
+                ),
+            )
+
+        # Build once per isolate and keep the *encoded* bytes. This is the cheapest
+        # a response can possibly be while still being sent, so it measures the
+        # irreducible cost of handing a body to the runtime — the floor that any
+        # caching fix in the real backend would converge to.
+        if mode == "cachedbytes":
+            encoded = _cached_encoded.get(kilobytes)
+            if encoded is None:
+                encoded = _build_body(kilobytes).encode("utf-8")
+                _cached_encoded[kilobytes] = encoded
+            return Response(
+                encoded,
+                headers=_probe_headers(
+                    {
+                        "content-type": "application/json",
+                        "x-probe-mode": "cachedbytes",
                         "x-probe-bytes": str(len(encoded)),
                     }
                 ),

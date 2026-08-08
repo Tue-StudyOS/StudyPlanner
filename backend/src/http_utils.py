@@ -82,6 +82,29 @@ def json_response(
     return Response(body, status=status, headers=headers)
 
 
+def encoded_json_response(
+    body: bytes,
+    request: Any,
+    env: Any,
+    status: int = 200,
+    extra_headers: dict[str, str] | None = None,
+) -> Response:
+    """Return an already-serialised JSON body.
+
+    Exists so a caller that has cached the encoded bytes can skip both
+    `json.dumps` and the encode, which is the whole point of caching them.
+    Headers are still built per request, because they carry per-isolate
+    diagnostics and the CORS origin.
+    """
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        **build_cors_headers(request, env),
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    return Response(body, status=status, headers=headers)
+
+
 def empty_response(
     request: Any,
     env: Any,

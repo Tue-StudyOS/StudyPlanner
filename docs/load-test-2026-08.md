@@ -147,6 +147,34 @@ Two ways out, and they are not equivalent:
    lecturer projection (drop `_build_catalog_summary`, ~0.83 ms/course) *and*
    pagination — a projection alone lands near ~25 ms, still over the line.
 
+### The fix, measured end to end
+
+`/api/catalog/courses` now caches the **encoded** response bytes per isolate
+(`services/catalog_response_cache.py`), keyed on limit and period; searches are
+not cached. Almost all of the endpoint's CPU was rebuilding an identical answer —
+D1 round-trips plus `_build_catalog_summary` per course — for a catalog that only
+changes on re-import.
+
+| measurement | before | after |
+| --- | --- | --- |
+| `period=all`, requests until a fresh isolate dies | **5, 7, 6** | **survived 120**; one isolate served 240+ |
+| implied CPU per request | ~350–500 ms | **≤18 ms** |
+| 10-user cohort on `period=all`, 30 requests each | — | **300/300 ok, 0 users affected** |
+
+For comparison, the same cohort shape against the *lighter* `period=229`
+endpoint, with only the encoding fix applied, failed 17.3 % across 7 of 10 users.
+
+Correctness was checked rather than assumed: responses are byte-identical across
+repeats (same SHA-256), and 24 interleaved requests across four different
+limit/period keys all returned the right course counts, so keys do not collide.
+
+> One unexplained observation: during the first check a single
+> `limit=500&period=229` response came back with 2304 courses instead of 131. It
+> did not reproduce in 28 subsequent requests, production returns 131, and the
+> interleaving test is clean. Most likely a stale isolate serving one of the many
+> builds staging hosted that day, but it is recorded here because it was not
+> positively explained.
+
 ### Contamination control (important)
 
 A dead isolate can outlive a deploy, and a live one carries whatever debt earlier
