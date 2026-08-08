@@ -227,10 +227,41 @@ controlled for and not even considered. The per-endpoint table further down is
 therefore a table of *post-deploy* latency; keep it for that, do not read it as
 normal behaviour.
 
-**Not yet established:** whether the degradation is caused by the deploy, and
-how long it lasts. That needs a redeploy followed by measurement at intervals —
-see "Open questions". Two paired observations show the association, not the
-mechanism.
+### What was actually going on: warm-isolate availability
+
+The `x-isolate-seq` marker settles this. It reports how many responses an isolate
+had served when it answered, so its distribution measures isolate reuse directly.
+
+| Condition | Isolate reuse | Latency |
+| --- | --- | --- |
+| 20 VUs, sustained | med **53** responses per isolate, max 187 | med 102 ms, p95 266 ms |
+| 5 sequential curls, no other traffic | **4 distinct isolates for 5 requests** | — |
+| 1 VU, minutes after a deploy | (not instrumented yet) | med 2620 ms |
+| 1 VU, straight after a Phase C run | (not instrumented yet) | med 105 ms |
+
+The variable is not concurrency, and not think time. It is **whether a warm
+isolate happens to exist when the request arrives**, which depends on recent
+traffic volume to that colo:
+
+- Under sustained load an isolate amortises its start-up over ~53 requests, so
+  almost nobody pays it.
+- With no recent traffic nearly every request gets a fresh isolate and pays the
+  full cost.
+- **A deploy destroys every warm isolate at once**, which is why the post-deploy
+  numbers looked like a chronic problem.
+
+This also explains the 1 VU result that made no sense: yesterday's ran minutes
+after a deploy (nothing warm, 2620 ms); today's ran immediately after a Phase C
+run had warmed the colo (105 ms). Same script, same think times, opposite result.
+
+**Consequence for a real deployment.** A study planner used by a handful of
+students at a time sits in the low-traffic regime most of the day, which is the
+*expensive* one. The 92 ms median measured under 20 VUs is not what a lone user
+at 9 pm experiences. Load testing flattered the app here, and the quiet case is
+the one worth optimising.
+
+**Still not established:** how long the post-deploy window lasts. That needs a
+redeploy followed by measurement at intervals — see "Open questions".
 
 ## Phase B — baseline
 

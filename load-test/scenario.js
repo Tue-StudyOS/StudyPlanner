@@ -50,6 +50,9 @@ const stepDuration = new Trend('step_duration', true)
 // a 5xx the frontend retries away is latency, not an error.
 const userVisibleFailures = new Counter('user_visible_failures')
 const absorbedByRetry = new Counter('absorbed_by_retry')
+// How far an isolate gets before the connection rotates to a new one. A low max
+// means almost every request pays a fresh Pyodide start-up.
+const isolateSeq = new Trend('isolate_seq')
 
 // Mirrors frontend/src/shared/utils/api.ts. Kept in sync deliberately: the
 // point of the metric is to model the deployed client, so a divergence here
@@ -61,6 +64,29 @@ const RETRY_BACKOFF_MS = 300
 function isRetryableFailure(method, status) {
   return RETRY_SAFE_METHODS.has(method.toUpperCase()) && (status === 0 || status >= 500)
 }
+
+/**
+ * Reads the diagnostic markers from backend/src/isolate_identity.py.
+ *
+ * A k6 VU keeps its own connection pool, and a connection stays bound to one
+ * isolate, so a VU's isolate id should stay put for long runs. What this is
+ * looking for is the moment it does not: the id and sequence number on the
+ * request *before* a wedge say how old the isolate was and how much it had
+ * already served, which is the closest thing available to a trigger.
+ */
+function readIsolate(response) {
+  const headers = response.headers || {}
+  const pick = (name) => headers[name] ?? headers[name.toLowerCase()] ?? ''
+  return {
+    id: pick('X-Isolate-Id') || '(none)',
+    seq: pick('X-Isolate-Seq') || '?',
+    ageMs: pick('X-Isolate-Age-Ms') || '?',
+  }
+}
+
+// Last good observation per VU, so a failure can be described relative to the
+// isolate that was serving this connection immediately before it.
+const lastHealthyIsolate = {}
 
 /**
  * A semester plan that was never saved returns 404, and that is the app working
@@ -251,10 +277,22 @@ function runSteps(steps, session) {
       clientErrors.add(1, { endpoint: pathWithoutQuery })
     }
 
+    const isolate = readIsolate(response)
+    if (isExpected && isolate.id !== '(none)') {
+      lastHealthyIsolate[__VU] = isolate
+      if (isolate.seq !== '?') {
+        isolateSeq.add(Number(isolate.seq))
+      }
+    }
+
     if (!isExpected) {
+      const previous = lastHealthyIsolate[__VU]
       console.error(
         `[scenario] ${response.status} ${step.method} ${pathWithoutQuery} ` +
-          `vu=${__VU} iter=${scenario.iterationInTest} body=${String(response.body).slice(0, 200)}`,
+          `vu=${__VU} iter=${scenario.iterationInTest} attempts=${attemptsUsed} ` +
+          `isolate=${isolate.id}/seq${isolate.seq}/age${isolate.ageMs} ` +
+          `lastHealthy=${previous ? `${previous.id}/seq${previous.seq}/age${previous.ageMs}` : 'none'} ` +
+          `body=${String(response.body).slice(0, 120)}`,
       )
     }
 
@@ -290,7 +328,7 @@ function counterValue(data, metricName) {
   return metric ? metric.values.count : 0
 }
 
-function formatLatency(data, metricName) {
+function formatLatency(data, metricName, unit = 'ms') {
   const metric = data.metrics[metricName]
   // k6 names the percentile keys 'p(95)', not 'p95'. Guarding on the wrong key
   // made this print n/a on every run while the numbers were sitting right there.
@@ -298,7 +336,8 @@ function formatLatency(data, metricName) {
     return `${metricName}: n/a`
   }
   const { med, 'p(95)': p95, 'p(99)': p99, max } = metric.values
-  return `${metricName}: med=${med.toFixed(0)}ms p95=${p95.toFixed(0)}ms p99=${(p99 ?? 0).toFixed(0)}ms max=${max.toFixed(0)}ms`
+  const u = (value) => `${(value ?? 0).toFixed(0)}${unit}`
+  return `${metricName}: med=${u(med)} p95=${u(p95)} p99=${u(p99)} max=${u(max)}`
 }
 
 /**
@@ -326,6 +365,9 @@ export function handleSummary(data) {
     `client_errors:   ${clientErrorCount}${clientErrorCount > 0 ? '   <-- rig bug: replayed request was malformed' : ''}`,
     `absorbed_retry:  ${counterValue(data, 'absorbed_by_retry')}   (failed, then succeeded — user saw latency only)`,
     `USER-VISIBLE:    ${userVisibleCount}${userVisibleCount > 0 ? '   <-- what users actually experienced' : ''}`,
+    // A request count, not a duration: how many responses an isolate served
+    // before the connection rotated away from it.
+    formatLatency(data, 'isolate_seq', ' reqs'),
     formatLatency(data, 'http_req_duration'),
     formatLatency(data, 'step_duration'),
     'full per-endpoint data: load-test/results/summary.json',
