@@ -622,6 +622,85 @@ longer locks anyone out of their account.
 
 ---
 
+## Root cause: a connection pinned to a wedged isolate
+
+The failure model assumed until now — "a race in isolate re-use, scattering ~5 %
+of requests across all users" — is wrong. Four independent lines of evidence say
+the failures are **connection-scoped**.
+
+### 1. All 56 failures came from one TLS connection
+
+Every captured event carries the same `cf.tlsClientRandom`
+(`ynby/ue8nEu5TM5umztqHcNh3R5kk5Sz2dNWhV3ss44=`). k6 gives each VU its own
+connection pool, so all 56 belong to **one VU**.
+
+### 2. Their timing is one VU's think-time rhythm
+
+Gaps between consecutive failures: 3137, 5194, 7592, 5322, 5623, 5987, 4826,
+6219 ms ... every gap falls inside `MIN_THINK_SECONDS`-`MAX_THINK_SECONDS`
+(3-8 s). Not bursts of a shared fault — one client failing on **every request it
+made**, for the full five minutes.
+
+### 3. The path mix matches exactly one VU's itinerary
+
+Observed failures against one VU running first-load plus ~2 steady-state
+iterations: favorites 8 (= 2 x 4 per iteration), profile 4 (= 2 x 2), WS 2026/27
+2 (= 2 x 1). The counts line up per iteration.
+
+### 4. Connection-to-isolate affinity is real, and now measurable
+
+`x-isolate-id` (see [`isolate_identity.py`](../backend/src/isolate_identity.py))
+makes this directly observable. Twelve requests over one keep-alive connection:
+
+| requests | isolate | seq |
+| --- | --- | --- |
+| 1-10 | `ee93c89d4ea92bfc` | 3 -> 12 |
+| 11-12 | `2615555fe37299fe` | 1 -> 2 |
+
+A connection stays bound to one isolate across a long run, then rotates.
+
+### The model, and what follows from it
+
+A connection binds to an isolate. That isolate's Python event loop wedges
+(`Exception in callback <_asyncio.TaskStepMethWrapper>` in the captured `logs`).
+Every subsequent request on that connection reaches the same dead isolate, and
+keeps failing until the connection rotates. Everyone else is unaffected.
+
+- **Blast radius is different from what was reported.** Not "5 % of requests
+  spread thinly" but "1 user in 20 is *completely broken* for the duration,
+  19 are perfectly fine". Worse for the person affected, better for everyone else.
+- **The retry mitigation probably does not work.** Retries reuse the keep-alive
+  connection, so all three attempts hit the same wedged isolate. The claim that
+  "35 of the 56 were absorbed by retries" is very likely false, and the fix
+  direction is to force a *new connection*, not to retry on the old one.
+- **Browsers are exposed the same way.** HTTP/2 keep-alive is how browsers talk
+  too, so a student can have the whole app broken until a hard reload.
+
+### Confirmed in production, independent of k6
+
+`client_error_log` holds a matching cluster from 2026-08-07 10:20:11: **eight
+different endpoints** (`/api/me/progress` plus seven catalog periods) all failing
+in the same second, all `status 0` "Network request failed", all with
+`duration_ms` between 3239 and 3251. Different endpoints, one instant, one
+duration — a connection dying, not an endpoint failing.
+
+Sample caveat: 25 `status 0` events over 27 days across 3 accounts, two of them
+dev accounts (`test`, `test1`). Enough to confirm the shape. **Not** enough to
+estimate how often real students hit it.
+
+### Two runtime facts learned along the way
+
+- **Module-level state is snapshotted, not per-isolate.** The first attempt
+  generated the id at import and the deploy failed with `OSError: [Errno 29]
+  Cannot get entropy outside of request context`. Module scope runs once, is
+  captured in the Pyodide snapshot and restored into every isolate — so a
+  module-scope id would be identical everywhere and identify nothing. It must be
+  generated lazily on first use.
+- **There is almost no isolate reuse at low traffic.** Five sequential requests
+  produced four distinct isolate ids. This is worth revisiting against the
+  withdrawn latency conclusion: cold start is not paid because think time lets an
+  isolate go cold, but because a *fresh isolate* serves most requests.
+
 ## Harness corrections found by the Phase B gate
 
 The "1 VU must pass before any multi-VU run" gate earned its place — the first

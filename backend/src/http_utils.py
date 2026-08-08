@@ -6,6 +6,7 @@ from typing import Any
 from workers import Response
 
 from env_config import get_allowed_origins, is_origin_allowed
+from isolate_identity import get_isolate_id, isolate_age_ms, next_response_sequence
 
 
 def get_request_header(request: Any, header_name: str) -> str | None:
@@ -33,6 +34,15 @@ def build_cors_headers(request: Any, env: Any) -> dict[str, str]:
     headers: dict[str, str] = {
         "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "access-control-allow-headers": "Authorization, Content-Type, X-CSRF-Token",
+        # Diagnostic; see isolate_identity. Every response path funnels through
+        # here, which is why the marker is attached at this point rather than in
+        # each responder.
+        "x-isolate-id": get_isolate_id(),
+        "x-isolate-seq": str(next_response_sequence()),
+        "x-isolate-age-ms": str(isolate_age_ms()),
+        # Without this a browser cannot read the above cross-origin, and the
+        # deployed frontend is cross-origin to this Worker.
+        "access-control-expose-headers": "x-isolate-id, x-isolate-seq, x-isolate-age-ms",
     }
 
     if "*" in allowed_origins:

@@ -14,6 +14,15 @@ compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
 workers_dev = true
 
+# Persistent logs. Without this the only way to see a failure was to have
+# `wrangler tail` already running when it happened, and the fault under
+# investigation (docs/load-test-2026-08.md) appears in roughly one load-test run
+# in three — so anything occurring in real traffic was lost. Full sampling
+# because the events of interest are rare by definition.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"
