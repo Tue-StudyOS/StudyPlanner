@@ -56,16 +56,33 @@ Correct: yes. Across both Phase C runs, every failure was the runtime killing a
 hung request — no wrong answers, no data corruption, no rate-limit lockouts, no
 4xx. The application logic holds.
 
-Usable: **conditionally**. In a good window it is fine. In a bad window roughly
-1 request in 20 fails outright, and the p95 sits near 3 s in both. For a
-20-person lecture demo that means a handful of visible errors and a
-consistently sluggish feel — not an outage.
+Usable: **yes, in steady state.** Settled, the app runs at a 92 ms median and a
+298 ms p95 under 20 concurrent users, with no failures. That is a healthy
+service.
 
-Where it hurts is **not** where the plan predicted. Concurrency is not the
-problem: the median at 20 VUs (118 ms) is *better* than at 1 VU (2620 ms),
-because sustained traffic keeps isolates warm. The problem is Python Worker
-cold start, which a realistically-paced single user pays on nearly every
-request.
+Two things spoil it, and neither is concurrency:
+
+1. **Deploy recency.** Minutes after a deploy the same test reports a 2620 ms
+   median at a single user. Whether the deploy causes it and how long it lasts
+   is not yet established — see the correction above and the open questions
+   below.
+2. **The episodic hang.** One run in three produced 56 failures, of which 21
+   were unretryable mutations. During such a window a typical user hits about
+   one hard error per session.
+
+The plan was built on the premise that 20 concurrent users was the risk. It is
+not: 20 VUs performs *better* than 1 VU in every run, because sustained traffic
+keeps isolates warm. Neither of the two real problems is load-related at all.
+
+### Open questions
+
+- **Does deploying cause the slow window, and how long does it last?** Redeploy
+  the same code, then re-run Phase B at intervals (immediately, +5 min, +30 min,
+  +2 h). Two paired observations show association only.
+- **How often does a bad window happen?** Three runs, one bad. Repeat Phase C
+  5-10 times across a day and record `user_visible_failures` each time.
+- **Do retries actually absorb the GET failures?** The absorption metric exists
+  now but has only run in clean windows. It needs a bad one to mean anything.
 
 ### Setup state
 
@@ -181,6 +198,40 @@ what was found.
 
 ---
 
+## Correction: the latency numbers below were measured minutes after a deploy
+
+**Everything in Phases B and C was run 6-20 minutes after `wrangler deploy`.**
+Re-running the identical scripts ~20 hours later, against the same Worker
+version and the same accounts, gives completely different latency:
+
+| Measurement | 2026-08-07, ~15 min post-deploy | 2026-08-08, settled |
+| --- | --- | --- |
+| Phase B (1 VU) median | 2620 ms | **105 ms** |
+| Phase B (1 VU) p95 | 3880 ms | **338 ms** |
+| Phase C (20 VU) median | 118 ms | 92 ms |
+| Phase C (20 VU) p95 | 3073 ms | **298 ms** |
+| Phase C (20 VU) p99 | 6350 ms | 2128 ms |
+
+A 25x change at 1 VU with no code change. Two conclusions drawn on 2026-08-07
+do not survive this and are withdrawn:
+
+- **"p95 is a flat ~2.5 s on every endpoint, therefore Pyodide start-up is a
+  chronic per-request cost."** In steady state p95 is ~300 ms. The flat ~2.5 s
+  was real but is not the normal operating state.
+- **"A realistically-paced single user is the pessimal case, because think time
+  lets the isolate go cold between steps."** The 1 VU run uses the same 3-8 s
+  think times and now medians at 105 ms. Think time is not the driver.
+
+What both readings actually had in common was deploy recency, which was not
+controlled for and not even considered. The per-endpoint table further down is
+therefore a table of *post-deploy* latency; keep it for that, do not read it as
+normal behaviour.
+
+**Not yet established:** whether the degradation is caused by the deploy, and
+how long it lasts. That needs a redeploy followed by measurement at intervals —
+see "Open questions". Two paired observations show the association, not the
+mechanism.
+
 ## Phase B — baseline
 
 Run against the deployed Worker (version `ff27e541`) from the real recording,
@@ -205,17 +256,20 @@ is the pessimal case, not the optimistic one.**
 Run twice, back to back, same script and same deployed version. The two runs
 disagree, and that disagreement is the finding.
 
-| | Run 1 (15:12) | Run 2 (15:20) |
-| --- | --- | --- |
-| Requests | 1158 | 1154 |
-| Failed | **0.00 %** | **4.85 %** |
-| `server_errors` (5xx) | **0** | **56** |
-| `rate_limited` (429) | 0 | 0 |
-| `client_errors` (4xx) | 0 | 0 |
-| med / p95 / p99 / max | 122 / 3054 / 5993 / 27633 ms | 118 / 3073 / 6350 / 9011 ms |
+| | Run 1 (08-07 15:12) | Run 2 (08-07 15:20) | Run 3 (08-08, settled) |
+| --- | --- | --- | --- |
+| Requests | 1158 | 1154 | 1247 |
+| Failed | **0.00 %** | **4.85 %** | **0.00 %** |
+| `server_errors` (5xx) | **0** | **56** | **0** |
+| `rate_limited` (429) | 0 | 0 | 0 |
+| `client_errors` (4xx) | 0 | 0 | 0 |
+| `user_visible_failures` | not measured | not measured | **0** |
+| med / p95 / p99 / max | 122 / 3054 / 5993 / 27633 ms | 118 / 3073 / 6350 / 9011 ms | 92 / 298 / 2128 / 4310 ms |
 
-Nothing changed between them. The fault is **episodic**: it is not provoked
-reliably by concurrency, and it is not absent either.
+Nothing changed between runs 1 and 2. The fault is **episodic**: it is not
+provoked reliably by concurrency, and it is not absent either. Three runs give
+one bad window out of three, which is still far too small a sample to quote a
+rate from.
 
 > Correction to an assessment made earlier the same day, before Run 2 existed.
 > On the strength of 380 clean probe requests and Run 1, this report said the
@@ -249,7 +303,42 @@ Failures were spread across **9 different endpoints** — heaviest on
 `/api/me/semester-plans/SS%202026` (31), which is simply the most-requested path
 in the scenario. Nothing endpoint-specific.
 
-### Per-endpoint latency (Run 2)
+### How many of those 56 would a user actually have seen?
+
+The frontend retries safe methods up to three times
+([`api.ts`](../frontend/src/shared/utils/api.ts)), so a wedged request becomes
+latency rather than an error — but **mutations are never retried**, because a
+`POST` that timed out may still have been applied. Splitting Run 2's 56 captured
+failures by method:
+
+| Method | Count | Retried? |
+| --- | --- | --- |
+| GET | 35 | yes — absorbed unless all 3 attempts fail |
+| PUT | 16 | **no** |
+| PATCH | 4 | **no** |
+| POST | 1 | **no** |
+
+So **21 of 56 (37 %) were user-visible immediately**, with no retry possible.
+That is the number that matters: a failed `PUT /api/me/semester-plans/...` means
+the student's edit did not save, and they are shown an error without knowing
+whether it applied.
+
+Spread over a 5-minute run with 20 VUs, 21 unretryable failures works out to
+roughly **one hard error per user per session** during a bad window.
+
+The 35 GETs are probably almost all absorbed — three consecutive failures is
+unlikely if failures are independent — but *independence is an assumption*,
+stated in a code comment ("hangs that one request and then serves the next one
+normally") and not measured. If a wedged isolate keeps serving the same client,
+retries land on it again and the absorption rate collapses.
+
+`scenario.js` now measures this directly rather than inferring it: it mirrors the
+frontend's retry policy and reports `absorbed_by_retry` alongside
+`user_visible_failures`. Run 3 recorded 0 and 0 — a clean window, so the
+instrumentation is unproven against real failures and needs a bad window to
+validate.
+
+### Per-endpoint latency (Run 2 — post-deploy, see the correction above)
 
 ```
 endpoint                                    med       p95       p99       max

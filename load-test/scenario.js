@@ -46,6 +46,22 @@ const rateLimited = new Counter('rate_limited_429')
 const clientErrors = new Counter('client_errors_4xx')
 const stepDuration = new Trend('step_duration', true)
 
+// What the user actually experiences, as opposed to what the server did:
+// a 5xx the frontend retries away is latency, not an error.
+const userVisibleFailures = new Counter('user_visible_failures')
+const absorbedByRetry = new Counter('absorbed_by_retry')
+
+// Mirrors frontend/src/shared/utils/api.ts. Kept in sync deliberately: the
+// point of the metric is to model the deployed client, so a divergence here
+// silently invalidates the "user-visible" number.
+const RETRY_SAFE_METHODS = new Set(['GET', 'HEAD'])
+const MAX_ATTEMPTS = 3
+const RETRY_BACKOFF_MS = 300
+
+function isRetryableFailure(method, status) {
+  return RETRY_SAFE_METHODS.has(method.toUpperCase()) && (status === 0 || status >= 500)
+}
+
 /**
  * A semester plan that was never saved returns 404, and that is the app working
  * correctly: whether a plan exists is per-account state, not app health. The
@@ -89,8 +105,12 @@ export const options = {
     },
   },
   thresholds: {
-    // Any 5xx fails the run outright.
+    // Any 5xx fails the run outright. Counted per attempt, so a retried request
+    // that failed twice contributes twice — this is the server's error rate.
     server_errors: ['count<1'],
+    // What a user would actually have seen. The gap between this and
+    // server_errors is the retry doing its job.
+    user_visible_failures: ['count<1'],
     // A 429 here means the pre-minted sessions were not enough to keep the
     // rate limiter out of the measurement — the run is invalid, not the app.
     rate_limited_429: ['count<1'],
@@ -179,28 +199,53 @@ function runSteps(steps, session) {
 
     const notFoundIsExpected = expectsNotFound(step.method, pathWithoutQuery)
 
-    const response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
-      headers: buildHeaders(session, step.method),
-      // Group metrics by endpoint rather than by unique URL.
-      tags: { endpoint: pathWithoutQuery, method: step.method },
-      redirects: 0,
-      // Drives http_req_failed, so an expected 404 does not read as a failure.
-      responseCallback: notFoundIsExpected
-        ? http.expectedStatuses(404, { min: 200, max: 299 })
-        : http.expectedStatuses({ min: 200, max: 299 }),
-    })
+    // The browser retries safe methods, so a single wedged request is latency
+    // rather than an error. Replaying without that overstates what users see.
+    let response = null
+    let attemptsUsed = 0
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      attemptsUsed = attempt
+      response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
+        headers: buildHeaders(session, step.method),
+        // Group metrics by endpoint rather than by unique URL.
+        tags: { endpoint: pathWithoutQuery, method: step.method, attempt: String(attempt) },
+        redirects: 0,
+        // Drives http_req_failed, so an expected 404 does not read as a failure.
+        responseCallback: notFoundIsExpected
+          ? http.expectedStatuses(404, { min: 200, max: 299 })
+          : http.expectedStatuses({ min: 200, max: 299 }),
+      })
 
-    stepDuration.add(response.timings.duration, { endpoint: pathWithoutQuery })
+      // Every attempt is a real request against the Worker, so every attempt
+      // counts toward the server-side error total.
+      stepDuration.add(response.timings.duration, { endpoint: pathWithoutQuery })
+      if (response.status >= 500) {
+        serverErrors.add(1, { endpoint: pathWithoutQuery })
+      } else if (response.status === 429) {
+        rateLimited.add(1, { endpoint: pathWithoutQuery })
+      }
+
+      if (attempt < MAX_ATTEMPTS && isRetryableFailure(step.method, response.status)) {
+        sleep((RETRY_BACKOFF_MS * attempt) / 1000)
+        continue
+      }
+      break
+    }
 
     const isExpected =
       (response.status >= 200 && response.status < 300)
       || (notFoundIsExpected && response.status === 404)
 
-    if (response.status >= 500) {
-      serverErrors.add(1, { endpoint: pathWithoutQuery })
-    } else if (response.status === 429) {
-      rateLimited.add(1, { endpoint: pathWithoutQuery })
-    } else if (!isExpected) {
+    if (isExpected && attemptsUsed > 1) {
+      // Failed at least once, then succeeded: the user waited, saw no error.
+      absorbedByRetry.add(1, { endpoint: pathWithoutQuery })
+    }
+    if (!isExpected) {
+      // Survived the retry policy (or was never eligible, as every mutation
+      // is): this is what actually reaches the user as a broken interaction.
+      userVisibleFailures.add(1, { endpoint: pathWithoutQuery, method: step.method })
+    }
+    if (!isExpected && response.status < 500 && response.status !== 429) {
       // Previously only 5xx was logged, so a 4xx from a malformed replay body
       // was invisible in the output and only showed up as a threshold breach.
       clientErrors.add(1, { endpoint: pathWithoutQuery })
@@ -266,6 +311,7 @@ export function handleSummary(data) {
   const serverErrorCount = counterValue(data, 'server_errors')
   const rateLimitedCount = counterValue(data, 'rate_limited_429')
   const clientErrorCount = counterValue(data, 'client_errors_4xx')
+  const userVisibleCount = counterValue(data, 'user_visible_failures')
   const failedRate = data.metrics.http_req_failed
     ? (data.metrics.http_req_failed.values.rate * 100).toFixed(2)
     : 'n/a'
@@ -278,6 +324,8 @@ export function handleSummary(data) {
     `server_errors:   ${serverErrorCount}${serverErrorCount > 0 ? '   <-- FAIL: 5xx observed' : ''}`,
     `rate_limited:    ${rateLimitedCount}${rateLimitedCount > 0 ? '   <-- run invalid: limiter was hit' : ''}`,
     `client_errors:   ${clientErrorCount}${clientErrorCount > 0 ? '   <-- rig bug: replayed request was malformed' : ''}`,
+    `absorbed_retry:  ${counterValue(data, 'absorbed_by_retry')}   (failed, then succeeded — user saw latency only)`,
+    `USER-VISIBLE:    ${userVisibleCount}${userVisibleCount > 0 ? '   <-- what users actually experienced' : ''}`,
     formatLatency(data, 'http_req_duration'),
     formatLatency(data, 'step_duration'),
     'full per-endpoint data: load-test/results/summary.json',
