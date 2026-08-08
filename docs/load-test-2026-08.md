@@ -653,6 +653,64 @@ longer locks anyone out of their account.
 
 ---
 
+## Root cause found: serialising a large response body in Python
+
+Bisected on the staging Worker (`studyplaner-api`), same compatibility date and
+same Pyodide build as production, 45 VUs for 5 minutes each.
+
+| Probe | What it does | Startup | Result at 45 VUs |
+| --- | --- | --- | --- |
+| 1 — hello world | no imports, one `await`, `Response("ok")` | 701 ms | **2450 requests, 0 failures** |
+| 2 — full import graph | imports `router` (all 28 modules), returns `"ok"` | 937 ms | **2422 requests, 0 failures** |
+| 3 — large body | no imports beyond `json`, no D1, builds ~0.9 MB and serialises it | 434 ms | **hangs — 1101 and 1102 within seconds** |
+
+Probe 3 contains no application code at all: no database, no auth, no router. It
+builds a list of dicts and calls `json.dumps`. That is sufficient to reproduce
+the fault.
+
+```
+[probe] 500 vu=23 body=error code: 1101
+[probe] 503 vu=25 body=error code: 1102   <- Worker exceeded resource limits
+```
+
+**The trigger is constructing and serialising a large response body in Python,
+under concurrency.** Everything else previously suspected is cleared:
+
+- Not the import graph — probe 2 loads every module and is clean.
+- Not Pyodide start-up in general — probe 1 is clean, and probe 3 has the
+  *shortest* start-up of the three.
+- Not D1 — probe 3 has no database binding.
+- Not `route_request`, auth, or PBKDF2 — none of it is present in probe 3.
+
+### Why the earlier readings pointed elsewhere
+
+The hung requests showed 0-1 ms of CPU and emitted no `x-isolate-*` headers,
+which was read as "it dies before our code runs, therefore our code is not
+involved". That inference was wrong. The isolate is *already* under memory
+pressure from concurrent large-payload requests, so a newly arriving request
+fails at its first `await` having done no work of its own. The victim and the
+cause are different requests.
+
+This also explains why `/api/catalog/courses?limit=1000&period=all` appeared in
+every sampled failing event: at 1.43 MB it is the largest thing the Worker
+builds, and the scenario has each VU fetch it on first load.
+
+### What this means
+
+**This is fixable in this repository — no upstream dependency.** The catalog
+endpoint should not materialise 1.43 MB of Python objects per request. Options,
+cheapest first:
+
+1. **Paginate** `/api/catalog/courses`, so no single response is large.
+2. **Cache the serialised body** so concurrent requests share one buffer instead
+   of each building their own.
+3. **Precompute** the catalog JSON and serve it from R2 or the cache API,
+   removing Python from the hot path entirely.
+
+**Not yet established:** the payload size at which it becomes unsafe. Probe 3
+used ~0.9 MB and broke; the threshold is somewhere below 1.43 MB and is worth
+bisecting before choosing a page size.
+
 ## The capacity ceiling: 40 VUs took production down, and it stayed down
 
 **Run 5 (2026-08-08, 40 VUs, 8 min) caused a real production outage.** This was
