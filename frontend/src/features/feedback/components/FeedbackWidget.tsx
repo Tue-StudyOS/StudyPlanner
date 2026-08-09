@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
@@ -6,39 +6,10 @@ import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import { submitFeedback } from '../api.ts'
-import {
-  FEEDBACK_AUTO_PROMPT_DELAY_MS,
-  shouldScheduleFeedbackPrompt,
-} from '../utils/feedbackPrompt.ts'
 
-const AUTO_PROMPT_SESSION_KEY = 'studyplanner.feedback.autoPromptSeen'
-const SUBMITTED_STORAGE_KEY = 'studyplanner.feedback.submitted'
 const MAX_FEEDBACK_LENGTH = 2000
 
-type FeedbackSource = 'auto_prompt' | 'feedback_button'
 type SubmissionState = 'idle' | 'submitting' | 'success' | 'error'
-
-function readStorageValue(storage: Storage | undefined, key: string): boolean {
-  if (!storage) {
-    return false
-  }
-  try {
-    return storage.getItem(key) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function writeStorageValue(storage: Storage | undefined, key: string): void {
-  if (!storage) {
-    return
-  }
-  try {
-    storage.setItem(key, 'true')
-  } catch {
-    // Storage can be unavailable in private browsing; the in-memory modal still works.
-  }
-}
 
 function buildPagePath(location: { pathname: string }): string {
   return location.pathname.slice(0, 512) || '/'
@@ -51,42 +22,16 @@ export function FeedbackWidget() {
   const pagePath = useMemo(() => buildPagePath(location), [location])
 
   const [isOpen, setIsOpen] = useState<boolean>(false)
-  const [source, setSource] = useState<FeedbackSource>('feedback_button')
   const [rating, setRating] = useState<number>(0)
   const [message, setMessage] = useState<string>('')
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const shouldSchedule = shouldScheduleFeedbackPrompt({
-      hasSubmittedFeedback: readStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY),
-      hasSeenAutoPromptThisSession: readStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY),
-      isOnboardingOpen,
-    })
-
-    if (!shouldSchedule) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
-      setSource('auto_prompt')
-      setIsOpen(true)
-    }, FEEDBACK_AUTO_PROMPT_DELAY_MS)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [isOnboardingOpen])
 
   if (isOnboardingOpen) {
     return null
   }
 
   function openFromButton(): void {
-    setSource('feedback_button')
     setSubmissionState('idle')
     setErrorMessage('')
     setIsOpen(true)
@@ -95,9 +40,6 @@ export function FeedbackWidget() {
   function closeModal(): void {
     if (submissionState === 'submitting') {
       return
-    }
-    if (source === 'auto_prompt' && typeof window !== 'undefined') {
-      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
     }
     setIsOpen(false)
   }
@@ -125,12 +67,7 @@ export function FeedbackWidget() {
         rating,
         message: trimmedMessage,
         pagePath,
-        source,
       })
-      if (typeof window !== 'undefined') {
-        writeStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY)
-        writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
-      }
       setSubmissionState('success')
       setMessage('')
       setRating(0)

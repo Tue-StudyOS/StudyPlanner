@@ -1,6 +1,9 @@
+import {
+  SESSION_CACHE_SCHEMA_VERSION,
+  SESSION_CACHE_STORAGE_PREFIX,
+} from './browserStorageRegistry.ts'
+
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
-const STORAGE_PREFIX = 'studyplanner.sessionCache'
-const SCHEMA_VERSION = 1
 
 interface CacheEnvelope<T> {
   schemaVersion: number
@@ -18,11 +21,11 @@ function now(): number {
 }
 
 function storageKey(key: string, userKey: string): string {
-  return `${STORAGE_PREFIX}.${SCHEMA_VERSION}.${userKey}.${key}`
+  return `${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.${userKey}.${key}`
 }
 
 function isExpired(envelope: CacheEnvelope<unknown>, currentTime = now()): boolean {
-  return envelope.schemaVersion !== SCHEMA_VERSION || envelope.expiresAt <= currentTime
+  return envelope.schemaVersion !== SESSION_CACHE_SCHEMA_VERSION || envelope.expiresAt <= currentTime
 }
 
 export function readSessionCache<T>(key: string, userKey = 'public'): T | null {
@@ -46,7 +49,7 @@ export function readSessionCache<T>(key: string, userKey = 'public'): T | null {
     }
     const envelope = JSON.parse(rawValue) as CacheEnvelope<T>
     if (
-      envelope.schemaVersion !== SCHEMA_VERSION
+      envelope.schemaVersion !== SESSION_CACHE_SCHEMA_VERSION
       || envelope.key !== key
       || envelope.userKey !== userKey
       || isExpired(envelope)
@@ -70,7 +73,7 @@ export function writeSessionCache<T>(
 ): void {
   const createdAt = now()
   const envelope: CacheEnvelope<T> = {
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: SESSION_CACHE_SCHEMA_VERSION,
     key,
     userKey,
     createdAt,
@@ -94,8 +97,8 @@ export function writeSessionCache<T>(
 
 export function invalidateSessionCache(prefix: string, userKey?: string): void {
   const scopedPrefix = userKey === undefined
-    ? `${STORAGE_PREFIX}.${SCHEMA_VERSION}.`
-    : `${STORAGE_PREFIX}.${SCHEMA_VERSION}.${userKey}.`
+    ? `${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.`
+    : `${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.${userKey}.`
 
   for (const key of [...memoryCache.keys()]) {
     if (key.startsWith(scopedPrefix) && key.includes(`.${prefix}`)) {
@@ -133,7 +136,7 @@ export function clearExpiredSessionCache(currentTime = now()): void {
   try {
     for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
       const key = window.sessionStorage.key(index)
-      if (!key?.startsWith(`${STORAGE_PREFIX}.${SCHEMA_VERSION}.`)) {
+      if (!key?.startsWith(`${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.`)) {
         continue
       }
       const rawValue = window.sessionStorage.getItem(key)
@@ -147,5 +150,30 @@ export function clearExpiredSessionCache(currentTime = now()): void {
     }
   } catch {
     // Ignore malformed cache cleanup errors.
+  }
+}
+
+export function clearSessionCacheForUser(userKey: string): void {
+  const scopedPrefix = `${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.${userKey}.`
+
+  for (const key of [...memoryCache.keys()]) {
+    if (key.startsWith(scopedPrefix)) {
+      memoryCache.delete(key)
+    }
+  }
+
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.sessionStorage.key(index)
+      if (key?.startsWith(scopedPrefix)) {
+        window.sessionStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Logout must still complete when storage iteration is unavailable.
   }
 }

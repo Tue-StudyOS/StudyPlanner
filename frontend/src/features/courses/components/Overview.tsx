@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
+import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import {
   buildFlexibleRegulationAreaOptions,
   formatRegulationAreaShortLabel,
@@ -65,15 +66,17 @@ import { TimeRangeInputs } from './TimeRangeInputs'
 
 const PAGE_SIZE = 30
 const CATALOG_LIMIT = 1000
-const CATALOG_LAYOUT_STORAGE_KEY = 'studyplaner.catalogLayout'
-
 type CatalogLayout = 'grid' | 'list'
 
 function readStoredLayout(): CatalogLayout {
   if (typeof window === 'undefined') {
     return 'grid'
   }
-  return window.localStorage.getItem(CATALOG_LAYOUT_STORAGE_KEY) === 'list' ? 'list' : 'grid'
+  try {
+    return window.localStorage.getItem(BROWSER_STORAGE_KEYS.catalogLayout) === 'list' ? 'list' : 'grid'
+  } catch {
+    return 'grid'
+  }
 }
 
 function FilterChip({
@@ -343,7 +346,11 @@ export function CoursesOverview() {
   }, [courses])
 
   useEffect(() => {
-    window.localStorage.setItem(CATALOG_LAYOUT_STORAGE_KEY, layout)
+    try {
+      window.localStorage.setItem(BROWSER_STORAGE_KEYS.catalogLayout, layout)
+    } catch {
+      // The chosen layout still works for the current page session.
+    }
   }, [layout])
 
   const availableEctsValues = useMemo(

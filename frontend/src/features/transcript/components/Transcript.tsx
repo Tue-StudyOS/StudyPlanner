@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
+import { buildTranscriptImportStorageKey } from '../../../shared/utils/browserStorageRegistry.ts'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
@@ -45,15 +46,9 @@ import { TranscriptUploadCard } from './TranscriptUploadCard'
 
 const MAX_TRANSCRIPT_FILE_SIZE_BYTES = 10 * 1024 * 1024
 const CATALOG_LIMIT = 1000
-const IMPORT_CANDIDATES_SESSION_CACHE_VERSION = 'v2'
-
-function buildImportCandidatesSessionKey(username: string | null | undefined): string {
-  return `transcript-import-candidates.${IMPORT_CANDIDATES_SESSION_CACHE_VERSION}.${username ?? 'anonymous'}`
-}
-
 function restoreImportCandidates(username: string | null | undefined): TranscriptImportCandidate[] {
   try {
-    const raw = sessionStorage.getItem(buildImportCandidatesSessionKey(username))
+    const raw = sessionStorage.getItem(buildTranscriptImportStorageKey(username))
     return raw ? (JSON.parse(raw) as TranscriptImportCandidate[]) : []
   } catch {
     return []
@@ -68,7 +63,7 @@ function AuthenticatedTranscript() {
   const { user, csrfToken } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
-  const importCandidatesSessionKey = useMemo(() => buildImportCandidatesSessionKey(user?.username), [user?.username])
+  const importCandidatesSessionKey = useMemo(() => buildTranscriptImportStorageKey(user?.username), [user?.username])
   const restoredImportCandidates = useMemo<TranscriptImportCandidate[]>(() => restoreImportCandidates(user?.username), [user?.username])
   const [importCandidates, setImportCandidates] = useState<TranscriptImportCandidate[]>(restoredImportCandidates)
   const [persistedIssues, setPersistedIssues] = useState<SavedTranscriptIssue[]>([])

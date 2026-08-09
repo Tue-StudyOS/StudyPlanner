@@ -4,7 +4,6 @@ interface SubmitFeedbackInput {
   rating: number
   message: string
   pagePath: string
-  source: 'auto_prompt' | 'feedback_button'
 }
 
 interface SubmitFeedbackResponse {
@@ -19,7 +18,6 @@ export async function submitFeedback({
   rating,
   message,
   pagePath,
-  source,
 }: SubmitFeedbackInput): Promise<SubmitFeedbackResponse> {
   return await fetchJson<SubmitFeedbackResponse>('/api/feedback', {
     method: 'POST',
@@ -30,7 +28,7 @@ export async function submitFeedback({
       rating,
       message,
       pagePath,
-      source,
+      source: 'feedback_button',
     }),
   })
 }

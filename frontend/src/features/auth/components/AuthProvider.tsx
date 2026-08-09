@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
+import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
+import { clearPrivateBrowserData } from '../../../shared/utils/privateBrowserData.ts'
 import { AuthContext } from '../AuthContext'
 import type { LoginInput, RegisterInput, SaveProfileInput, UpdateCredentialsInput } from '../AuthContext'
 import {
@@ -12,11 +14,9 @@ import {
 } from '../api'
 import type { AuthUser } from '../types'
 
-const LEGACY_TOKEN_STORAGE_KEY = 'studyplanner.auth.token'
-
 function loadLegacyBearerToken(): string | null {
   try {
-    return localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)
+    return localStorage.getItem(BROWSER_STORAGE_KEYS.legacyAuthToken)
   } catch {
     return null
   }
@@ -24,7 +24,7 @@ function loadLegacyBearerToken(): string | null {
 
 function clearLegacyBearerToken(): void {
   try {
-    localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY)
+    localStorage.removeItem(BROWSER_STORAGE_KEYS.legacyAuthToken)
   } catch {
     // Browser storage can be unavailable in private or hardened contexts.
   }
@@ -92,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   }, [])
 
   const logout = useCallback(async (): Promise<void> => {
+    const username = user?.username
     if (csrfToken) {
       try {
         await logoutAccount(csrfToken)
@@ -101,9 +102,12 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     }
 
     clearLegacyBearerToken()
+    if (username) {
+      clearPrivateBrowserData(username)
+    }
     setCsrfToken(null)
     setUser(null)
-  }, [csrfToken])
+  }, [csrfToken, user?.username])
 
   const saveProfile = useCallback(async (input: SaveProfileInput): Promise<void> => {
     if (!csrfToken) {

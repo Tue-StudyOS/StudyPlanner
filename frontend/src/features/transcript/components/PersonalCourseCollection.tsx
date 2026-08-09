@@ -3,16 +3,13 @@ import type { CompletedCourse } from '../../courses'
 import { useTranslation } from '../../i18n'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { usePersistedToggle } from '../../../shared/hooks/usePersistedToggle'
+import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import type { TranscriptImportCandidate } from '../types'
 import { TrashIcon } from './icons'
 import { TranscriptImportRow } from './TranscriptImportRow'
 
 // Section collapse state is remembered per device so returning users keep their
 // preferred layout instead of re-collapsing long lists every visit.
-const CREDITED_COLLAPSE_KEY = 'studyplaner.transcript.collapse.credited'
-const SAVED_ISSUES_COLLAPSE_KEY = 'studyplaner.transcript.collapse.savedIssues'
-const CURRENT_REVIEW_COLLAPSE_KEY = 'studyplaner.transcript.collapse.currentReview'
-
 function CollapseToggle({
   label,
   count,
@@ -157,9 +154,9 @@ export function PersonalCourseCollection({
 }) {
   const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState<boolean>(false)
-  const [isCreditedCollapsed, setIsCreditedCollapsed] = usePersistedToggle(CREDITED_COLLAPSE_KEY, false)
-  const [isSavedIssuesCollapsed, setIsSavedIssuesCollapsed] = usePersistedToggle(SAVED_ISSUES_COLLAPSE_KEY, false)
-  const [isCurrentReviewCollapsed, setIsCurrentReviewCollapsed] = usePersistedToggle(CURRENT_REVIEW_COLLAPSE_KEY, false)
+  const [isCreditedCollapsed, setIsCreditedCollapsed] = usePersistedToggle(BROWSER_STORAGE_KEYS.transcriptCreditedCollapsed, false)
+  const [isSavedIssuesCollapsed, setIsSavedIssuesCollapsed] = usePersistedToggle(BROWSER_STORAGE_KEYS.transcriptSavedIssuesCollapsed, false)
+  const [isCurrentReviewCollapsed, setIsCurrentReviewCollapsed] = usePersistedToggle(BROWSER_STORAGE_KEYS.transcriptCurrentReviewCollapsed, false)
   const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
 
   return (
