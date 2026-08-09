@@ -330,6 +330,12 @@ Acceptance criteria:
 
 ### Phase 5 — enforce retention and diagnostic minimisation
 
+Implementation note (2026-08-09): the migration, daily scheduled cleanup,
+opportunistic cleanup, diagnostic redaction, tests, and operating runbook are
+implemented on the working branch. Applying migration `0035` and deploying the
+cron remain gated on operator approval of the periods and confirmation of a
+recoverable production checkpoint; no one-time production deletion was run.
+
 Add a migration after `0034` with indexes needed for age deletion and, if required, review-notice tables. Apply a one-time cleanup of already expired feedback, diagnostics and rate-limit rows only after the operator has approved the periods and a recoverable production backup/checkpoint exists.
 
 Implement one daily scheduled cleanup path, compatible with the pinned Python Workers runtime, that:

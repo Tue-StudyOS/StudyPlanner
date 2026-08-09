@@ -354,6 +354,7 @@ class ModerationTest(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value={"username": "operator"}),
             ),
             patch.object(course_reviews, "is_diagnostics_administrator", lambda env, name: True),
+            patch.object(course_reviews, "cleanup_expired_hidden_reviews", AsyncMock()),
         ):
             response = await course_reviews.set_review_visibility(
                 object(), object(), 7, {"isHidden": True}
@@ -370,6 +371,7 @@ class ModerationTest(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value={"username": "operator"}),
             ),
             patch.object(course_reviews, "is_diagnostics_administrator", lambda env, name: True),
+            patch.object(course_reviews, "cleanup_expired_hidden_reviews", AsyncMock()),
         ):
             with self.assertRaisesRegex(course_reviews.CourseReviewError, "isHidden"):
                 await course_reviews.set_review_visibility(

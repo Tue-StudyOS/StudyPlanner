@@ -31,6 +31,7 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(user_feedback, "execute", execute),
             patch.object(user_feedback, "fetch_one", fetch_one),
+            patch.object(user_feedback, "cleanup_expired_feedback", AsyncMock()),
         ):
             response = await user_feedback.submit_feedback(
                 env,
@@ -60,6 +61,7 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(user_feedback, "execute", execute),
             patch.object(user_feedback, "fetch_one", fetch_one),
+            patch.object(user_feedback, "cleanup_expired_feedback", AsyncMock()),
         ):
             await user_feedback.submit_feedback(
                 env,

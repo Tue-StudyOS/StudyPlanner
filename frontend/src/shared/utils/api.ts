@@ -106,12 +106,11 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
         ...init,
         credentials: init?.credentials ?? 'include',
       })
-    } catch (cause) {
+    } catch {
       failure = {
         status: 0,
         code: 'network_error',
         message: 'Network request failed',
-        detail: cause instanceof Error ? cause.message : String(cause),
       }
     }
 
@@ -123,7 +122,7 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
         // Ignore unreadable bodies; the status-based fallback message is used.
       }
       const { message, code } = parseApiErrorBody(bodyText, response.status)
-      failure = { status: response.status, code, message, detail: bodyText || undefined }
+      failure = { status: response.status, code, message }
     }
 
     if (failure) {

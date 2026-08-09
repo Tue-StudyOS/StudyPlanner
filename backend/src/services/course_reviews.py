@@ -6,6 +6,7 @@ from db.d1 import execute, fetch_all, fetch_one
 from services.authentication import get_authenticated_user, require_authenticated_user
 from services.client_error_log import is_diagnostics_administrator
 from services.course_catalog import get_course_review_key, load_course_review_options
+from services.retention import cleanup_expired_hidden_reviews
 
 MIN_COMMENT_LENGTH = 3
 MAX_COMMENT_LENGTH = 2000
@@ -331,6 +332,7 @@ async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[s
 async def list_reviews_for_moderation(env: Any, request: Any) -> dict[str, Any]:
     """List every review, hidden ones included, for a configured operator."""
     await _require_moderator(env, request)
+    await cleanup_expired_hidden_reviews(env)
     entries = await fetch_all(
         env,
         """
@@ -365,6 +367,8 @@ async def set_review_visibility(
     is_hidden = payload.get('isHidden')
     if not isinstance(is_hidden, bool):
         raise CourseReviewError('isHidden must be a boolean.')
+
+    await cleanup_expired_hidden_reviews(env)
 
     existing = await fetch_one(
         env,

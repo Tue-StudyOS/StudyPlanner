@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from db.d1 import fetch_one
+from db.d1 import execute, fetch_one
 from http_utils import get_request_header
 
 
@@ -80,8 +80,18 @@ async def _increment_window(
     policy: RateLimitPolicy,
     client_key: str,
     window_start_unix: int,
+    current_unix: int,
 ) -> int:
     """Atomically add one request to the window and return the new count."""
+    await execute(
+        env,
+        """
+        DELETE FROM request_rate_limits
+        WHERE scope = ?
+          AND window_started_at_unix + ? < ?
+        """,
+        [policy.scope, policy.window_seconds, current_unix - (24 * 60 * 60)],
+    )
     row = await fetch_one(
         env,
         """
@@ -135,7 +145,13 @@ async def enforce_rate_limit(
     """
     current_unix = int(time.time()) if now_unix is None else now_unix
     window_start_unix = _window_start(current_unix, policy.window_seconds)
-    request_count = await _increment_window(env, policy, _client_key(request), window_start_unix)
+    request_count = await _increment_window(
+        env,
+        policy,
+        _client_key(request),
+        window_start_unix,
+        current_unix,
+    )
     if request_count > policy.maximum_requests:
         raise RateLimitError(_retry_after_seconds(window_start_unix, policy, current_unix))
 
@@ -183,4 +199,5 @@ async def record_failed_attempt(
         policy,
         _account_key(request, identifier),
         window_start_unix,
+        current_unix,
     )

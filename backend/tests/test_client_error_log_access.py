@@ -16,7 +16,10 @@ from services import client_error_log  # noqa: E402
 class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
     async def test_student_only_queries_entries_owned_by_their_username(self) -> None:
         fetch_all = AsyncMock(return_value=[])
-        with patch.object(client_error_log, 'fetch_all', fetch_all):
+        with (
+            patch.object(client_error_log, 'fetch_all', fetch_all),
+            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
+        ):
             result = await client_error_log.list_client_errors({}, 'student@example.test')
 
         self.assertEqual(result, {'entries': [], 'scope': 'own'})
@@ -27,7 +30,10 @@ class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
     async def test_configured_operator_can_query_aggregated_entries(self) -> None:
         fetch_all = AsyncMock(return_value=[])
         env = {'DIAGNOSTICS_ADMIN_USERNAMES': 'operator@example.test'}
-        with patch.object(client_error_log, 'fetch_all', fetch_all):
+        with (
+            patch.object(client_error_log, 'fetch_all', fetch_all),
+            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
+        ):
             result = await client_error_log.list_client_errors(env, 'operator@example.test')
 
         self.assertEqual(result, {'entries': [], 'scope': 'all'})
@@ -40,6 +46,7 @@ class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(client_error_log, 'get_authenticated_user', AsyncMock(return_value={'username': 'student@example.test'})),
             patch.object(client_error_log, 'execute', execute),
+            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
         ):
             await client_error_log.report_client_error(
                 {},

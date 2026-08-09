@@ -14,6 +14,11 @@ compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
 workers_dev = true
 
+[triggers]
+# Daily at 03:17 UTC. Keep one cleanup invocation so all retention deletes
+# succeed or roll back together.
+crons = ["17 3 * * *"]
+
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173"

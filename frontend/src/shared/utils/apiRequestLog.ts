@@ -1,4 +1,5 @@
 import { BROWSER_STORAGE_KEYS } from './browserStorageRegistry.ts'
+import { sanitizeDiagnosticFields } from './diagnosticRedaction.ts'
 
 export interface ApiRequestLogEntry {
   id: string
@@ -56,7 +57,7 @@ export function appendApiRequestLog(
   entry: Omit<ApiRequestLogEntry, 'id'>,
 ): void {
   const nextEntry: ApiRequestLogEntry = {
-    ...entry,
+    ...sanitizeDiagnosticFields(entry),
     id: `${entry.timestamp}-${Math.random().toString(36).slice(2, 8)}`,
   }
   writeRawEntries([nextEntry, ...readRawEntries()].slice(0, MAX_ENTRIES))

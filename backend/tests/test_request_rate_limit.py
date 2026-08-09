@@ -29,7 +29,10 @@ class RequestRateLimitTest(unittest.IsolatedAsyncioTestCase):
         policy = request_rate_limit.RateLimitPolicy('test', maximum_requests=2, window_seconds=60)
         fetch_one = AsyncMock(return_value={'requestCount': 3})
 
-        with patch.object(request_rate_limit, 'fetch_one', fetch_one):
+        with (
+            patch.object(request_rate_limit, 'fetch_one', fetch_one),
+            patch.object(request_rate_limit, 'execute', AsyncMock()) as execute,
+        ):
             with self.assertRaises(request_rate_limit.RateLimitError) as context:
                 await request_rate_limit.enforce_rate_limit(
                     {},
@@ -43,9 +46,13 @@ class RequestRateLimitTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(params[0], 'test')
         self.assertEqual(params[2], 120)
         self.assertNotEqual(params[1], '198.51.100.10')
+        self.assertEqual(execute.await_args.args[2], ['test', 60, 125 - (24 * 60 * 60)])
 
     async def test_request_below_limit_passes(self) -> None:
-        with patch.object(request_rate_limit, 'fetch_one', AsyncMock(return_value={'requestCount': 2})):
+        with (
+            patch.object(request_rate_limit, 'fetch_one', AsyncMock(return_value={'requestCount': 2})),
+            patch.object(request_rate_limit, 'execute', AsyncMock()),
+        ):
             await request_rate_limit.enforce_rate_limit(
                 {},
                 Request('198.51.100.10'),
@@ -85,7 +92,10 @@ class FailedAttemptLimitTest(unittest.IsolatedAsyncioTestCase):
     async def test_checking_the_limit_does_not_consume_budget(self) -> None:
         fetch_one = AsyncMock(return_value={'requestCount': 1})
 
-        with patch.object(request_rate_limit, 'fetch_one', fetch_one):
+        with (
+            patch.object(request_rate_limit, 'fetch_one', fetch_one),
+            patch.object(request_rate_limit, 'execute', AsyncMock()),
+        ):
             await request_rate_limit.enforce_failed_attempt_limit(
                 {},
                 Request('198.51.100.10'),
@@ -116,7 +126,10 @@ class FailedAttemptLimitTest(unittest.IsolatedAsyncioTestCase):
         request = Request('198.51.100.10')
         fetch_one = AsyncMock(return_value={'requestCount': 1})
 
-        with patch.object(request_rate_limit, 'fetch_one', fetch_one):
+        with (
+            patch.object(request_rate_limit, 'fetch_one', fetch_one),
+            patch.object(request_rate_limit, 'execute', AsyncMock()),
+        ):
             await request_rate_limit.record_failed_attempt(
                 {},
                 request,

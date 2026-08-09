@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from db.d1 import execute, fetch_one
+from services.retention import cleanup_expired_feedback
 
 MAX_MESSAGE_LENGTH = 2000
 MIN_MESSAGE_LENGTH = 3
@@ -58,6 +59,8 @@ async def submit_feedback(env: Any, request: Any, payload: dict[str, Any]) -> di
     message = _validate_message(payload.get('message'))
     page_path = _validate_page_path(payload.get('pagePath'))
     source = _validate_source(payload.get('source'))
+
+    await cleanup_expired_feedback(env)
 
     await execute(
         env,

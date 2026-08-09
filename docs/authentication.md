@@ -45,6 +45,14 @@ also send a session-bound `X-CSRF-Token` header.
   own reports. Configure `DIAGNOSTICS_ADMIN_USERNAMES` as a comma-separated
   Worker variable to allow named operators to view the aggregated history.
   Operators can always use Cloudflare Worker logs and D1 directly.
+- Browser and server diagnostics retain normalized paths without query strings.
+  Both layers redact common email, credential/header, transcript, and grade
+  patterns; response bodies and raw exception objects are not submitted as
+  diagnostic detail. D1 diagnostics are deleted after 14 days and remain capped
+  at 500 rows.
+- Rate-limit keys are deleted daily once their applicable window has ended for
+  more than 24 hours. See `docs/privacy/retention-operations.md` for boundaries,
+  deployment gates, and verification.
 
 ## Scope
 

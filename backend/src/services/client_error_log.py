@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
 from typing import Any
+from urllib.parse import urlsplit
 
 from db.d1 import execute, fetch_all
 from env_config import get_env_value
 from services.authentication import get_authenticated_user
+from services.retention import cleanup_expired_client_diagnostics
 
 MAX_URL_LENGTH = 2048
 MAX_MESSAGE_LENGTH = 500
@@ -14,6 +17,21 @@ MAX_CODE_LENGTH = 64
 MAX_LIST_ENTRIES = 200
 MAX_STORED_ENTRIES = 500
 ALLOWED_METHODS = {'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'}
+SENSITIVE_FIELD_PATTERN = re.compile(
+    r'\b(password|passwd|token|secret|csrf)\s*[:=]\s*[^\s,;]+',
+    re.IGNORECASE,
+)
+BEARER_PATTERN = re.compile(r'\bBearer\s+[A-Za-z0-9._~+/=-]+', re.IGNORECASE)
+HEADER_PATTERN = re.compile(
+    r'\b(cookie|set-cookie|authorization)\s*[:=]\s*[^\r\n]+',
+    re.IGNORECASE,
+)
+EMAIL_PATTERN = re.compile(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', re.IGNORECASE)
+ACADEMIC_DATA_PATTERN = re.compile(
+    r'\b(transcript(?:\s+text)?|zeugnis|grade|note)\s*[:=]\s*[^\r\n,;]+',
+    re.IGNORECASE,
+)
+URL_QUERY_PATTERN = re.compile(r'(https?://[^\s?#]+)\?[^\s#]*', re.IGNORECASE)
 
 
 class ClientErrorLogError(ValueError):
@@ -25,6 +43,28 @@ def _safe_text(value: Any, *, max_length: int) -> str:
     if len(text) > max_length:
         return text[:max_length]
     return text
+
+
+def _normalize_path(value: Any, *, max_length: int) -> str:
+    text = _safe_text(value, max_length=MAX_URL_LENGTH)
+    if not text:
+        return ''
+    parsed = urlsplit(text)
+    path = parsed.path or '/'
+    if not path.startswith('/'):
+        path = f'/{path}'
+    return path[:max_length]
+
+
+def _redact_text(value: Any, *, max_length: int) -> str:
+    text = _safe_text(value, max_length=max_length * 2)
+    text = URL_QUERY_PATTERN.sub(r'\1?[redacted-query]', text)
+    text = BEARER_PATTERN.sub('Bearer [redacted-token]', text)
+    text = HEADER_PATTERN.sub(r'\1: [redacted]', text)
+    text = SENSITIVE_FIELD_PATTERN.sub(r'\1: [redacted]', text)
+    text = ACADEMIC_DATA_PATTERN.sub(r'\1: [redacted-academic-data]', text)
+    text = EMAIL_PATTERN.sub('[redacted-email]', text)
+    return text[:max_length]
 
 
 def _validate_method(value: Any) -> str:
@@ -69,22 +109,24 @@ def is_diagnostics_administrator(env: Any, username: str) -> bool:
 
 async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -> dict[str, Any]:
     method = _validate_method(payload.get('method'))
-    url = _safe_text(payload.get('url'), max_length=MAX_URL_LENGTH)
+    url = _normalize_path(payload.get('url'), max_length=MAX_URL_LENGTH)
     if not url:
         raise ClientErrorLogError('url is required.')
 
     status = _validate_status(payload.get('status'))
-    message = _safe_text(payload.get('message'), max_length=MAX_MESSAGE_LENGTH)
+    message = _redact_text(payload.get('message'), max_length=MAX_MESSAGE_LENGTH)
     if not message:
         raise ClientErrorLogError('message is required.')
 
     code = _safe_text(payload.get('code'), max_length=MAX_CODE_LENGTH) or None
-    detail = _safe_text(payload.get('detail'), max_length=MAX_DETAIL_LENGTH) or None
-    page_path = _safe_text(payload.get('pagePath'), max_length=MAX_PAGE_PATH_LENGTH) or None
+    detail = _redact_text(payload.get('detail'), max_length=MAX_DETAIL_LENGTH) or None
+    page_path = _normalize_path(payload.get('pagePath'), max_length=MAX_PAGE_PATH_LENGTH) or None
     duration_ms = _validate_duration_ms(payload.get('durationMs'))
 
     user = await get_authenticated_user(env, request)
     username = str(user['username']) if user and user.get('username') else None
+
+    await cleanup_expired_client_diagnostics(env)
 
     await execute(
         env,
@@ -115,6 +157,7 @@ async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -
 
 
 async def list_client_errors(env: Any, username: str) -> dict[str, Any]:
+    await cleanup_expired_client_diagnostics(env)
     is_administrator = is_diagnostics_administrator(env, username)
     ownership_filter = '' if is_administrator else 'WHERE user_username = ?'
     parameters: list[Any] = [MAX_LIST_ENTRIES] if is_administrator else [username, MAX_LIST_ENTRIES]
