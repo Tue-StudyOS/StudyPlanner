@@ -14,7 +14,6 @@ import {
 } from '../utils/reviewSummary.ts'
 import { ReviewForm } from './ReviewForm'
 import { ReviewList } from './ReviewList'
-import { ReviewNoticeForm } from './ReviewNoticeForm.tsx'
 
 interface CourseReviewsSectionProps {
   courseId: string
@@ -143,21 +142,6 @@ export function CourseReviewsSection({ courseId }: CourseReviewsSectionProps) {
           {data.viewerReview ? t('reviews.editReview') : t('reviews.writeReview')}
         </button>
       )}
-
-      {data.viewerReview?.moderationDecision ? (
-        <div className="grid min-w-0 gap-2 rounded-[10px] border border-primary/30 bg-primary-soft px-3 py-2.5">
-          <p className="text-[12.5px] font-medium text-fg">{t('reviews.moderationDecisionTitle')}</p>
-          <p className="min-w-0 break-words text-[12px] text-fg-mid">
-            {data.viewerReview.moderationDecision.reason ?? t('reviews.moderationDecisionFallback')}
-          </p>
-          <details className="min-w-0 text-[12px] text-fg-mid" id="redress">
-            <summary className="cursor-pointer font-medium text-primary">{t('reviews.requestRedress')}</summary>
-            <div className="mt-2 min-w-0">
-              <ReviewNoticeForm reviewId={data.viewerReview.id} defaultCategory="moderation_redress" />
-            </div>
-          </details>
-        </div>
-      ) : null}
 
       <SummaryHeadline summary={data.summary} />
 

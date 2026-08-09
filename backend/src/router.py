@@ -53,11 +53,6 @@ from services.course_reviews import (
     save_course_review,
     set_review_visibility,
 )
-from services.course_review_notices import (
-    decide_review_notice,
-    list_review_notices,
-    submit_review_notice,
-)
 from services.app_settings import get_simulated_semester_label
 from services.progress import get_current_user_progress
 from services.client_error_log import ClientErrorLogError, list_client_errors, report_client_error
@@ -68,7 +63,6 @@ from services.request_rate_limit import (
     CLIENT_ERROR_POLICY,
     COURSE_REVIEW_POLICY,
     FEEDBACK_POLICY,
-    REVIEW_NOTICE_POLICY,
     RateLimitError,
     enforce_failed_attempt_limit,
     enforce_rate_limit,
@@ -77,9 +71,7 @@ from services.request_rate_limit import (
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
 from services.user_privacy import (
     AccountDeletionError,
-    DataExportError,
     delete_current_user_account,
-    export_current_user_data,
 )
 from services.planner_assignments import (
     PlannerAssignmentError,
@@ -431,22 +423,6 @@ async def route_request(request: Any, env: Any) -> Any:
                 return _new_session_response(auth_payload, request, env)
             return _method_not_allowed_response(request, env)
 
-        if path == "/api/me/data-export":
-            if method != "GET":
-                return _method_not_allowed_response(request, env)
-            export_payload = await export_current_user_data(env, request)
-            return json_response(
-                export_payload,
-                request=request,
-                env=env,
-                extra_headers={
-                    'cache-control': 'no-store',
-                    'content-disposition': (
-                        'attachment; filename="studyplanner-data-export.json"'
-                    ),
-                },
-            )
-
         if path == "/api/me/account":
             if method != "DELETE":
                 return _method_not_allowed_response(request, env)
@@ -515,40 +491,6 @@ async def route_request(request: Any, env: Any) -> Any:
                 return _method_not_allowed_response(request, env)
             return json_response(
                 await list_reviews_for_moderation(env, request),
-                request=request,
-                env=env,
-            )
-
-        if path == "/api/admin/review-notices":
-            if method != "GET":
-                return _method_not_allowed_response(request, env)
-            return json_response(
-                await list_review_notices(env, request),
-                request=request,
-                env=env,
-            )
-
-        if path.startswith("/api/admin/review-notices/"):
-            if method != "PATCH":
-                return _method_not_allowed_response(request, env)
-            notice_id = _parse_numeric_path_id(
-                path.removeprefix("/api/admin/review-notices/")
-            )
-            if notice_id is None:
-                return error_response(
-                    code="invalid_review_notice_id",
-                    message="Review notice ids must be numeric.",
-                    request=request,
-                    env=env,
-                    status=400,
-                )
-            return json_response(
-                await decide_review_notice(
-                    env,
-                    request,
-                    notice_id,
-                    await read_json_object(request),
-                ),
                 request=request,
                 env=env,
             )
@@ -700,18 +642,6 @@ async def route_request(request: Any, env: Any) -> Any:
 
             return _method_not_allowed_response(request, env)
 
-        if path == "/api/course-review-notices":
-            if method != "POST":
-                return _method_not_allowed_response(request, env)
-
-            await enforce_rate_limit(env, request, REVIEW_NOTICE_POLICY)
-            notice = await submit_review_notice(
-                env,
-                request,
-                await read_json_object(request),
-            )
-            return json_response(notice, request=request, env=env, status=201)
-
         if path == "/api/feedback":
             if method != "POST":
                 return _method_not_allowed_response(request, env)
@@ -752,7 +682,6 @@ async def route_request(request: Any, env: Any) -> Any:
                         "catalogCourseDetail": "/api/catalog/courses/<id>",
                         "catalogCourseReviews": "/api/catalog/courses/<id>/reviews",
                         "ownCourseReview": "/api/me/course-reviews/<courseId>",
-                        "courseReviewNotices": "/api/course-review-notices",
                         "regulationVersions": "/api/regulation-versions",
                         "regulationCatalog": "/api/regulation-versions/<code>/courses?limit=100",
                         "studyPrograms": "/api/study-programs",
@@ -1032,15 +961,6 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=400,
-        )
-    except DataExportError as exc:
-        return error_response(
-            code="data_export_error",
-            message=str(exc),
-            request=request,
-            env=env,
-            status=500,
-            extra_headers={'cache-control': 'no-store'},
         )
     except FavoriteUpdateError as exc:
         return error_response(

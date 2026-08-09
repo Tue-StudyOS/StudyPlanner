@@ -16,9 +16,10 @@ from services import client_error_log  # noqa: E402
 class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
     async def test_student_only_queries_entries_owned_by_their_username(self) -> None:
         fetch_all = AsyncMock(return_value=[])
+        execute = AsyncMock()
         with (
+            patch.object(client_error_log, 'execute', execute),
             patch.object(client_error_log, 'fetch_all', fetch_all),
-            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
         ):
             result = await client_error_log.list_client_errors({}, 'student@example.test')
 
@@ -26,13 +27,14 @@ class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
         sql = fetch_all.await_args.args[1]
         self.assertIn('WHERE user_username = ?', sql)
         self.assertEqual(fetch_all.await_args.args[2], ['student@example.test', 200])
+        self.assertIn('DELETE FROM client_error_log', execute.await_args.args[1])
 
     async def test_configured_operator_can_query_aggregated_entries(self) -> None:
         fetch_all = AsyncMock(return_value=[])
         env = {'DIAGNOSTICS_ADMIN_USERNAMES': 'operator@example.test'}
         with (
+            patch.object(client_error_log, 'execute', AsyncMock()),
             patch.object(client_error_log, 'fetch_all', fetch_all),
-            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
         ):
             result = await client_error_log.list_client_errors(env, 'operator@example.test')
 
@@ -46,7 +48,6 @@ class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(client_error_log, 'get_authenticated_user', AsyncMock(return_value={'username': 'student@example.test'})),
             patch.object(client_error_log, 'execute', execute),
-            patch.object(client_error_log, 'cleanup_expired_client_diagnostics', AsyncMock()),
         ):
             await client_error_log.report_client_error(
                 {},
@@ -54,7 +55,8 @@ class ClientErrorLogAccessTest(unittest.IsolatedAsyncioTestCase):
                 {'method': 'GET', 'url': '/api/catalog/courses', 'status': 500, 'message': 'Failed'},
             )
 
-        insert_call = execute.await_args_list[0]
+        self.assertIn('DELETE FROM client_error_log', execute.await_args_list[0].args[1])
+        insert_call = execute.await_args_list[1]
         self.assertIn('user_username', insert_call.args[1])
         self.assertEqual(insert_call.args[2][-1], 'student@example.test')
 

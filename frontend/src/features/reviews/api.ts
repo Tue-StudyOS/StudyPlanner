@@ -1,9 +1,5 @@
 import { createCsrfHeaders, fetchJson } from '../../shared/utils/api'
-import type {
-  CourseReviewsResponse,
-  ReviewNoticePayload,
-  ReviewNoticeReceipt,
-} from './types.ts'
+import type { CourseReviewsResponse } from './types.ts'
 import type { CourseReviewPayload } from './utils/reviewValidation.ts'
 
 export async function fetchCourseReviews(courseId: string): Promise<CourseReviewsResponse> {
@@ -41,14 +37,4 @@ export async function deleteCourseReview(
       headers: createCsrfHeaders(csrfToken),
     },
   )
-}
-
-export async function submitCourseReviewNotice(
-  payload: ReviewNoticePayload,
-): Promise<ReviewNoticeReceipt> {
-  return fetchJson<ReviewNoticeReceipt>('/api/course-review-notices', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
 }

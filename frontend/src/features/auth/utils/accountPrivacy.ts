@@ -1,5 +1,4 @@
 export const ACCOUNT_DELETION_CONFIRMATION = 'DELETE'
-export const ACCOUNT_EXPORT_FILENAME = 'studyplanner-data-export.json'
 
 export function canSubmitAccountDeletion(
   currentPassword: string,

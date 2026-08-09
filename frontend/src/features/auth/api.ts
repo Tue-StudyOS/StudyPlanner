@@ -1,10 +1,7 @@
 import {
-  ApiError,
   createCsrfHeaders,
   createLegacyBearerHeaders,
   fetchJson,
-  getApiBaseUrl,
-  parseApiErrorBody,
 } from '../../shared/utils/api'
 import type { SupportedLanguage } from '../i18n'
 import type { AuthPayload, AuthSessionResponse, AuthUser, StudyProgramOption } from './types'
@@ -121,21 +118,6 @@ export async function updateCredentials(
     },
     body: JSON.stringify(input),
   })
-}
-
-export async function fetchAccountDataExport(): Promise<Blob> {
-  const response = await fetch(`${getApiBaseUrl()}/api/me/data-export`, {
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-    },
-  })
-  if (!response.ok) {
-    const bodyText = await response.text()
-    const error = parseApiErrorBody(bodyText, response.status)
-    throw new ApiError(error.message, response.status, error.code)
-  }
-  return await response.blob()
 }
 
 export async function deleteAccountRequest(

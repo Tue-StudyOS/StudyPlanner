@@ -1,8 +1,9 @@
 import { StarRating } from '../../../shared/components/StarRating'
+import { Link } from 'react-router-dom'
 import { useTranslation } from '../../i18n'
+import { ROUTES } from '../../routes.ts'
 import type { CourseReview } from '../types.ts'
 import { sortReviewsForDisplay } from '../utils/reviewSummary.ts'
-import { ReviewNoticeForm } from './ReviewNoticeForm.tsx'
 
 interface ReviewListProps {
   reviews: CourseReview[]
@@ -34,7 +35,6 @@ function ReviewMeta({ review }: { review: CourseReview }) {
 
 export function ReviewList({ reviews }: ReviewListProps) {
   const { t } = useTranslation()
-  const [reportingReviewId, setReportingReviewId] = useState<number | null>(null)
 
   if (reviews.length === 0) {
     return <p className="text-[13px] text-fg-muted">{t('reviews.empty')}</p>
@@ -62,24 +62,14 @@ export function ReviewList({ reviews }: ReviewListProps) {
               {review.comment}
             </p>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setReportingReviewId(review.id)}
+          <Link
+            to={`${ROUTES.reviewRules}#report`}
             className="mt-2 text-[11.5px] font-medium text-fg-muted hover:text-fg hover:underline"
           >
             {t('reviews.reportAction')}
-          </button>
-          {reportingReviewId === review.id ? (
-            <div className="mt-2 min-w-0">
-              <ReviewNoticeForm
-                reviewId={review.id}
-                onCancel={() => setReportingReviewId(null)}
-              />
-            </div>
-          ) : null}
+          </Link>
         </li>
       ))}
     </ul>
   )
 }
-import { useState } from 'react'

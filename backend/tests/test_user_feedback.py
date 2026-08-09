@@ -31,7 +31,6 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(user_feedback, "execute", execute),
             patch.object(user_feedback, "fetch_one", fetch_one),
-            patch.object(user_feedback, "cleanup_expired_feedback", AsyncMock()),
         ):
             response = await user_feedback.submit_feedback(
                 env,
@@ -45,10 +44,12 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response, {"feedback": {"id": 12, "rating": 5, "createdAtUnix": 12345}})
-        execute.assert_awaited_once()
-        self.assertIn("INSERT INTO user_feedback (rating, message, page_path, source)", execute.await_args.args[1])
+        self.assertEqual(execute.await_count, 2)
+        self.assertIn("DELETE FROM user_feedback", execute.await_args_list[0].args[1])
+        insert_call = execute.await_args_list[1]
+        self.assertIn("INSERT INTO user_feedback (rating, message, page_path, source)", insert_call.args[1])
         self.assertEqual(
-            execute.await_args.args[2],
+            insert_call.args[2],
             [5, "Catalog data looked correct.", "/catalog", "feedback_button"],
         )
 
@@ -61,7 +62,6 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(user_feedback, "execute", execute),
             patch.object(user_feedback, "fetch_one", fetch_one),
-            patch.object(user_feedback, "cleanup_expired_feedback", AsyncMock()),
         ):
             await user_feedback.submit_feedback(
                 env,

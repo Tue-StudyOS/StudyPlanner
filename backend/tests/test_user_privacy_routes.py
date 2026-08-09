@@ -44,23 +44,6 @@ class UserPrivacyRouteTest(unittest.IsolatedAsyncioTestCase):
         response_patch.start()
         self.addCleanup(response_patch.stop)
 
-    async def test_export_is_an_authenticated_no_store_attachment(self) -> None:
-        export_data = AsyncMock(return_value={'exportVersion': 1})
-        with patch.object(router, 'export_current_user_data', export_data):
-            response = await router.route_request(
-                FakeRequest('GET', '/api/me/data-export'),
-                ENV,
-            )
-
-        export_data.assert_awaited_once()
-        headers = response.kwargs['headers']
-        self.assertEqual(headers['cache-control'], 'no-store')
-        self.assertEqual(
-            headers['content-disposition'],
-            'attachment; filename="studyplanner-data-export.json"',
-        )
-        self.assertNotIn('password', str(response.body).lower())
-
     async def test_deletion_requires_csrf_and_clears_session_cookie(self) -> None:
         require_csrf = AsyncMock()
         delete_account = AsyncMock()
@@ -93,19 +76,6 @@ class UserPrivacyRouteTest(unittest.IsolatedAsyncioTestCase):
         ):
             response = await router.route_request(
                 FakeRequest('DELETE', '/api/me/account'),
-                ENV,
-            )
-
-        self.assertEqual(response.kwargs['status'], 401)
-
-    async def test_export_rejects_an_unauthenticated_request(self) -> None:
-        with patch.object(
-            router,
-            'export_current_user_data',
-            AsyncMock(side_effect=router.AuthorizationError('Authentication is required.')),
-        ):
-            response = await router.route_request(
-                FakeRequest('GET', '/api/me/data-export'),
                 ENV,
             )
 

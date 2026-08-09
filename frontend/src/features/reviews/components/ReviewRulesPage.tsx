@@ -18,7 +18,7 @@ export function ReviewRulesPage() {
           <li>{t('reviews.rulesModeration')}</li>
         </ul>
       </section>
-      <section id="redress" className="grid min-w-0 gap-2 rounded-[12px] border border-border bg-surface p-4">
+      <section id="report" className="grid min-w-0 gap-2 rounded-[12px] border border-border bg-surface p-4">
         <h2 className="text-base font-semibold text-fg">{t('reviews.rulesRedressTitle')}</h2>
         <p className="break-words text-[13px] leading-6 text-fg-mid">{t('reviews.rulesRedressBody')}</p>
       </section>

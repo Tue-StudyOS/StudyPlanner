@@ -190,12 +190,3 @@ async def execute_batch(
 
     normalized_result = _to_python(result)
     return normalized_result if isinstance(normalized_result, list) else []
-
-
-async def fetch_all_batch(
-    env: Any,
-    statements: list[tuple[str, list[Any]]],
-) -> list[list[dict[str, Any]]]:
-    """Execute a transactional D1 batch and normalize each statement's rows."""
-    results = await execute_batch(env, statements)
-    return [_extract_rows(result) for result in results]

@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 from db.d1 import execute, fetch_all
 from env_config import get_env_value
 from services.authentication import get_authenticated_user
-from services.retention import cleanup_expired_client_diagnostics
 
 MAX_URL_LENGTH = 2048
 MAX_MESSAGE_LENGTH = 500
@@ -126,7 +125,11 @@ async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -
     user = await get_authenticated_user(env, request)
     username = str(user['username']) if user and user.get('username') else None
 
-    await cleanup_expired_client_diagnostics(env)
+    await execute(
+        env,
+        'DELETE FROM client_error_log WHERE created_at_unix < unixepoch() - ?',
+        [14 * 24 * 60 * 60],
+    )
 
     await execute(
         env,
@@ -157,7 +160,11 @@ async def report_client_error(env: Any, request: Any, payload: dict[str, Any]) -
 
 
 async def list_client_errors(env: Any, username: str) -> dict[str, Any]:
-    await cleanup_expired_client_diagnostics(env)
+    await execute(
+        env,
+        'DELETE FROM client_error_log WHERE created_at_unix < unixepoch() - ?',
+        [14 * 24 * 60 * 60],
+    )
     is_administrator = is_diagnostics_administrator(env, username)
     ownership_filter = '' if is_administrator else 'WHERE user_username = ?'
     parameters: list[Any] = [MAX_LIST_ENTRIES] if is_administrator else [username, MAX_LIST_ENTRIES]

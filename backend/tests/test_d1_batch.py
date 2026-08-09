@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
-from db.d1 import D1ExecutionError, execute_batch, fetch_all_batch  # noqa: E402
+from db.d1 import D1ExecutionError, execute_batch  # noqa: E402
 
 
 class FakeStatement:
@@ -66,22 +66,6 @@ class D1BatchTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(database.batch_calls, 1)
-
-    async def test_fetch_batch_normalizes_rows_per_statement(self) -> None:
-        database = FakeDatabase(
-            results=[
-                {'results': [{'id': 1}]},
-                {'results': [{'id': 2}, {'id': 3}]},
-            ]
-        )
-
-        rows = await fetch_all_batch(
-            {'DB': database},
-            [('SELECT 1', []), ('SELECT 2', [])],
-        )
-
-        self.assertEqual(rows, [[{'id': 1}], [{'id': 2}, {'id': 3}]])
-
 
 if __name__ == '__main__':
     unittest.main()

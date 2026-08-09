@@ -1,94 +1,37 @@
-# Authentication and public-request security
+# Authentication and request security
 
-## Decision
+StudyPlanner uses first-party email/password accounts in Cloudflare D1. Sessions
+are signed, stateless tokens stored in an HttpOnly cookie. Browser code receives
+a session-bound CSRF proof, but never the session token itself.
 
-StudyPlanner uses first-party email/password accounts in Cloudflare D1. A signed,
-stateless session token is stored only in an HttpOnly cookie; browser code never
-persists it in local or session storage. State-changing authenticated requests
-also send a session-bound `X-CSRF-Token` header.
+## Important behavior
 
-## Flow
-
-1. Registration and login verify credentials and create a signed token with
-   `username`, account session version, `iat`, and `exp` claims.
-2. The Worker returns a `studyplanner_session` cookie with `HttpOnly`, `Secure`,
-   `SameSite=None`, and `Path=/` in deployments. Local HTTP development uses
-   `SameSite=Lax` without `Secure`.
-3. The JSON response contains only the user and a CSRF proof derived from the
-   signed session; the session token itself is never returned to application code.
-4. The frontend sends cookies with `credentials: 'include'` and sends the CSRF
-   proof for every authenticated `POST`, `PUT`, `PATCH`, and `DELETE` request.
-5. `GET /api/auth/session` promotes a valid legacy bearer token once, then the
-   frontend removes it from local storage. This preserves active sessions during
-   the migration without keeping bearer storage as a long-term auth mechanism.
-6. Logout clears the current browser's session cookie. Changing account
-   credentials increments the account session version, invalidates older
-   sessions on every device, and replaces the current browser's cookie/CSRF
-   proof. Rotating the Worker signing secret remains the incident-wide logout.
-7. Authenticated users can export their account-linked data and delete their
-   account with current-password, explicit-confirmation, and CSRF checks.
-   Deletion runs as one transactional D1 batch and expires the cookie. Although
-   tokens are stateless, a deleted account token becomes unusable because its
-   user can no longer be loaded. The same batch redacts non-held review-notice
-   snapshots linked by authored review; an explicitly documented legal hold is
-   the only exception.
+- Production cookies use `HttpOnly`, `Secure`, `SameSite=None`, and `Path=/`.
+  Local HTTP development uses `SameSite=Lax` without `Secure`.
+- Authenticated mutations require the `X-CSRF-Token` header.
+- A valid legacy bearer token is promoted once and then removed from local
+  storage.
+- Changing credentials increments the account session version, invalidates old
+  sessions, and issues a replacement cookie for the current browser.
+- Logout clears the cookie and private per-user browser caches.
+- Account deletion requires the current password, the exact confirmation
+  `DELETE`, and CSRF protection. It deletes cascade-owned account data in one D1
+  batch and expires the cookie. Data access requests are handled through the
+  privacy contact route instead of a dedicated export API.
 
 ## Security rules
 
 - Passwords use PBKDF2-SHA256 with a per-user random salt and are never logged.
-- `AUTH_TOKEN_SECRET` must be configured with
-  `wrangler secret put AUTH_TOKEN_SECRET --name studyplanner-api`; never commit it.
-  The Wrangler configuration declares this secret as required so deployments
-  fail closed when it is missing.
-- `AUTH_TOKEN_TTL_SECONDS` configures the token lifetime.
-- `ALLOWED_ORIGINS` must be an explicit frontend-origin allow-list. Cookie CORS
-  responses enable credentials only for a matching allow-listed origin, never
-  for `*`.
-- Login, registration, feedback, AI catalog mutations, and client-error reports
-  have D1-backed per-client fixed-window limits. The database stores only a
-  SHA-256 digest of the Cloudflare-provided client IP.
-- `GET /api/client-errors` requires authentication. Students receive only their
-  own reports. Configure `DIAGNOSTICS_ADMIN_USERNAMES` as a comma-separated
-  Worker variable to allow named operators to view the aggregated history.
-  Operators can always use Cloudflare Worker logs and D1 directly.
-- Browser and server diagnostics retain normalized paths without query strings.
-  Both layers redact common email, credential/header, transcript, and grade
-  patterns; response bodies and raw exception objects are not submitted as
-  diagnostic detail. D1 diagnostics are deleted after 14 days and remain capped
-  at 500 rows.
-- Rate-limit keys are deleted daily once their applicable window has ended for
-  more than 24 hours. See `docs/privacy/retention-operations.md` for boundaries,
-  deployment gates, and verification.
+- `AUTH_TOKEN_SECRET` is a required Wrangler secret and must never be committed.
+- `ALLOWED_ORIGINS` is an explicit allow-list; credentialed CORS never uses `*`.
+- Abuse-prone public endpoints use D1-backed fixed-window rate limits with
+  hashed, non-reversible client keys.
+- Diagnostics remove query strings and redact common credentials, headers,
+  email addresses, transcripts, and grades. Entries are capped and old entries
+  are removed during normal diagnostic requests.
+- Security headers are configured in `frontend/public/_headers` and backend
+  responses.
 
-## Scope
-
-Included:
-
-- registration, sign-in, sign-out, and session restore
-- user profile, favorites, semester plans, completed courses, and transcript
-  review state
-- CSRF protection for authenticated mutations
-- rate limits for public abuse-prone endpoints
-- scoped diagnostics: own reports by default, aggregated reports for configured
-  operators
-- versioned self-service account export and atomic account deletion
-
-Not included:
-
-- password reset emails
-- email verification
-- OAuth / SSO
-- multi-factor authentication
-- a user-facing list of active devices/sessions
-
-## Deployment
-
-Apply migration `0037_session_revocation.sql` before deploying the session-aware
-Worker; otherwise authentication queries will reference a column that is not yet
-present. Existing valid tokens without the new claim map to version 0 during the
-rollout.
-
-The active D1 binding is `studyplanner-db`
-(`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`). Before deploying Worker changes, run
-`npm run db:verify-config`, apply migrations to that existing database, and then
-deploy the Worker. Do not switch to or recreate a database for this change.
+The active D1 binding remains `studyplanner-db`
+(`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`). Run `npm run db:verify-config` before
+deployment. Do not recreate or swap the database.

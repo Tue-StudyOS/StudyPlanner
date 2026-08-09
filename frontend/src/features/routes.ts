@@ -7,6 +7,8 @@ export const ROUTES = {
   account: '/account',
   log: '/log',
   reviewRules: '/review-rules',
+  privacy: '/privacy',
+  imprint: '/impressum',
   semesterDetail: '/semester/:label',
 } as const
 

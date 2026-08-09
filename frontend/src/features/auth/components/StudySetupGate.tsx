@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { SupportedLanguage } from '../../i18n'
 import { createTranslator, resolveAppLanguage, useTranslation } from '../../i18n'
 import { fetchStudyPrograms } from '../api'
@@ -7,6 +8,7 @@ import type { StudyProgramOption } from '../types'
 import { normalizeAuthErrorMessage } from '../utils/authErrors.ts'
 import { generateStartSemesters, isStudySetupComplete } from '../utils/studySetup.ts'
 import { useAuth } from '../hooks/useAuth'
+import { ROUTES } from '../../routes.ts'
 
 function toSelectValue(value: number | null | undefined): string {
   return value === null || value === undefined ? '' : String(value)
@@ -168,9 +170,18 @@ function StudySetupDialog({
 }
 
 export function StudySetupGate(): JSX.Element | null {
+  const location = useLocation()
   const { user, isAuthenticated, isLoadingSession, saveProfile } = useAuth()
+  const informationPath = location.pathname.replace(/\/+$/, '') || '/'
+  const isPublicInformationPage = [
+    ROUTES.privacy,
+    ROUTES.imprint,
+    ROUTES.reviewRules,
+    '/datenschutz',
+  ].includes(informationPath)
   const shouldBlock = Boolean(
-    isAuthenticated
+    !isPublicInformationPage
+      && isAuthenticated
       && user
       && !isLoadingSession
       && !isStudySetupComplete(user.profile),

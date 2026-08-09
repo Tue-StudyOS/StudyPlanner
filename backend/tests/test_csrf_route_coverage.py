@@ -59,7 +59,6 @@ class CsrfRouteCoverageTest(unittest.IsolatedAsyncioTestCase):
             ('POST', '/api/me/semester-plans/ws-2026/balance'),
             ('PUT', '/api/me/semester-plans/ws-2026'),
             ('PATCH', '/api/admin/course-reviews/1'),
-            ('PATCH', '/api/admin/review-notices/1'),
         )
 
         for method, path in state_changing_routes:

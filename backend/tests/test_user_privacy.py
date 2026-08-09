@@ -14,45 +14,6 @@ from services import user_privacy  # noqa: E402
 
 
 class UserPrivacyTest(unittest.IsolatedAsyncioTestCase):
-    async def test_export_contains_account_categories_without_credentials(self) -> None:
-        query_results = [
-            [{'email': 'alice@example.test', 'createdAtUnix': 1, 'updatedAtUnix': 2}],
-            [{
-                'displayName': 'Alice',
-                'favoritesJson': '["INF-1"]',
-                'semesterPlansJson': '{"SS 2026":{"notes":"private"}}',
-                'settingsJson': '{"appLanguage":"de"}',
-            }],
-            [{
-                'completedCoursesJson': '[{"title":"Course"}]',
-                'transcriptReviewItemsJson': '[{"id":"issue"}]',
-            }],
-            [{'id': 4, 'courseKey': 'INF-1', 'isHidden': 1}],
-            [{'id': 5, 'message': 'failure'}],
-        ]
-
-        with (
-            patch.object(
-                user_privacy,
-                'require_authenticated_user',
-                AsyncMock(return_value={'username': 'alice', 'email': 'alice@example.test'}),
-            ),
-            patch.object(user_privacy, 'fetch_all_batch', AsyncMock(return_value=query_results)),
-            patch.object(user_privacy, 'now_unix', return_value=99),
-        ):
-            exported = await user_privacy.export_current_user_data({}, object())
-
-        self.assertEqual(exported['exportVersion'], 2)
-        self.assertEqual(exported['account']['email'], 'alice@example.test')
-        self.assertEqual(exported['profileAndPlanning']['favorites'], ['INF-1'])
-        self.assertEqual(exported['academicProgress']['completedCourses'][0]['title'], 'Course')
-        self.assertEqual(exported['authoredCourseReviews'][0]['isHidden'], 1)
-        self.assertEqual(exported['linkedClientDiagnostics'][0]['id'], 5)
-        flattened_export = repr(exported).lower()
-        self.assertNotIn('passwordhash', flattened_export)
-        self.assertNotIn('passwordsalt', flattened_export)
-        self.assertNotIn('authtoken', flattened_export)
-
     async def test_deletion_rejects_missing_confirmation_before_password_check(self) -> None:
         with (
             patch.object(
@@ -107,7 +68,7 @@ class UserPrivacyTest(unittest.IsolatedAsyncioTestCase):
         statements = execute_batch.await_args.args[1]
         self.assertEqual(len(statements), 4)
         self.assertIn('UPDATE client_error_log', statements[0][0])
-        self.assertIn('review_snapshot_json', statements[1][0])
+        self.assertIn('removedOnAccountDeletion', statements[1][0])
         self.assertIn('DELETE FROM request_rate_limits', statements[2][0])
         self.assertIn('DELETE FROM user_auth', statements[3][0])
         self.assertEqual(statements[0][1], ['alice'])

@@ -7,6 +7,8 @@ import { ROUTES } from '../../routes.ts'
 import type { CourseReview, CourseReviewDraft, CourseReviewOptions } from '../types.ts'
 import {
   MAX_COMMENT_LENGTH,
+  MAX_LECTURER_NAME_LENGTH,
+  OTHER_LECTURER_VALUE,
   buildReviewPayload,
   toReviewDraft,
   validateReviewDraft,
@@ -37,6 +39,7 @@ const DRAFT_ERROR_KEYS: Record<ReviewDraftError, TranslationKey> = {
   missingOverallRating: 'reviews.errorMissingOverall',
   commentTooShort: 'reviews.errorCommentTooShort',
   commentTooLong: 'reviews.errorCommentTooLong',
+  lecturerNameTooLong: 'reviews.errorLecturerTooLong',
 }
 
 const SELECT_CLASSES =
@@ -124,25 +127,34 @@ export function ReviewForm({
         </label>
       ) : null}
 
-      {options.lecturers.length > 0 ? (
-        <div className="grid min-w-0 gap-1.5">
-          <label className="grid min-w-0 gap-1.5">
-            <span className="text-[12.5px] font-medium text-fg">{t('reviews.lecturerLabel')}</span>
-            <select
-              value={draft.lecturerName}
-              onChange={(event) => updateDraft({ lecturerName: event.target.value })}
-              className={SELECT_CLASSES}
-            >
-              <option value="">{t('reviews.notSpecified')}</option>
-              {options.lecturers.map((lecturer) => (
-                <option key={lecturer} value={lecturer}>
-                  {lecturer}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      ) : null}
+      <div className="grid min-w-0 gap-1.5">
+        <label className="grid min-w-0 gap-1.5">
+          <span className="text-[12.5px] font-medium text-fg">{t('reviews.lecturerLabel')}</span>
+          <select
+            value={draft.lecturerName}
+            onChange={(event) => updateDraft({ lecturerName: event.target.value })}
+            className={SELECT_CLASSES}
+          >
+            <option value="">{t('reviews.notSpecified')}</option>
+            {options.lecturers.map((lecturer) => (
+              <option key={lecturer} value={lecturer}>
+                {lecturer}
+              </option>
+            ))}
+            <option value={OTHER_LECTURER_VALUE}>{t('reviews.lecturerOther')}</option>
+          </select>
+        </label>
+        {draft.lecturerName === OTHER_LECTURER_VALUE ? (
+          <input
+            type="text"
+            value={draft.lecturerCustomName}
+            maxLength={MAX_LECTURER_NAME_LENGTH}
+            placeholder={t('reviews.lecturerOtherPlaceholder')}
+            onChange={(event) => updateDraft({ lecturerCustomName: event.target.value })}
+            className="w-full min-w-0 max-w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          />
+        ) : null}
+      </div>
 
       <label className="grid min-w-0 gap-1.5">
         <span className="text-[12.5px] font-medium text-fg">{t('reviews.commentLabel')}</span>

@@ -4,6 +4,8 @@ import type { CourseReview, CourseReviewDraft } from '../../src/features/reviews
 import {
   EMPTY_REVIEW_DRAFT,
   MAX_COMMENT_LENGTH,
+  MAX_LECTURER_NAME_LENGTH,
+  OTHER_LECTURER_VALUE,
   buildReviewPayload,
   toReviewDraft,
   validateReviewDraft,
@@ -28,7 +30,6 @@ function buildReview(overrides: Partial<CourseReview> = {}): CourseReview {
     createdAtUnix: 100,
     updatedAtUnix: 100,
     isMine: true,
-    moderationDecision: null,
     ...overrides,
   }
 }
@@ -39,7 +40,7 @@ test('an overall rating is required', () => {
   assert.equal(validateReviewDraft(buildDraft()), null)
 })
 
-test('an empty comment is allowed but a one-word stub is not', () => {
+test('comments are optional and length-limited', () => {
   assert.equal(validateReviewDraft(buildDraft({ comment: '   ' })), null)
   assert.equal(validateReviewDraft(buildDraft({ comment: 'ok' })), 'commentTooShort')
   assert.equal(validateReviewDraft(buildDraft({ comment: 'Good course.' })), null)
@@ -49,58 +50,44 @@ test('an empty comment is allowed but a one-word stub is not', () => {
   )
 })
 
-test('a minimal draft becomes a payload with every optional field cleared', () => {
-  assert.deepEqual(buildReviewPayload(buildDraft({ overallRating: 5 })), {
-    overallRating: 5,
-    examRating: null,
-    contentRating: null,
-    tutorialRating: null,
-    comment: null,
-    takenPeriodLabel: null,
-    lecturerName: null,
-  })
+test('a manually typed lecturer name is length capped', () => {
+  assert.equal(
+    validateReviewDraft(
+      buildDraft({
+        lecturerName: OTHER_LECTURER_VALUE,
+        lecturerCustomName: 'x'.repeat(MAX_LECTURER_NAME_LENGTH + 1),
+      }),
+    ),
+    'lecturerNameTooLong',
+  )
 })
 
-test('the payload carries only a catalogue-picked lecturer', () => {
+test('the payload never carries both a picked and typed lecturer', () => {
   const picked = buildReviewPayload(buildDraft({ lecturerName: 'Dr. Bernd Muster' }))
   assert.equal(picked.lecturerName, 'Dr. Bernd Muster')
-})
+  assert.equal(picked.lecturerCustomName, null)
 
-test('cleared sub-ratings and whitespace-only text are sent as null', () => {
-  const payload = buildReviewPayload(
-    buildDraft({ examRating: 0, contentRating: 3, comment: '   ', takenPeriodLabel: '  ' }),
+  const typed = buildReviewPayload(
+    buildDraft({ lecturerName: OTHER_LECTURER_VALUE, lecturerCustomName: '  Dr. Neu Hinzu  ' }),
   )
-
-  assert.equal(payload.examRating, null)
-  assert.equal(payload.contentRating, 3)
-  assert.equal(payload.comment, null)
-  assert.equal(payload.takenPeriodLabel, null)
+  assert.equal(typed.lecturerName, null)
+  assert.equal(typed.lecturerCustomName, 'Dr. Neu Hinzu')
 })
 
-test('an existing review pre-fills the draft', () => {
-  const draft = toReviewDraft(
-    buildReview({
-      overallRating: 5,
-      examRating: 2,
-      comment: 'Solid lecture.',
-      takenPeriodLabel: 'Sommer 2025',
-      lecturerName: 'Dr. Bernd Muster',
-    }),
+test('an existing review pre-fills known and custom lecturer choices', () => {
+  const known = toReviewDraft(
+    buildReview({ lecturerName: 'Dr. Bernd Muster', comment: 'Solid lecture.' }),
     KNOWN_LECTURERS,
   )
+  assert.equal(known.lecturerName, 'Dr. Bernd Muster')
+  assert.equal(known.lecturerCustomName, '')
 
-  assert.equal(draft.overallRating, 5)
-  assert.equal(draft.examRating, 2)
-  assert.equal(draft.tutorialRating, 0)
-  assert.equal(draft.comment, 'Solid lecture.')
-  assert.equal(draft.takenPeriodLabel, 'Sommer 2025')
-  assert.equal(draft.lecturerName, 'Dr. Bernd Muster')
-})
-
-test('a legacy lecturer no longer in the catalog is not resubmitted', () => {
-  const draft = toReviewDraft(buildReview({ lecturerName: 'Dr. Retired Person' }), KNOWN_LECTURERS)
-
-  assert.equal(draft.lecturerName, '')
+  const custom = toReviewDraft(
+    buildReview({ lecturerName: 'Dr. Retired Person' }),
+    KNOWN_LECTURERS,
+  )
+  assert.equal(custom.lecturerName, OTHER_LECTURER_VALUE)
+  assert.equal(custom.lecturerCustomName, 'Dr. Retired Person')
 })
 
 test('no existing review yields an empty draft', () => {

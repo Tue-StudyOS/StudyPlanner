@@ -4,11 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
 import { useTranslation } from '../../i18n'
 import { ROUTES } from '../../routes'
-import { fetchAccountDataExport } from '../api.ts'
 import { useAuth } from '../hooks/useAuth'
 import {
   ACCOUNT_DELETION_CONFIRMATION,
-  ACCOUNT_EXPORT_FILENAME,
   canSubmitAccountDeletion,
 } from '../utils/accountPrivacy.ts'
 
@@ -16,40 +14,15 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
-function downloadBlob(blob: Blob): void {
-  const objectUrl = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = objectUrl
-  anchor.download = ACCOUNT_EXPORT_FILENAME
-  anchor.style.display = 'none'
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(objectUrl)
-}
-
 export function AccountDataSection() {
   const { t } = useTranslation()
   const { deleteAccount } = useAuth()
   const navigate = useNavigate()
-  const [isExporting, setIsExporting] = useState<boolean>(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false)
   const [isDeleting, setIsDeleting] = useState<boolean>(false)
   const [currentPassword, setCurrentPassword] = useState<string>('')
   const [confirmation, setConfirmation] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
-
-  async function handleExport(): Promise<void> {
-    setIsExporting(true)
-    setError(null)
-    try {
-      downloadBlob(await fetchAccountDataExport())
-    } catch (exportError) {
-      setError(errorMessage(exportError, t('account.dataExportFailed')))
-    } finally {
-      setIsExporting(false)
-    }
-  }
 
   function closeDeleteDialog(): void {
     if (isDeleting) {
@@ -86,18 +59,7 @@ export function AccountDataSection() {
       <p className="mt-1 max-w-[48rem] text-[12.5px] leading-relaxed text-fg-muted">
         {t('account.myDataDescription')}
       </p>
-      {error && !isDeleteDialogOpen ? (
-        <p role="alert" className="mt-3 break-words text-[12.5px] text-danger">{error}</p>
-      ) : null}
       <div className="mt-4 flex min-w-0 flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void handleExport()}
-          disabled={isExporting}
-          className="rounded-md border border-border px-4 py-2 text-[13px] font-medium text-fg transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isExporting ? t('account.exportingData') : t('account.exportData')}
-        </button>
         <button
           type="button"
           onClick={() => {

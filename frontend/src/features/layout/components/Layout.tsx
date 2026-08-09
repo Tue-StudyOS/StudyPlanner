@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { FeedbackWidget } from '../../feedback'
 import { ROUTES } from '../../routes'
 import { TopBar } from './TopBar'
+import { LegalLinks } from '../../legal/components/LegalLinks.tsx'
 
 function isCatalogRoute(pathname: string): boolean {
   return pathname === ROUTES.catalog || pathname.startsWith(`${ROUTES.catalog}/`)
@@ -37,6 +38,7 @@ export function Layout() {
       >
         <Outlet />
       </main>
+      <LegalLinks />
       <FeedbackWidget />
     </div>
   )

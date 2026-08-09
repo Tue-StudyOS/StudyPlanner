@@ -28,7 +28,6 @@ CLIENT_ERROR_POLICY = RateLimitPolicy('client_error', maximum_requests=30, windo
 # Reviews already require an account, which is the real defence against skewed
 # averages; this only stops a runaway client from hammering the write path.
 COURSE_REVIEW_POLICY = RateLimitPolicy('course_review', maximum_requests=20, window_seconds=60 * 60)
-REVIEW_NOTICE_POLICY = RateLimitPolicy('review_notice', maximum_requests=5, window_seconds=60 * 60)
 
 
 class RateLimitError(PermissionError):
