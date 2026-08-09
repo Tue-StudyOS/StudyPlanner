@@ -183,25 +183,37 @@ limit/period keys all returned the right course counts, so keys do not collide.
 
 The cache only helps the public catalog. Per-user endpoints cannot be cached this
 way — the data is user-specific and changes on edit, so stale answers would be a
-correctness bug rather than a slow response. Measured on **production** (staging
-cannot validate production-minted sessions; the two Workers have different
-`AUTH_TOKEN_SECRET`s, which is why `/api/me/*` returns 401 there while the public
-catalog still answers):
+correctness bug. Measured on **production** (staging cannot validate
+production-minted sessions: the two Workers have different `AUTH_TOKEN_SECRET`s,
+which is why `/api/me/*` returns 401 there while the public catalog still
+answers).
 
-| endpoint | CPU | isolate dies after |
-| --- | --- | --- |
-| `/api/me/progress` | **81 ms** | ~28 requests |
-| `/api/me/favorites` | **57 ms** | ~42 requests |
-| `/api/me/semester-plans` | 9 ms | never |
-| `/api/study-programs` | 4 ms | never |
+**Warm** costs, measured over one reused connection so every sample lands on the
+same isolate:
 
-A single user's first load now costs roughly 18 ms (catalog, cached) + 81 + 57 +
-small change ≈ **160 ms of debt**, so one isolate still tolerates only about a
-dozen first loads. That is far better than the five it managed before, but it is
-not "fixed" — it is the same arithmetic with a bigger constant.
+| endpoint | cold | warm | debt/request |
+| --- | --- | --- | --- |
+| `/api/me/progress` | 68 ms | **14–20 ms** | ~5 ms |
+| `/api/me/favorites` | 5 ms | **4–8 ms** | none |
+| `/api/me/semester-plans` | — | 9 ms | none |
+| catalog, cached | — | ≤18 ms | ~8 ms |
 
-`/api/me/progress` issues ~7 sequential D1 queries; batching them and trimming the
-per-row work is the obvious next lever if the account stays on Free.
+> **Correction.** An earlier pass reported 81 ms and 57 ms for progress and
+> favorites and concluded they were the dominant remaining cost. That was wrong:
+> those samples were taken with separate `curl` invocations, so each opened its
+> own connection and could land on a different *cold* isolate. The same confound
+> was already known for `/api/catalog/periods` (58 ms cold, 2.8 ms warm) and was
+> simply not applied. Always measure over one reused connection.
+
+So a user's first page load now costs roughly **13 ms of debt** (catalog 8 +
+progress 5), not the ~160 ms previously stated — an isolate tolerates on the order
+of a hundred first loads rather than a dozen. With the catalog cached there is no
+longer an endpoint that obviously has to be optimised next.
+
+What remains is **cold start**: a new isolate pays 60–70 ms on its first real
+request, and ~400 ms if that request is the first uncached catalog build. That is
+a per-isolate cost, not a per-user one, and it is the reason single-shot
+measurements mislead.
 
 ### Contamination control (important)
 
