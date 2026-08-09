@@ -121,6 +121,13 @@ Do not add a blanket inactive-account deletion rule unless the operator can noti
 
 ### Phase 0 — privileged-access correction
 
+Execution note (2026-08-09): the operator explicitly deferred this phase for a
+separate final run. Phases 1–5 do not depend on it. Phase 6 may add the review
+notice and decision workflow while retaining the existing moderation
+authorization temporarily, and Phase 7 may add its independent security
+controls. The named-moderator authorization change and cross-role verification
+remain part of Phase 0 and must not be implemented in Phases 6 or 7.
+
 This is a high-priority configuration and authorization correction, but the current repository finding alone is not evidence of an active incident or compromised authentication. The risk is that the shared `test` account is named in a privileged allow-list. The account itself may remain available as a normal QA/demo user.
 
 Target account model:
@@ -466,8 +473,8 @@ After deploy, verify at minimum:
 
 ## 8. Deployment order and rollback
 
-1. Complete the Phase 0 privilege correction first; it is independent of public legal wording and does not require disrupting normal QA access.
-2. Obtain operator facts and DPA evidence.
+1. Obtain operator facts and DPA evidence. Phase 0 is explicitly deferred to a separate final run; do not change privileged access while completing the other phases.
+2. Complete Phases 1–5. Phase 6 and Phase 7 must retain the current moderator authorization until the separately authorised Phase 0 run.
 3. Merge compatible schema/backend changes, apply migrations to local D1 and run all tests.
 4. Run `npm run db:verify-config` before every remote migration/deploy.
 5. Apply the D1 migration to the existing `studyplanner-db` in place. Do not create/swap databases.
