@@ -303,6 +303,27 @@ async def _get_user_by_identifier(env: Any, identifier: str) -> dict[str, Any] |
     return await fetch_one(env, sql, [identifier, identifier])
 
 
+async def verify_user_password(env: Any, username: str, password: Any) -> bool:
+    """Verify a current password without exposing credential material to callers."""
+    if not isinstance(password, str) or not password:
+        return False
+    user_row = await fetch_one(
+        env,
+        """
+        SELECT password_hash AS passwordHash, password_salt AS passwordSalt
+        FROM user_auth
+        WHERE username = ?
+        LIMIT 1
+        """,
+        [username],
+    )
+    if user_row is None:
+        return False
+
+    expected_hash = await _hash_password(password, str(user_row['passwordSalt']))
+    return hmac.compare_digest(str(user_row['passwordHash']), expected_hash)
+
+
 async def _get_supported_study_program_by_id(
     env: Any,
     study_program_id: int,

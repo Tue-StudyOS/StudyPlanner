@@ -155,3 +155,47 @@ async def execute(env: Any, sql: str, params: list[Any] | None = None) -> Any:
         raise
     except Exception as exc:  # pragma: no cover - runtime-specific integration
         raise D1ExecutionError(f'D1 statement failed: {exc}') from exc
+
+
+def _prepare_bound_statement(database: Any, sql: str, params: list[Any]) -> Any:
+    normalized_sql, normalized_params = _materialize_nullable_params(sql, params)
+    prepared_statement = database.prepare(normalized_sql)
+    return _bind_statement(prepared_statement, normalized_params)
+
+
+async def execute_batch(
+    env: Any,
+    statements: list[tuple[str, list[Any]]],
+) -> list[Any]:
+    """Execute prepared statements as one transactional D1 batch.
+
+    D1 guarantees that a failed statement aborts and rolls back the complete
+    batch. Keep account erasure in this helper so it cannot degrade into several
+    independently committed writes.
+    """
+    database = _require_database(env)
+    if not statements:
+        return []
+
+    try:
+        prepared_statements = [
+            _prepare_bound_statement(database, sql, params)
+            for sql, params in statements
+        ]
+        result = await database.batch(prepared_statements)
+    except D1ExecutionError:
+        raise
+    except Exception as exc:  # pragma: no cover - runtime-specific integration
+        raise D1ExecutionError(f'D1 batch failed: {exc}') from exc
+
+    normalized_result = _to_python(result)
+    return normalized_result if isinstance(normalized_result, list) else []
+
+
+async def fetch_all_batch(
+    env: Any,
+    statements: list[tuple[str, list[Any]]],
+) -> list[list[dict[str, Any]]]:
+    """Execute a transactional D1 batch and normalize each statement's rows."""
+    results = await execute_batch(env, statements)
+    return [_extract_rows(result) for result in results]

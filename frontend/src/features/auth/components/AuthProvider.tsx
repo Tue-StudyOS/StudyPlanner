@@ -3,8 +3,15 @@ import type { JSX, ReactNode } from 'react'
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import { clearPrivateBrowserData } from '../../../shared/utils/privateBrowserData.ts'
 import { AuthContext } from '../AuthContext'
-import type { LoginInput, RegisterInput, SaveProfileInput, UpdateCredentialsInput } from '../AuthContext'
+import type {
+  DeleteAccountInput,
+  LoginInput,
+  RegisterInput,
+  SaveProfileInput,
+  UpdateCredentialsInput,
+} from '../AuthContext'
 import {
+  deleteAccountRequest,
   fetchCurrentSession,
   loginAccount,
   logoutAccount,
@@ -125,6 +132,18 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     setUser(updatedUser)
   }, [csrfToken])
 
+  const deleteAccount = useCallback(async (input: DeleteAccountInput): Promise<void> => {
+    if (!csrfToken || !user) {
+      throw new Error('You must be signed in to delete your account.')
+    }
+    const username = user.username
+    await deleteAccountRequest(csrfToken, input)
+    clearLegacyBearerToken()
+    clearPrivateBrowserData(username)
+    setCsrfToken(null)
+    setUser(null)
+  }, [csrfToken, user])
+
   const contextValue = useMemo(
     () => ({
       user,
@@ -136,8 +155,9 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
       logout,
       saveProfile,
       updateCredentials,
+      deleteAccount,
     }),
-    [csrfToken, isLoadingSession, login, logout, register, saveProfile, updateCredentials, user],
+    [csrfToken, deleteAccount, isLoadingSession, login, logout, register, saveProfile, updateCredentials, user],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

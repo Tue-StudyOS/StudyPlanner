@@ -57,6 +57,12 @@ class AuthenticationSessionTest(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(authentication.CsrfProtectionError):
                 await authentication.require_csrf_protection(self.env, request)
 
+    async def test_token_stops_authenticating_after_its_account_is_deleted(self) -> None:
+        request = Request({'Cookie': f'{authentication.AUTH_COOKIE_NAME}={self.token}'})
+
+        with patch.object(authentication, '_get_user_profile', AsyncMock(return_value=None)):
+            self.assertIsNone(await authentication.get_authenticated_session(self.env, request))
+
 
 if __name__ == '__main__':
     unittest.main()

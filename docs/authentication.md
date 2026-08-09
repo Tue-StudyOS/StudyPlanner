@@ -23,6 +23,11 @@ also send a session-bound `X-CSRF-Token` header.
    the migration without keeping bearer storage as a long-term auth mechanism.
 6. Logout clears the session cookie. Tokens remain stateless, so logging out in
    one browser does not revoke copies from other devices before expiry.
+7. Authenticated users can export their account-linked data and delete their
+   account with current-password, explicit-confirmation, and CSRF checks.
+   Deletion runs as one transactional D1 batch and expires the cookie. Although
+   tokens are stateless, a deleted account token becomes unusable because its
+   user can no longer be loaded.
 
 ## Security rules
 
@@ -52,6 +57,7 @@ Included:
 - rate limits for public abuse-prone endpoints
 - scoped diagnostics: own reports by default, aggregated reports for configured
   operators
+- versioned self-service account export and atomic account deletion
 
 Not included:
 

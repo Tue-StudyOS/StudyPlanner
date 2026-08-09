@@ -44,6 +44,14 @@ def _client_key(request: Any) -> str:
     return hashlib.sha256(client_ip.encode('utf-8')).hexdigest()
 
 
+def account_rate_limit_key(identifier: Any) -> str | None:
+    """Return the stored login-limit key for a non-empty account identifier."""
+    normalized_identifier = str(identifier or '').strip().lower()
+    if not normalized_identifier:
+        return None
+    return hashlib.sha256(f'account:{normalized_identifier}'.encode('utf-8')).hexdigest()
+
+
 def _account_key(request: Any, identifier: Any) -> str:
     """Return a non-reversible storage key for the account being signed into.
 
@@ -51,12 +59,12 @@ def _account_key(request: Any, identifier: Any) -> str:
     twenty students behind one campus NAT independent of each other. The prefix
     keeps this key space disjoint from _client_key's.
     """
-    normalized_identifier = str(identifier or '').strip().lower()
-    if not normalized_identifier:
+    stored_key = account_rate_limit_key(identifier)
+    if stored_key is None:
         # A request with no identifier can never authenticate; fall back to the
         # IP so a flood of malformed bodies is still bounded.
         return _client_key(request)
-    return hashlib.sha256(f'account:{normalized_identifier}'.encode('utf-8')).hexdigest()
+    return stored_key
 
 
 def _window_start(now_unix: int, window_seconds: int) -> int:

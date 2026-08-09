@@ -69,6 +69,12 @@ from services.request_rate_limit import (
     record_failed_attempt,
 )
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
+from services.user_privacy import (
+    AccountDeletionError,
+    DataExportError,
+    delete_current_user_account,
+    export_current_user_data,
+)
 from services.planner_assignments import (
     PlannerAssignmentError,
     balance_current_user_semester_plan,
@@ -414,6 +420,39 @@ async def route_request(request: Any, env: Any) -> Any:
                 updated = await update_user_credentials(env, request, await read_json_object(request))
                 return json_response({"user": updated}, request=request, env=env)
             return _method_not_allowed_response(request, env)
+
+        if path == "/api/me/data-export":
+            if method != "GET":
+                return _method_not_allowed_response(request, env)
+            export_payload = await export_current_user_data(env, request)
+            return json_response(
+                export_payload,
+                request=request,
+                env=env,
+                extra_headers={
+                    'cache-control': 'no-store',
+                    'content-disposition': (
+                        'attachment; filename="studyplanner-data-export.json"'
+                    ),
+                },
+            )
+
+        if path == "/api/me/account":
+            if method != "DELETE":
+                return _method_not_allowed_response(request, env)
+            await delete_current_user_account(
+                env,
+                request,
+                await read_json_object(request),
+            )
+            return empty_response(
+                request=request,
+                env=env,
+                extra_headers={
+                    'cache-control': 'no-store',
+                    'set-cookie': clear_auth_cookie(request),
+                },
+            )
 
         if path == "/api/me/favorites":
             if method == "GET":
@@ -928,6 +967,23 @@ async def route_request(request: Any, env: Any) -> Any:
             request=request,
             env=env,
             status=400,
+        )
+    except AccountDeletionError as exc:
+        return error_response(
+            code="account_deletion_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except DataExportError as exc:
+        return error_response(
+            code="data_export_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=500,
+            extra_headers={'cache-control': 'no-store'},
         )
     except FavoriteUpdateError as exc:
         return error_response(

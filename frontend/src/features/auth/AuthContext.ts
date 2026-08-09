@@ -29,6 +29,11 @@ export interface UpdateCredentialsInput {
   newPassword?: string
 }
 
+export interface DeleteAccountInput {
+  currentPassword: string
+  confirmation: 'DELETE'
+}
+
 export interface AuthContextValue {
   user: AuthUser | null
   csrfToken: string | null
@@ -39,6 +44,7 @@ export interface AuthContextValue {
   logout: () => Promise<void>
   saveProfile: (input: SaveProfileInput) => Promise<void>
   updateCredentials: (input: UpdateCredentialsInput) => Promise<void>
+  deleteAccount: (input: DeleteAccountInput) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)

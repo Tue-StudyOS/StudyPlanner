@@ -11,6 +11,7 @@ import type { StudyProgramOption } from '../types'
 import { normalizeAuthErrorMessage } from '../utils/authErrors.ts'
 import { getPasswordStrength } from '../utils/passwordStrength.ts'
 import { generateStartSemesters } from '../utils/studySetup.ts'
+import { AccountDataSection } from './AccountDataSection.tsx'
 
 type AuthMode = 'login' | 'register'
 
@@ -465,6 +466,8 @@ export function AccountPage() {
               </div>
             </section>
           </div>
+
+          <AccountDataSection />
 
           <div className="flex justify-center py-1">
             <button
