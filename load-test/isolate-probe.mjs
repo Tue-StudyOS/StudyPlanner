@@ -595,7 +595,10 @@ async function commandCumulative(args) {
  * look for, and an aggregate error rate hides it.
  */
 async function commandFleet(args) {
-  const loadPath = args.path ?? `/?kb=${args.kb}&mode=build`
+  // A comma-separated --path is a mini session: each user walks the list in
+  // order and repeats it, which is closer to real traffic than hammering one
+  // endpoint and exercises the cache the way a real mix would.
+  const loadPaths = (args.path ?? `/?kb=${args.kb}&mode=build`).split(',')
   const started = Date.now()
   const sessions = await Promise.all(
     Array.from({ length: args.batch }, async (_unused, index) => {
@@ -603,7 +606,7 @@ async function commandFleet(args) {
       const outcome = { index, ok: 0, failed: 0, isolates: new Set() }
       for (let round = 0; round < args.rounds; round += 1) {
         // eslint-disable-next-line no-await-in-loop -- one user acts in sequence
-        const response = await session.request(loadPath)
+        const response = await session.request(loadPaths[round % loadPaths.length])
         if (response.ok) {
           outcome.ok += 1
           if (response.isolate) outcome.isolates.add(response.isolate)

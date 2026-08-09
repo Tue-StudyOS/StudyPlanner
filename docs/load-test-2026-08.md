@@ -8,6 +8,14 @@
 **Goal:** find and fix the cause of production 5xx so the app is dependable for
 multiple concurrent users.
 
+**Answer to the original question.** Twenty concurrent users walking a realistic
+catalog session — including the two most expensive requests in the app — now
+complete 400/400 requests with no user affected. Before the fixes, the first-load
+request alone destroyed a backend isolate every five calls. The authenticated
+half of a session could not be included, because staging cannot validate
+production-minted sessions; those endpoints were measured individually instead
+and are all at or under ~20 ms.
+
 **Headline:** the fault is **CPU**, not payload size, concurrency, or memory. An
 isolate that does sustained CPU-heavy work is killed with `exceededCpu` (HTTP
 1102) and is then *permanently* dead — every later request routed to it returns
@@ -164,6 +172,7 @@ changes on re-import.
 | implied CPU per request | ~350–500 ms | **≤18 ms** |
 | 10-user cohort on `period=all`, 30 requests each | — | **300/300 ok, 0 users affected** |
 | broad search `q=in&period=all` (worst case a user can type) | dies at 10 | **survived 100** |
+| **20 concurrent users**, 20-request session across four catalog endpoints | — | **400/400 ok, 0/20 users affected** |
 
 For comparison, the same cohort shape against the *lighter* `period=229`
 endpoint, with only the encoding fix applied, failed 17.3 % across 7 of 10 users.
