@@ -11,6 +11,7 @@ from services.request_rate_limit import (
     CLIENT_ERROR_POLICY,
     COURSE_REVIEW_POLICY,
     FEEDBACK_POLICY,
+    REVIEW_NOTICE_POLICY,
     RateLimitPolicy,
 )
 
@@ -25,6 +26,7 @@ RATE_LIMIT_POLICIES: tuple[RateLimitPolicy, ...] = (
     CLIENT_ERROR_POLICY,
     COURSE_REVIEW_POLICY,
     FEEDBACK_POLICY,
+    REVIEW_NOTICE_POLICY,
 )
 
 
@@ -50,7 +52,7 @@ def _rate_limit_cleanup_statement(current_unix: int) -> tuple[str, list[Any]]:
 
 
 def build_retention_statements(current_unix: int) -> list[tuple[str, list[Any]]]:
-    """Return only the four allowlisted retention deletes."""
+    """Return only the five allowlisted retention deletes."""
     return [
         (
             'DELETE FROM client_error_log WHERE created_at_unix < ?',
@@ -70,6 +72,15 @@ def build_retention_statements(current_unix: int) -> list[tuple[str, list[Any]]]
             WHERE is_hidden = 1
               AND retention_hold = 0
               AND updated_at_unix < unixepoch(?, 'unixepoch', '-6 months')
+            """,
+            [current_unix],
+        ),
+        (
+            """
+            DELETE FROM review_notices
+            WHERE status = 'resolved'
+              AND retention_hold = 0
+              AND decided_at_unix < unixepoch(?, 'unixepoch', '-6 months')
             """,
             [current_unix],
         ),
@@ -99,13 +110,14 @@ async def run_retention_cleanup(
         build_retention_statements(_current_unix(current_unix)),
     )
     counts = [_change_count(result) for result in results]
-    while len(counts) < 4:
+    while len(counts) < 5:
         counts.append(0)
     return {
         'clientDiagnosticsDeleted': counts[0],
         'feedbackDeleted': counts[1],
         'rateLimitsDeleted': counts[2],
         'hiddenReviewsDeleted': counts[3],
+        'closedReviewNoticesDeleted': counts[4],
     }
 
 
@@ -157,6 +169,23 @@ async def cleanup_expired_hidden_reviews(
         WHERE is_hidden = 1
           AND retention_hold = 0
           AND updated_at_unix < unixepoch(?, 'unixepoch', '-6 months')
+        """,
+        [_current_unix(current_unix)],
+    )
+
+
+async def cleanup_expired_review_notices(
+    env: Any,
+    *,
+    current_unix: int | None = None,
+) -> None:
+    await execute(
+        env,
+        """
+        DELETE FROM review_notices
+        WHERE status = 'resolved'
+          AND retention_hold = 0
+          AND decided_at_unix < unixepoch(?, 'unixepoch', '-6 months')
         """,
         [_current_unix(current_unix)],
     )

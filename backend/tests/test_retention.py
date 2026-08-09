@@ -34,6 +34,12 @@ class RetentionBoundaryTest(unittest.TestCase):
                 retention_hold INTEGER NOT NULL,
                 updated_at_unix INTEGER NOT NULL
             );
+            CREATE TABLE review_notices (
+                id INTEGER PRIMARY KEY,
+                status TEXT NOT NULL,
+                retention_hold INTEGER NOT NULL,
+                decided_at_unix INTEGER
+            );
             CREATE TABLE non_target_data (value TEXT NOT NULL);
             INSERT INTO non_target_data VALUES ('keep');
             """
@@ -85,6 +91,15 @@ class RetentionBoundaryTest(unittest.TestCase):
                 (4, 1, 1, calendar_cutoff - 1),
             ],
         )
+        self.database.executemany(
+            'INSERT INTO review_notices VALUES (?, ?, ?, ?)',
+            [
+                (1, 'resolved', 0, calendar_cutoff - 1),
+                (2, 'resolved', 0, calendar_cutoff),
+                (3, 'received', 0, calendar_cutoff - 1),
+                (4, 'resolved', 1, calendar_cutoff - 1),
+            ],
+        )
 
         self._apply_cleanup()
         self._apply_cleanup()
@@ -105,9 +120,13 @@ class RetentionBoundaryTest(unittest.TestCase):
             self.database.execute('SELECT id FROM course_reviews ORDER BY id').fetchall(),
             [(2,), (3,), (4,)],
         )
+        self.assertEqual(
+            self.database.execute('SELECT id FROM review_notices ORDER BY id').fetchall(),
+            [(2,), (3,), (4,)],
+        )
         self.assertEqual(self.database.execute('SELECT value FROM non_target_data').fetchone(), ('keep',))
 
-    def test_migration_adds_hold_and_cleanup_indexes(self) -> None:
+    def test_migrations_add_holds_notice_table_and_cleanup_indexes(self) -> None:
         database = sqlite3.connect(':memory:')
         try:
             database.executescript(
@@ -127,6 +146,12 @@ class RetentionBoundaryTest(unittest.TestCase):
             )
             migration_path = Path(__file__).resolve().parents[1] / 'migrations' / '0035_retention_controls.sql'
             database.executescript(migration_path.read_text(encoding='utf-8'))
+            notice_migration_path = (
+                Path(__file__).resolve().parents[1]
+                / 'migrations'
+                / '0036_review_notice_moderation.sql'
+            )
+            database.executescript(notice_migration_path.read_text(encoding='utf-8'))
 
             columns = {
                 str(row[1])
@@ -141,6 +166,12 @@ class RetentionBoundaryTest(unittest.TestCase):
             self.assertIn('retention_hold', columns)
             self.assertIn('idx_course_reviews_hidden_retention', indexes)
             self.assertIn('idx_request_rate_limits_window', indexes)
+            self.assertIsNotNone(
+                database.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'review_notices'"
+                ).fetchone()
+            )
+            self.assertIn('idx_review_notices_retention', indexes)
         finally:
             database.close()
 
@@ -153,6 +184,7 @@ class RetentionExecutionTest(unittest.IsolatedAsyncioTestCase):
                 {'meta': {'changes': 3}},
                 {'meta': {'changes': 4}},
                 {'meta': {'changes': 5}},
+                {'meta': {'changes': 6}},
             ]
         )
 
@@ -166,9 +198,10 @@ class RetentionExecutionTest(unittest.IsolatedAsyncioTestCase):
                 'feedbackDeleted': 3,
                 'rateLimitsDeleted': 4,
                 'hiddenReviewsDeleted': 5,
+                'closedReviewNoticesDeleted': 6,
             },
         )
-        self.assertEqual(len(execute_batch.await_args.args[1]), 4)
+        self.assertEqual(len(execute_batch.await_args.args[1]), 5)
 
 
 if __name__ == '__main__':

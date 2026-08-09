@@ -27,11 +27,19 @@ export interface CourseReview {
   tutorialRating: number | null
   comment: string | null
   takenPeriodLabel: string | null
-  /** Already resolved server-side from the picked or manually typed lecturer. */
+  /** Already resolved server-side from the public catalogue choice. */
   lecturerName: string | null
   createdAtUnix: number | null
   updatedAtUnix: number | null
   isMine: boolean
+  moderationDecision: {
+    status: string
+    action: string | null
+    category: string | null
+    reason: string | null
+    decidedAtUnix: number | null
+    redressPath: string
+  } | null
 }
 
 export interface CourseReviewOptions {
@@ -54,5 +62,30 @@ export interface CourseReviewDraft {
   comment: string
   takenPeriodLabel: string
   lecturerName: string
-  lecturerCustomName: string
+}
+
+export type ReviewNoticeCategory =
+  | 'illegal_content'
+  | 'privacy'
+  | 'harassment'
+  | 'defamation'
+  | 'off_topic'
+  | 'moderation_redress'
+  | 'other'
+
+export interface ReviewNoticePayload {
+  reviewId: number
+  category: ReviewNoticeCategory
+  allegation: string
+  explanation: string
+  contactEmail: string
+  goodFaith: true
+}
+
+export interface ReviewNoticeReceipt {
+  notice: {
+    reference: string
+    status: 'received'
+    receivedAtUnix: number | null
+  }
 }

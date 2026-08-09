@@ -15,8 +15,11 @@ An authenticated user can use the Account page to:
 Account deletion is one transactional D1 batch. It detaches the username from
 retained diagnostic events, removes username/email-derived failed-login limit
 keys, and deletes `user_auth`; foreign-key cascades remove `user_state`,
-`user_progress`, and authored `course_reviews`. The response expires the session
-cookie, and the former stateless token can no longer resolve an account.
+`user_progress`, and authored `course_reviews`. It also redacts non-held notice
+snapshots of authored reviews. Evidence under an active documented legal hold
+is the only exception.
+The response expires the session cookie, and the former stateless token can no
+longer resolve an account.
 
 Cloudflare documents D1 batches as transactions that roll back the complete
 sequence when a statement fails. Keep all account-erasure mutations in

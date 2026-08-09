@@ -136,6 +136,39 @@ class CourseReviewRouteTest(unittest.IsolatedAsyncioTestCase):
         require_csrf.assert_awaited_once()
         self.assertEqual(set_visibility.await_args.args[2], 7)
 
+    async def test_public_notice_is_rate_limited_and_returns_a_receipt(self) -> None:
+        enforce_rate_limit = AsyncMock()
+        submit_notice = AsyncMock(return_value={'notice': {'reference': 'RN-9'}})
+        with (
+            patch.object(router, 'enforce_rate_limit', enforce_rate_limit),
+            patch.object(router, 'submit_review_notice', submit_notice),
+            patch.object(router, 'read_json_object', AsyncMock(return_value={'reviewId': 7})),
+        ):
+            response = await router.route_request(
+                FakeRequest('POST', '/api/course-review-notices'),
+                ENV,
+            )
+
+        self.assertIs(enforce_rate_limit.await_args.args[2], router.REVIEW_NOTICE_POLICY)
+        submit_notice.assert_awaited_once()
+        self.assertEqual(response.kwargs.get('status'), 201)
+
+    async def test_notice_decision_is_csrf_protected(self) -> None:
+        require_csrf = AsyncMock()
+        decide_notice = AsyncMock(return_value={'id': 9, 'status': 'resolved'})
+        with (
+            patch.object(router, 'require_csrf_protection', require_csrf),
+            patch.object(router, 'decide_review_notice', decide_notice),
+            patch.object(router, 'read_json_object', AsyncMock(return_value={'action': 'keep'})),
+        ):
+            await router.route_request(
+                FakeRequest('PATCH', '/api/admin/review-notices/9'),
+                ENV,
+            )
+
+        require_csrf.assert_awaited_once()
+        self.assertEqual(decide_notice.await_args.args[2], 9)
+
     async def test_review_errors_map_to_their_status_codes(self) -> None:
         cases = [
             (router.CourseReviewError("bad input"), 400),

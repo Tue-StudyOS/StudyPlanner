@@ -5,7 +5,7 @@ This runbook describes the automated deletion controls implemented by migration
 
 ## Approved schedule in code
 
-The Worker runs once per day at `03:17 UTC` and performs the following four
+The Worker runs once per day at `03:17 UTC` and performs the following five
 deletes as one D1 batch:
 
 | Data | Maximum application retention | Boundary |
@@ -14,13 +14,14 @@ deletes as one D1 batch:
 | Product feedback | 6 calendar months | Delete strictly older than the SQLite calendar-month boundary. |
 | Rate-limit keys | Applicable window plus 24 hours | Each fixed-window scope uses its own configured window length. |
 | Hidden course reviews | 6 calendar months after the last update | Delete only hidden rows without an active `retention_hold`. |
+| Resolved review notices | 6 calendar months after the decision | Delete only resolved rows without an active `retention_hold`; unresolved notices remain queued for a decision. |
 
 Account, progress, active/public review, and catalogue tables are not cleanup
 targets. Relevant diagnostic, feedback, rate-limit, and moderation paths also
 remove expired rows opportunistically, but traffic is not the retention clock;
 the scheduled job is the authoritative maximum-age control.
 
-The scheduled log contains only the event name and four aggregate deletion
+The scheduled log contains only the event name and five aggregate deletion
 counts. It must never contain row values, identifiers, messages, or review text.
 
 ## Deployment gate
@@ -78,3 +79,6 @@ Set `course_reviews.retention_hold = 1` only for an identified active dispute or
 legal obligation. Record the reason, owner, start date, and review date in the
 private case record. Remove the hold promptly when the reason ends; the next
 cleanup then applies the normal six-month boundary.
+
+The same rule applies to `review_notices.retention_hold`. The notice moderation
+runbook describes the case record required for these holds.

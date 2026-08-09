@@ -27,7 +27,9 @@ also send a session-bound `X-CSRF-Token` header.
    account with current-password, explicit-confirmation, and CSRF checks.
    Deletion runs as one transactional D1 batch and expires the cookie. Although
    tokens are stateless, a deleted account token becomes unusable because its
-   user can no longer be loaded.
+   user can no longer be loaded. The same batch redacts non-held review-notice
+   snapshots linked by authored review; an explicitly documented legal hold is
+   the only exception.
 
 ## Security rules
 

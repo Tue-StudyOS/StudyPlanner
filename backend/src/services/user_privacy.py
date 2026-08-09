@@ -8,7 +8,7 @@ from services.request_rate_limit import AUTH_LOGIN_POLICY, account_rate_limit_ke
 from services.user_data import now_unix, parse_json_array, parse_json_object
 
 ACCOUNT_DELETION_CONFIRMATION = 'DELETE'
-DATA_EXPORT_VERSION = 1
+DATA_EXPORT_VERSION = 2
 
 
 class AccountDeletionError(ValueError):
@@ -144,6 +144,11 @@ async def export_current_user_data(env: Any, request: Any) -> dict[str, Any]:
                     lecturer_name AS lecturerName,
                     lecturer_custom_name AS lecturerCustomName,
                     is_hidden AS isHidden,
+                    moderation_status AS moderationStatus,
+                    moderation_action AS moderationAction,
+                    moderation_category AS moderationCategory,
+                    moderation_reason AS moderationReason,
+                    moderated_at_unix AS moderatedAtUnix,
                     created_at_unix AS createdAtUnix,
                     updated_at_unix AS updatedAtUnix
                 FROM course_reviews
@@ -211,6 +216,17 @@ async def delete_current_user_account(
         [
             (
                 'UPDATE client_error_log SET user_username = NULL WHERE user_username = ?',
+                [username],
+            ),
+            (
+                """
+                UPDATE review_notices
+                SET review_snapshot_json = '{"removedOnAccountDeletion":true}'
+                WHERE retention_hold = 0
+                  AND review_id IN (
+                      SELECT id FROM course_reviews WHERE username = ?
+                  )
+                """,
                 [username],
             ),
             (

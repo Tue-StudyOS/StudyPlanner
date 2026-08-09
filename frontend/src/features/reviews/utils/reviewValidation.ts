@@ -2,9 +2,6 @@ import type { CourseReview, CourseReviewDraft } from '../types.ts'
 
 export const MIN_COMMENT_LENGTH = 3
 export const MAX_COMMENT_LENGTH = 2000
-export const MAX_LECTURER_NAME_LENGTH = 80
-/** Sentinel for "my lecturer is not in the list"; never sent to the server. */
-export const OTHER_LECTURER_VALUE = '__other__'
 
 export const EMPTY_REVIEW_DRAFT: CourseReviewDraft = {
   overallRating: 0,
@@ -14,14 +11,12 @@ export const EMPTY_REVIEW_DRAFT: CourseReviewDraft = {
   comment: '',
   takenPeriodLabel: '',
   lecturerName: '',
-  lecturerCustomName: '',
 }
 
 export type ReviewDraftError =
   | 'missingOverallRating'
   | 'commentTooShort'
   | 'commentTooLong'
-  | 'lecturerNameTooLong'
 
 export function toReviewDraft(review: CourseReview | null, knownLecturers: string[]): CourseReviewDraft {
   if (!review) {
@@ -36,8 +31,9 @@ export function toReviewDraft(review: CourseReview | null, knownLecturers: strin
     tutorialRating: review.tutorialRating ?? 0,
     comment: review.comment ?? '',
     takenPeriodLabel: review.takenPeriodLabel ?? '',
-    lecturerName: isKnownLecturer ? lecturerName : lecturerName ? OTHER_LECTURER_VALUE : '',
-    lecturerCustomName: isKnownLecturer || !lecturerName ? '' : lecturerName,
+    // Legacy custom names remain visible on the published review, but cannot
+    // silently flow into a new submission when the author edits it.
+    lecturerName: isKnownLecturer ? lecturerName : '',
   }
 }
 
@@ -54,13 +50,6 @@ export function validateReviewDraft(draft: CourseReviewDraft): ReviewDraftError 
     return 'commentTooLong'
   }
 
-  if (
-    draft.lecturerName === OTHER_LECTURER_VALUE &&
-    draft.lecturerCustomName.trim().length > MAX_LECTURER_NAME_LENGTH
-  ) {
-    return 'lecturerNameTooLong'
-  }
-
   return null
 }
 
@@ -72,7 +61,6 @@ export interface CourseReviewPayload {
   comment: string | null
   takenPeriodLabel: string | null
   lecturerName: string | null
-  lecturerCustomName: string | null
 }
 
 function toOptionalRating(rating: number): number | null {
@@ -80,12 +68,9 @@ function toOptionalRating(rating: number): number | null {
 }
 
 /**
- * The server rejects a payload carrying both a picked and a typed lecturer, so
- * the "Other" sentinel is resolved to exactly one of the two here.
+ * Lecturer names must come from the catalogue-provided options.
  */
 export function buildReviewPayload(draft: CourseReviewDraft): CourseReviewPayload {
-  const isCustomLecturer = draft.lecturerName === OTHER_LECTURER_VALUE
-  const customName = draft.lecturerCustomName.trim()
   const comment = draft.comment.trim()
 
   return {
@@ -95,7 +80,6 @@ export function buildReviewPayload(draft: CourseReviewDraft): CourseReviewPayloa
     tutorialRating: toOptionalRating(draft.tutorialRating),
     comment: comment || null,
     takenPeriodLabel: draft.takenPeriodLabel.trim() || null,
-    lecturerName: isCustomLecturer ? null : draft.lecturerName.trim() || null,
-    lecturerCustomName: isCustomLecturer ? customName || null : null,
+    lecturerName: draft.lecturerName.trim() || null,
   }
 }

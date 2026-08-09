@@ -4,8 +4,6 @@ import type { CourseReview, CourseReviewDraft } from '../../src/features/reviews
 import {
   EMPTY_REVIEW_DRAFT,
   MAX_COMMENT_LENGTH,
-  MAX_LECTURER_NAME_LENGTH,
-  OTHER_LECTURER_VALUE,
   buildReviewPayload,
   toReviewDraft,
   validateReviewDraft,
@@ -30,6 +28,7 @@ function buildReview(overrides: Partial<CourseReview> = {}): CourseReview {
     createdAtUnix: 100,
     updatedAtUnix: 100,
     isMine: true,
+    moderationDecision: null,
     ...overrides,
   }
 }
@@ -50,24 +49,6 @@ test('an empty comment is allowed but a one-word stub is not', () => {
   )
 })
 
-test('a manually typed lecturer name is length capped', () => {
-  assert.equal(
-    validateReviewDraft(
-      buildDraft({
-        lecturerName: OTHER_LECTURER_VALUE,
-        lecturerCustomName: 'x'.repeat(MAX_LECTURER_NAME_LENGTH + 1),
-      }),
-    ),
-    'lecturerNameTooLong',
-  )
-  assert.equal(
-    validateReviewDraft(
-      buildDraft({ lecturerName: OTHER_LECTURER_VALUE, lecturerCustomName: 'Dr. Neu Hinzu' }),
-    ),
-    null,
-  )
-})
-
 test('a minimal draft becomes a payload with every optional field cleared', () => {
   assert.deepEqual(buildReviewPayload(buildDraft({ overallRating: 5 })), {
     overallRating: 5,
@@ -77,20 +58,12 @@ test('a minimal draft becomes a payload with every optional field cleared', () =
     comment: null,
     takenPeriodLabel: null,
     lecturerName: null,
-    lecturerCustomName: null,
   })
 })
 
-test('the payload never carries both a picked and a typed lecturer', () => {
+test('the payload carries only a catalogue-picked lecturer', () => {
   const picked = buildReviewPayload(buildDraft({ lecturerName: 'Dr. Bernd Muster' }))
   assert.equal(picked.lecturerName, 'Dr. Bernd Muster')
-  assert.equal(picked.lecturerCustomName, null)
-
-  const typed = buildReviewPayload(
-    buildDraft({ lecturerName: OTHER_LECTURER_VALUE, lecturerCustomName: '  Dr. Neu Hinzu  ' }),
-  )
-  assert.equal(typed.lecturerName, null)
-  assert.equal(typed.lecturerCustomName, 'Dr. Neu Hinzu')
 })
 
 test('cleared sub-ratings and whitespace-only text are sent as null', () => {
@@ -122,14 +95,12 @@ test('an existing review pre-fills the draft', () => {
   assert.equal(draft.comment, 'Solid lecture.')
   assert.equal(draft.takenPeriodLabel, 'Sommer 2025')
   assert.equal(draft.lecturerName, 'Dr. Bernd Muster')
-  assert.equal(draft.lecturerCustomName, '')
 })
 
-test('a lecturer no longer in the catalog reopens as free text', () => {
+test('a legacy lecturer no longer in the catalog is not resubmitted', () => {
   const draft = toReviewDraft(buildReview({ lecturerName: 'Dr. Retired Person' }), KNOWN_LECTURERS)
 
-  assert.equal(draft.lecturerName, OTHER_LECTURER_VALUE)
-  assert.equal(draft.lecturerCustomName, 'Dr. Retired Person')
+  assert.equal(draft.lecturerName, '')
 })
 
 test('no existing review yields an empty draft', () => {

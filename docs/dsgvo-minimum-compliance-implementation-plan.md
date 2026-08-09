@@ -365,6 +365,14 @@ Acceptance criteria:
 
 ### Phase 6 — public-review and DSA minimum
 
+Implementation note (2026-08-09): the bilingual rules, catalogue-only lecturer
+selection, public notice/receipt flow, reasoned decisions, author redress path,
+six-month notice retention, tests, and operating runbook are implemented on the
+working branch. The operator's final DSA/micro-enterprise classification and the
+production migration remain approval gates. The dedicated moderator allow-list
+is intentionally not implemented because the operator deferred Phase 0; all
+moderation uses the documented temporary authorization boundary until then.
+
 First record the legal classification and the micro/small-enterprise facts. Pending a contrary reviewed conclusion, implement the following minimum hosting controls:
 
 1. Add concise German/English review rules reachable before publishing: course-relevant experience only; no unlawful content, insults, threats, sensitive personal data or unverifiable accusations; explain public visibility, author linkage, moderation grounds and redress contact.

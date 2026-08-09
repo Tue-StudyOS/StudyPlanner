@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from db.d1 import execute, fetch_all, fetch_one
+from db.d1 import execute, execute_batch, fetch_all, fetch_one
 from services.authentication import get_authenticated_user, require_authenticated_user
 from services.client_error_log import is_diagnostics_administrator
 from services.course_catalog import get_course_review_key, load_course_review_options
@@ -10,7 +10,6 @@ from services.retention import cleanup_expired_hidden_reviews
 
 MIN_COMMENT_LENGTH = 3
 MAX_COMMENT_LENGTH = 2000
-MAX_LECTURER_NAME_LENGTH = 80
 MAX_PERIOD_LABEL_LENGTH = 64
 MAX_PUBLIC_REVIEWS = 200
 MAX_MODERATION_REVIEWS = 200
@@ -87,25 +86,18 @@ def _validate_lecturer(
     payload: dict[str, Any],
     allowed_lecturers: list[str],
 ) -> tuple[str | None, str | None]:
-    """Split the lecturer choice into a known name or free text, never both."""
+    """Accept only lecturer names already present in the public catalogue."""
     picked_name = _safe_text(payload.get('lecturerName'))
     custom_name = _safe_text(payload.get('lecturerCustomName'))
 
-    if picked_name and custom_name:
-        raise CourseReviewError('Provide either lecturerName or lecturerCustomName, not both.')
+    if custom_name:
+        raise CourseReviewError('lecturerCustomName is no longer accepted.')
 
     if picked_name:
         for allowed_lecturer in allowed_lecturers:
             if allowed_lecturer.casefold() == picked_name.casefold():
                 return allowed_lecturer, None
         raise CourseReviewError('lecturerName is not a known lecturer for this course.')
-
-    if custom_name:
-        if len(custom_name) > MAX_LECTURER_NAME_LENGTH:
-            raise CourseReviewError(
-                f'lecturerCustomName must be at most {MAX_LECTURER_NAME_LENGTH} characters.'
-            )
-        return None, custom_name
 
     return None, None
 
@@ -192,6 +184,18 @@ def _to_public_review(row: dict[str, Any], viewer_username: str | None) -> dict[
     anonymously, so it must never appear in a response.
     """
     author_username = _safe_text(row.get('username'))
+    moderation_status = _safe_text(row.get('moderationStatus'))
+    moderation_decision = None
+    if moderation_status and moderation_status != 'published':
+        moderation_decision = {
+            'status': moderation_status,
+            'action': _safe_text(row.get('moderationAction')) or None,
+            'category': _safe_text(row.get('moderationCategory')) or None,
+            'reason': _safe_text(row.get('moderationReason')) or None,
+            'decidedAtUnix': _optional_int(row.get('moderatedAtUnix')),
+            'redressPath': '/review-rules#redress',
+        }
+
     return {
         'id': _optional_int(row.get('id')),
         'overallRating': _optional_int(row.get('overallRating')),
@@ -206,6 +210,7 @@ def _to_public_review(row: dict[str, Any], viewer_username: str | None) -> dict[
         'createdAtUnix': _optional_int(row.get('createdAtUnix')),
         'updatedAtUnix': _optional_int(row.get('updatedAtUnix')),
         'isMine': bool(viewer_username) and author_username == viewer_username,
+        'moderationDecision': moderation_decision,
     }
 
 
@@ -235,6 +240,40 @@ async def _fetch_visible_reviews(env: Any, review_key: str) -> list[dict[str, An
     )
 
 
+async def _fetch_viewer_review(
+    env: Any,
+    review_key: str,
+    username: str,
+) -> dict[str, Any] | None:
+    return await fetch_one(
+        env,
+        """
+        SELECT
+            id,
+            username,
+            overall_rating AS overallRating,
+            exam_rating AS examRating,
+            content_rating AS contentRating,
+            tutorial_rating AS tutorialRating,
+            comment,
+            taken_period_label AS takenPeriodLabel,
+            lecturer_name AS lecturerName,
+            lecturer_custom_name AS lecturerCustomName,
+            created_at_unix AS createdAtUnix,
+            updated_at_unix AS updatedAtUnix,
+            moderation_status AS moderationStatus,
+            moderation_action AS moderationAction,
+            moderation_category AS moderationCategory,
+            moderation_reason AS moderationReason,
+            moderated_at_unix AS moderatedAtUnix
+        FROM course_reviews
+        WHERE course_key = ? AND username = ?
+        LIMIT 1
+        """,
+        [review_key, username],
+    )
+
+
 async def _require_review_key(env: Any, course_id: int) -> str:
     review_key = await get_course_review_key(env, course_id)
     if not review_key:
@@ -245,8 +284,6 @@ async def _require_review_key(env: Any, course_id: int) -> str:
 async def get_course_reviews(env: Any, request: Any, course_id: int) -> dict[str, Any]:
     """Return the public review list, its aggregate, and the form's options."""
     review_key = await _require_review_key(env, course_id)
-    rows = await _fetch_visible_reviews(env, review_key)
-
     # The read stays public, so resolve the session without requiring one; it
     # only decides which review the viewer is allowed to edit.
     viewer_username: str | None = None
@@ -254,8 +291,15 @@ async def get_course_reviews(env: Any, request: Any, course_id: int) -> dict[str
     if user:
         viewer_username = _safe_text(user.get('username')) or None
 
+    rows = await _fetch_visible_reviews(env, review_key)
+
     reviews = [_to_public_review(row, viewer_username) for row in rows]
-    viewer_review = next((review for review in reviews if review['isMine']), None)
+    viewer_row = (
+        await _fetch_viewer_review(env, review_key, viewer_username)
+        if viewer_username
+        else None
+    )
+    viewer_review = _to_public_review(viewer_row, viewer_username) if viewer_row else None
 
     return {
         'summary': build_review_summary(rows),
@@ -295,6 +339,30 @@ async def save_course_review(
             taken_period_label = excluded.taken_period_label,
             lecturer_name = excluded.lecturer_name,
             lecturer_custom_name = excluded.lecturer_custom_name,
+            moderation_status = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderation_status
+                ELSE 'published'
+            END,
+            moderation_action = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderation_action
+                ELSE NULL
+            END,
+            moderation_category = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderation_category
+                ELSE NULL
+            END,
+            moderation_reason = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderation_reason
+                ELSE NULL
+            END,
+            moderated_by = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderated_by
+                ELSE NULL
+            END,
+            moderated_at_unix = CASE
+                WHEN course_reviews.is_hidden = 1 THEN course_reviews.moderated_at_unix
+                ELSE NULL
+            END,
             updated_at_unix = unixepoch()
         """,
         [
@@ -320,10 +388,27 @@ async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[s
     username = _safe_text(user.get('username'))
     review_key = await _require_review_key(env, course_id)
 
-    await execute(
+    await execute_batch(
         env,
-        'DELETE FROM course_reviews WHERE course_key = ? AND username = ?',
-        [review_key, username],
+        [
+            (
+                """
+                UPDATE review_notices
+                SET review_snapshot_json = '{"removedOnAuthorDeletion":true}'
+                WHERE retention_hold = 0
+                  AND review_id IN (
+                      SELECT id
+                      FROM course_reviews
+                      WHERE course_key = ? AND username = ?
+                  )
+                """,
+                [review_key, username],
+            ),
+            (
+                'DELETE FROM course_reviews WHERE course_key = ? AND username = ?',
+                [review_key, username],
+            ),
+        ],
     )
 
     return await get_course_reviews(env, request, course_id)
@@ -331,7 +416,7 @@ async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[s
 
 async def list_reviews_for_moderation(env: Any, request: Any) -> dict[str, Any]:
     """List every review, hidden ones included, for a configured operator."""
-    await _require_moderator(env, request)
+    await require_review_moderator(env, request)
     await cleanup_expired_hidden_reviews(env)
     entries = await fetch_all(
         env,
@@ -345,6 +430,11 @@ async def list_reviews_for_moderation(env: Any, request: Any) -> dict[str, Any]:
             lecturer_name AS lecturerName,
             lecturer_custom_name AS lecturerCustomName,
             is_hidden AS isHidden,
+            moderation_status AS moderationStatus,
+            moderation_action AS moderationAction,
+            moderation_category AS moderationCategory,
+            moderation_reason AS moderationReason,
+            moderated_at_unix AS moderatedAtUnix,
             created_at_unix AS createdAtUnix,
             updated_at_unix AS updatedAtUnix
         FROM course_reviews
@@ -363,10 +453,19 @@ async def set_review_visibility(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Hide or restore a single review as a configured operator."""
-    await _require_moderator(env, request)
+    moderator_username = await require_review_moderator(env, request)
     is_hidden = payload.get('isHidden')
     if not isinstance(is_hidden, bool):
         raise CourseReviewError('isHidden must be a boolean.')
+
+    category = _safe_text(payload.get('category'))
+    reason = _safe_text(payload.get('reason'))
+    if category not in {
+        'illegal_content', 'privacy', 'harassment', 'defamation', 'off_topic', 'other'
+    }:
+        raise CourseReviewError('category is not a supported moderation category.')
+    if len(reason) < 10 or len(reason) > 1000:
+        raise CourseReviewError('reason must contain 10 to 1000 characters.')
 
     await cleanup_expired_hidden_reviews(env)
 
@@ -380,13 +479,43 @@ async def set_review_visibility(
 
     await execute(
         env,
-        'UPDATE course_reviews SET is_hidden = ?, updated_at_unix = unixepoch() WHERE id = ?',
-        [1 if is_hidden else 0, review_id],
+        """
+        UPDATE course_reviews
+        SET is_hidden = ?,
+            moderation_status = ?,
+            moderation_action = ?,
+            moderation_category = ?,
+            moderation_reason = ?,
+            moderated_by = ?,
+            moderated_at_unix = unixepoch(),
+            updated_at_unix = unixepoch()
+        WHERE id = ?
+        """,
+        [
+            1 if is_hidden else 0,
+            'hidden' if is_hidden else 'restored',
+            'hide' if is_hidden else 'restore',
+            category,
+            reason,
+            moderator_username,
+            review_id,
+        ],
     )
-    return {'id': review_id, 'isHidden': is_hidden}
+    return {
+        'id': review_id,
+        'isHidden': is_hidden,
+        'category': category,
+        'reason': reason,
+    }
 
 
-async def _require_moderator(env: Any, request: Any) -> str:
+async def require_review_moderator(env: Any, request: Any) -> str:
+    """Authorize review moderation through the current temporary allow-list.
+
+    Phase 0 will replace this function's diagnostics-admin check with the
+    dedicated moderator allow-list. Keeping the boundary here lets the rest of
+    Phase 6 remain independent of that explicitly deferred configuration change.
+    """
     user = await require_authenticated_user(env, request)
     username = _safe_text(user.get('username'))
     if not is_diagnostics_administrator(env, username):
@@ -403,6 +532,7 @@ __all__ = [
     'delete_course_review',
     'get_course_reviews',
     'list_reviews_for_moderation',
+    'require_review_moderator',
     'save_course_review',
     'set_review_visibility',
 ]

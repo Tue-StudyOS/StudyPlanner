@@ -6,6 +6,7 @@ export const ROUTES = {
   transcript: '/transcript',
   account: '/account',
   log: '/log',
+  reviewRules: '/review-rules',
   semesterDetail: '/semester/:label',
 } as const
 

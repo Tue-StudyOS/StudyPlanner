@@ -30,6 +30,11 @@ const RequestLogPage = lazy(() =>
     default: module.RequestLogPage,
   })),
 )
+const ReviewRulesPage = lazy(() =>
+  import('./features/reviews/components/ReviewRulesPage.tsx').then((module) => ({
+    default: module.ReviewRulesPage,
+  })),
+)
 function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
 }
@@ -59,6 +64,7 @@ function App() {
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
                       <Route path={ROUTES.log} element={<RequestLogPage />} />
+                      <Route path={ROUTES.reviewRules} element={<ReviewRulesPage />} />
                       <Route
                         path={LEGACY_PLANNER_ROUTE}
                         element={<Navigate to={ROUTES.planner} replace />}

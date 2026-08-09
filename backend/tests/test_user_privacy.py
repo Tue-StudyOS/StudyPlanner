@@ -42,7 +42,7 @@ class UserPrivacyTest(unittest.IsolatedAsyncioTestCase):
         ):
             exported = await user_privacy.export_current_user_data({}, object())
 
-        self.assertEqual(exported['exportVersion'], 1)
+        self.assertEqual(exported['exportVersion'], 2)
         self.assertEqual(exported['account']['email'], 'alice@example.test')
         self.assertEqual(exported['profileAndPlanning']['favorites'], ['INF-1'])
         self.assertEqual(exported['academicProgress']['completedCourses'][0]['title'], 'Course')
@@ -105,14 +105,16 @@ class UserPrivacyTest(unittest.IsolatedAsyncioTestCase):
 
         execute_batch.assert_awaited_once()
         statements = execute_batch.await_args.args[1]
-        self.assertEqual(len(statements), 3)
+        self.assertEqual(len(statements), 4)
         self.assertIn('UPDATE client_error_log', statements[0][0])
-        self.assertIn('DELETE FROM request_rate_limits', statements[1][0])
-        self.assertIn('DELETE FROM user_auth', statements[2][0])
+        self.assertIn('review_snapshot_json', statements[1][0])
+        self.assertIn('DELETE FROM request_rate_limits', statements[2][0])
+        self.assertIn('DELETE FROM user_auth', statements[3][0])
         self.assertEqual(statements[0][1], ['alice'])
-        self.assertNotIn('alice', statements[1][1])
-        self.assertNotIn('alice@example.test', statements[1][1])
-        self.assertEqual(statements[2][1], ['alice'])
+        self.assertEqual(statements[1][1], ['alice'])
+        self.assertNotIn('alice', statements[2][1])
+        self.assertNotIn('alice@example.test', statements[2][1])
+        self.assertEqual(statements[3][1], ['alice'])
 
 
 if __name__ == '__main__':

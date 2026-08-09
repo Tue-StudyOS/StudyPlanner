@@ -30,6 +30,7 @@ class ScheduledCleanupTest(unittest.IsolatedAsyncioTestCase):
             'feedbackDeleted': 3,
             'rateLimitsDeleted': 4,
             'hiddenReviewsDeleted': 5,
+            'closedReviewNoticesDeleted': 6,
         }
         output = io.StringIO()
 

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
 import type { TranslationKey } from '../../i18n/translations'
+import { ROUTES } from '../../routes.ts'
 import type { CourseReview, CourseReviewDraft, CourseReviewOptions } from '../types.ts'
 import {
   MAX_COMMENT_LENGTH,
-  MAX_LECTURER_NAME_LENGTH,
-  OTHER_LECTURER_VALUE,
   buildReviewPayload,
   toReviewDraft,
   validateReviewDraft,
@@ -37,7 +37,6 @@ const DRAFT_ERROR_KEYS: Record<ReviewDraftError, TranslationKey> = {
   missingOverallRating: 'reviews.errorMissingOverall',
   commentTooShort: 'reviews.errorCommentTooShort',
   commentTooLong: 'reviews.errorCommentTooLong',
-  lecturerNameTooLong: 'reviews.errorLecturerTooLong',
 }
 
 const SELECT_CLASSES =
@@ -125,34 +124,25 @@ export function ReviewForm({
         </label>
       ) : null}
 
-      <div className="grid min-w-0 gap-1.5">
-        <label className="grid min-w-0 gap-1.5">
-          <span className="text-[12.5px] font-medium text-fg">{t('reviews.lecturerLabel')}</span>
-          <select
-            value={draft.lecturerName}
-            onChange={(event) => updateDraft({ lecturerName: event.target.value })}
-            className={SELECT_CLASSES}
-          >
-            <option value="">{t('reviews.notSpecified')}</option>
-            {options.lecturers.map((lecturer) => (
-              <option key={lecturer} value={lecturer}>
-                {lecturer}
-              </option>
-            ))}
-            <option value={OTHER_LECTURER_VALUE}>{t('reviews.lecturerOther')}</option>
-          </select>
-        </label>
-        {draft.lecturerName === OTHER_LECTURER_VALUE ? (
-          <input
-            type="text"
-            value={draft.lecturerCustomName}
-            maxLength={MAX_LECTURER_NAME_LENGTH}
-            placeholder={t('reviews.lecturerOtherPlaceholder')}
-            onChange={(event) => updateDraft({ lecturerCustomName: event.target.value })}
-            className="w-full min-w-0 max-w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          />
-        ) : null}
-      </div>
+      {options.lecturers.length > 0 ? (
+        <div className="grid min-w-0 gap-1.5">
+          <label className="grid min-w-0 gap-1.5">
+            <span className="text-[12.5px] font-medium text-fg">{t('reviews.lecturerLabel')}</span>
+            <select
+              value={draft.lecturerName}
+              onChange={(event) => updateDraft({ lecturerName: event.target.value })}
+              className={SELECT_CLASSES}
+            >
+              <option value="">{t('reviews.notSpecified')}</option>
+              {options.lecturers.map((lecturer) => (
+                <option key={lecturer} value={lecturer}>
+                  {lecturer}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       <label className="grid min-w-0 gap-1.5">
         <span className="text-[12.5px] font-medium text-fg">{t('reviews.commentLabel')}</span>
@@ -165,6 +155,18 @@ export function ReviewForm({
           className="w-full min-w-0 max-w-full resize-y rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] leading-5 text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         />
       </label>
+
+      <details className="min-w-0 rounded-[10px] border border-border-light bg-surface px-3 py-2 text-[12px] text-fg-mid">
+        <summary className="cursor-pointer font-medium text-fg">{t('reviews.rulesTitle')}</summary>
+        <ul className="mt-2 grid list-disc gap-1 pl-4">
+          <li>{t('reviews.rulesRelevant')}</li>
+          <li>{t('reviews.rulesProhibited')}</li>
+          <li>{t('reviews.rulesModeration')}</li>
+        </ul>
+        <Link to={ROUTES.reviewRules} className="mt-2 inline-block font-medium text-primary hover:underline">
+          {t('reviews.rulesReadFull')}
+        </Link>
+      </details>
 
       {errorMessage ? (
         <div className="rounded-[10px] border border-danger/30 bg-danger-soft px-3 py-2 text-[12.5px] text-danger">

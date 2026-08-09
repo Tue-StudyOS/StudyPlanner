@@ -111,7 +111,7 @@ class BuildReviewInputTest(unittest.TestCase):
                 OPTIONS,
             )
 
-    def test_separates_a_known_lecturer_from_manually_typed_text(self) -> None:
+    def test_accepts_only_a_known_catalogue_lecturer(self) -> None:
         picked = course_reviews.build_review_input(
             {"overallRating": 4, "lecturerName": "dr. bernd muster"},
             OPTIONS,
@@ -119,35 +119,19 @@ class BuildReviewInputTest(unittest.TestCase):
         self.assertEqual(picked["lecturerName"], "Dr. Bernd Muster")
         self.assertIsNone(picked["lecturerCustomName"])
 
-        typed = course_reviews.build_review_input(
-            {"overallRating": 4, "lecturerCustomName": "Dr. Neu Hinzu"},
-            OPTIONS,
-        )
-        self.assertIsNone(typed["lecturerName"])
-        self.assertEqual(typed["lecturerCustomName"], "Dr. Neu Hinzu")
-
-    def test_rejects_unknown_picked_lecturer_both_fields_and_overlong_free_text(self) -> None:
+    def test_rejects_unknown_and_custom_lecturer_names(self) -> None:
         with self.assertRaisesRegex(course_reviews.CourseReviewError, "known lecturer"):
             course_reviews.build_review_input(
                 {"overallRating": 4, "lecturerName": "Someone Else"},
                 OPTIONS,
             )
 
-        with self.assertRaisesRegex(course_reviews.CourseReviewError, "not both"):
+        with self.assertRaisesRegex(course_reviews.CourseReviewError, "no longer accepted"):
             course_reviews.build_review_input(
                 {
                     "overallRating": 4,
                     "lecturerName": "Dr. Bernd Muster",
                     "lecturerCustomName": "Dr. Neu Hinzu",
-                },
-                OPTIONS,
-            )
-
-        with self.assertRaisesRegex(course_reviews.CourseReviewError, "lecturerCustomName"):
-            course_reviews.build_review_input(
-                {
-                    "overallRating": 4,
-                    "lecturerCustomName": "x" * (course_reviews.MAX_LECTURER_NAME_LENGTH + 1),
                 },
                 OPTIONS,
             )
@@ -206,6 +190,7 @@ class PublicReviewShapeTest(unittest.IsolatedAsyncioTestCase):
             patch.object(course_reviews, "get_course_review_key", get_review_key),
             patch.object(course_reviews, "load_course_review_options", load_options),
             patch.object(course_reviews, "get_authenticated_user", get_user),
+            patch.object(course_reviews, "_fetch_viewer_review", AsyncMock(return_value=rows[0])),
         ):
             response = await course_reviews.get_course_reviews(object(), object(), 42)
 
@@ -248,6 +233,33 @@ class PublicReviewShapeTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("is_hidden = 0", fetch_all.await_args.args[1])
 
+    async def test_hidden_author_can_see_the_reason_and_redress_path(self) -> None:
+        viewer_row = _review_row(
+            username='student',
+            moderationStatus='hidden',
+            moderationAction='hide',
+            moderationCategory='privacy',
+            moderationReason='The review disclosed private contact information.',
+            moderatedAtUnix=200,
+        )
+        with (
+            patch.object(course_reviews, 'fetch_all', AsyncMock(return_value=[])),
+            patch.object(course_reviews, 'get_course_review_key', AsyncMock(return_value='inf-01')),
+            patch.object(course_reviews, 'load_course_review_options', AsyncMock(return_value=OPTIONS)),
+            patch.object(
+                course_reviews,
+                'get_authenticated_user',
+                AsyncMock(return_value={'username': 'student'}),
+            ),
+            patch.object(course_reviews, '_fetch_viewer_review', AsyncMock(return_value=viewer_row)),
+        ):
+            response = await course_reviews.get_course_reviews(object(), object(), 42)
+
+        self.assertEqual(response['reviews'], [])
+        decision = response['viewerReview']['moderationDecision']
+        self.assertEqual(decision['reason'], 'The review disclosed private contact information.')
+        self.assertEqual(decision['redressPath'], '/review-rules#redress')
+
     async def test_read_reports_a_missing_course_rather_than_an_empty_list(self) -> None:
         with (
             patch.object(course_reviews, "get_course_review_key", AsyncMock(return_value=None)),
@@ -283,7 +295,7 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
                     "contentRating": 4,
                     "comment": "Clear and well paced.",
                     "takenPeriodLabel": "Sommer 2025",
-                    "lecturerCustomName": "Dr. Neu Hinzu",
+                    "lecturerName": "Dr. Bernd Muster",
                 },
             )
 
@@ -301,16 +313,16 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
                 None,
                 "Clear and well paced.",
                 "Sommer 2025",
+                "Dr. Bernd Muster",
                 None,
-                "Dr. Neu Hinzu",
             ],
         )
 
     async def test_delete_only_targets_the_callers_own_row(self) -> None:
-        execute = AsyncMock()
+        execute_batch = AsyncMock(return_value=[])
 
         with (
-            patch.object(course_reviews, "execute", execute),
+            patch.object(course_reviews, "execute_batch", execute_batch),
             patch.object(course_reviews, "fetch_all", AsyncMock(return_value=[])),
             patch.object(
                 course_reviews,
@@ -325,8 +337,11 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
         ):
             await course_reviews.delete_course_review(object(), object(), 42)
 
-        self.assertIn("WHERE course_key = ? AND username = ?", execute.await_args.args[1])
-        self.assertEqual(execute.await_args.args[2], ["inf-01", "student"])
+        statements = execute_batch.await_args.args[1]
+        self.assertEqual(len(statements), 2)
+        self.assertIn('removedOnAuthorDeletion', statements[0][0])
+        self.assertIn("WHERE course_key = ? AND username = ?", statements[1][0])
+        self.assertEqual(statements[1][1], ["inf-01", "student"])
 
 
 class ModerationTest(unittest.IsolatedAsyncioTestCase):
@@ -357,11 +372,27 @@ class ModerationTest(unittest.IsolatedAsyncioTestCase):
             patch.object(course_reviews, "cleanup_expired_hidden_reviews", AsyncMock()),
         ):
             response = await course_reviews.set_review_visibility(
-                object(), object(), 7, {"isHidden": True}
+                object(), object(), 7, {
+                    "isHidden": True,
+                    "category": "privacy",
+                    "reason": "The review discloses private contact information.",
+                }
             )
 
-        self.assertEqual(response, {"id": 7, "isHidden": True})
-        self.assertEqual(execute.await_args.args[2], [1, 7])
+        self.assertEqual(response["id"], 7)
+        self.assertTrue(response["isHidden"])
+        self.assertEqual(
+            execute.await_args.args[2],
+            [
+                1,
+                "hidden",
+                "hide",
+                "privacy",
+                "The review discloses private contact information.",
+                "operator",
+                7,
+            ],
+        )
 
     async def test_hiding_requires_a_boolean_and_an_existing_review(self) -> None:
         with (
@@ -375,7 +406,11 @@ class ModerationTest(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaisesRegex(course_reviews.CourseReviewError, "isHidden"):
                 await course_reviews.set_review_visibility(
-                    object(), object(), 7, {"isHidden": "yes"}
+                    object(), object(), 7, {
+                        "isHidden": "yes",
+                        "category": "privacy",
+                        "reason": "A sufficiently detailed reason.",
+                    }
                 )
 
             with (
@@ -383,7 +418,11 @@ class ModerationTest(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(course_reviews.CourseReviewNotFoundError),
             ):
                 await course_reviews.set_review_visibility(
-                    object(), object(), 7, {"isHidden": True}
+                    object(), object(), 7, {
+                        "isHidden": True,
+                        "category": "privacy",
+                        "reason": "A sufficiently detailed reason.",
+                    }
                 )
 
 
