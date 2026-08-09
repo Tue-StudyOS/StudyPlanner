@@ -128,8 +128,9 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     if (!csrfToken) {
       throw new Error('You must be signed in to update your credentials.')
     }
-    const updatedUser = await updateCredentialsApi(csrfToken, input)
-    setUser(updatedUser)
+    const updatedSession = await updateCredentialsApi(csrfToken, input)
+    setCsrfToken(updatedSession.csrfToken)
+    setUser(updatedSession.user)
   }, [csrfToken])
 
   const deleteAccount = useCallback(async (input: DeleteAccountInput): Promise<void> => {

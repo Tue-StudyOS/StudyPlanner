@@ -1,6 +1,9 @@
 # Cloudflare Setup
 
-See `docs/cloudflare-runtime-config.md` for the current active resource names. At the moment the app must stay bound to `studyplaner-db-test` (`297f7a28-9069-431d-b989-49acf2537513`); `studyplanner-db` is reserved for a later production cutover.
+See `docs/cloudflare-runtime-config.md` for the current active resource names.
+The approved production binding is `studyplanner-db`
+(`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`). Do not switch the active database or
+recreate it during routine deployment or recovery work.
 
 ## 1. Prerequisites
 
@@ -21,7 +24,7 @@ npx wrangler login
 The current active database already exists in Cloudflare:
 
 ```text
-studyplaner-db-test = 297f7a28-9069-431d-b989-49acf2537513
+studyplanner-db = 80ca9092-ddc6-454a-b04a-8ccae85ef2f5
 ```
 
 Run the config guard before applying migrations or deploying:
@@ -125,7 +128,9 @@ Build command: automatic / none
 Deploy command: npm run deploy:backend
 ```
 
-Make sure the Worker has the `DB` D1 binding, the `ALLOWED_ORIGINS` variable, and the `AUTH_TOKEN_SECRET` Worker secret.
+Make sure the Worker has the `DB` D1 binding, the `ALLOWED_ORIGINS` variable, and
+the `AUTH_TOKEN_SECRET` Worker secret. Apply all pending D1 migrations before
+deploying a Worker version that queries their new columns.
 
 Recommended `ALLOWED_ORIGINS` value for Pages production plus preview deployments:
 
@@ -158,8 +163,11 @@ GitHub:
 Cloudflare:
 
 - Invite team members through account members.
-- Avoid giving everyone super-admin access.
+- Require MFA, individual accounts, and the smallest role that supports each
+  person's duties; avoid giving everyone super-admin access.
 - Keep at least two trusted admins for production access.
+- Review access quarterly and after every team change. Record the result in the
+  restricted compliance store; do not commit member/account details.
 
 ## 12. Known limits for the first migration
 

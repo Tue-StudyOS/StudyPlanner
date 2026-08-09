@@ -423,8 +423,12 @@ async def route_request(request: Any, env: Any) -> Any:
 
         if path == "/api/me/credentials":
             if method == "PATCH":
-                updated = await update_user_credentials(env, request, await read_json_object(request))
-                return json_response({"user": updated}, request=request, env=env)
+                auth_payload = await update_user_credentials(
+                    env,
+                    request,
+                    await read_json_object(request),
+                )
+                return _new_session_response(auth_payload, request, env)
             return _method_not_allowed_response(request, env)
 
         if path == "/api/me/data-export":

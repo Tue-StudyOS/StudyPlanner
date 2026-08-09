@@ -26,6 +26,11 @@ AUTH_TOKEN_TTL_SECONDS = "2592000"
 # Operators listed here can inspect aggregated client errors from every account.
 DIAGNOSTICS_ADMIN_USERNAMES = "test"
 
+[secrets]
+# Declaring the name makes deployment fail closed when the production signing
+# secret is missing. The value remains a Cloudflare secret and is never stored here.
+required = ["AUTH_TOKEN_SECRET"]
+
 # Active runtime D1 for the current deployed app.
 # studyplanner-db is the approved production database (multi-period ALMA catalog, integrate_new_db cutover).
 # The database name and id are public Cloudflare binding config; AUTH_TOKEN_SECRET stays a Worker secret.

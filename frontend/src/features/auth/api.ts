@@ -112,8 +112,8 @@ export async function saveCurrentProfile(
 export async function updateCredentials(
   csrfToken: string,
   input: UpdateCredentialsInput,
-): Promise<AuthUser> {
-  const response = await fetchJson<UserResponse>('/api/me/credentials', {
+): Promise<AuthPayload> {
+  return await fetchJson<AuthPayload>('/api/me/credentials', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -121,7 +121,6 @@ export async function updateCredentials(
     },
     body: JSON.stringify(input),
   })
-  return response.user
 }
 
 export async function fetchAccountDataExport(): Promise<Blob> {

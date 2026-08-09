@@ -70,6 +70,9 @@ link the corresponding assessment in section 4.
 
 ### Technical and organisational measures summary
 
+Use `docs/privacy/security-operations.md` as the implementation checklist, then
+record the deployed evidence and accountable people in this restricted copy.
+
 - Access control and role assignments: `____________________`
 - Authentication, password hashing, CSRF, and session controls: `____________________`
 - Encryption in transit and provider controls: `____________________`

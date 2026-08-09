@@ -10,7 +10,7 @@ also send a session-bound `X-CSRF-Token` header.
 ## Flow
 
 1. Registration and login verify credentials and create a signed token with
-   `username`, `iat`, and `exp` claims.
+   `username`, account session version, `iat`, and `exp` claims.
 2. The Worker returns a `studyplanner_session` cookie with `HttpOnly`, `Secure`,
    `SameSite=None`, and `Path=/` in deployments. Local HTTP development uses
    `SameSite=Lax` without `Secure`.
@@ -21,8 +21,10 @@ also send a session-bound `X-CSRF-Token` header.
 5. `GET /api/auth/session` promotes a valid legacy bearer token once, then the
    frontend removes it from local storage. This preserves active sessions during
    the migration without keeping bearer storage as a long-term auth mechanism.
-6. Logout clears the session cookie. Tokens remain stateless, so logging out in
-   one browser does not revoke copies from other devices before expiry.
+6. Logout clears the current browser's session cookie. Changing account
+   credentials increments the account session version, invalidates older
+   sessions on every device, and replaces the current browser's cookie/CSRF
+   proof. Rotating the Worker signing secret remains the incident-wide logout.
 7. Authenticated users can export their account-linked data and delete their
    account with current-password, explicit-confirmation, and CSRF checks.
    Deletion runs as one transactional D1 batch and expires the cookie. Although
@@ -36,6 +38,8 @@ also send a session-bound `X-CSRF-Token` header.
 - Passwords use PBKDF2-SHA256 with a per-user random salt and are never logged.
 - `AUTH_TOKEN_SECRET` must be configured with
   `wrangler secret put AUTH_TOKEN_SECRET --name studyplanner-api`; never commit it.
+  The Wrangler configuration declares this secret as required so deployments
+  fail closed when it is missing.
 - `AUTH_TOKEN_TTL_SECONDS` configures the token lifetime.
 - `ALLOWED_ORIGINS` must be an explicit frontend-origin allow-list. Cookie CORS
   responses enable credentials only for a matching allow-listed origin, never
@@ -75,9 +79,14 @@ Not included:
 - email verification
 - OAuth / SSO
 - multi-factor authentication
-- immediate all-device session revocation
+- a user-facing list of active devices/sessions
 
 ## Deployment
+
+Apply migration `0037_session_revocation.sql` before deploying the session-aware
+Worker; otherwise authentication queries will reference a column that is not yet
+present. Existing valid tokens without the new claim map to version 0 during the
+rollout.
 
 The active D1 binding is `studyplanner-db`
 (`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`). Before deploying Worker changes, run

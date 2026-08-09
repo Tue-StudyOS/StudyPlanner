@@ -9,7 +9,11 @@ workers = types.ModuleType('workers')
 workers.Response = object
 sys.modules.setdefault('workers', workers)
 
-from http_utils import build_cors_headers  # noqa: E402
+from http_utils import (  # noqa: E402
+    HTML_CONTENT_SECURITY_POLICY,
+    SECURITY_HEADERS,
+    build_cors_headers,
+)
 
 
 class Request:
@@ -33,6 +37,27 @@ class CorsHeadersTest(unittest.TestCase):
 
         self.assertEqual(headers['access-control-allow-origin'], '*')
         self.assertNotIn('access-control-allow-credentials', headers)
+
+    def test_disallowed_origin_receives_no_cors_access(self) -> None:
+        headers = build_cors_headers(
+            Request('https://attacker.example'),
+            {'ALLOWED_ORIGINS': 'https://studyplaner.pages.dev'},
+        )
+
+        self.assertNotIn('access-control-allow-origin', headers)
+        self.assertNotIn('access-control-allow-credentials', headers)
+
+    def test_api_security_headers_deny_browser_content_by_default(self) -> None:
+        self.assertEqual(SECURITY_HEADERS['x-content-type-options'], 'nosniff')
+        self.assertEqual(SECURITY_HEADERS['x-frame-options'], 'DENY')
+        self.assertIn("default-src 'none'", SECURITY_HEADERS['content-security-policy'])
+        self.assertIn("frame-ancestors 'none'", SECURITY_HEADERS['content-security-policy'])
+        self.assertIn('max-age=31536000', SECURITY_HEADERS['strict-transport-security'])
+
+    def test_privacy_html_policy_allows_its_inline_styles_but_no_scripts(self) -> None:
+        self.assertIn("style-src 'unsafe-inline'", HTML_CONTENT_SECURITY_POLICY)
+        self.assertIn("default-src 'none'", HTML_CONTENT_SECURITY_POLICY)
+        self.assertNotIn('script-src', HTML_CONTENT_SECURITY_POLICY)
 
 
 if __name__ == '__main__':

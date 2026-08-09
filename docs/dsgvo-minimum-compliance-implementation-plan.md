@@ -396,6 +396,14 @@ Acceptance criteria:
 
 ### Phase 7 — technical and organisational security baseline
 
+Implementation note (2026-08-09): migration `0037`, per-account session
+revocation on credential change, replacement cookie/CSRF issuance, required
+secret declaration, Worker/Pages security headers and tested CSP, complete CSRF
+route coverage, weekly dependency checks, and the internal security/recovery/
+incident runbook are implemented on the working branch. Cloudflare access/MFA
+review, confirmation of the active D1 recovery period, and a controlled recovery
+drill remain operator actions. Phase 0 privileges are unchanged as required.
+
 Update the internal TOM section and implement only missing, proportionate controls:
 
 - least-privilege named Cloudflare accounts with MFA and periodic access review;
