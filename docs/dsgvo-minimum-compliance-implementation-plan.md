@@ -16,11 +16,12 @@ This is an engineering and operational plan, not a substitute for a final legal 
 
 ## 2. Current repository findings
 
-### 2.1 Immediate risk
+### 2.1 Privileged-access configuration finding
 
 - `backend/wrangler.toml` currently sets `DIAGNOSTICS_ADMIN_USERNAMES = "test"`.
 - A diagnostics administrator can read up to 200 client-error records across accounts. Records can include username, request URL, page path, status, error code, message and detail (`backend/src/services/client_error_log.py`).
 - The same diagnostics-admin check is also reused for course-review moderation (`backend/src/services/course_reviews.py`). Removing `test` without separating the roles can leave review moderation without an operator.
+- This finding does not by itself mean that the `test` account or authentication system is compromised. The corrective action is to remove its privileges, not to remove the normal QA account.
 - Authentication tokens are stateless and last 30 days by default. Deleting an account invalidates its token because the user can no longer be loaded, but a password change does not currently revoke already issued tokens.
 
 ### 2.2 Public legal pages and routing
@@ -118,31 +119,66 @@ Do not add a blanket inactive-account deletion rule unless the operator can noti
 
 ## 6. Implementation phases
 
-### Phase 0 — urgent operational containment
+### Phase 0 — privileged-access correction
 
-This phase is a production operation, not merely a code commit.
+This is a high-priority configuration and authorization correction, but the current repository finding alone is not evidence of an active incident or compromised authentication. The risk is that the shared `test` account is named in a privileged allow-list. The account itself may remain available as a normal QA/demo user.
 
-1. Identify a named operator account with a unique password.
-2. Remove `test` from `DIAGNOSTICS_ADMIN_USERNAMES` in `backend/wrangler.toml` and deploy the Worker immediately.
-3. Disable/delete the shared `test` account or rotate it to credentials known only to the responsible person. If it contains reviews or other user data, export and decide their disposition before deletion.
-4. Rotate `AUTH_TOKEN_SECRET` if the shared credentials or an active session token may have been exposed. This intentionally logs out every user; schedule and communicate it.
-5. Verify with two accounts that an ordinary user cannot see other users' diagnostics or the moderation list.
-6. Record the action, time, operator and verification result in the private security log.
+Target account model:
 
-Code hardening in the same workstream:
+```text
+test
+Role: normal user
+Purpose: shared QA/demo testing
+Data: fake/non-personal test data only
+Privileges: none
 
-- introduce a separate `REVIEW_MODERATOR_USERNAMES` variable and `is_review_moderator()` helper;
-- keep diagnostics and moderation permissions deny-by-default when variables are missing;
-- add focused tests proving the two roles do not imply each other;
-- add an account `session_version`, include it in signed tokens, and increment it on password/login-identifier change so credential rotation revokes old sessions;
-- update `backend/scripts/verify_cloudflare_config.py` so production fails verification when `test` or another documented shared/example username appears in a privileged list.
+named_operator
+Role: diagnostics administrator
+Purpose: investigate production errors
+Privileges: cross-account diagnostics only
+
+named_moderator
+Role: review moderator
+Purpose: handle reported or abusive reviews
+Privileges: review moderation only
+```
+
+Use individual accounts for privileged roles. One individual may hold both roles when that is operationally appropriate, but the permissions must remain independently configurable and testable.
+
+#### Low-disruption implementation and deployment order
+
+1. Introduce a separate `REVIEW_MODERATOR_USERNAMES` Worker variable and `is_review_moderator()` helper. Change course-review moderation to use that helper instead of `is_diagnostics_administrator()`.
+2. Keep both privilege checks deny-by-default when their variables are missing or empty. Add focused tests proving that diagnostics access does not grant review moderation and review moderation does not grant diagnostics access.
+3. Identify or create named individual accounts for the people who genuinely require diagnostics and/or moderation access. Give each account a unique password controlled by that person.
+4. Configure the production Worker, for example:
+
+   ```toml
+   DIAGNOSTICS_ADMIN_USERNAMES = "named_operator"
+   REVIEW_MODERATOR_USERNAMES = "named_moderator"
+   ```
+
+   Comma-separated individual usernames remain supported when more than one person needs a role.
+5. Remove `test` from every privileged allow-list, deploy the Worker, and leave the `test` account and its existing login credentials unchanged.
+6. Verify with at least the shared `test` account, a diagnostics operator and a review moderator that:
+   - `test` can still sign in and use normal StudyPlanner features;
+   - `test` cannot read cross-account diagnostics or access review moderation;
+   - the diagnostics operator has only the intended diagnostics access;
+   - the review moderator has only the intended moderation access.
+7. Record the role assignments, deployment time, operator and verification result in the private security record. Document `test` as a shared, non-privileged QA/demo account that must contain only fake test data.
+8. Update `backend/scripts/verify_cloudflare_config.py` so production verification rejects `test`, other documented shared/example usernames, or an empty required operator assignment in privileged lists. It must not reject the existence of an ordinary `test` account.
+
+Do not rotate `AUTH_TOKEN_SECRET`, delete/disable `test`, change passwords, alter the database or modify normal account permissions solely for this allow-list correction. Rotate the secret or credentials only if separate evidence shows that a privileged session/token or secret was exposed; in that case, follow the incident-response procedure and communicate the resulting global logout.
+
+General session revocation after a user's own credential change remains a defence-in-depth improvement in Phase 7, not a prerequisite for this correction.
 
 Acceptance criteria:
 
-- production config contains no shared/example privileged account;
-- credentials changes invalidate earlier sessions;
-- diagnostics and moderation roles are independently tested;
-- `npm run db:verify-config` rejects a regression.
+- `test` remains usable as a normal shared QA/demo account and contains no real personal data;
+- production contains no shared/example username in either privileged allow-list;
+- diagnostics and moderation permissions are separately configured, deny-by-default and independently tested;
+- normal users and other team members' accounts are unaffected;
+- `npm run db:verify-config` rejects a privileged shared/example account regression without rejecting ordinary QA accounts;
+- no authentication-secret rotation or user logout is required unless an actual exposure is identified.
 
 ### Phase 1 — verified legal/operator facts and internal compliance record
 
@@ -430,7 +466,7 @@ After deploy, verify at minimum:
 
 ## 8. Deployment order and rollback
 
-1. Complete Phase 0 containment first; it is independent of public legal wording.
+1. Complete the Phase 0 privilege correction first; it is independent of public legal wording and does not require disrupting normal QA access.
 2. Obtain operator facts and DPA evidence.
 3. Merge compatible schema/backend changes, apply migrations to local D1 and run all tests.
 4. Run `npm run db:verify-config` before every remote migration/deploy.
