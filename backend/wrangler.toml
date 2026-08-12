@@ -3,9 +3,10 @@ main = "src/main.py"
 # Pyodide and the Python Workers runtime are selected by this date. Do not raise
 # it without re-running the check below.
 #
-# Raising it to 2026-04-01 was tried as a candidate fix for cloudflare/workerd#6624
-# (the GIL fault behind the production 500s — see docs/load-test-2026-08.md) and
-# reverted: on a cold `wrangler dev --remote` every request failed 500 with
+# Raising it to 2026-04-01 was tried as a candidate fix for the production 500s
+# (see docs/load-test-2026-08.md; the cause was then wrongly believed to be
+# cloudflare/workerd#6624) and reverted: on a cold `wrangler dev --remote` every
+# request failed 500 with
 #   PythonWorkersInternalError: Received non-dedicated snapshot but compat flag
 #   for dedicated snapshots is enabled
 # 60/60 requests, no exceptions. It also flips entrypoint dispatch, so local
@@ -13,6 +14,15 @@ main = "src/main.py"
 compatibility_date = "2025-05-20"
 compatibility_flags = ["python_workers"]
 workers_dev = true
+
+# Persistent logs. Without this the only way to see a failure was to have
+# `wrangler tail` already running when it happened, and the fault under
+# investigation (docs/load-test-2026-08.md) appears in roughly one load-test run
+# in three — so anything occurring in real traffic was lost. Full sampling
+# because the events of interest are rare by definition.
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 [vars]
 ENVIRONMENT = "production"
