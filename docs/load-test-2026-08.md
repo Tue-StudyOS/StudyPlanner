@@ -224,6 +224,28 @@ request, and ~400 ms if that request is the first uncached catalog build. That i
 a per-isolate cost, not a per-user one, and it is the reason single-shot
 measurements mislead.
 
+### Verified on production (2026-08-09)
+
+The fixes were merged (PR #32) and deployed to `studyplanner-api` from `main`
+(version `e355b6c8`). The backend tree on `main` is byte-identical to the branch
+the staging measurements were taken on, so production runs exactly what was
+tested; the only other commits on `main` are frontend-only.
+
+| check | result |
+| --- | --- |
+| catalog correctness | 530138 B, 131 courses, byte-identical across repeats; `Ü` intact, no replacement chars |
+| health gate before | 24/24 ok, 8 isolates |
+| `period=all`, verified-fresh isolate (seq=6) | **survived 120 rounds** (previously died at 5) |
+| 20 users x 20 requests, catalog session | **400/400 ok, 0/20 users affected** |
+| 20 users x 24 requests, **including `/api/me/*`** | **480/480 ok, 0/20 users affected** |
+| health gate after the load | **24/24 ok — no isolate left wedged** |
+
+The last row is the one that matters most: before the fix this load reliably left
+permanently dead isolates behind, which is what users experienced as "everything
+fails for me but works for everyone else". The authenticated half of the session
+could only be exercised here, because staging cannot validate production-minted
+sessions.
+
 ### Contamination control (important)
 
 A dead isolate can outlive a deploy, and a live one carries whatever debt earlier
