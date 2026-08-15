@@ -3,6 +3,7 @@ import type { CatalogPeriod, CompletedCourse } from '../types.ts'
 import { fetchCatalogCourses } from '../api.ts'
 import { findCatalogPeriodForSemesterLabel } from '../utils/periods.ts'
 import { buildPeriodLecturerLookup, mergePeriodLecturerLookups } from '../utils/completedCourseLecturer.ts'
+import { mapWithConcurrency } from '../../../shared/utils/mapWithConcurrency.ts'
 
 interface LookupState {
   cacheKey: string
@@ -52,12 +53,18 @@ export function useHistoricalLecturerLookup(
 
     async function loadHistoricalLecturers(): Promise<void> {
       try {
-        const lookups = await Promise.all(
-          periodIds.map(async (periodId) => {
-            const courses = await fetchCatalogCourses('', 1000, periodId)
-            return buildPeriodLecturerLookup(periodId, courses)
-          }),
-        )
+        // Bounded rather than Promise.all. The original reason given here — that
+        // concurrent response *bytes* overwhelm one backend isolate — turned out
+        // to be wrong: the fault is CPU, and a purely sequential stream kills an
+        // isolate just as well (docs/load-test-2026-08.md). The real cost is that
+        // each period costs the backend ~70-100 ms of CPU, so firing every period
+        // at once concentrates that burst. Bounding still helps by spreading the
+        // work, but the durable fix is to stop asking for a ~530 KB payload when
+        // only id, number and lecturer are used.
+        const lookups = await mapWithConcurrency(periodIds, 2, async (periodId) => {
+          const courses = await fetchCatalogCourses('', 1000, periodId)
+          return buildPeriodLecturerLookup(periodId, courses)
+        })
         if (cancelled) {
           return
         }

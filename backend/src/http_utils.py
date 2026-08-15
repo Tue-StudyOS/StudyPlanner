@@ -6,6 +6,7 @@ from typing import Any
 from workers import Response
 
 from env_config import get_allowed_origins, is_origin_allowed
+from isolate_identity import get_isolate_id, isolate_age_ms, next_response_sequence
 
 
 def get_request_header(request: Any, header_name: str) -> str | None:
@@ -33,6 +34,15 @@ def build_cors_headers(request: Any, env: Any) -> dict[str, str]:
     headers: dict[str, str] = {
         "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "access-control-allow-headers": "Authorization, Content-Type, X-CSRF-Token",
+        # Diagnostic; see isolate_identity. Every response path funnels through
+        # here, which is why the marker is attached at this point rather than in
+        # each responder.
+        "x-isolate-id": get_isolate_id(),
+        "x-isolate-seq": str(next_response_sequence()),
+        "x-isolate-age-ms": str(isolate_age_ms()),
+        # Without this a browser cannot read the above cross-origin, and the
+        # deployed frontend is cross-origin to this Worker.
+        "access-control-expose-headers": "x-isolate-id, x-isolate-seq, x-isolate-age-ms",
     }
 
     if "*" in allowed_origins:
@@ -60,7 +70,38 @@ def json_response(
     if extra_headers:
         headers.update(extra_headers)
 
-    body = json.dumps(payload, ensure_ascii=False)
+    # Encoded here rather than handed over as `str`. Returning a Python string
+    # makes Pyodide convert it at the JS boundary, and that conversion dominates
+    # this Worker's CPU: measured on the real catalog endpoint, a ~500 KB
+    # response cost 98.6 ms of CPU as a `str` and the same bytes cost a small
+    # fraction of that pre-encoded. Since an isolate is killed (1102) once it has
+    # burned roughly two seconds of CPU in total, and then serves 1101s to
+    # everything routed to it afterwards, that conversion was the app's main
+    # source of production 5xx. See docs/load-test-2026-08.md.
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return Response(body, status=status, headers=headers)
+
+
+def encoded_json_response(
+    body: bytes,
+    request: Any,
+    env: Any,
+    status: int = 200,
+    extra_headers: dict[str, str] | None = None,
+) -> Response:
+    """Return an already-serialised JSON body.
+
+    Exists so a caller that has cached the encoded bytes can skip both
+    `json.dumps` and the encode, which is the whole point of caching them.
+    Headers are still built per request, because they carry per-isolate
+    diagnostics and the CORS origin.
+    """
+    headers = {
+        "content-type": "application/json; charset=utf-8",
+        **build_cors_headers(request, env),
+    }
+    if extra_headers:
+        headers.update(extra_headers)
     return Response(body, status=status, headers=headers)
 
 

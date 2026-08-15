@@ -1,0 +1,12 @@
+# Control worker for the Pyodide hang investigation. Deployed over the staging
+# worker so no new resource is created; restore by redeploying backend/.
+# Same compatibility_date as production, since that selects the Pyodide build.
+name = "studyplaner-api"
+main = "src/main.py"
+compatibility_date = "2025-05-20"
+compatibility_flags = ["python_workers"]
+workers_dev = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1

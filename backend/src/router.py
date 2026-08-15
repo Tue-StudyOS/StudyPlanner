@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import json
 import traceback
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one, has_database
-from http_utils import empty_response, error_response, html_response, json_response
+from http_utils import (
+    empty_response,
+    encoded_json_response,
+    error_response,
+    html_response,
+    json_response,
+)
 from request_utils import RequestBodyError, read_json_object
+from services import catalog_response_cache
 from services.authentication import (
     AuthConfigurationError,
     AuthenticationError,
@@ -725,17 +733,36 @@ async def route_request(request: Any, env: Any) -> Any:
             except ValueError:
                 limit = 100
 
+            # Searches are cached too. A broad two-character prefix against the
+            # whole catalog costs ~230 ms of CPU, and those prefixes are exactly
+            # what users type first, so they are the entries most worth keeping.
+            cache_key = catalog_response_cache.build_key(limit, period_value, search_value)
+            cached_body = catalog_response_cache.get(cache_key)
+            if cached_body is not None:
+                return encoded_json_response(
+                    cached_body,
+                    request=request,
+                    env=env,
+                    extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+                )
+
             courses = await list_catalog_courses(
                 env,
                 limit=limit,
                 search=search_value,
                 period_id=period_value,
             )
-            return json_response(
-                {
-                    "count": len(courses),
-                    "courses": courses,
-                },
+            payload = {
+                "count": len(courses),
+                "courses": courses,
+            }
+            # Rebuilding this answer is what kills isolates on the Free plan: it
+            # is the same bytes every time, and it costs ~350-500 ms of CPU for
+            # the unfiltered catalog. See services/catalog_response_cache.
+            encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            catalog_response_cache.put(cache_key, encoded)
+            return encoded_json_response(
+                encoded,
                 request=request,
                 env=env,
                 extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,

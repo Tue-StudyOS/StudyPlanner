@@ -43,9 +43,81 @@ const ORIGIN = (__ENV.LOADTEST_ORIGIN || recording.apiOrigin || DEFAULT_ORIGIN).
 // The finding we care about is 5xx, and an average hides a handful of them.
 const serverErrors = new Counter('server_errors')
 const rateLimited = new Counter('rate_limited_429')
+const clientErrors = new Counter('client_errors_4xx')
 const stepDuration = new Trend('step_duration', true)
 
+// What the user actually experiences, as opposed to what the server did:
+// a 5xx the frontend retries away is latency, not an error.
+const userVisibleFailures = new Counter('user_visible_failures')
+const absorbedByRetry = new Counter('absorbed_by_retry')
+// How far an isolate gets before the connection rotates to a new one. A low max
+// means almost every request pays a fresh Pyodide start-up.
+const isolateSeq = new Trend('isolate_seq')
+
+// Mirrors frontend/src/shared/utils/api.ts. Kept in sync deliberately: the
+// point of the metric is to model the deployed client, so a divergence here
+// silently invalidates the "user-visible" number.
+const RETRY_SAFE_METHODS = new Set(['GET', 'HEAD'])
+const MAX_ATTEMPTS = 3
+const RETRY_BACKOFF_MS = 300
+
+function isRetryableFailure(method, status) {
+  return RETRY_SAFE_METHODS.has(method.toUpperCase()) && (status === 0 || status >= 500)
+}
+
+/**
+ * Reads the diagnostic markers from backend/src/isolate_identity.py.
+ *
+ * A k6 VU keeps its own connection pool, and a connection stays bound to one
+ * isolate, so a VU's isolate id should stay put for long runs. What this is
+ * looking for is the moment it does not: the id and sequence number on the
+ * request *before* a wedge say how old the isolate was and how much it had
+ * already served, which is the closest thing available to a trigger.
+ */
+function readIsolate(response) {
+  const headers = response.headers || {}
+  const pick = (name) => headers[name] ?? headers[name.toLowerCase()] ?? ''
+  return {
+    id: pick('X-Isolate-Id') || '(none)',
+    seq: pick('X-Isolate-Seq') || '?',
+    ageMs: pick('X-Isolate-Age-Ms') || '?',
+  }
+}
+
+// Last good observation per VU, so a failure can be described relative to the
+// isolate that was serving this connection immediately before it.
+const lastHealthyIsolate = {}
+
+/**
+ * A semester plan that was never saved returns 404, and that is the app working
+ * correctly: whether a plan exists is per-account state, not app health. The
+ * recording came from an account that had a WS 2026/27 plan; the loadtest
+ * accounts do not. Treated as expected so it neither fails the run nor silently
+ * inflates http_req_failed.
+ */
+function expectsNotFound(method, pathWithoutQuery) {
+  return method === 'GET' && pathWithoutQuery.startsWith('/api/me/semester-plans/')
+}
+
+/**
+ * k6 only materialises a tagged sub-metric in the summary when some threshold
+ * references it, so tagging step_duration by endpoint is not enough on its own —
+ * the per-endpoint numbers the report needs were being collected and then
+ * dropped. These thresholds exist to surface the breakdown, not to gate the run,
+ * so the condition is one that always holds.
+ */
+function perEndpointThresholds() {
+  const endpoints = new Set(
+    [...recording.firstLoad, ...recording.steadyState].map((step) => step.path.split('?')[0]),
+  )
+  return Object.fromEntries(
+    [...endpoints].map((endpoint) => [`step_duration{endpoint:${endpoint}}`, ['p(95)>=0']]),
+  )
+}
+
 export const options = {
+  // k6 reports avg/min/med/p(90)/p(95)/max by default; the report quotes p(99).
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     concurrent_users: {
       executor: 'ramping-vus',
@@ -59,13 +131,20 @@ export const options = {
     },
   },
   thresholds: {
-    // Any 5xx fails the run outright.
+    // Any 5xx fails the run outright. Counted per attempt, so a retried request
+    // that failed twice contributes twice — this is the server's error rate.
     server_errors: ['count<1'],
+    // What a user would actually have seen. The gap between this and
+    // server_errors is the retry doing its job.
+    user_visible_failures: ['count<1'],
     // A 429 here means the pre-minted sessions were not enough to keep the
     // rate limiter out of the measurement — the run is invalid, not the app.
     rate_limited_429: ['count<1'],
+    // A 4xx means the replayed request was malformed — a rig bug, not a finding.
+    client_errors_4xx: ['count<1'],
     http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<1500'],
+    ...perEndpointThresholds(),
   },
 }
 
@@ -138,36 +217,100 @@ function collectCourseIds(response) {
 // cached catalog after the first load.
 let cachedCourseIds = []
 
+/**
+ * `-e SKIP_CATALOG=1` drops the catalog list endpoint, the 1.43 MB response.
+ * Everything else stays identical, so comparing two runs isolates that one
+ * payload as the cause of the hangs rather than inferring it from a synthetic
+ * probe. See docs/load-test-2026-08.md.
+ */
+const SKIP_CATALOG = __ENV.SKIP_CATALOG === '1'
+
 function runSteps(steps, session) {
   for (const step of steps) {
     const pathWithoutQuery = step.path.split('?')[0]
+    if (SKIP_CATALOG && pathWithoutQuery === '/api/catalog/courses') {
+      continue
+    }
     const isWrite = step.method !== 'GET' && step.method !== 'HEAD'
     const body = isWrite ? buildWriteBody(cachedCourseIds) : null
 
-    const response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
-      headers: buildHeaders(session, step.method),
-      // Group metrics by endpoint rather than by unique URL.
-      tags: { endpoint: pathWithoutQuery, method: step.method },
-      redirects: 0,
-    })
+    const notFoundIsExpected = expectsNotFound(step.method, pathWithoutQuery)
 
-    stepDuration.add(response.timings.duration, { endpoint: pathWithoutQuery })
+    // The browser retries safe methods, so a single wedged request is latency
+    // rather than an error. Replaying without that overstates what users see.
+    let response = null
+    let attemptsUsed = 0
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      attemptsUsed = attempt
+      response = http.request(step.method, `${ORIGIN}${step.path}`, body, {
+        headers: buildHeaders(session, step.method),
+        // Group metrics by endpoint rather than by unique URL.
+        tags: { endpoint: pathWithoutQuery, method: step.method, attempt: String(attempt) },
+        redirects: 0,
+        // Drives http_req_failed, so an expected 404 does not read as a failure.
+        responseCallback: notFoundIsExpected
+          ? http.expectedStatuses(404, { min: 200, max: 299 })
+          : http.expectedStatuses({ min: 200, max: 299 }),
+      })
 
-    if (response.status >= 500) {
-      serverErrors.add(1, { endpoint: pathWithoutQuery })
+      // Every attempt is a real request against the Worker, so every attempt
+      // counts toward the server-side error total.
+      stepDuration.add(response.timings.duration, { endpoint: pathWithoutQuery })
+      if (response.status >= 500) {
+        serverErrors.add(1, { endpoint: pathWithoutQuery })
+      } else if (response.status === 429) {
+        rateLimited.add(1, { endpoint: pathWithoutQuery })
+      }
+
+      if (attempt < MAX_ATTEMPTS && isRetryableFailure(step.method, response.status)) {
+        sleep((RETRY_BACKOFF_MS * attempt) / 1000)
+        continue
+      }
+      break
+    }
+
+    const isExpected =
+      (response.status >= 200 && response.status < 300)
+      || (notFoundIsExpected && response.status === 404)
+
+    if (isExpected && attemptsUsed > 1) {
+      // Failed at least once, then succeeded: the user waited, saw no error.
+      absorbedByRetry.add(1, { endpoint: pathWithoutQuery })
+    }
+    if (!isExpected) {
+      // Survived the retry policy (or was never eligible, as every mutation
+      // is): this is what actually reaches the user as a broken interaction.
+      userVisibleFailures.add(1, { endpoint: pathWithoutQuery, method: step.method })
+    }
+    if (!isExpected && response.status < 500 && response.status !== 429) {
+      // Previously only 5xx was logged, so a 4xx from a malformed replay body
+      // was invisible in the output and only showed up as a threshold breach.
+      clientErrors.add(1, { endpoint: pathWithoutQuery })
+    }
+
+    const isolate = readIsolate(response)
+    if (isExpected && isolate.id !== '(none)') {
+      lastHealthyIsolate[__VU] = isolate
+      if (isolate.seq !== '?') {
+        isolateSeq.add(Number(isolate.seq))
+      }
+    }
+
+    if (!isExpected) {
+      const previous = lastHealthyIsolate[__VU]
       console.error(
         `[scenario] ${response.status} ${step.method} ${pathWithoutQuery} ` +
-          `vu=${__VU} iter=${scenario.iterationInTest} body=${String(response.body).slice(0, 200)}`,
+          `vu=${__VU} iter=${scenario.iterationInTest} attempts=${attemptsUsed} ` +
+          `isolate=${isolate.id}/seq${isolate.seq}/age${isolate.ageMs} ` +
+          `lastHealthy=${previous ? `${previous.id}/seq${previous.seq}/age${previous.ageMs}` : 'none'} ` +
+          `body=${String(response.body).slice(0, 120)}`,
       )
-    }
-    if (response.status === 429) {
-      rateLimited.add(1, { endpoint: pathWithoutQuery })
     }
 
     check(response, {
       'status is not 5xx': (r) => r.status < 500,
       'status is not 429': (r) => r.status !== 429,
-      'status is 2xx': (r) => r.status >= 200 && r.status < 300,
+      'status is expected': () => isExpected,
     }, { endpoint: pathWithoutQuery })
 
     if (pathWithoutQuery === '/api/catalog/courses' && response.status === 200) {
@@ -196,13 +339,16 @@ function counterValue(data, metricName) {
   return metric ? metric.values.count : 0
 }
 
-function formatLatency(data, metricName) {
+function formatLatency(data, metricName, unit = 'ms') {
   const metric = data.metrics[metricName]
-  if (!metric || metric.values.p95 === undefined) {
+  // k6 names the percentile keys 'p(95)', not 'p95'. Guarding on the wrong key
+  // made this print n/a on every run while the numbers were sitting right there.
+  if (!metric || metric.values['p(95)'] === undefined) {
     return `${metricName}: n/a`
   }
   const { med, 'p(95)': p95, 'p(99)': p99, max } = metric.values
-  return `${metricName}: med=${med.toFixed(0)}ms p95=${p95.toFixed(0)}ms p99=${(p99 ?? 0).toFixed(0)}ms max=${max.toFixed(0)}ms`
+  const u = (value) => `${(value ?? 0).toFixed(0)}${unit}`
+  return `${metricName}: med=${u(med)} p95=${u(p95)} p99=${u(p99)} max=${u(max)}`
 }
 
 /**
@@ -214,6 +360,8 @@ function formatLatency(data, metricName) {
 export function handleSummary(data) {
   const serverErrorCount = counterValue(data, 'server_errors')
   const rateLimitedCount = counterValue(data, 'rate_limited_429')
+  const clientErrorCount = counterValue(data, 'client_errors_4xx')
+  const userVisibleCount = counterValue(data, 'user_visible_failures')
   const failedRate = data.metrics.http_req_failed
     ? (data.metrics.http_req_failed.values.rate * 100).toFixed(2)
     : 'n/a'
@@ -225,6 +373,12 @@ export function handleSummary(data) {
     `failed:          ${failedRate}%`,
     `server_errors:   ${serverErrorCount}${serverErrorCount > 0 ? '   <-- FAIL: 5xx observed' : ''}`,
     `rate_limited:    ${rateLimitedCount}${rateLimitedCount > 0 ? '   <-- run invalid: limiter was hit' : ''}`,
+    `client_errors:   ${clientErrorCount}${clientErrorCount > 0 ? '   <-- rig bug: replayed request was malformed' : ''}`,
+    `absorbed_retry:  ${counterValue(data, 'absorbed_by_retry')}   (failed, then succeeded — user saw latency only)`,
+    `USER-VISIBLE:    ${userVisibleCount}${userVisibleCount > 0 ? '   <-- what users actually experienced' : ''}`,
+    // A request count, not a duration: how many responses an isolate served
+    // before the connection rotated away from it.
+    formatLatency(data, 'isolate_seq', ' reqs'),
     formatLatency(data, 'http_req_duration'),
     formatLatency(data, 'step_duration'),
     'full per-endpoint data: load-test/results/summary.json',
