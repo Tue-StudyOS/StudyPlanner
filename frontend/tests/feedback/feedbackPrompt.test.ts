@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   FEEDBACK_AUTO_PROMPT_DELAY_MS,
+  hasFeedbackPromptBeenSeenThisRuntime,
+  markFeedbackPromptSeenThisRuntime,
+  resetFeedbackPromptSeenThisRuntime,
   shouldScheduleFeedbackPrompt,
 } from '../../src/features/feedback/utils/feedbackPrompt.ts'
 
@@ -10,6 +13,7 @@ test('feedback prompt waits five minutes before auto-opening', () => {
 })
 
 test('feedback prompt is skipped after submission, prior prompt, or during onboarding', () => {
+  resetFeedbackPromptSeenThisRuntime()
   assert.equal(
     shouldScheduleFeedbackPrompt({
       hasSubmittedFeedback: false,
@@ -42,4 +46,20 @@ test('feedback prompt is skipped after submission, prior prompt, or during onboa
     }),
     false,
   )
+})
+
+test('dismissing the prompt blocks another auto-open in the same runtime session', () => {
+  resetFeedbackPromptSeenThisRuntime()
+  assert.equal(hasFeedbackPromptBeenSeenThisRuntime(), false)
+  markFeedbackPromptSeenThisRuntime()
+  assert.equal(hasFeedbackPromptBeenSeenThisRuntime(), true)
+  assert.equal(
+    shouldScheduleFeedbackPrompt({
+      hasSubmittedFeedback: false,
+      hasSeenAutoPromptThisSession: hasFeedbackPromptBeenSeenThisRuntime(),
+      isOnboardingOpen: false,
+    }),
+    false,
+  )
+  resetFeedbackPromptSeenThisRuntime()
 })
