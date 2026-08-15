@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { useAuth } from '../../auth'
-import { addCourseToCurrentSemesterPlan } from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
+import {
+  addCourseToCurrentSemesterPlan,
+  pruneCurrentSemesterPlanToFavorites,
+  removeCourseFromCurrentSemesterPlan,
+} from '../../planner/utils/addCourseToCurrentSemesterPlan.ts'
 import { fetchFavoriteCourseIds, saveFavoriteCourseIds } from '../api'
 import { FavoritesContext } from '../FavoritesContext'
 import { toggleFavoriteId, updateSavingFavoriteIds } from '../utils/favoriteIds.ts'
@@ -19,6 +23,8 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
   const [savingFavoriteCourseIds, setSavingFavoriteCourseIds] = useState<string[]>([])
   const [favoritesError, setFavoritesError] = useState<string | null>(null)
   const isSavingFavorites = savingFavoriteCourseIds.length > 0
+  const hasPrunedStalePlanRef = useRef(false)
+  const [hasLoadedFavorites, setHasLoadedFavorites] = useState(false)
 
   useEffect(() => {
     let isActive = true
@@ -29,6 +35,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
           setFavoriteIds([])
           setFavoritesError(null)
           setIsLoadingFavorites(false)
+          setHasLoadedFavorites(false)
         }
         return
       }
@@ -41,6 +48,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
           return
         }
         setFavoriteIds(nextFavoriteIds)
+        setHasLoadedFavorites(true)
       } catch (error) {
         if (isActive) {
           setFavoriteIds([])
@@ -59,6 +67,18 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
       isActive = false
     }
   }, [csrfToken])
+
+  useEffect(() => {
+    if (!csrfToken) {
+      hasPrunedStalePlanRef.current = false
+      return
+    }
+    if (!hasLoadedFavorites || isLoadingFavorites || hasPrunedStalePlanRef.current) {
+      return
+    }
+    hasPrunedStalePlanRef.current = true
+    void pruneCurrentSemesterPlanToFavorites(csrfToken, userCacheKey, favoriteIds)
+  }, [csrfToken, favoriteIds, hasLoadedFavorites, isLoadingFavorites, userCacheKey])
 
   const isFavorite = (courseId: string): boolean => favoriteIds.includes(courseId)
   const isFavoriteSaving = (courseId: string): boolean => savingFavoriteCourseIds.includes(courseId)
@@ -90,6 +110,11 @@ export function FavoritesProvider({ children }: FavoritesProviderProps): JSX.Ele
             // addCourseToCurrentSemesterPlan marks the semester badge itself.
             await addCourseToCurrentSemesterPlan(csrfToken, userCacheKey, addedCourseId)
           }
+          return
+        }
+        const removedCourseId = previousFavoriteIds.find((id) => !nextFavoriteIds.includes(id))
+        if (removedCourseId) {
+          await removeCourseFromCurrentSemesterPlan(csrfToken, userCacheKey, removedCourseId)
         }
       })
       .catch((error) => {
