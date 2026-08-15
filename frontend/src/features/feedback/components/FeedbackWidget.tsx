@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
@@ -8,6 +8,8 @@ import { useOnboarding } from '../../onboarding'
 import { submitFeedback } from '../api.ts'
 import {
   FEEDBACK_AUTO_PROMPT_DELAY_MS,
+  hasFeedbackPromptBeenSeenThisRuntime,
+  markFeedbackPromptSeenThisRuntime,
   shouldScheduleFeedbackPrompt,
 } from '../utils/feedbackPrompt.ts'
 
@@ -56,6 +58,29 @@ export function FeedbackWidget() {
   const [message, setMessage] = useState<string>('')
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const autoPromptTimeoutRef = useRef<number | null>(null)
+
+  function hasSeenPromptThisSession(): boolean {
+    return (
+      hasFeedbackPromptBeenSeenThisRuntime() ||
+      (typeof window !== 'undefined' && readStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY))
+    )
+  }
+
+  function markPromptSeenThisSession(): void {
+    markFeedbackPromptSeenThisRuntime()
+    if (typeof window !== 'undefined') {
+      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
+    }
+  }
+
+  function clearScheduledAutoPrompt(): void {
+    if (autoPromptTimeoutRef.current === null) {
+      return
+    }
+    window.clearTimeout(autoPromptTimeoutRef.current)
+    autoPromptTimeoutRef.current = null
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -64,7 +89,7 @@ export function FeedbackWidget() {
 
     const shouldSchedule = shouldScheduleFeedbackPrompt({
       hasSubmittedFeedback: readStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY),
-      hasSeenAutoPromptThisSession: readStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY),
+      hasSeenAutoPromptThisSession: hasSeenPromptThisSession(),
       isOnboardingOpen,
     })
 
@@ -72,13 +97,24 @@ export function FeedbackWidget() {
       return
     }
 
-    const timeoutId = window.setTimeout(() => {
-      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
+    autoPromptTimeoutRef.current = window.setTimeout(() => {
+      autoPromptTimeoutRef.current = null
+      const shouldOpen = shouldScheduleFeedbackPrompt({
+        hasSubmittedFeedback: readStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY),
+        hasSeenAutoPromptThisSession: hasSeenPromptThisSession(),
+        isOnboardingOpen: false,
+      })
+      if (!shouldOpen) {
+        return
+      }
+      markPromptSeenThisSession()
       setSource('auto_prompt')
       setIsOpen(true)
     }, FEEDBACK_AUTO_PROMPT_DELAY_MS)
 
-    return () => window.clearTimeout(timeoutId)
+    return () => {
+      clearScheduledAutoPrompt()
+    }
   }, [isOnboardingOpen])
 
   if (isOnboardingOpen) {
@@ -86,6 +122,7 @@ export function FeedbackWidget() {
   }
 
   function openFromButton(): void {
+    clearScheduledAutoPrompt()
     setSource('feedback_button')
     setSubmissionState('idle')
     setErrorMessage('')
@@ -96,9 +133,8 @@ export function FeedbackWidget() {
     if (submissionState === 'submitting') {
       return
     }
-    if (source === 'auto_prompt' && typeof window !== 'undefined') {
-      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
-    }
+    markPromptSeenThisSession()
+    clearScheduledAutoPrompt()
     setIsOpen(false)
   }
 
@@ -129,8 +165,8 @@ export function FeedbackWidget() {
       })
       if (typeof window !== 'undefined') {
         writeStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY)
-        writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
       }
+      markPromptSeenThisSession()
       setSubmissionState('success')
       setMessage('')
       setRating(0)
