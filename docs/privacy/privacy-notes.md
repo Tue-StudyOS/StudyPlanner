@@ -4,6 +4,12 @@ This is the practical privacy record for the four-person, non-commercial
 student project. Keep it aligned with actual application behavior and the public
 privacy notice; do not turn it into a separate compliance workflow.
 
+The operator confirmed on 8 September 2026 that the group runs the service
+independently of the university and anyone with the link can use it. Treat it as
+a public service. See the [September privacy audit](privacy-audit-2026-09.md) for
+verified implementation findings, remaining requirements and proportionate next
+steps. These notes are not evidence that production obligations are complete.
+
 ## Operator and contact
 
 - Responsible person: **TODO before production**
@@ -26,17 +32,21 @@ privacy notice; do not turn it into a separate compliance workflow.
   account deletion or a valid manual deletion request.
 - Study data: favorites, plans, progress, grades, transcript review state. Kept
   while the account exists.
-- Reviews: public anonymous content internally linked to its author. Authored
+- Reviews: content displayed without an author name but internally linked to its author. Authored
   reviews cascade on account deletion. Moderators can hide or delete content.
   Custom lecturer names are allowed and covered by the review rules/notice.
-- Feedback: rating, message, source, and page path; no account link. Old rows are
+- Feedback: rating, message, source, and page path; no account link, although
+  free text can contain personal information. Old rows are
   deleted opportunistically after roughly six months.
 - Diagnostics: normalized route, error metadata, and temporarily the username.
   Secrets, cookies, tokens, email addresses, and obvious academic data are
   redacted. Old rows are deleted opportunistically after 14 days and the table
   is capped at 500 rows.
-- Rate limits: hashed client/account keys and request windows. Stale rows are
+- Rate limits: pseudonymous hashed client/account keys and request windows. Stale rows are
   deleted during normal rate-limit checks.
+- Cloudflare Workers observability is enabled at full sampling in the merged
+  configuration. Its logs and backup retention are separate from D1 app cleanup;
+  account settings and actual logged fields still need verification.
 
 ## Browser storage
 
@@ -47,8 +57,11 @@ privacy notice; do not turn it into a separate compliance workflow.
 - Session storage: user-scoped API caches, transcript-import state, local API
   diagnostics, and a chunk-reload guard. Private user/session data is cleared
   on logout or account switch.
-- No analytics, advertising trackers, or externally loaded Google Fonts are
-  currently used. A cookie banner is unnecessary unless that changes.
+- No analytics, advertising trackers, or externally loaded Google Fonts were
+  identified in the reviewed app paths. Provider features remain unverified.
+  A banner is not automatically required, but each storage use needs a section
+  25 TDDDG assessment; default preference writes and local diagnostics are not
+  automatically necessary simply because they are first-party.
 
 ## Requests and review reports
 
@@ -62,7 +75,7 @@ privacy notice; do not turn it into a separate compliance workflow.
 
 ## Database history
 
-Migrations `0035_retention_controls.sql`, `0036_review_notice_safeguards.sql`,
+Migrations `0035_retention_controls.sql`, `0036_review_notice_moderation.sql`,
 and `0037_session_revocation.sql` remain in the migration chain. Do not roll
 them back: they may already have been applied. The `retention_hold` and detailed
 moderation columns from 0035/0036 are unused. The legacy `review_notices` table
@@ -72,4 +85,6 @@ that may already exist. The session version from 0037 remains active.
 ## Deferred privileged access
 
 The `DIAGNOSTICS_ADMIN_USERNAMES` and shared `test` account setup is deliberately
-unchanged. Its separately authorized Phase 0 correction must be performed later.
+unchanged. It also grants review moderation through the same allow-list. The
+September audit identifies replacement with named operator access as a priority;
+the documentation review did not change production permissions.
