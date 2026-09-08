@@ -3,6 +3,22 @@
 Fill in this file and tell me when it is ready. This is the single input file for
 the next implementation pass. Background: [privacy audit](privacy-audit-2026-09.md).
 
+## Local implementation update — 8 September 2026
+
+The user authorised implementation and explicitly requested sample operator
+details for local review. The legal pages now use Max Mustermann, Musterstraße 1,
+12345 Musterstadt, Deutschland, and datenschutz@example.invalid from one shared
+`frontend/src/features/legal/legalOperator.ts` configuration. These are preview
+values only; the real operator facts below remain UNKNOWN.
+
+Implemented: D1/D2 preservation and legal-page improvements; D3 contact display
+with an inert sample mailbox; a small manual D4/D11 procedure in privacy-notes.md;
+accurate descriptions of the existing storage, diagnostics and retention behavior.
+The broad implementation request does not reverse the explicit database or
+administrator restrictions. D5/D6 behavior, D8 access, D9 logged fields and
+retention/database operations remain unchanged. Storage behavior and the separate
+AI integration remain pending concrete decisions/verification.
+
 ## How to fill it in
 
 - Replace `TODO` with your answer. Short answers in English or German are fine.
