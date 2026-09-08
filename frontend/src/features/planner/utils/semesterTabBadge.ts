@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import { LEGACY_PLANNER_ROUTE, ROUTES, semesterPath } from '../../routes'
 import { getCurrentSemesterLabel } from './semesterLabels'
 
 // One flag: a course was added to the current semester plan from outside its
 // planner page. Only the current semester card (and the semester tab) show it.
-const BADGE_STORAGE_KEY = 'studyplanner.semesterTabBadge'
 export const SEMESTER_PLAN_CHANGED_EVENT = 'studyplanner:semester-plan-changed'
 const BADGE_CHANGED_EVENT = 'studyplanner:semester-tab-badge-changed'
 
@@ -13,14 +13,22 @@ function readBadgeFlag(): boolean {
   if (typeof window === 'undefined') {
     return false
   }
-  return window.localStorage.getItem(BADGE_STORAGE_KEY) === '1'
+  try {
+    return window.localStorage.getItem(BROWSER_STORAGE_KEYS.semesterTabBadge) === '1'
+  } catch {
+    return false
+  }
 }
 
 export function markSemesterBadge(): void {
   if (typeof window === 'undefined') {
     return
   }
-  window.localStorage.setItem(BADGE_STORAGE_KEY, '1')
+  try {
+    window.localStorage.setItem(BROWSER_STORAGE_KEYS.semesterTabBadge, '1')
+  } catch {
+    // The badge event still updates the current tab when storage is unavailable.
+  }
   window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
 }
 
@@ -28,7 +36,11 @@ function clearBadgeFlag(): void {
   if (typeof window === 'undefined') {
     return
   }
-  window.localStorage.removeItem(BADGE_STORAGE_KEY)
+  try {
+    window.localStorage.removeItem(BROWSER_STORAGE_KEYS.semesterTabBadge)
+  } catch {
+    // The in-memory event still clears the currently rendered badge.
+  }
   window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
 }
 

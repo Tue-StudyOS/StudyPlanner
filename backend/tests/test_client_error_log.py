@@ -19,6 +19,8 @@ sys.modules.setdefault("workers", workers)
 
 from services.client_error_log import (  # noqa: E402
     ClientErrorLogError,
+    _normalize_path,
+    _redact_text,
     _validate_method,
     _validate_status,
     is_diagnostics_administrator,
@@ -46,6 +48,33 @@ class ClientErrorLogValidationTest(unittest.TestCase):
         self.assertTrue(is_diagnostics_administrator(env, 'operator@example.test'))
         self.assertFalse(is_diagnostics_administrator(env, 'student@example.test'))
         self.assertFalse(is_diagnostics_administrator({}, 'operator@example.test'))
+
+    def test_normalize_path_removes_origin_query_and_fragment(self) -> None:
+        self.assertEqual(
+            _normalize_path(
+                'https://example.test/api/courses?student=ada@example.test#private',
+                max_length=2048,
+            ),
+            '/api/courses',
+        )
+
+    def test_redact_text_removes_common_personal_and_secret_values(self) -> None:
+        redacted = _redact_text(
+            'ada@example.test Authorization: Bearer abc.def\n'
+            'Cookie: session=top-cookie; theme=dark\n'
+            'transcript: Algorithms A, token=top-secret '
+            'https://example.test/path?email=ada@example.test',
+            max_length=4000,
+        )
+
+        self.assertNotIn('ada@example.test', redacted)
+        self.assertNotIn('abc.def', redacted)
+        self.assertNotIn('top-cookie', redacted)
+        self.assertNotIn('Algorithms A', redacted)
+        self.assertNotIn('top-secret', redacted)
+        self.assertNotIn('email=', redacted)
+        self.assertIn('[redacted-email]', redacted)
+        self.assertIn('[redacted-academic-data]', redacted)
 
 
 if __name__ == "__main__":

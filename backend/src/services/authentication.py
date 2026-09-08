@@ -120,7 +120,7 @@ def _sign_token_input(token_input: str, secret: str) -> str:
     return _base64url_encode(signature)
 
 
-def _create_auth_token(env: Any, username: str) -> str:
+def _create_auth_token(env: Any, username: str, session_version: int = 0) -> str:
     secret = _get_auth_token_secret(env)
     issued_at_unix = now_unix()
     expires_at_unix = issued_at_unix + _auth_token_ttl_seconds(env)
@@ -130,6 +130,7 @@ def _create_auth_token(env: Any, username: str) -> str:
     }
     payload = {
         'username': username,
+        'sv': session_version,
         'iat': issued_at_unix,
         'exp': expires_at_unix,
     }
@@ -168,7 +169,11 @@ def _verify_auth_token(env: Any, token: str) -> dict[str, Any] | None:
     try:
         issued_at_unix = int(payload.get('iat'))
         expires_at_unix = int(payload.get('exp'))
+        session_version = int(payload.get('sv', 0))
     except (TypeError, ValueError):
+        return None
+
+    if session_version < 0:
         return None
 
     current_unix = now_unix()
@@ -179,6 +184,7 @@ def _verify_auth_token(env: Any, token: str) -> dict[str, Any] | None:
 
     return {
         'username': username,
+        'sessionVersion': session_version,
         'iat': issued_at_unix,
         'exp': expires_at_unix,
     }
@@ -294,6 +300,7 @@ async def _get_user_by_identifier(env: Any, identifier: str) -> dict[str, Any] |
             ua.email,
             ua.password_hash AS passwordHash,
             ua.password_salt AS passwordSalt,
+            ua.session_version AS sessionVersion,
             us.display_name AS displayName
         FROM user_auth AS ua
         LEFT JOIN user_state AS us ON us.username = ua.username
@@ -301,6 +308,27 @@ async def _get_user_by_identifier(env: Any, identifier: str) -> dict[str, Any] |
         LIMIT 1
     """
     return await fetch_one(env, sql, [identifier, identifier])
+
+
+async def verify_user_password(env: Any, username: str, password: Any) -> bool:
+    """Verify a current password without exposing credential material to callers."""
+    if not isinstance(password, str) or not password:
+        return False
+    user_row = await fetch_one(
+        env,
+        """
+        SELECT password_hash AS passwordHash, password_salt AS passwordSalt
+        FROM user_auth
+        WHERE username = ?
+        LIMIT 1
+        """,
+        [username],
+    )
+    if user_row is None:
+        return False
+
+    expected_hash = await _hash_password(password, str(user_row['passwordSalt']))
+    return hmac.compare_digest(str(user_row['passwordHash']), expected_hash)
 
 
 async def _get_supported_study_program_by_id(
@@ -409,11 +437,17 @@ async def _get_supported_regulation_version_by_code(
     )
 
 
-async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
+async def _get_user_profile(
+    env: Any,
+    username: str,
+    *,
+    include_session_version: bool = False,
+) -> dict[str, Any] | None:
     sql = """
         SELECT
             ua.username,
             ua.email,
+            ua.session_version AS sessionVersion,
             us.display_name AS displayName,
             us.current_semester_label AS currentSemesterLabel,
             sp.id AS studyProgramId,
@@ -444,7 +478,7 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
     row_username = str(row['username'])
     settings = parse_json_object(row.get('settingsJson'))
     app_language = settings.get('appLanguage') if settings.get('appLanguage') in ALLOWED_APP_LANGUAGES else None
-    return {
+    profile: dict[str, Any] = {
         'id': row_username,
         'username': row_username,
         'email': row['email'],
@@ -465,6 +499,9 @@ async def _get_user_profile(env: Any, username: str) -> dict[str, Any] | None:
             'onboardingTourCompleted': _bool_setting(settings.get('onboardingTourCompleted')),
         },
     }
+    if include_session_version:
+        profile['_sessionVersion'] = int(row.get('sessionVersion') or 0)
+    return profile
 
 
 async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict[str, Any]:
@@ -478,6 +515,9 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
         raise RegistrationError('An account already exists for this email or username.')
 
     password_hash, password_salt = await _create_password_hash(password)
+    # Recreated usernames must not inherit an earlier account's signed sessions.
+    # Stay within JS-safe integers for the D1 bridge, with room for later increments.
+    session_version = secrets.randbelow(2**52) + 1
     current_unix = now_unix()
 
     await execute(
@@ -488,11 +528,12 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
             email,
             password_hash,
             password_salt,
+            session_version,
             created_at_unix,
             updated_at_unix
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        [username, email, password_hash, password_salt, current_unix, current_unix],
+        [username, email, password_hash, password_salt, session_version, current_unix, current_unix],
     )
 
     reg_study_program_id: int | None = None
@@ -549,7 +590,7 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
         raise RegistrationError('The new account profile could not be loaded.')
 
     return {
-        'token': _create_auth_token(env, username),
+        'token': _create_auth_token(env, username, session_version),
         'user': user,
     }
 
@@ -587,7 +628,7 @@ async def login_user(env: Any, payload: dict[str, Any], request: Any) -> dict[st
         raise AuthenticationError('The account profile could not be loaded.')
 
     return {
-        'token': _create_auth_token(env, username),
+        'token': _create_auth_token(env, username, int(user_row.get('sessionVersion') or 0)),
         'user': user,
     }
 
@@ -602,8 +643,16 @@ async def get_authenticated_session(env: Any, request: Any) -> dict[str, Any] | 
     if token_payload is None:
         return None
 
-    user = await _get_user_profile(env, str(token_payload['username']))
+    user = await _get_user_profile(
+        env,
+        str(token_payload['username']),
+        include_session_version=True,
+    )
     if user is None:
+        return None
+
+    account_session_version = int(user.pop('_sessionVersion', 0))
+    if int(token_payload['sessionVersion']) != account_session_version:
         return None
 
     return {
@@ -893,7 +942,14 @@ async def update_user_credentials(
 
     user_row = await fetch_one(
         env,
-        'SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM user_auth WHERE username = ?',
+        """
+        SELECT
+            password_hash AS passwordHash,
+            password_salt AS passwordSalt,
+            session_version AS sessionVersion
+        FROM user_auth
+        WHERE username = ?
+        """,
         [username],
     )
     if user_row is None:
@@ -925,7 +981,17 @@ async def update_user_credentials(
         auth_updates['password_salt'] = pw_salt
 
     if not auth_updates and not state_updates:
-        return await _get_user_profile(env, username) or {}
+        current_profile = await _get_user_profile(env, username)
+        if current_profile is None:
+            raise CredentialUpdateError('The account profile could not be loaded.')
+        return {
+            'token': _create_auth_token(
+                env,
+                username,
+                int(user_row.get('sessionVersion') or 0),
+            ),
+            'user': current_profile,
+        }
 
     current_unix = now_unix()
     if auth_updates:
@@ -933,7 +999,10 @@ async def update_user_credentials(
         values = list(auth_updates.values()) + [current_unix, username]
         await execute(
             env,
-            f'UPDATE user_auth SET {set_clauses}, updated_at_unix = ? WHERE username = ?',  # noqa: S608
+            (
+                f'UPDATE user_auth SET {set_clauses}, updated_at_unix = ?, '  # noqa: S608
+                'session_version = session_version + 1 WHERE username = ?'
+            ),
             values,
         )
 
@@ -950,4 +1019,8 @@ async def update_user_credentials(
     updated = await _get_user_profile(env, username)
     if updated is None:
         raise CredentialUpdateError('The updated profile could not be loaded.')
-    return updated
+    next_session_version = int(user_row.get('sessionVersion') or 0) + 1
+    return {
+        'token': _create_auth_token(env, username, next_session_version),
+        'user': updated,
+    }

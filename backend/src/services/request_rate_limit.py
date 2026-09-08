@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from db.d1 import fetch_one
+from db.d1 import execute, fetch_one
 from http_utils import get_request_header
 
 
@@ -44,6 +44,14 @@ def _client_key(request: Any) -> str:
     return hashlib.sha256(client_ip.encode('utf-8')).hexdigest()
 
 
+def account_rate_limit_key(identifier: Any) -> str | None:
+    """Return the stored login-limit key for a non-empty account identifier."""
+    normalized_identifier = str(identifier or '').strip().lower()
+    if not normalized_identifier:
+        return None
+    return hashlib.sha256(f'account:{normalized_identifier}'.encode('utf-8')).hexdigest()
+
+
 def _account_key(request: Any, identifier: Any) -> str:
     """Return a non-reversible storage key for the account being signed into.
 
@@ -51,12 +59,12 @@ def _account_key(request: Any, identifier: Any) -> str:
     twenty students behind one campus NAT independent of each other. The prefix
     keeps this key space disjoint from _client_key's.
     """
-    normalized_identifier = str(identifier or '').strip().lower()
-    if not normalized_identifier:
+    stored_key = account_rate_limit_key(identifier)
+    if stored_key is None:
         # A request with no identifier can never authenticate; fall back to the
         # IP so a flood of malformed bodies is still bounded.
         return _client_key(request)
-    return hashlib.sha256(f'account:{normalized_identifier}'.encode('utf-8')).hexdigest()
+    return stored_key
 
 
 def _window_start(now_unix: int, window_seconds: int) -> int:
@@ -72,8 +80,18 @@ async def _increment_window(
     policy: RateLimitPolicy,
     client_key: str,
     window_start_unix: int,
+    current_unix: int,
 ) -> int:
     """Atomically add one request to the window and return the new count."""
+    await execute(
+        env,
+        """
+        DELETE FROM request_rate_limits
+        WHERE scope = ?
+          AND window_started_at_unix + ? < ?
+        """,
+        [policy.scope, policy.window_seconds, current_unix - (24 * 60 * 60)],
+    )
     row = await fetch_one(
         env,
         """
@@ -127,7 +145,13 @@ async def enforce_rate_limit(
     """
     current_unix = int(time.time()) if now_unix is None else now_unix
     window_start_unix = _window_start(current_unix, policy.window_seconds)
-    request_count = await _increment_window(env, policy, _client_key(request), window_start_unix)
+    request_count = await _increment_window(
+        env,
+        policy,
+        _client_key(request),
+        window_start_unix,
+        current_unix,
+    )
     if request_count > policy.maximum_requests:
         raise RateLimitError(_retry_after_seconds(window_start_unix, policy, current_unix))
 
@@ -175,4 +199,5 @@ async def record_failed_attempt(
         policy,
         _account_key(request, identifier),
         window_start_unix,
+        current_unix,
     )

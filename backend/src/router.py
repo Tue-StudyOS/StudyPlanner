@@ -77,6 +77,10 @@ from services.request_rate_limit import (
     record_failed_attempt,
 )
 from services.user_feedback import FeedbackSubmissionError, submit_feedback
+from services.user_privacy import (
+    AccountDeletionError,
+    delete_current_user_account,
+)
 from services.planner_assignments import (
     PlannerAssignmentError,
     balance_current_user_semester_plan,
@@ -419,9 +423,30 @@ async def route_request(request: Any, env: Any) -> Any:
 
         if path == "/api/me/credentials":
             if method == "PATCH":
-                updated = await update_user_credentials(env, request, await read_json_object(request))
-                return json_response({"user": updated}, request=request, env=env)
+                auth_payload = await update_user_credentials(
+                    env,
+                    request,
+                    await read_json_object(request),
+                )
+                return _new_session_response(auth_payload, request, env)
             return _method_not_allowed_response(request, env)
+
+        if path == "/api/me/account":
+            if method != "DELETE":
+                return _method_not_allowed_response(request, env)
+            await delete_current_user_account(
+                env,
+                request,
+                await read_json_object(request),
+            )
+            return empty_response(
+                request=request,
+                env=env,
+                extra_headers={
+                    'cache-control': 'no-store',
+                    'set-cookie': clear_auth_cookie(request),
+                },
+            )
 
         if path == "/api/me/favorites":
             if method == "GET":
@@ -951,6 +976,14 @@ async def route_request(request: Any, env: Any) -> Any:
     except CredentialUpdateError as exc:
         return error_response(
             code="credential_update_error",
+            message=str(exc),
+            request=request,
+            env=env,
+            status=400,
+        )
+    except AccountDeletionError as exc:
+        return error_response(
+            code="account_deletion_error",
             message=str(exc),
             request=request,
             env=env,

@@ -14,6 +14,9 @@ This is the canonical repo-side reference for the Cloudflare Workers, Pages publ
 
 The Worker D1 binding name is always `DB`. Helper commands intentionally use `DB` so migrations follow the checked `backend/wrangler.toml` binding instead of duplicating a database name in multiple scripts.
 
+Temporary diagnostics, feedback, and stale rate-limit rows are cleaned up during
+normal requests; the project does not require a separate retention cron.
+
 The deployed browser app calls the API Worker origin directly through `VITE_API_BASE_URL`. Pages Functions service bindings remain configured for manual gateway testing and non-browser endpoints, but the app does not depend on `/api/*` on the Pages host because Worker-to-Python-Worker proxy calls can be canceled by the Cloudflare runtime.
 
 Pages Functions forward:

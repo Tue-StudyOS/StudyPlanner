@@ -1,4 +1,8 @@
-import { createCsrfHeaders, createLegacyBearerHeaders, fetchJson } from '../../shared/utils/api'
+import {
+  createCsrfHeaders,
+  createLegacyBearerHeaders,
+  fetchJson,
+} from '../../shared/utils/api'
 import type { SupportedLanguage } from '../i18n'
 import type { AuthPayload, AuthSessionResponse, AuthUser, StudyProgramOption } from './types'
 
@@ -35,6 +39,11 @@ interface UpdateCredentialsInput {
   currentPassword: string
   identifier?: string
   newPassword?: string
+}
+
+interface DeleteAccountInput {
+  currentPassword: string
+  confirmation: 'DELETE'
 }
 
 function isSupportedStudyProgram(studyProgram: StudyProgramOption): boolean {
@@ -100,8 +109,8 @@ export async function saveCurrentProfile(
 export async function updateCredentials(
   csrfToken: string,
   input: UpdateCredentialsInput,
-): Promise<AuthUser> {
-  const response = await fetchJson<UserResponse>('/api/me/credentials', {
+): Promise<AuthPayload> {
+  return await fetchJson<AuthPayload>('/api/me/credentials', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -109,7 +118,20 @@ export async function updateCredentials(
     },
     body: JSON.stringify(input),
   })
-  return response.user
+}
+
+export async function deleteAccountRequest(
+  csrfToken: string,
+  input: DeleteAccountInput,
+): Promise<void> {
+  await fetchJson<void>('/api/me/account', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...createCsrfHeaders(csrfToken),
+    },
+    body: JSON.stringify(input),
+  })
 }
 
 export async function fetchStudyPrograms(): Promise<StudyProgramOption[]> {

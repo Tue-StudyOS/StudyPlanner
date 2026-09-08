@@ -30,6 +30,21 @@ const RequestLogPage = lazy(() =>
     default: module.RequestLogPage,
   })),
 )
+const ReviewRulesPage = lazy(() =>
+  import('./features/reviews/components/ReviewRulesPage.tsx').then((module) => ({
+    default: module.ReviewRulesPage,
+  })),
+)
+const PrivacyPage = lazy(() =>
+  import('./features/legal/components/PrivacyPage.tsx').then((module) => ({
+    default: module.PrivacyPage,
+  })),
+)
+const ImprintPage = lazy(() =>
+  import('./features/legal/components/ImprintPage.tsx').then((module) => ({
+    default: module.ImprintPage,
+  })),
+)
 function RouteFallback() {
   return <div className="p-8 text-[13px] text-fg-muted">Loading…</div>
 }
@@ -59,6 +74,10 @@ function App() {
                       <Route path={ROUTES.transcript} element={<Transcript />} />
                       <Route path={ROUTES.account} element={<AccountPage />} />
                       <Route path={ROUTES.log} element={<RequestLogPage />} />
+                      <Route path={ROUTES.reviewRules} element={<ReviewRulesPage />} />
+                      <Route path={ROUTES.privacy} element={<PrivacyPage />} />
+                      <Route path="/datenschutz" element={<Navigate to={ROUTES.privacy} replace />} />
+                      <Route path={ROUTES.imprint} element={<ImprintPage />} />
                       <Route
                         path={LEGACY_PLANNER_ROUTE}
                         element={<Navigate to={ROUTES.planner} replace />}

@@ -44,16 +44,18 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response, {"feedback": {"id": 12, "rating": 5, "createdAtUnix": 12345}})
-        execute.assert_awaited_once()
-        self.assertIn("INSERT INTO user_feedback (rating, message, page_path, source)", execute.await_args.args[1])
+        self.assertEqual(execute.await_count, 2)
+        self.assertIn("DELETE FROM user_feedback", execute.await_args_list[0].args[1])
+        insert_call = execute.await_args_list[1]
+        self.assertIn("INSERT INTO user_feedback (rating, message, page_path, source)", insert_call.args[1])
         self.assertEqual(
-            execute.await_args.args[2],
-            [5, "Catalog data looked correct.", "/catalog", "feedback_button"],
+            insert_call.args[2],
+            [5, "Catalog data looked correct.", "/", "feedback_button"],
         )
 
     async def test_submit_feedback_does_not_store_authenticated_user_data(self) -> None:
         env = object()
-        request = object()
+        request = types.SimpleNamespace(headers={"Cookie": "studyplanner_session=private-session"})
         execute = AsyncMock()
         fetch_one = AsyncMock(side_effect=[{"id": 4}, {"createdAtUnix": 987}])
 
@@ -69,12 +71,14 @@ class UserFeedbackTest(unittest.IsolatedAsyncioTestCase):
                     "message": "Planner worked, but the wording was unclear.",
                     "pagePath": "/planner",
                     "source": "auto_prompt",
+                    "username": "private-user",
+                    "email": "private@example.test",
                 },
             )
 
         self.assertEqual(
             execute.await_args.args[2],
-            [4, "Planner worked, but the wording was unclear.", "/planner", "auto_prompt"],
+            [4, "Planner worked, but the wording was unclear.", "/", "feedback_button"],
         )
 
     async def test_submit_feedback_rejects_invalid_rating_and_empty_message(self) -> None:

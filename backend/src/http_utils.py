@@ -9,6 +9,24 @@ from env_config import get_allowed_origins, is_origin_allowed
 from isolate_identity import get_isolate_id, isolate_age_ms, next_response_sequence
 
 
+SECURITY_HEADERS: dict[str, str] = {
+    "content-security-policy": (
+        "default-src 'none'; base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'; object-src 'none'"
+    ),
+    "permissions-policy": "camera=(), geolocation=(), microphone=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+}
+
+HTML_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; base-uri 'none'; form-action 'none'; "
+    "frame-ancestors 'none'; object-src 'none'; style-src 'unsafe-inline'"
+)
+
+
 def get_request_header(request: Any, header_name: str) -> str | None:
     headers = getattr(request, "headers", None)
     if headers is None:
@@ -64,6 +82,7 @@ def json_response(
 ) -> Response:
     """Create a JSON response with shared headers and CORS support."""
     headers = {
+        **SECURITY_HEADERS,
         "content-type": "application/json; charset=utf-8",
         **build_cors_headers(request, env),
     }
@@ -112,17 +131,26 @@ def empty_response(
     extra_headers: dict[str, str] | None = None,
 ) -> Response:
     """Create an empty response for preflight requests."""
-    headers = build_cors_headers(request, env)
+    headers = {
+        **SECURITY_HEADERS,
+        **build_cors_headers(request, env),
+    }
     if extra_headers:
         headers.update(extra_headers)
     return Response(None, status=status, headers=headers)
 
 
 def html_response(html: str, status: int = 200, max_age: int = 300) -> Response:
-    return Response(html, status=status, headers={
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": f"public, max-age={max_age}",
-    })
+    return Response(
+        html,
+        status=status,
+        headers={
+            **SECURITY_HEADERS,
+            "content-security-policy": HTML_CONTENT_SECURITY_POLICY,
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": f"public, max-age={max_age}",
+        },
+    )
 
 
 def error_response(

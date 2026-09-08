@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { BROWSER_STORAGE_KEYS } from './shared/utils/browserStorageRegistry.ts'
 import { clearExpiredSessionCache } from './shared/utils/sessionCache.ts'
 import { fetchJson } from './shared/utils/api.ts'
 import { setSimulatedCurrentSemesterLabel } from './features/planner/utils/semesterLabels.ts'
@@ -12,10 +13,9 @@ clearExpiredSessionCache()
 // exist; the SPA fallback then serves HTML instead of JS and dynamic imports
 // fail. Reload once to pick up the new asset manifest.
 window.addEventListener('vite:preloadError', (event) => {
-  const RELOAD_FLAG = 'chunk-reload-at'
-  const lastReload = Number(sessionStorage.getItem(RELOAD_FLAG) ?? 0)
+  const lastReload = Number(sessionStorage.getItem(BROWSER_STORAGE_KEYS.chunkReloadAt) ?? 0)
   if (Date.now() - lastReload > 30_000) {
-    sessionStorage.setItem(RELOAD_FLAG, String(Date.now()))
+    sessionStorage.setItem(BROWSER_STORAGE_KEYS.chunkReloadAt, String(Date.now()))
     event.preventDefault()
     window.location.reload()
   }

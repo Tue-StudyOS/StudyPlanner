@@ -1,3 +1,6 @@
+import { BROWSER_STORAGE_KEYS } from './browserStorageRegistry.ts'
+import { sanitizeDiagnosticFields } from './diagnosticRedaction.ts'
+
 export interface ApiRequestLogEntry {
   id: string
   timestamp: number
@@ -10,11 +13,17 @@ export interface ApiRequestLogEntry {
   durationMs?: number
 }
 
-const STORAGE_KEY = 'studyplanner:api-request-log'
 const MAX_ENTRIES = 80
 
 function canUseStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined'
+  if (typeof window === 'undefined') {
+    return false
+  }
+  try {
+    return typeof window.sessionStorage !== 'undefined'
+  } catch {
+    return false
+  }
 }
 
 function readRawEntries(): ApiRequestLogEntry[] {
@@ -22,7 +31,7 @@ function readRawEntries(): ApiRequestLogEntry[] {
     return []
   }
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY)
+    const raw = window.sessionStorage.getItem(BROWSER_STORAGE_KEYS.apiRequestLog)
     if (!raw) {
       return []
     }
@@ -38,7 +47,7 @@ function writeRawEntries(entries: ApiRequestLogEntry[]): void {
     return
   }
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
+    window.sessionStorage.setItem(BROWSER_STORAGE_KEYS.apiRequestLog, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
   } catch {
     // Storage full or unavailable — drop logging rather than breaking requests.
   }
@@ -48,7 +57,7 @@ export function appendApiRequestLog(
   entry: Omit<ApiRequestLogEntry, 'id'>,
 ): void {
   const nextEntry: ApiRequestLogEntry = {
-    ...entry,
+    ...sanitizeDiagnosticFields(entry),
     id: `${entry.timestamp}-${Math.random().toString(36).slice(2, 8)}`,
   }
   writeRawEntries([nextEntry, ...readRawEntries()].slice(0, MAX_ENTRIES))
@@ -62,5 +71,9 @@ export function clearApiRequestLog(): void {
   if (!canUseStorage()) {
     return
   }
-  window.sessionStorage.removeItem(STORAGE_KEY)
+  try {
+    window.sessionStorage.removeItem(BROWSER_STORAGE_KEYS.apiRequestLog)
+  } catch {
+    // Diagnostics are optional and storage can be blocked by the browser.
+  }
 }

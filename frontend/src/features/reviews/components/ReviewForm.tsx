@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
 import type { TranslationKey } from '../../i18n/translations'
+import { ROUTES } from '../../routes.ts'
 import type { CourseReview, CourseReviewDraft, CourseReviewOptions } from '../types.ts'
 import {
   MAX_COMMENT_LENGTH,
@@ -165,6 +167,18 @@ export function ReviewForm({
           className="w-full min-w-0 max-w-full resize-y rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] leading-5 text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         />
       </label>
+
+      <details className="min-w-0 rounded-[10px] border border-border-light bg-surface px-3 py-2 text-[12px] text-fg-mid">
+        <summary className="cursor-pointer font-medium text-fg">{t('reviews.rulesTitle')}</summary>
+        <ul className="mt-2 grid list-disc gap-1 pl-4">
+          <li>{t('reviews.rulesRelevant')}</li>
+          <li>{t('reviews.rulesProhibited')}</li>
+          <li>{t('reviews.rulesModeration')}</li>
+        </ul>
+        <Link to={ROUTES.reviewRules} className="mt-2 inline-block font-medium text-primary hover:underline">
+          {t('reviews.rulesReadFull')}
+        </Link>
+      </details>
 
       {errorMessage ? (
         <div className="rounded-[10px] border border-danger/30 bg-danger-soft px-3 py-2 text-[12.5px] text-danger">

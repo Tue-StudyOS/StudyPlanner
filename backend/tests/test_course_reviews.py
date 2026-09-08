@@ -283,7 +283,7 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
                     "contentRating": 4,
                     "comment": "Clear and well paced.",
                     "takenPeriodLabel": "Sommer 2025",
-                    "lecturerCustomName": "Dr. Neu Hinzu",
+                    "lecturerName": "Dr. Bernd Muster",
                 },
             )
 
@@ -301,16 +301,16 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
                 None,
                 "Clear and well paced.",
                 "Sommer 2025",
+                "Dr. Bernd Muster",
                 None,
-                "Dr. Neu Hinzu",
             ],
         )
 
     async def test_delete_only_targets_the_callers_own_row(self) -> None:
-        execute = AsyncMock()
+        execute_batch = AsyncMock(return_value=[])
 
         with (
-            patch.object(course_reviews, "execute", execute),
+            patch.object(course_reviews, "execute_batch", execute_batch),
             patch.object(course_reviews, "fetch_all", AsyncMock(return_value=[])),
             patch.object(
                 course_reviews,
@@ -325,8 +325,11 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
         ):
             await course_reviews.delete_course_review(object(), object(), 42)
 
-        self.assertIn("WHERE course_key = ? AND username = ?", execute.await_args.args[1])
-        self.assertEqual(execute.await_args.args[2], ["inf-01", "student"])
+        statements = execute_batch.await_args.args[1]
+        self.assertEqual(len(statements), 2)
+        self.assertIn('removedOnAuthorDeletion', statements[0][0])
+        self.assertIn("WHERE course_key = ? AND username = ?", statements[1][0])
+        self.assertEqual(statements[1][1], ["inf-01", "student"])
 
 
 class ModerationTest(unittest.IsolatedAsyncioTestCase):

@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './apiBaseUrl.ts'
+import { sanitizeDiagnosticFields } from './diagnosticRedaction.ts'
 
 export interface ClientErrorReportPayload {
   method: string
@@ -47,19 +48,21 @@ export function reportClientErrorToServer(payload: ClientErrorReportPayload): vo
   const normalizedPath = '/api/client-errors'
   const requestUrl = apiBaseUrl ? `${apiBaseUrl}${normalizedPath}` : normalizedPath
 
+  const sanitizedPayload = sanitizeDiagnosticFields({
+    ...payload,
+    // This runs inside fetchJson's failure path; throwing here would replace
+    // the ApiError callers expect with a ReferenceError.
+    pagePath:
+      payload.pagePath ?? (typeof window === 'undefined' ? undefined : window.location.pathname),
+  })
+
   void fetch(requestUrl, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      ...payload,
-      // This runs inside fetchJson's failure path; throwing here would replace
-      // the ApiError callers expect with a ReferenceError.
-      pagePath:
-        payload.pagePath ?? (typeof window === 'undefined' ? undefined : window.location.pathname),
-    }),
+    body: JSON.stringify(sanitizedPayload),
   }).catch(() => {
     // Logging must never break the UI flow.
   })

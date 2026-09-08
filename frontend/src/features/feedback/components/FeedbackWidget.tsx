@@ -1,129 +1,30 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
 import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import { submitFeedback } from '../api.ts'
-import {
-  FEEDBACK_AUTO_PROMPT_DELAY_MS,
-  hasFeedbackPromptBeenSeenThisRuntime,
-  markFeedbackPromptSeenThisRuntime,
-  shouldScheduleFeedbackPrompt,
-} from '../utils/feedbackPrompt.ts'
 
-const AUTO_PROMPT_SESSION_KEY = 'studyplanner.feedback.autoPromptSeen'
-const SUBMITTED_STORAGE_KEY = 'studyplanner.feedback.submitted'
 const MAX_FEEDBACK_LENGTH = 2000
 
-type FeedbackSource = 'auto_prompt' | 'feedback_button'
 type SubmissionState = 'idle' | 'submitting' | 'success' | 'error'
-
-function readStorageValue(storage: Storage | undefined, key: string): boolean {
-  if (!storage) {
-    return false
-  }
-  try {
-    return storage.getItem(key) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function writeStorageValue(storage: Storage | undefined, key: string): void {
-  if (!storage) {
-    return
-  }
-  try {
-    storage.setItem(key, 'true')
-  } catch {
-    // Storage can be unavailable in private browsing; the in-memory modal still works.
-  }
-}
-
-function buildPagePath(location: { pathname: string }): string {
-  return location.pathname.slice(0, 512) || '/'
-}
 
 export function FeedbackWidget() {
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen } = useOnboarding()
-  const location = useLocation()
-  const pagePath = useMemo(() => buildPagePath(location), [location])
 
   const [isOpen, setIsOpen] = useState<boolean>(false)
-  const [source, setSource] = useState<FeedbackSource>('feedback_button')
   const [rating, setRating] = useState<number>(0)
   const [message, setMessage] = useState<string>('')
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
-  const autoPromptTimeoutRef = useRef<number | null>(null)
-
-  function hasSeenPromptThisSession(): boolean {
-    return (
-      hasFeedbackPromptBeenSeenThisRuntime() ||
-      (typeof window !== 'undefined' && readStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY))
-    )
-  }
-
-  function markPromptSeenThisSession(): void {
-    markFeedbackPromptSeenThisRuntime()
-    if (typeof window !== 'undefined') {
-      writeStorageValue(window.sessionStorage, AUTO_PROMPT_SESSION_KEY)
-    }
-  }
-
-  function clearScheduledAutoPrompt(): void {
-    if (autoPromptTimeoutRef.current === null) {
-      return
-    }
-    window.clearTimeout(autoPromptTimeoutRef.current)
-    autoPromptTimeoutRef.current = null
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const shouldSchedule = shouldScheduleFeedbackPrompt({
-      hasSubmittedFeedback: readStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY),
-      hasSeenAutoPromptThisSession: hasSeenPromptThisSession(),
-      isOnboardingOpen,
-    })
-
-    if (!shouldSchedule) {
-      return
-    }
-
-    autoPromptTimeoutRef.current = window.setTimeout(() => {
-      autoPromptTimeoutRef.current = null
-      const shouldOpen = shouldScheduleFeedbackPrompt({
-        hasSubmittedFeedback: readStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY),
-        hasSeenAutoPromptThisSession: hasSeenPromptThisSession(),
-        isOnboardingOpen: false,
-      })
-      if (!shouldOpen) {
-        return
-      }
-      markPromptSeenThisSession()
-      setSource('auto_prompt')
-      setIsOpen(true)
-    }, FEEDBACK_AUTO_PROMPT_DELAY_MS)
-
-    return () => {
-      clearScheduledAutoPrompt()
-    }
-  }, [isOnboardingOpen])
 
   if (isOnboardingOpen) {
     return null
   }
 
   function openFromButton(): void {
-    clearScheduledAutoPrompt()
-    setSource('feedback_button')
     setSubmissionState('idle')
     setErrorMessage('')
     setIsOpen(true)
@@ -133,8 +34,6 @@ export function FeedbackWidget() {
     if (submissionState === 'submitting') {
       return
     }
-    markPromptSeenThisSession()
-    clearScheduledAutoPrompt()
     setIsOpen(false)
   }
 
@@ -160,13 +59,7 @@ export function FeedbackWidget() {
       await submitFeedback({
         rating,
         message: trimmedMessage,
-        pagePath,
-        source,
       })
-      if (typeof window !== 'undefined') {
-        writeStorageValue(window.localStorage, SUBMITTED_STORAGE_KEY)
-      }
-      markPromptSeenThisSession()
       setSubmissionState('success')
       setMessage('')
       setRating(0)
@@ -181,7 +74,7 @@ export function FeedbackWidget() {
       <button
         type="button"
         onClick={openFromButton}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-[11.5px] font-medium text-fg-mid shadow-lg shadow-black/10 backdrop-blur-sm transition-colors hover:bg-surface hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-muted focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 sm:px-4 sm:py-2 sm:text-[12.5px] md:right-6"
+        className="fixed bottom-[calc(3.25rem+env(safe-area-inset-bottom,0px))] right-3 z-40 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-[11.5px] font-medium text-fg-mid shadow-lg shadow-black/10 backdrop-blur-sm transition-colors hover:bg-surface hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-muted focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:right-5 sm:px-4 sm:py-2 sm:text-[12.5px] md:right-6"
       >
         {t('feedback.button')}
       </button>

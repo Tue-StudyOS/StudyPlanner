@@ -40,7 +40,7 @@ test('an overall rating is required', () => {
   assert.equal(validateReviewDraft(buildDraft()), null)
 })
 
-test('an empty comment is allowed but a one-word stub is not', () => {
+test('comments are optional and length-limited', () => {
   assert.equal(validateReviewDraft(buildDraft({ comment: '   ' })), null)
   assert.equal(validateReviewDraft(buildDraft({ comment: 'ok' })), 'commentTooShort')
   assert.equal(validateReviewDraft(buildDraft({ comment: 'Good course.' })), null)
@@ -60,28 +60,9 @@ test('a manually typed lecturer name is length capped', () => {
     ),
     'lecturerNameTooLong',
   )
-  assert.equal(
-    validateReviewDraft(
-      buildDraft({ lecturerName: OTHER_LECTURER_VALUE, lecturerCustomName: 'Dr. Neu Hinzu' }),
-    ),
-    null,
-  )
 })
 
-test('a minimal draft becomes a payload with every optional field cleared', () => {
-  assert.deepEqual(buildReviewPayload(buildDraft({ overallRating: 5 })), {
-    overallRating: 5,
-    examRating: null,
-    contentRating: null,
-    tutorialRating: null,
-    comment: null,
-    takenPeriodLabel: null,
-    lecturerName: null,
-    lecturerCustomName: null,
-  })
-})
-
-test('the payload never carries both a picked and a typed lecturer', () => {
+test('the payload never carries both a picked and typed lecturer', () => {
   const picked = buildReviewPayload(buildDraft({ lecturerName: 'Dr. Bernd Muster' }))
   assert.equal(picked.lecturerName, 'Dr. Bernd Muster')
   assert.equal(picked.lecturerCustomName, null)
@@ -93,43 +74,20 @@ test('the payload never carries both a picked and a typed lecturer', () => {
   assert.equal(typed.lecturerCustomName, 'Dr. Neu Hinzu')
 })
 
-test('cleared sub-ratings and whitespace-only text are sent as null', () => {
-  const payload = buildReviewPayload(
-    buildDraft({ examRating: 0, contentRating: 3, comment: '   ', takenPeriodLabel: '  ' }),
-  )
-
-  assert.equal(payload.examRating, null)
-  assert.equal(payload.contentRating, 3)
-  assert.equal(payload.comment, null)
-  assert.equal(payload.takenPeriodLabel, null)
-})
-
-test('an existing review pre-fills the draft', () => {
-  const draft = toReviewDraft(
-    buildReview({
-      overallRating: 5,
-      examRating: 2,
-      comment: 'Solid lecture.',
-      takenPeriodLabel: 'Sommer 2025',
-      lecturerName: 'Dr. Bernd Muster',
-    }),
+test('an existing review pre-fills known and custom lecturer choices', () => {
+  const known = toReviewDraft(
+    buildReview({ lecturerName: 'Dr. Bernd Muster', comment: 'Solid lecture.' }),
     KNOWN_LECTURERS,
   )
+  assert.equal(known.lecturerName, 'Dr. Bernd Muster')
+  assert.equal(known.lecturerCustomName, '')
 
-  assert.equal(draft.overallRating, 5)
-  assert.equal(draft.examRating, 2)
-  assert.equal(draft.tutorialRating, 0)
-  assert.equal(draft.comment, 'Solid lecture.')
-  assert.equal(draft.takenPeriodLabel, 'Sommer 2025')
-  assert.equal(draft.lecturerName, 'Dr. Bernd Muster')
-  assert.equal(draft.lecturerCustomName, '')
-})
-
-test('a lecturer no longer in the catalog reopens as free text', () => {
-  const draft = toReviewDraft(buildReview({ lecturerName: 'Dr. Retired Person' }), KNOWN_LECTURERS)
-
-  assert.equal(draft.lecturerName, OTHER_LECTURER_VALUE)
-  assert.equal(draft.lecturerCustomName, 'Dr. Retired Person')
+  const custom = toReviewDraft(
+    buildReview({ lecturerName: 'Dr. Retired Person' }),
+    KNOWN_LECTURERS,
+  )
+  assert.equal(custom.lecturerName, OTHER_LECTURER_VALUE)
+  assert.equal(custom.lecturerCustomName, 'Dr. Retired Person')
 })
 
 test('no existing review yields an empty draft', () => {

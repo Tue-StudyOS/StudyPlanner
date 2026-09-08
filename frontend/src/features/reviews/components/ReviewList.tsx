@@ -1,5 +1,7 @@
 import { StarRating } from '../../../shared/components/StarRating'
+import { Link } from 'react-router-dom'
 import { useTranslation } from '../../i18n'
+import { ROUTES } from '../../routes.ts'
 import type { CourseReview } from '../types.ts'
 import { sortReviewsForDisplay } from '../utils/reviewSummary.ts'
 
@@ -60,6 +62,12 @@ export function ReviewList({ reviews }: ReviewListProps) {
               {review.comment}
             </p>
           ) : null}
+          <Link
+            to={`${ROUTES.reviewRules}#report`}
+            className="mt-2 text-[11.5px] font-medium text-fg-muted hover:text-fg hover:underline"
+          >
+            {t('reviews.reportAction')}
+          </Link>
         </li>
       ))}
     </ul>

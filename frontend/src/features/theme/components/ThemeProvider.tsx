@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode, JSX } from 'react'
+import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import { ThemeContext } from '../ThemeContext'
-
-const STORAGE_KEY = 'theme'
 
 interface ThemeProviderProps {
   children: ReactNode
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps): JSX.Element {
-  const [isDark, setIsDark] = useState<boolean>(() => localStorage.getItem(STORAGE_KEY) === 'dark')
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(BROWSER_STORAGE_KEYS.theme) === 'dark'
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
-    localStorage.setItem(STORAGE_KEY, isDark ? 'dark' : 'light')
+    try {
+      localStorage.setItem(BROWSER_STORAGE_KEYS.theme, isDark ? 'dark' : 'light')
+    } catch {
+      // The selected theme remains active in memory when storage is unavailable.
+    }
   }, [isDark])
 
   const toggleTheme = (): void => setIsDark(prev => !prev)

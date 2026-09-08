@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from db.d1 import execute, fetch_all, fetch_one
+from db.d1 import execute, execute_batch, fetch_all, fetch_one
 from services.authentication import get_authenticated_user, require_authenticated_user
 from services.client_error_log import is_diagnostics_administrator
 from services.course_catalog import get_course_review_key, load_course_review_options
@@ -245,7 +245,6 @@ async def get_course_reviews(env: Any, request: Any, course_id: int) -> dict[str
     """Return the public review list, its aggregate, and the form's options."""
     review_key = await _require_review_key(env, course_id)
     rows = await _fetch_visible_reviews(env, review_key)
-
     # The read stays public, so resolve the session without requiring one; it
     # only decides which review the viewer is allowed to edit.
     viewer_username: str | None = None
@@ -319,10 +318,25 @@ async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[s
     username = _safe_text(user.get('username'))
     review_key = await _require_review_key(env, course_id)
 
-    await execute(
+    await execute_batch(
         env,
-        'DELETE FROM course_reviews WHERE course_key = ? AND username = ?',
-        [review_key, username],
+        [
+            (
+                """
+                UPDATE review_notices
+                SET review_snapshot_json = '{"removedOnAuthorDeletion":true}'
+                WHERE review_id IN (
+                    SELECT id FROM course_reviews
+                    WHERE course_key = ? AND username = ?
+                )
+                """,
+                [review_key, username],
+            ),
+            (
+                'DELETE FROM course_reviews WHERE course_key = ? AND username = ?',
+                [review_key, username],
+            ),
+        ],
     )
 
     return await get_course_reviews(env, request, course_id)
@@ -330,7 +344,7 @@ async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[s
 
 async def list_reviews_for_moderation(env: Any, request: Any) -> dict[str, Any]:
     """List every review, hidden ones included, for a configured operator."""
-    await _require_moderator(env, request)
+    await require_review_moderator(env, request)
     entries = await fetch_all(
         env,
         """
@@ -361,7 +375,7 @@ async def set_review_visibility(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Hide or restore a single review as a configured operator."""
-    await _require_moderator(env, request)
+    await require_review_moderator(env, request)
     is_hidden = payload.get('isHidden')
     if not isinstance(is_hidden, bool):
         raise CourseReviewError('isHidden must be a boolean.')
@@ -382,7 +396,8 @@ async def set_review_visibility(
     return {'id': review_id, 'isHidden': is_hidden}
 
 
-async def _require_moderator(env: Any, request: Any) -> str:
+async def require_review_moderator(env: Any, request: Any) -> str:
+    """Use the configured operator allow-list shared with diagnostics access."""
     user = await require_authenticated_user(env, request)
     username = _safe_text(user.get('username'))
     if not is_diagnostics_administrator(env, username):
@@ -399,6 +414,7 @@ __all__ = [
     'delete_course_review',
     'get_course_reviews',
     'list_reviews_for_moderation',
+    'require_review_moderator',
     'save_course_review',
     'set_review_visibility',
 ]

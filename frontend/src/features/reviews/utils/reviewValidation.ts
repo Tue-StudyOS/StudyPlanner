@@ -55,8 +55,8 @@ export function validateReviewDraft(draft: CourseReviewDraft): ReviewDraftError 
   }
 
   if (
-    draft.lecturerName === OTHER_LECTURER_VALUE &&
-    draft.lecturerCustomName.trim().length > MAX_LECTURER_NAME_LENGTH
+    draft.lecturerName === OTHER_LECTURER_VALUE
+    && draft.lecturerCustomName.trim().length > MAX_LECTURER_NAME_LENGTH
   ) {
     return 'lecturerNameTooLong'
   }
