@@ -21,6 +21,14 @@ AI integration remain pending concrete decisions/verification.
 
 ## How to fill it in
 
+Latest follow-up: the user approved the deleted-account session fix, anonymous
+feedback, and minor dead-code cleanup. Registration now randomises the existing
+session-version field for each new account; no schema migration or existing-row
+rewrite was added. Feedback now omits account cookies, referrer, page context and
+automatic authenticated diagnostics. Server-side metadata is normalised without
+changing the feedback schema. Existing catalog headers were explicitly left alone.
+Shared administrator access and applied migration history remain unchanged.
+
 - Replace `TODO` with your answer. Short answers in English or German are fine.
 - Write `UNKNOWN` when you do not know; I will identify how to verify it.
 - For a recommendation, write `ACCEPT` or describe your alternative.

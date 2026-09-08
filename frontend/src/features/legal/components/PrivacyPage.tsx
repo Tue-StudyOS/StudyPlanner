@@ -57,9 +57,12 @@ export function PrivacyPage(): JSX.Element {
           Angaben über andere Personen.
         </p>
         <p>
-          Produktfeedback enthält Bewertung, Nachricht und Seitenroute. Es wird ohne
-          Accountverknüpfung gespeichert; dein Nachrichtentext kann dich trotzdem
-          identifizierbar machen. Nutze für Datenschutzanfragen den Kontakt in Abschnitt 1.
+          Neues Produktfeedback übermittelt nur Bewertung und Nachricht, ohne
+          Login-Cookie, Referrer oder Seitenroute. Es wird ohne Accountverknüpfung
+          gespeichert; dein Nachrichtentext kann dich trotzdem identifizierbar machen.
+          Hosting und Missbrauchsschutz verarbeiten weiterhin technische Verbindungsdaten.
+          Ältere Feedbackeinträge können noch eine Seitenroute enthalten.
+          Nutze für Datenschutzanfragen den Kontakt in Abschnitt 1.
         </p>
         {LEGAL_OPERATOR.isPreview ? (
           <p className="text-fg-muted">

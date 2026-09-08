@@ -1,6 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation } from 'react-router-dom'
 import { CloseIcon } from '../../../shared/components/icons'
 import { StarRating } from '../../../shared/components/StarRating'
 import { useTranslation } from '../../i18n'
@@ -11,15 +10,9 @@ const MAX_FEEDBACK_LENGTH = 2000
 
 type SubmissionState = 'idle' | 'submitting' | 'success' | 'error'
 
-function buildPagePath(location: { pathname: string }): string {
-  return location.pathname.slice(0, 512) || '/'
-}
-
 export function FeedbackWidget() {
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen } = useOnboarding()
-  const location = useLocation()
-  const pagePath = useMemo(() => buildPagePath(location), [location])
 
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [rating, setRating] = useState<number>(0)
@@ -66,7 +59,6 @@ export function FeedbackWidget() {
       await submitFeedback({
         rating,
         message: trimmedMessage,
-        pagePath,
       })
       setSubmissionState('success')
       setMessage('')

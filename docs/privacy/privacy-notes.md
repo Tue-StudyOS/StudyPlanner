@@ -46,8 +46,14 @@ steps. These notes are not evidence that production obligations are complete.
 - Reviews: content displayed without an author name but internally linked to its author. Authored
   reviews cascade on account deletion. Moderators can hide or delete content.
   Custom lecturer names are allowed and covered by the review rules/notice.
-- Feedback: rating, message, source, and page path; no account link, although
-  free text can contain personal information. Old rows are
+- Feedback: new submissions send only rating and message, without cookies or a
+  referrer. They bypass authenticated client-error reporting, including on failure.
+  The backend ignores incoming identity/page/source fields and writes `/` and
+  `feedback_button` into the existing required metadata columns. Old rows can
+  still contain route/source values; no historical records were rewritten.
+  There is no account link, although free text can contain personal information.
+  Hosting connection metadata and hashed-IP rate limiting still exist separately.
+  Old rows are
   deleted opportunistically after roughly six months.
 - Diagnostics: normalized route, error metadata, and temporarily the username.
   Secrets, cookies, tokens, email addresses, and obvious academic data are
@@ -143,3 +149,22 @@ is still required: Edge was unavailable through the browser tools in this sessio
 and the surface inventory was empty. The page uses the existing responsive
 PageShell, wrapping text and breakable email addresses; this is not a substitute
 for visual verification. No production deployment is part of this preview.
+
+## Follow-up release checks
+
+The session-reuse fix and anonymous-feedback changes passed 207 backend tests,
+351 frontend tests (5 skipped), frontend lint/build and `npm run db:verify-config`.
+The branch's existing catalog response headers are intentionally unchanged.
+The unused frontend cookie-name constant and obsolete moderation phase comments
+were removed. Historical SQL enum values and applied migrations remain intact;
+new feedback ignores legacy source/page metadata instead of storing it.
+
+Changes remain on the feature branch. Before a production release, verify that
+the branch's already-existing migrations 0035–0037 have been applied; registration
+and session checks depend on `session_version`, and deletion scrubs `review_notices`.
+This follow-up adds no migration and performs no database maintenance. The live
+migration state was not verified, so no production deployment was attempted.
+After that prerequisite is resolved, the backend command from the repository
+root is `npm run db:verify-config` followed by `npm run deploy:backend`.
+The documented Pages setup deploys `frontend/dist` from `main` using `npm run build`;
+a later authorised merge/push should trigger it if that Git integration is active.
