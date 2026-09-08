@@ -515,6 +515,9 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
         raise RegistrationError('An account already exists for this email or username.')
 
     password_hash, password_salt = await _create_password_hash(password)
+    # Recreated usernames must not inherit an earlier account's signed sessions.
+    # Stay within JS-safe integers for the D1 bridge, with room for later increments.
+    session_version = secrets.randbelow(2**52) + 1
     current_unix = now_unix()
 
     await execute(
@@ -525,11 +528,12 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
             email,
             password_hash,
             password_salt,
+            session_version,
             created_at_unix,
             updated_at_unix
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        [username, email, password_hash, password_salt, current_unix, current_unix],
+        [username, email, password_hash, password_salt, session_version, current_unix, current_unix],
     )
 
     reg_study_program_id: int | None = None
@@ -586,7 +590,7 @@ async def register_user(env: Any, payload: dict[str, Any], request: Any) -> dict
         raise RegistrationError('The new account profile could not be loaded.')
 
     return {
-        'token': _create_auth_token(env, username, 0),
+        'token': _create_auth_token(env, username, session_version),
         'user': user,
     }
 

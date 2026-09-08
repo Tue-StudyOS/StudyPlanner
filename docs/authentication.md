@@ -13,6 +13,11 @@ a session-bound CSRF proof, but never the session token itself.
   storage.
 - Changing credentials increments the account session version, invalidates old
   sessions, and issues a replacement cookie for the current browser.
+- Registration starts the existing session version at a cryptographically random
+  positive 52-bit-range value instead of zero. Recreating a deleted username gets
+  a fresh version, so old signed sessions are rejected (including legacy version
+  zero). Values remain exactly representable through the D1 JavaScript bridge.
+  Existing accounts/sessions are unchanged; no schema migration is needed.
 - Logout clears the cookie and private per-user browser caches.
 - Account deletion requires the current password, the exact confirmation
   `DELETE`, and CSRF protection. It deletes cascade-owned account data in one D1
