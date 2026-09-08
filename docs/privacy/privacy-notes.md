@@ -148,7 +148,7 @@ mailto link. Browser review at 320px, 375px, 768px and desktop, in light/dark mo
 is still required: Edge was unavailable through the browser tools in this session
 and the surface inventory was empty. The page uses the existing responsive
 PageShell, wrapping text and breakable email addresses; this is not a substitute
-for visual verification. No production deployment is part of this preview.
+for visual verification. The initial preview was local; the later release authorization is recorded below.
 
 ## Follow-up release checks
 
@@ -159,12 +159,18 @@ The unused frontend cookie-name constant and obsolete moderation phase comments
 were removed. Historical SQL enum values and applied migrations remain intact;
 new feedback ignores legacy source/page metadata instead of storing it.
 
-Changes remain on the feature branch. Before a production release, verify that
-the branch's already-existing migrations 0035–0037 have been applied; registration
-and session checks depend on `session_version`, and deletion scrubs `review_notices`.
-This follow-up adds no migration and performs no database maintenance. The live
-migration state was not verified, so no production deployment was attempted.
-After that prerequisite is resolved, the backend command from the repository
-root is `npm run db:verify-config` followed by `npm run deploy:backend`.
-The documented Pages setup deploys `frontend/dist` from `main` using `npm run build`;
-a later authorised merge/push should trigger it if that Git integration is active.
+On 8 September 2026, the operator approved merging and deploying this branch
+and applying its existing migrations to the active production database.
+Migrations 0035, 0036 and 0037 were applied successfully to studyplanner-db
+without replacing or resetting it. Read-only checks confirmed unchanged account
+and review counts, the new empty 
+eview_notices table, and initial session
+versions for existing accounts.
+
+The backend was deployed with 
+pm run deploy:backend after the configuration
+check. Worker version 4745fa61-9c6e-4ba5-ae2e-28c943754139 returned a healthy
+response with a reachable database. The frontend release uses the authorized
+non-fast-forward merge into main and push to the Pages Git integration.
+The fictional contact information remains explicitly marked as a preview;
+publication does not resolve the outstanding operator and legal-notice facts.
