@@ -1,5 +1,4 @@
 export const BROWSER_STORAGE_KEYS = {
-  authCookie: 'studyplanner_session',
   legacyAuthToken: 'studyplanner.auth.token',
   theme: 'theme',
   catalogLayout: 'studyplaner.catalogLayout',

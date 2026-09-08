@@ -397,12 +397,7 @@ async def set_review_visibility(
 
 
 async def require_review_moderator(env: Any, request: Any) -> str:
-    """Authorize review moderation through the current temporary allow-list.
-
-    Phase 0 will replace this function's diagnostics-admin check with the
-    dedicated moderator allow-list. Keeping the boundary here lets the rest of
-    Phase 6 remain independent of that explicitly deferred configuration change.
-    """
+    """Use the configured operator allow-list shared with diagnostics access."""
     user = await require_authenticated_user(env, request)
     username = _safe_text(user.get('username'))
     if not is_diagnostics_administrator(env, username):
