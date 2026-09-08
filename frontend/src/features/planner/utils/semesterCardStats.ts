@@ -1,6 +1,7 @@
 import type { CompletedCourse, Course } from '../../courses'
 import type { SemesterPlan, SemesterPlanSummary } from '../types.ts'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation.ts'
+import { compareSemesterLabels, getCurrentSemesterLabel } from './semesterLabels.ts'
 
 export interface SemesterAreaStat {
   areaCode: string
@@ -86,10 +87,12 @@ export function buildSemesterCardStats(
   catalogCourses: Course[],
   assignmentsBySemester: Record<string, Record<string, string>> = {},
   planDetailsBySemester: Record<string, SemesterCardPlanDetails | undefined> = {},
+  currentSemesterLabel: string = getCurrentSemesterLabel(),
 ): SemesterCardStats {
   const normalizedLabel = semesterLabel.trim()
   const savedPlan = savedPlans.find((plan) => plan.semesterLabel === normalizedLabel)
   const semesterCompleted = completedCourses.filter((course) => course.semester?.trim() === normalizedLabel)
+  const isPastSemester = compareSemesterLabels(normalizedLabel, currentSemesterLabel) < 0
 
   const catalogById = new Map(catalogCourses.map((course) => [course.id, course]))
   const planDetails = planDetailsBySemester[normalizedLabel]
@@ -110,10 +113,15 @@ export function buildSemesterCardStats(
 
   if (semesterCompleted.length > 0) {
     const completedStats = buildCompletedCourseStats(semesterCompleted)
-    // Transcript rows should win whenever they explain at least as many visible
-    // courses as the saved plan. This prevents stale one-course plan summaries
-    // from hiding the completed courses shown after opening a past semester.
-    if (!plannedStats || completedStats.courseCount >= plannedStats.courseCount) {
+    // Past semesters: transcript rows win when they explain at least as many
+    // courses as the saved plan, so a stale one-course summary cannot hide the
+    // completed list shown after opening that semester. The current semester
+    // card is the weekly plan — removing a course must shrink that count even
+    // if the transcript still has rows tagged with this label.
+    if (isPastSemester && (!plannedStats || completedStats.courseCount >= plannedStats.courseCount)) {
+      return completedStats
+    }
+    if (!plannedStats) {
       return completedStats
     }
   }

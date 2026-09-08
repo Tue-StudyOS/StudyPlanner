@@ -1,21 +1,267 @@
 {
-  "source": "placeholder",
-  "note": "Partly real: the firstLoad GETs and their durations were observed on https://studyplaner.pages.dev on 2026-08-07 as an ANONYMOUS visitor. The authenticated steps and all of steadyState are still assumed, derived from frontend/src. Replace by walking the app logged in and running `node load-test/build-scenario.mjs <dump.json>`. scenario.js warns while this stays a placeholder.",
-  "recordedAt": "2026-08-07T08:30:00.000Z",
+  "source": "recorded",
+  "recordedAt": "2026-08-07T13:05:56.094Z",
   "apiOrigin": "https://studyplanner-api.ben-tischberger.workers.dev",
   "firstLoad": [
-    { "method": "GET", "path": "/api/config", "observedStatus": 200, "observedDurationMs": 3516 },
-    { "method": "GET", "path": "/api/auth/session", "observedStatus": 200, "observedDurationMs": 1758 },
-    { "method": "GET", "path": "/api/catalog/periods", "observedStatus": 200, "observedDurationMs": 1582 },
-    { "method": "GET", "path": "/api/catalog/courses?limit=1000&period=all", "observedStatus": 200, "observedDurationMs": 12693 },
-    { "method": "GET", "path": "/api/me/profile", "observedStatus": 200, "observedDurationMs": null },
-    { "method": "GET", "path": "/api/study-programs", "observedStatus": 200, "observedDurationMs": null },
-    { "method": "GET", "path": "/api/me/favorites", "observedStatus": 200, "observedDurationMs": null },
-    { "method": "GET", "path": "/api/me/completed-courses", "observedStatus": 200, "observedDurationMs": null },
-    { "method": "GET", "path": "/api/me/semester-plans", "observedStatus": 200, "observedDurationMs": null },
-    { "method": "GET", "path": "/api/me/progress", "observedStatus": 200, "observedDurationMs": null }
+    {
+      "method": "GET",
+      "path": "/api/catalog/courses?limit=1000&period=all",
+      "observedStatus": 200,
+      "observedDurationMs": 39
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session",
+      "observedStatus": 200,
+      "observedDurationMs": 1457
+    },
+    {
+      "method": "GET",
+      "path": "/api/config",
+      "observedStatus": 200,
+      "observedDurationMs": 3093
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/favorites",
+      "observedStatus": 200,
+      "observedDurationMs": 2971
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans",
+      "observedStatus": 200,
+      "observedDurationMs": 2978
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/completed-courses",
+      "observedStatus": 200,
+      "observedDurationMs": 2995
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/progress",
+      "observedStatus": 200,
+      "observedDurationMs": 3096
+    },
+    {
+      "method": "GET",
+      "path": "/api/study-programs",
+      "observedStatus": 200,
+      "observedDurationMs": 61
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/periods",
+      "observedStatus": 200,
+      "observedDurationMs": 105
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/courses?limit=500&period=229",
+      "observedStatus": 200,
+      "observedDurationMs": 19
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/courses/1115",
+      "observedStatus": 200,
+      "observedDurationMs": 387
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/transcript-issues",
+      "observedStatus": 200,
+      "observedDurationMs": 146
+    }
   ],
   "steadyState": [
-    { "method": "PUT", "path": "/api/me/semester-plans/WiSe%202026%2F27", "observedStatus": 200, "observedDurationMs": null }
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 404,
+      "observedDurationMs": 2989
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 187
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 91
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/WS%202026%2F27",
+      "observedStatus": 200,
+      "observedDurationMs": 110
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 404,
+      "observedDurationMs": 3699
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/me/profile",
+      "observedStatus": 200,
+      "observedDurationMs": 6136
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/me/profile",
+      "observedStatus": 200,
+      "observedDurationMs": 6970
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 4471
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/favorites",
+      "observedStatus": 200,
+      "observedDurationMs": 3369
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 404,
+      "observedDurationMs": 140
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/favorites",
+      "observedStatus": 200,
+      "observedDurationMs": 2341
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 404,
+      "observedDurationMs": 4122
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 6205
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 2188
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/favorites",
+      "observedStatus": 200,
+      "observedDurationMs": 2543
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 130
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 267
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/favorites",
+      "observedStatus": 200,
+      "observedDurationMs": 240
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 116
+    },
+    {
+      "method": "PUT",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 211
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 139
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 144
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 145
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 204
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/semester-plans/SS%202026/balance",
+      "observedStatus": 200,
+      "observedDurationMs": 3084
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 169
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 191
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 84
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/semester-plans/SS%202026",
+      "observedStatus": 200,
+      "observedDurationMs": 124
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 106
+    },
+    {
+      "method": "GET",
+      "path": "/api/regulation-versions/MSC_INFO_2021",
+      "observedStatus": 200,
+      "observedDurationMs": 89
+    }
   ]
 }

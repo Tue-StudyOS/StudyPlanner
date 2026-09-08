@@ -15,6 +15,7 @@ import { fetchSemesterPlan } from '../api'
 import { useSemesterPlanner } from '../hooks/useSemesterPlanner'
 import { buildSemesterCardStats, type SemesterCardPlanDetails } from '../utils/semesterCardStats.ts'
 import { findOldestSemesterLabel } from '../utils/semesterHubVisibility.ts'
+import { getCurrentSemesterLabel } from '../utils/semesterLabels.ts'
 import { SemesterCard } from './SemesterCard'
 
 export function SemesterHub() {
@@ -187,6 +188,7 @@ export function SemesterHub() {
                 catalogCourses,
                 {},
                 planDetailsBySemester,
+                getCurrentSemesterLabel(),
               )}
             />
           ))}

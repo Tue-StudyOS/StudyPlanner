@@ -62,6 +62,10 @@ const SESSION_CACHED_PATHS = new Set([
 /**
  * Endpoints that must never be replayed under load, with the reason.
  * Keep in sync with the policies in backend/src/services/request_rate_limit.py.
+ *
+ * Keys are either a bare path (excludes every method) or `METHOD /path`, which
+ * excludes just that verb — the transcript endpoints are read normally on every
+ * page load but written only during one-time onboarding.
  */
 const EXCLUDED_PATHS = new Map([
   ['/api/auth/login', 'rate limited to 10/15min per IP; sessions are pre-minted instead'],
@@ -69,7 +73,19 @@ const EXCLUDED_PATHS = new Map([
   ['/api/auth/logout', 'would invalidate the pre-minted session mid-run'],
   ['/api/feedback', 'rate limited to 5/hour per IP and writes user-visible feedback rows'],
   ['/api/client-errors', 'rate limited to 30/hour per IP and pollutes the diagnostics view'],
+  // The request log records method, URL and status but never request bodies, so
+  // any replayed write has to be synthesised. That is tractable for a semester
+  // plan and not for a transcript import, which needs a parsed transcript.
+  // Both rejected the synthesised body with 400 during the Phase B smoke run.
+  // Excluding them also matches real traffic: importing a transcript is a
+  // once-per-user onboarding step, not something twenty concurrent users do.
+  ['POST /api/me/completed-courses/import', 'one-time onboarding write; needs a real parsed transcript body'],
+  ['PUT /api/me/transcript-issues', 'follow-up write of the transcript import flow; needs a real issues body'],
 ])
+
+function exclusionFor(method, pathWithoutQuery) {
+  return EXCLUDED_PATHS.get(`${method} ${pathWithoutQuery}`) ?? EXCLUDED_PATHS.get(pathWithoutQuery)
+}
 
 function toPath(rawUrl) {
   try {
@@ -102,14 +118,15 @@ function buildSteps(entries) {
     if (!pathWithoutQuery.startsWith('/api/')) {
       continue
     }
-    const exclusionReason = EXCLUDED_PATHS.get(pathWithoutQuery)
+    const method = (entry.method ?? 'GET').toUpperCase()
+    const exclusionReason = exclusionFor(method, pathWithoutQuery)
     if (exclusionReason) {
-      skipped.push({ path: pathWithoutQuery, reason: exclusionReason })
+      skipped.push({ path: `${method} ${pathWithoutQuery}`, reason: exclusionReason })
       continue
     }
 
     const step = {
-      method: (entry.method ?? 'GET').toUpperCase(),
+      method,
       path,
       observedStatus: entry.status,
       observedDurationMs: entry.durationMs ?? null,

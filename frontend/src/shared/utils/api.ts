@@ -65,10 +65,19 @@ const MAX_ATTEMPTS = 3
 const RETRY_BACKOFF_MS = 300
 
 /**
- * A Python isolate that faults with the workerd GIL race (cloudflare/workerd#6624)
- * hangs that one request and then serves the next one normally, so a single
- * retry turns a visible error into a little extra latency. Status 0 is a
- * transport failure, which behaves the same way.
+ * Retries a request that failed in a way that is safe to repeat. Status 0 is a
+ * transport failure and behaves like a 5xx here.
+ *
+ * **How much this actually helps is unverified, and the original rationale was
+ * wrong.** It was written believing a faulting isolate hangs one request and
+ * serves the next normally. Measurements since (docs/load-test-2026-08.md) show a
+ * keep-alive connection stays pinned to one isolate, and a wedged isolate keeps
+ * failing — so a retry on the same connection can land on the same dead isolate.
+ * The absorption rate has never been observed during an actual fault.
+ *
+ * Kept because retrying a safe method is cheap and cannot make things worse, not
+ * because it is known to work. Forcing a new connection would be the fix if the
+ * pinning behaviour is confirmed.
  *
  * Only methods that are safe to repeat are retried; a POST that timed out may
  * still have been applied server-side.
