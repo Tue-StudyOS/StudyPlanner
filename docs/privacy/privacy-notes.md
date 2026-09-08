@@ -163,12 +163,10 @@ On 8 September 2026, the operator approved merging and deploying this branch
 and applying its existing migrations to the active production database.
 Migrations 0035, 0036 and 0037 were applied successfully to studyplanner-db
 without replacing or resetting it. Read-only checks confirmed unchanged account
-and review counts, the new empty 
-eview_notices table, and initial session
+and review counts, the new empty `review_notices` table, and initial session
 versions for existing accounts.
 
-The backend was deployed with 
-pm run deploy:backend after the configuration
+The backend was deployed with `npm run deploy:backend` after the configuration
 check. Worker version 4745fa61-9c6e-4ba5-ae2e-28c943754139 returned a healthy
 response with a reachable database. The frontend release uses the authorized
 non-fast-forward merge into main and push to the Pages Git integration.
