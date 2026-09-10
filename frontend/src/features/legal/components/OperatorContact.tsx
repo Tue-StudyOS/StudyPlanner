@@ -10,8 +10,6 @@ export function OperatorContact(): JSX.Element {
       </p>
       <p className="min-w-0 break-words">
         E-Mail: <span className="break-all">{LEGAL_OPERATOR.emailDisplay}</span>
-        {LEGAL_OPERATOR.isPreview ? ' (Musteradresse)' : null}
-        <span className="block text-fg-muted">Bitte ersetze (at) durch @.</span>
       </p>
     </address>
   )

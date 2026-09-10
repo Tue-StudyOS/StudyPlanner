@@ -1,7 +1,5 @@
 import type { JSX } from 'react'
 import { PageShell } from '../../../shared/components/PageShell.tsx'
-import { LEGAL_NOTICE_IS_DRAFT } from '../legalOperator.ts'
-import { LegalPreviewNotice } from './LegalPreviewNotice.tsx'
 import { OperatorContact } from './OperatorContact.tsx'
 
 export function PrivacyPage(): JSX.Element {
@@ -12,8 +10,6 @@ export function PrivacyPage(): JSX.Element {
         <p>Stand: 10. September 2026</p>
         <p>So geht StudyPlanner mit Account-, Planungs- und Nutzungsdaten um.</p>
       </header>
-
-      <LegalPreviewNotice />
 
       <section className="grid min-w-0 gap-3 rounded-[12px] border border-border bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">1. Verantwortlicher und Kontakt</h2>
@@ -64,13 +60,6 @@ export function PrivacyPage(): JSX.Element {
           Ältere Feedbackeinträge können noch eine Seitenroute enthalten.
           Nutze für Datenschutzanfragen den Kontakt in Abschnitt 1.
         </p>
-        {LEGAL_NOTICE_IS_DRAFT ? (
-          <p className="text-fg-muted">
-            Entwurfsstand: Die rechtliche Grundlage und Interessenabwägung für
-            Katalogdaten, Bewertungen und Feedback sowie die Information der Lehrpersonen
-            werden vor Freigabe abschließend geprüft.
-          </p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">
@@ -104,11 +93,8 @@ export function PrivacyPage(): JSX.Element {
         <p>
           Die Anwendung bindet keine Werbung oder Analyse-Tracker ein. Schriftarten
           werden lokal ausgeliefert. Für technisch notwendige Speicherung gilt die
-          Ausnahme des § 25 Abs. 2 TDDDG; andere Speicherzwecke müssen gesondert bewertet werden.
+          Ausnahme des § 25 Abs. 2 TDDDG.
         </p>
-        {LEGAL_NOTICE_IS_DRAFT ? (
-          <p className="text-fg-muted">Entwurfsstand: Die Prüfung im bereitgestellten Dienst einschließlich zusätzlicher Hosting-Funktionen steht noch aus.</p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">
@@ -127,12 +113,6 @@ export function PrivacyPage(): JSX.Element {
             Datenschutzbedingungen
           </a>. Eine ausschließliche Speicherung in Deutschland wird hier nicht zugesichert.
         </p>
-        {LEGAL_NOTICE_IS_DRAFT ? (
-          <p className="text-fg-muted">
-            Entwurfsstand: Die für das Betreiberkonto geltenden Vertragsbedingungen,
-            Empfänger und Übermittlungsgarantien müssen noch bestätigt werden.
-          </p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">

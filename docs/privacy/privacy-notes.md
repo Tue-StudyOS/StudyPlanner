@@ -20,14 +20,15 @@ steps. These notes are not evidence that production obligations are complete.
   Delivery, actual handling and absence coverage have not been independently tested.
 - Both legal pages share these details through
   `frontend/src/features/legal/legalOperator.ts`. At the user's request, the email
-  is plain text, `yonatan.dankner (at) gmail.com`, with an instruction to replace
-  `(at)` with `@`. There is no mailto link or raw address in the contact bundle.
+  is plain text, `yonatan.dankner (at) gmail.com`, without a mailto link or
+  explanatory helper text. There is no raw address in the contact bundle.
   This deters basic scraping only; mailbox delivery and monitoring have not been
   independently verified.
-- `isPreview` now describes the contact data only. `LEGAL_NOTICE_IS_DRAFT`
-  remains enabled because legal bases for catalog/reviews/feedback, storage
-  purposes, and Cloudflare contracts/transfers still need assessment. Supplying
-  the contact does not complete these obligations.
+- Public draft banners, inline assessment TODOs and the unused preview flags
+  have been removed at the user's request. Track outstanding assessments here,
+  rather than in visitor-facing development notes. Legal bases for catalog,
+  reviews and feedback, deployed storage checks, and Cloudflare contracts/transfers
+  still need completion; this copy cleanup does not establish those facts.
 - This records the user's designation of Yonatan. The earlier implementation
   input says all four members decide together; the latest discussion does not
   establish a change to sole decision-making. His role as contact is supplied,
@@ -195,7 +196,8 @@ check. Worker version 4745fa61-9c6e-4ba5-ae2e-28c943754139 returned a healthy
 response with a reachable database. The frontend release uses the authorized
 non-fast-forward merge into main and push to the Pages Git integration.
 That release retained fictional preview contacts. The 10 September contact
-update replaces them with the supplied operator details while keeping unresolved
-notice sections marked as drafts. The contact update is committed on a dedicated
+update replaces them with the supplied operator details. A subsequent copy cleanup
+removes public draft notices; outstanding assessments remain recorded internally.
+The contact update is committed on a dedicated
 branch; production publication uses a non-fast-forward merge into main and push
 to the existing Pages Git integration.

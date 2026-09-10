@@ -2,7 +2,6 @@ import type { JSX } from 'react'
 import { Link } from 'react-router-dom'
 import { PageShell } from '../../../shared/components/PageShell.tsx'
 import { ROUTES } from '../../routes.ts'
-import { LegalPreviewNotice } from './LegalPreviewNotice.tsx'
 import { OperatorContact } from './OperatorContact.tsx'
 
 export function ImprintPage(): JSX.Element {
@@ -12,8 +11,6 @@ export function ImprintPage(): JSX.Element {
         <h1 className="text-2xl font-semibold text-fg">Impressum</h1>
         <p>StudyPlanner · Ein unabhängiges studentisches Projekt</p>
       </header>
-
-      <LegalPreviewNotice />
 
       <section className="grid min-w-0 gap-3 rounded-[12px] border border-border bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">Angaben zum Diensteanbieter</h2>
