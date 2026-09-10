@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode, JSX } from 'react'
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
+import { saveBrowserPreference } from '../../../shared/utils/browserPreferences.ts'
 import { ThemeContext } from '../ThemeContext'
 
 interface ThemeProviderProps {
@@ -18,14 +19,13 @@ export function ThemeProvider({ children }: ThemeProviderProps): JSX.Element {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
-    try {
-      localStorage.setItem(BROWSER_STORAGE_KEYS.theme, isDark ? 'dark' : 'light')
-    } catch {
-      // The selected theme remains active in memory when storage is unavailable.
-    }
   }, [isDark])
 
-  const toggleTheme = (): void => setIsDark(prev => !prev)
+  const toggleTheme = (): void => {
+    const next = !isDark
+    setIsDark(next)
+    saveBrowserPreference(BROWSER_STORAGE_KEYS.theme, next ? 'dark' : 'light')
+  }
 
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>

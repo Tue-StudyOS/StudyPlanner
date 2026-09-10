@@ -6,6 +6,8 @@ import {
 } from '../../src/shared/utils/browserStorageRegistry.ts'
 import { clearPrivateBrowserData } from '../../src/shared/utils/privateBrowserData.ts'
 import { readSessionCache, writeSessionCache } from '../../src/shared/utils/sessionCache.ts'
+import { appendApiRequestLog, readApiRequestLog } from '../../src/shared/utils/apiRequestLog.ts'
+import { readSemesterBadge, setSemesterBadge } from '../../src/shared/utils/semesterBadgeState.ts'
 
 class FakeStorage {
   private readonly items = new Map<string, string>()
@@ -55,6 +57,8 @@ test('logout cleanup removes only private data for the current account', () => {
   sessionStorage.setItem(buildTranscriptImportStorageKey('bob'), 'other transcript')
   sessionStorage.setItem(BROWSER_STORAGE_KEYS.apiRequestLog, 'private diagnostics')
   localStorage.setItem(BROWSER_STORAGE_KEYS.theme, 'dark')
+  appendApiRequestLog({ timestamp: 1, method: 'GET', url: '/api/me', status: 500, message: 'Failure' })
+  setSemesterBadge(true)
 
   clearPrivateBrowserData('alice')
 
@@ -65,6 +69,8 @@ test('logout cleanup removes only private data for the current account', () => {
   assert.equal(sessionStorage.getItem(buildTranscriptImportStorageKey('bob')), 'other transcript')
   assert.equal(sessionStorage.getItem(BROWSER_STORAGE_KEYS.apiRequestLog), null)
   assert.equal(localStorage.getItem(BROWSER_STORAGE_KEYS.theme), 'dark')
+  assert.deepEqual(readApiRequestLog(), [])
+  assert.equal(readSemesterBadge(), false)
 })
 
 test('logout cleanup tolerates browsers that block session storage', () => {

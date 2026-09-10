@@ -4,10 +4,12 @@ import './index.css'
 import App from './App.tsx'
 import { BROWSER_STORAGE_KEYS } from './shared/utils/browserStorageRegistry.ts'
 import { clearExpiredSessionCache } from './shared/utils/sessionCache.ts'
+import { clearObsoleteBrowserStorage } from './shared/utils/obsoleteBrowserStorage.ts'
 import { fetchJson } from './shared/utils/api.ts'
 import { setSimulatedCurrentSemesterLabel } from './features/planner/utils/semesterLabels.ts'
 
 clearExpiredSessionCache()
+clearObsoleteBrowserStorage()
 
 // After a redeploy, a cached page can request old hashed chunks that no longer
 // exist; the SPA fallback then serves HTML instead of JS and dynamic imports

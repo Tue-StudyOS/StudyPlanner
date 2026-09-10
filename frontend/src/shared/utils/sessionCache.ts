@@ -14,6 +14,7 @@ interface CacheEnvelope<T> {
   value: T
 }
 
+// Reuse responses during navigation without persisting private data across reloads.
 const memoryCache = new Map<string, CacheEnvelope<unknown>>()
 
 function now(): number {
@@ -38,31 +39,7 @@ export function readSessionCache<T>(key: string, userKey = 'public'): T | null {
     memoryCache.delete(scopedKey)
   }
 
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  try {
-    const rawValue = window.sessionStorage.getItem(scopedKey)
-    if (!rawValue) {
-      return null
-    }
-    const envelope = JSON.parse(rawValue) as CacheEnvelope<T>
-    if (
-      envelope.schemaVersion !== SESSION_CACHE_SCHEMA_VERSION
-      || envelope.key !== key
-      || envelope.userKey !== userKey
-      || isExpired(envelope)
-    ) {
-      window.sessionStorage.removeItem(scopedKey)
-      return null
-    }
-    memoryCache.set(scopedKey, envelope)
-    return envelope.value
-  } catch {
-    window.sessionStorage.removeItem(scopedKey)
-    return null
-  }
+  return null
 }
 
 export function writeSessionCache<T>(
@@ -82,17 +59,6 @@ export function writeSessionCache<T>(
   }
   const scopedKey = storageKey(key, userKey)
   memoryCache.set(scopedKey, envelope)
-
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.sessionStorage.setItem(scopedKey, JSON.stringify(envelope))
-  } catch {
-    // Keep the in-memory cache for this SPA session if browser storage is full
-    // or unavailable.
-  }
 }
 
 export function invalidateSessionCache(prefix: string, userKey?: string): void {
@@ -105,21 +71,6 @@ export function invalidateSessionCache(prefix: string, userKey?: string): void {
       memoryCache.delete(key)
     }
   }
-
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = window.sessionStorage.key(index)
-      if (key?.startsWith(scopedPrefix) && key.includes(`.${prefix}`)) {
-        window.sessionStorage.removeItem(key)
-      }
-    }
-  } catch {
-    // Ignore storage iteration failures.
-  }
 }
 
 export function clearExpiredSessionCache(currentTime = now()): void {
@@ -127,29 +78,6 @@ export function clearExpiredSessionCache(currentTime = now()): void {
     if (isExpired(envelope, currentTime)) {
       memoryCache.delete(key)
     }
-  }
-
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = window.sessionStorage.key(index)
-      if (!key?.startsWith(`${SESSION_CACHE_STORAGE_PREFIX}.${SESSION_CACHE_SCHEMA_VERSION}.`)) {
-        continue
-      }
-      const rawValue = window.sessionStorage.getItem(key)
-      if (!rawValue) {
-        continue
-      }
-      const envelope = JSON.parse(rawValue) as CacheEnvelope<unknown>
-      if (isExpired(envelope, currentTime)) {
-        window.sessionStorage.removeItem(key)
-      }
-    }
-  } catch {
-    // Ignore malformed cache cleanup errors.
   }
 }
 
@@ -160,20 +88,5 @@ export function clearSessionCacheForUser(userKey: string): void {
     if (key.startsWith(scopedPrefix)) {
       memoryCache.delete(key)
     }
-  }
-
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = window.sessionStorage.key(index)
-      if (key?.startsWith(scopedPrefix)) {
-        window.sessionStorage.removeItem(key)
-      }
-    }
-  } catch {
-    // Logout must still complete when storage iteration is unavailable.
   }
 }

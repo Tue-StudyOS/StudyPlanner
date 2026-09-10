@@ -11,6 +11,11 @@ Placeholder findings below describe the
 Outstanding notice assessments, operational checks and any joint-controller
 responsibilities remain open.
 
+The subsequent browser-storage cleanup removes disk persistence for API caches,
+local diagnostics and the semester badge, and saves display preferences only on
+user changes. Storage findings below describe the audit baseline. The current
+inventory and outstanding deployed checks are in the linked privacy notes.
+
 ## Conclusion and scope
 
 Keep the simplified implementation. Most remaining work is completing truthful

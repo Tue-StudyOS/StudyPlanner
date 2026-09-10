@@ -6,6 +6,7 @@ import {
   readSessionCache,
   writeSessionCache,
 } from '../../src/shared/utils/sessionCache.ts'
+import { clearObsoleteBrowserStorage } from '../../src/shared/utils/obsoleteBrowserStorage.ts'
 
 class FakeSessionStorage {
   private readonly items = new Map<string, string>()
@@ -79,7 +80,7 @@ test('session cache invalidates mutation-sensitive prefixes per user', () => {
   ])
 })
 
-test('boot cleanup removes stale schema envelopes from storage', () => {
+test('boot cleanup removes legacy disk caches without restoring their values', () => {
   const storage = installFakeWindow()
   storage.setItem(
     'studyplanner.sessionCache.1.public.catalog:manual-schema-test',
@@ -93,7 +94,17 @@ test('boot cleanup removes stale schema envelopes from storage', () => {
     }),
   )
 
-  clearExpiredSessionCache()
+  clearObsoleteBrowserStorage()
 
   assert.equal(readSessionCache<string[]>('catalog:manual-schema-test'), null)
+  assert.equal(storage.length, 0)
+})
+
+test('cache writes stay in memory and cleanup expires them', () => {
+  const storage = installFakeWindow()
+  writeSessionCache('private:memory-only', { grade: 1 }, 'memory-test', 1000)
+  assert.equal(storage.length, 0)
+  assert.deepEqual(readSessionCache('private:memory-only', 'memory-test'), { grade: 1 })
+  clearExpiredSessionCache(Date.now() + 2000)
+  assert.equal(readSessionCache('private:memory-only', 'memory-test'), null)
 })

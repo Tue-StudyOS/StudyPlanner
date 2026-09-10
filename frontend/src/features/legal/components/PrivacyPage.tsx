@@ -93,10 +93,13 @@ export function PrivacyPage(): JSX.Element {
         <h2 className="text-base font-semibold text-fg">5. Cookies und Browser-Speicher</h2>
         <p>
           Ein HttpOnly-Session-Cookie hält dich angemeldet, normalerweise für bis zu
-          30 Tage. Local Storage merkt Einstellungen wie Theme, Layout und eingeklappte
-          Bereiche. Session Storage enthält nutzerbezogene API-Caches, Import-Zwischenstände
-          und lokale Diagnosen. Private Session-Daten werden beim Abmelden oder
-          Kontowechsel bereinigt; allgemeine Anzeigeeinstellungen bleiben erhalten.
+          30 Tage. Local Storage merkt von dir gewählte Einstellungen wie Theme, Layout
+          und eingeklappte Bereiche; voreingestellte Werte werden nicht automatisch
+          gespeichert. Session Storage sichert Zwischenstände eines von dir gestarteten
+          Transcript-Imports und verhindert wiederholtes Neuladen nach einem Update.
+          API-Caches, lokale Diagnosen und der Semester-Hinweis bleiben nur im Arbeitsspeicher
+          der geöffneten Seite. Private Daten werden beim Abmelden oder Kontowechsel
+          bereinigt; gewählte Anzeigeeinstellungen bleiben erhalten.
         </p>
         <p>
           Die Anwendung bindet keine Werbung oder Analyse-Tracker ein. Schriftarten
@@ -104,7 +107,7 @@ export function PrivacyPage(): JSX.Element {
           Ausnahme des § 25 Abs. 2 TDDDG; andere Speicherzwecke müssen gesondert bewertet werden.
         </p>
         {LEGAL_NOTICE_IS_DRAFT ? (
-          <p className="text-fg-muted">Entwurfsstand: Die Prüfung der einzelnen Speicherzwecke ist noch nicht abgeschlossen.</p>
+          <p className="text-fg-muted">Entwurfsstand: Die Prüfung im bereitgestellten Dienst einschließlich zusätzlicher Hosting-Funktionen steht noch aus.</p>
         ) : null}
       </section>
 

@@ -15,6 +15,9 @@ steps. These notes are not evidence that production obligations are complete.
 - Responsible person supplied on 10 September 2026: **Yonatan Dankner**
 - Postal address: **Hafengasse 11, 72070 Tübingen, Germany**
 - Privacy contact email: **yonatan.dankner@gmail.com**
+- On 10 September the user confirmed this is Yonatan's main mailbox and intended
+  request channel. A separate project mailbox is not required by this plan.
+  Delivery, actual handling and absence coverage have not been independently tested.
 - Both legal pages share these details through
   `frontend/src/features/legal/legalOperator.ts`. At the user's request, the email
   is plain text, `yonatan.dankner (at) gmail.com`, with an instruction to replace
@@ -25,9 +28,11 @@ steps. These notes are not evidence that production obligations are complete.
   remains enabled because legal bases for catalog/reviews/feedback, storage
   purposes, and Cloudflare contracts/transfers still need assessment. Supplying
   the contact does not complete these obligations.
-- This records the user's designation of Yonatan as responsible operator. If
-  team members jointly decide processing purposes and means, assess Article 26;
-  naming one contact alone does not settle joint responsibility.
+- This records the user's designation of Yonatan. The earlier implementation
+  input says all four members decide together; the latest discussion does not
+  establish a change to sole decision-making. His role as contact is supplied,
+  but sole versus joint controllership remains unresolved. Naming one person
+  alone does not settle Article 26 responsibilities.
 - Assign mailbox monitoring and backup coverage, and confirm that the postal
   address is serviceable. No company, VAT or DPO details were supplied or assumed.
 
@@ -71,16 +76,34 @@ steps. These notes are not evidence that production obligations are complete.
 
 - `studyplanner_session`: necessary HttpOnly authentication cookie, normally up
   to 30 days or logout/account deletion.
-- Local storage: theme, catalogue layout, transcript collapse choices, and a
-  small semester badge. A legacy auth token is removed during migration.
-- Session storage: user-scoped API caches, transcript-import state, local API
-  diagnostics, and a chunk-reload guard. Private user/session data is cleared
-  on logout or account switch.
+- Local storage: theme, catalogue layout and transcript collapse choices are
+  saved only on an explicit change, not on initial rendering. The purpose is
+  restoring a chosen display setting. A legacy auth token is removed during migration.
+- Session storage: an unfinished, user-started transcript import is preserved
+  against reload loss; the chunk-reload guard prevents repeated reloads after a
+  deployment failure. Import data is removed on logout/account switch or when
+  the candidate list becomes empty. Browser session restoration can retain it.
+- API response caches, the bounded local diagnostic log and semester badge now
+  live only in page memory. They reset on full reload; private memory is cleared
+  on logout/account switch. Startup removes legacy session caches/logs and the
+  persisted badge without reading their contents. Stored plans/grades in D1 are
+  unaffected. Reloads fetch data again; SPA navigation still reuses responses.
 - No analytics, advertising trackers, or externally loaded Google Fonts were
   identified in the reviewed app paths. Provider features remain unverified.
-  A banner is not automatically required, but each storage use needs a section
-  25 TDDDG assessment; default preference writes and local diagnostics are not
-  automatically necessary simply because they are first-party.
+  The app-level assessment retains authentication, chosen display settings,
+  protection of an in-progress import and recovery from deployment failures for
+  their requested functional purposes under section 25(2) TDDDG. It removes
+  unnecessary persistence rather than adding a banner. This is not proof that
+  every provider-added feature is exempt: deployed network/storage checks and
+  Cloudflare dashboard settings remain to be verified.
+
+Browser-storage cleanup validation: unit tests cover no disk writes for API
+caches/diagnostics, expiry and user isolation, logout memory cleanup, explicit
+preference writes and unavailable storage. No browser was exposed by the browser
+tool inventory in this session, so interaction checks at 320px, 375px, 768px and
+desktop in light/dark mode remain outstanding. The cleanup changes persistence,
+not layout. Publish through the existing Pages Git integration after merging
+the completed branch into main with a non-fast-forward merge and pushing.
 
 ## Requests and review reports
 

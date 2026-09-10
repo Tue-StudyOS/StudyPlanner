@@ -5,6 +5,16 @@ the next implementation pass. Background: [privacy audit](privacy-audit-2026-09.
 
 ## Local implementation update — 8 September 2026
 
+Follow-up — 10 September 2026: real contact details for Yonatan Dankner have
+replaced the preview values below; the email uses plain-text `(at)` at the user's
+request. The user confirmed it is his main mailbox and requested an independent
+storage review/removal of unnecessary storage without a consent-banner system.
+D7 now authorizes that focused cleanup: preference writes only on user changes;
+API caches, diagnostics and the badge in memory; legacy cache/log/badge cleanup.
+The prior shared-decision answer remains relevant; sole controllership has not
+been established. Existing database, moderation and administrator restrictions
+remain unchanged. See [current notes](privacy-notes.md) for the resulting behavior.
+
 The user authorised implementation and explicitly requested sample operator
 details for local review. The legal pages now use Max Mustermann, Musterstraße 1,
 12345 Musterstadt, Deutschland, and datenschutz@example.invalid from one shared
