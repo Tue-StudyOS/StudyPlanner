@@ -12,7 +12,7 @@ steps. These notes are not evidence that production obligations are complete.
 
 ## Operator and contact
 
-- Responsible person supplied on 10 September 2026: **Yonatan Dankner**
+- Shared contact for the four joint operators: **Yonatan Dankner**
 - Postal address: **Hafengasse 11, 72070 Tübingen, Germany**
 - Privacy contact email: **yonatan.dankner@gmail.com**
 - On 10 September the user confirmed this is Yonatan's main mailbox and intended
@@ -29,21 +29,51 @@ steps. These notes are not evidence that production obligations are complete.
   rather than in visitor-facing development notes. Legal bases for catalog,
   reviews and feedback, deployed storage checks, and Cloudflare contracts/transfers
   still need completion; this copy cleanup does not establish those facts.
-- This records the user's designation of Yonatan. The earlier implementation
-  input says all four members decide together; the latest discussion does not
-  establish a change to sole decision-making. His role as contact is supplied,
-  but sole versus joint controllership remains unresolved. Naming one person
-  alone does not settle Article 26 responsibilities.
-- Assign mailbox monitoring and backup coverage, and confirm that the postal
-  address is serviceable. No company, VAT or DPO details were supplied or assumed.
+- The user expressly confirmed that all four decide together. Full identification
+  and public contact addresses for Lena, Emre and Ben are still missing. Yonatan's
+  address is not assumed to be a serviceable common address for everyone.
+- Yonatan checks his main mailbox regularly and handles requests, technical
+  exports/deletions and inaccurate/unlawful-content complaints. On absence the
+  team assigns an available member internally; no fixed deputy is specified.
+- The team commits to recording operation, access, deletion and request duties
+  in writing. This record captures the confirmed allocation, not a completed
+  Article 26 agreement. Remaining operation/access duties need allocation and
+  the complete arrangement's essence must be made available to affected people.
+- No company, VAT or DPO details were supplied or assumed.
 
 ## Hosting
 
 - Frontend: Cloudflare Pages
 - API: Cloudflare Workers
 - Database: Cloudflare D1, binding `studyplanner-db`
-- Cloudflare data-processing terms/DPA: account owner must verify acceptance and
-  record the responsible person/date before production.
+- User-confirmed account owner: Ben; Free plan, Pages, Workers and D1 only, with
+  no additional enabled products reported. Exact contractual identity and
+  dashboard settings have not been independently verified. The repository has
+  Workers observability enabled; that is distinct from an additional product.
+- Cloudflare data-processing terms/DPA, transfer safeguards and provider retention
+  remain unchecked for the account. Cloudflare states its DPA is incorporated
+  into the Self-Serve Subscription Agreement; do not assume a separate signature
+  is necessary or that account applicability has already been verified.
+
+## Confirmed purposes and remaining legal assessment
+
+The team uses non-public account/study data only for requested functionality and
+secure operation, with no sale, advertising, research or AI training. Outside
+the team, only engaged providers receive that data. Public course reviews and
+catalog data are separately disclosed; this statement does not make them private.
+
+The catalog supports study planning and reviews support exchange about courses.
+Private contact details and confidential information must not be published.
+Yonatan handles inaccurate or unlawful content reports. The user confirmed that
+lecturers have not been informed. Assess Article 14 and provide the required
+information unless a documented exception actually applies; no exception is
+assumed simply because the ALMA source is public. The purpose-specific legal
+bases and balancing assessment for catalog/review/feedback processing remain to
+be completed. No notifications have been sent by the agent.
+
+Sources: [GDPR Articles 14 and 26](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng),
+[EDPB lawful processing](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_en),
+and [Cloudflare GDPR terms](https://www.cloudflare.com/trust-hub/gdpr/).
 
 ## Data and simple retention
 
@@ -112,9 +142,9 @@ the completed branch into main with a non-fast-forward merge and pushing.
   explicit confirmation, and CSRF protection.
 - Access, correction, portability, objections, and manual deletion requests use
   the operator email above, displayed on the public legal pages without login.
-- A review's “Report” link opens the review rules, which tell the reporter to
-  send the course/review details through the same contact form. The team can
-  investigate and use existing hide/delete moderation.
+- A review's “Report” link opens the review rules, which now display Yonatan's
+  shared contact and direct reports there by email, without a product rating or
+  login. The team can investigate and use existing hide/delete moderation.
 
 ## Database history
 
@@ -134,9 +164,11 @@ the documentation review did not change production permissions.
 
 ## Small-team operating procedure
 
-This is the proposed manual procedure for D4/D11; mailbox monitoring and backup
-handlers still need assignment. Keep case details in a restricted private record,
-never in this repository.
+Yonatan is the confirmed handler for D4/D11 and technical exports/deletions;
+absence cover is assigned by internal agreement to an available team member.
+The procedure below supports that allocation. Keep case details in a restricted
+private record, never in this repository. Assignment does not verify actual
+administrator access or change the existing no-database-operation constraint.
 
 1. **Receive a request:** record receipt, handler, request type and response due
    date. Check the mailbox regularly, including during exams and holidays.

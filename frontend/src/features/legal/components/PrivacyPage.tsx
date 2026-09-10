@@ -12,8 +12,19 @@ export function PrivacyPage(): JSX.Element {
       </header>
 
       <section className="grid min-w-0 gap-3 rounded-[12px] border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-fg">1. Verantwortlicher und Kontakt</h2>
+        <h2 className="text-base font-semibold text-fg">1. Gemeinsame Verantwortlichkeit und Kontakt</h2>
+        <p>
+          StudyPlanner wird von vier Studierenden gemeinsam betrieben. Sie entscheiden
+          gemeinsam über die Zwecke und Mittel der Datenverarbeitung. Ansprechpartner
+          für Datenschutzanfragen und Hinweise zu Bewertungen ist:
+        </p>
         <OperatorContact />
+        <p>
+          Yonatan bearbeitet Auskunfts-, Export- und Löschanfragen sowie Hinweise auf
+          falsche oder rechtsverletzende Inhalte. Bei Abwesenheit übernimmt nach
+          interner Absprache ein anderes Teammitglied. Deine Rechte kannst du
+          unabhängig davon gegenüber jedem der gemeinsam Verantwortlichen geltend machen.
+        </p>
         <p>StudyPlanner ist ein unabhängiges, nicht-kommerzielles studentisches Projekt.</p>
       </section>
 
@@ -36,6 +47,13 @@ export function PrivacyPage(): JSX.Element {
           Diese Verarbeitung dient der von dir angeforderten Account- und Planungsfunktion
           (Art. 6 Abs. 1 lit. b DSGVO).
         </p>
+        <p>
+          Wir verwenden Account- und Studiendaten ausschließlich für die angeforderten
+          Funktionen und den sicheren Betrieb. Wir verkaufen diese Daten nicht und
+          nutzen sie nicht für Werbung, Forschung oder KI-Training. Im Rahmen dieses
+          Betriebs erhalten außerhalb des Betreiberteams nur die eingesetzten
+          Dienstleister Zugriff auf diese nicht öffentlichen Daten.
+        </p>
       </section>
 
       <section className="grid gap-2">
@@ -43,7 +61,8 @@ export function PrivacyPage(): JSX.Element {
         <p>
           Der Kurskatalog beruht auf Angaben aus ALMA. Dazu gehören Namen von Lehrpersonen
           und ihre Zuordnung zu Lehrveranstaltungen. Diese Informationen helfen bei der
-          Semesterplanung. Auch öffentlich zugängliche Angaben können personenbezogen sein.
+          Semesterplanung. Bewertungen dienen dem Erfahrungsaustausch über Lehrveranstaltungen.
+          Auch öffentlich zugängliche Angaben können personenbezogen sein.
         </p>
         <p>
           Kursbewertungen enthalten Bewertung, Kommentar, Semester und gegebenenfalls

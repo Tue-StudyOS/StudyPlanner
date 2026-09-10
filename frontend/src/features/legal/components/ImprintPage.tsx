@@ -13,7 +13,8 @@ export function ImprintPage(): JSX.Element {
       </header>
 
       <section className="grid min-w-0 gap-3 rounded-[12px] border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-fg">Angaben zum Diensteanbieter</h2>
+        <h2 className="text-base font-semibold text-fg">Kontakt zum Betreiberteam</h2>
+        <p>Ansprechpartner für das gemeinsam betriebene studentische Projekt:</p>
         <OperatorContact />
       </section>
 

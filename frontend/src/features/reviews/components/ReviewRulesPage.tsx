@@ -1,4 +1,5 @@
 import { PageShell } from '../../../shared/components/PageShell.tsx'
+import { OperatorContact } from '../../legal/components/OperatorContact.tsx'
 import { useTranslation } from '../../i18n'
 
 export function ReviewRulesPage() {
@@ -21,6 +22,7 @@ export function ReviewRulesPage() {
       <section id="report" className="grid min-w-0 gap-2 rounded-[12px] border border-border bg-surface p-4">
         <h2 className="text-base font-semibold text-fg">{t('reviews.rulesRedressTitle')}</h2>
         <p className="break-words text-[13px] leading-6 text-fg-mid">{t('reviews.rulesRedressBody')}</p>
+        <OperatorContact />
       </section>
     </PageShell>
   )

@@ -4,6 +4,7 @@ export interface LegalOperator {
   emailDisplay: string
 }
 
+// Shared contact for the joint operators; this is not the complete controller list.
 export const LEGAL_OPERATOR: LegalOperator = {
   name: 'Yonatan Dankner',
   addressLines: ['Hafengasse 11', '72070 Tübingen', 'Deutschland'],
