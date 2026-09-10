@@ -12,22 +12,21 @@ steps. These notes are not evidence that production obligations are complete.
 
 ## Operator and contact
 
-- Responsible person: **TODO before production**
-- Postal address: **TODO before production**
-- Monitored privacy/review email: **TODO before production**
-- The local legal preview uses **Max Mustermann**, **Musterstraße 1, 12345
-  Musterstadt, Deutschland**, and **datenschutz@example.invalid**, as requested.
-  These are fictional and must not be treated as the group's identity or mailbox.
-- Edit `frontend/src/features/legal/legalOperator.ts` to replace the shared
-  operator name, address lines and email on both legal pages. Keep `isPreview`
-  enabled until real operator facts AND the outstanding notice sections have
-  been completed. Disabling the preview does not establish compliance.
-- The sample email is deliberately not a mailto link. A real mailbox becomes
-  clickable once preview mode is disabled. The privacy page no longer sends
-  rights requests through the rating-required product feedback form.
-- Local preview: `http://localhost:5173/impressum` and
-  `http://localhost:5173/privacy`. This change is for local review; do not deploy
-  fictional operator details as a completed public legal notice.
+- Responsible person supplied on 10 September 2026: **Yonatan Dankner**
+- Postal address: **Hafengasse 11, 72070 Tübingen, Germany**
+- Privacy contact email: **yonatan.dankner@gmail.com**
+- Both legal pages share these details through
+  `frontend/src/features/legal/legalOperator.ts`. The email is a working mailto
+  link; mailbox delivery and monitoring have not been independently verified.
+- `isPreview` now describes the contact data only. `LEGAL_NOTICE_IS_DRAFT`
+  remains enabled because legal bases for catalog/reviews/feedback, storage
+  purposes, and Cloudflare contracts/transfers still need assessment. Supplying
+  the contact does not complete these obligations.
+- This records the user's designation of Yonatan as responsible operator. If
+  team members jointly decide processing purposes and means, assess Article 26;
+  naming one contact alone does not settle joint responsibility.
+- Assign mailbox monitoring and backup coverage, and confirm that the postal
+  address is serviceable. No company, VAT or DPO details were supplied or assumed.
 
 ## Hosting
 
@@ -84,9 +83,8 @@ steps. These notes are not evidence that production obligations are complete.
 
 - Account deletion is available on the Account page and requires password,
   explicit confirmation, and CSRF protection.
-- Access, correction, portability, objections, and manual deletion requests are
-  intended to use the operator mailbox. That mailbox is not yet supplied; the
-  legal preview is not a functioning rights-request channel.
+- Access, correction, portability, objections, and manual deletion requests use
+  the operator email above, linked from the public legal pages without login.
 - A review's “Report” link opens the review rules, which tell the reporter to
   send the course/review details through the same contact form. The team can
   investigate and use existing hide/delete moderation.
@@ -109,8 +107,8 @@ the documentation review did not change production permissions.
 
 ## Small-team operating procedure
 
-This is the proposed manual procedure for D4/D11; named handlers and an actual
-mailbox still need assignment. Keep case details in a restricted private record,
+This is the proposed manual procedure for D4/D11; mailbox monitoring and backup
+handlers still need assignment. Keep case details in a restricted private record,
 never in this repository.
 
 1. **Receive a request:** record receipt, handler, request type and response due
@@ -170,5 +168,8 @@ The backend was deployed with `npm run deploy:backend` after the configuration
 check. Worker version 4745fa61-9c6e-4ba5-ae2e-28c943754139 returned a healthy
 response with a reachable database. The frontend release uses the authorized
 non-fast-forward merge into main and push to the Pages Git integration.
-The fictional contact information remains explicitly marked as a preview;
-publication does not resolve the outstanding operator and legal-notice facts.
+That release retained fictional preview contacts. The 10 September contact
+update replaces them with the supplied operator details while keeping unresolved
+notice sections marked as drafts. The contact update is committed on a dedicated
+branch; production publication uses a non-fast-forward merge into main and push
+to the existing Pages Git integration.

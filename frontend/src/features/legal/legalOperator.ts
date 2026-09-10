@@ -5,12 +5,14 @@ export interface LegalOperator {
   email: string
 }
 
-// Replace these together after the actual operator and monitored mailbox are confirmed.
+// Contact confirmation does not resolve the outstanding legal-notice assessments.
+export const LEGAL_NOTICE_IS_DRAFT: boolean = true
+
 export const LEGAL_OPERATOR: LegalOperator = {
-  isPreview: true,
-  name: 'Max Mustermann',
-  addressLines: ['Musterstraße 1', '12345 Musterstadt', 'Deutschland'],
-  email: 'datenschutz@example.invalid',
+  isPreview: false,
+  name: 'Yonatan Dankner',
+  addressLines: ['Hafengasse 11', '72070 Tübingen', 'Deutschland'],
+  email: 'yonatan.dankner@gmail.com',
 }
 
 export function getLegalContactHref(operator: LegalOperator): string | undefined {

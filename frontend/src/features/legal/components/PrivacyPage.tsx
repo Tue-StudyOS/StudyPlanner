@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { PageShell } from '../../../shared/components/PageShell.tsx'
-import { LEGAL_OPERATOR } from '../legalOperator.ts'
+import { LEGAL_NOTICE_IS_DRAFT } from '../legalOperator.ts'
 import { LegalPreviewNotice } from './LegalPreviewNotice.tsx'
 import { OperatorContact } from './OperatorContact.tsx'
 
@@ -9,7 +9,7 @@ export function PrivacyPage(): JSX.Element {
     <PageShell width="narrow" className="grid min-w-0 gap-6 break-words pb-12 text-[13px] leading-6 text-fg-mid">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold text-fg">Datenschutzerklärung</h1>
-        <p>Stand: 8. September 2026</p>
+        <p>Stand: 10. September 2026</p>
         <p>So geht StudyPlanner mit Account-, Planungs- und Nutzungsdaten um.</p>
       </header>
 
@@ -64,7 +64,7 @@ export function PrivacyPage(): JSX.Element {
           Ältere Feedbackeinträge können noch eine Seitenroute enthalten.
           Nutze für Datenschutzanfragen den Kontakt in Abschnitt 1.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
+        {LEGAL_NOTICE_IS_DRAFT ? (
           <p className="text-fg-muted">
             Entwurfsstand: Die rechtliche Grundlage und Interessenabwägung für
             Katalogdaten, Bewertungen und Feedback sowie die Information der Lehrpersonen
@@ -103,7 +103,7 @@ export function PrivacyPage(): JSX.Element {
           werden lokal ausgeliefert. Für technisch notwendige Speicherung gilt die
           Ausnahme des § 25 Abs. 2 TDDDG; andere Speicherzwecke müssen gesondert bewertet werden.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
+        {LEGAL_NOTICE_IS_DRAFT ? (
           <p className="text-fg-muted">Entwurfsstand: Die Prüfung der einzelnen Speicherzwecke ist noch nicht abgeschlossen.</p>
         ) : null}
       </section>
@@ -124,7 +124,7 @@ export function PrivacyPage(): JSX.Element {
             Datenschutzbedingungen
           </a>. Eine ausschließliche Speicherung in Deutschland wird hier nicht zugesichert.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
+        {LEGAL_NOTICE_IS_DRAFT ? (
           <p className="text-fg-muted">
             Entwurfsstand: Die für das Betreiberkonto geltenden Vertragsbedingungen,
             Empfänger und Übermittlungsgarantien müssen noch bestätigt werden.
