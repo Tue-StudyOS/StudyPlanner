@@ -5,7 +5,8 @@ Reviewed: 8 September 2026. Repository baseline: `8da76f3` on
 
 Follow-up, 10 September 2026: the user supplied Yonatan Dankner as responsible
 operator, with postal address and email. The shared privacy/imprint contact now
-uses those details with a mailto link. Placeholder findings below describe the
+uses those details with a plain-text `(at)` email at the user's request.
+Placeholder findings below describe the
 8 September baseline; see [current privacy notes](privacy-notes.md) for the update.
 Outstanding notice assessments, operational checks and any joint-controller
 responsibilities remain open.

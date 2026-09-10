@@ -16,8 +16,11 @@ steps. These notes are not evidence that production obligations are complete.
 - Postal address: **Hafengasse 11, 72070 Tübingen, Germany**
 - Privacy contact email: **yonatan.dankner@gmail.com**
 - Both legal pages share these details through
-  `frontend/src/features/legal/legalOperator.ts`. The email is a working mailto
-  link; mailbox delivery and monitoring have not been independently verified.
+  `frontend/src/features/legal/legalOperator.ts`. At the user's request, the email
+  is plain text, `yonatan.dankner (at) gmail.com`, with an instruction to replace
+  `(at)` with `@`. There is no mailto link or raw address in the contact bundle.
+  This deters basic scraping only; mailbox delivery and monitoring have not been
+  independently verified.
 - `isPreview` now describes the contact data only. `LEGAL_NOTICE_IS_DRAFT`
   remains enabled because legal bases for catalog/reviews/feedback, storage
   purposes, and Cloudflare contracts/transfers still need assessment. Supplying
@@ -84,7 +87,7 @@ steps. These notes are not evidence that production obligations are complete.
 - Account deletion is available on the Account page and requires password,
   explicit confirmation, and CSRF protection.
 - Access, correction, portability, objections, and manual deletion requests use
-  the operator email above, linked from the public legal pages without login.
+  the operator email above, displayed on the public legal pages without login.
 - A review's “Report” link opens the review rules, which tell the reporter to
   send the course/review details through the same contact form. The team can
   investigate and use existing hide/delete moderation.
@@ -141,8 +144,8 @@ and [EDPB breach guidance](https://www.edpb.europa.eu/sme/assess-the-risks/data-
 
 ## Local preview validation
 
-The contact helper tests cover inert sample mailboxes and a configured real
-mailto link. Browser review at 320px, 375px, 768px and desktop, in light/dark mode,
+The contact tests cover the supplied identity and an obfuscated display address
+without a raw email or mailto. Browser review at 320px, 375px, 768px and desktop, in light/dark mode,
 is still required: Edge was unavailable through the browser tools in this session
 and the surface inventory was empty. The page uses the existing responsive
 PageShell, wrapping text and breakable email addresses; this is not a substitute
