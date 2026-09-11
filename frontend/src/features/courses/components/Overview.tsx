@@ -4,6 +4,7 @@ import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
+import { saveBrowserPreference } from '../../../shared/utils/browserPreferences.ts'
 import {
   buildFlexibleRegulationAreaOptions,
   formatRegulationAreaShortLabel,
@@ -345,13 +346,11 @@ export function CoursesOverview() {
     return () => observer.disconnect()
   }, [courses])
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(BROWSER_STORAGE_KEYS.catalogLayout, layout)
-    } catch {
-      // The chosen layout still works for the current page session.
-    }
-  }, [layout])
+  function toggleLayout(): void {
+    const next = layout === 'grid' ? 'list' : 'grid'
+    setLayout(next)
+    saveBrowserPreference(BROWSER_STORAGE_KEYS.catalogLayout, next)
+  }
 
   const availableEctsValues = useMemo(
     () =>
@@ -631,7 +630,7 @@ export function CoursesOverview() {
 
           <button
             type="button"
-            onClick={() => setLayout((current) => (current === 'grid' ? 'list' : 'grid'))}
+            onClick={toggleLayout}
             aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
             title={layout === 'grid' ? 'Single column' : 'Two columns'}
             className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"

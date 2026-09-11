@@ -1,7 +1,5 @@
 import type { JSX } from 'react'
 import { PageShell } from '../../../shared/components/PageShell.tsx'
-import { LEGAL_OPERATOR } from '../legalOperator.ts'
-import { LegalPreviewNotice } from './LegalPreviewNotice.tsx'
 import { OperatorContact } from './OperatorContact.tsx'
 
 export function PrivacyPage(): JSX.Element {
@@ -9,15 +7,24 @@ export function PrivacyPage(): JSX.Element {
     <PageShell width="narrow" className="grid min-w-0 gap-6 break-words pb-12 text-[13px] leading-6 text-fg-mid">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold text-fg">Datenschutzerklärung</h1>
-        <p>Stand: 8. September 2026</p>
+        <p>Stand: 10. September 2026</p>
         <p>So geht StudyPlanner mit Account-, Planungs- und Nutzungsdaten um.</p>
       </header>
 
-      <LegalPreviewNotice />
-
       <section className="grid min-w-0 gap-3 rounded-[12px] border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-fg">1. Verantwortlicher und Kontakt</h2>
+        <h2 className="text-base font-semibold text-fg">1. Gemeinsame Verantwortlichkeit und Kontakt</h2>
+        <p>
+          StudyPlanner wird von vier Studierenden gemeinsam betrieben. Sie entscheiden
+          gemeinsam über die Zwecke und Mittel der Datenverarbeitung. Ansprechpartner
+          für Datenschutzanfragen und Hinweise zu Bewertungen ist:
+        </p>
         <OperatorContact />
+        <p>
+          Yonatan bearbeitet Auskunfts-, Export- und Löschanfragen sowie Hinweise auf
+          falsche oder rechtsverletzende Inhalte. Bei Abwesenheit übernimmt nach
+          interner Absprache ein anderes Teammitglied. Deine Rechte kannst du
+          unabhängig davon gegenüber jedem der gemeinsam Verantwortlichen geltend machen.
+        </p>
         <p>StudyPlanner ist ein unabhängiges, nicht-kommerzielles studentisches Projekt.</p>
       </section>
 
@@ -40,6 +47,13 @@ export function PrivacyPage(): JSX.Element {
           Diese Verarbeitung dient der von dir angeforderten Account- und Planungsfunktion
           (Art. 6 Abs. 1 lit. b DSGVO).
         </p>
+        <p>
+          Wir verwenden Account- und Studiendaten ausschließlich für die angeforderten
+          Funktionen und den sicheren Betrieb. Wir verkaufen diese Daten nicht und
+          nutzen sie nicht für Werbung, Forschung oder KI-Training. Im Rahmen dieses
+          Betriebs erhalten außerhalb des Betreiberteams nur die eingesetzten
+          Dienstleister Zugriff auf diese nicht öffentlichen Daten.
+        </p>
       </section>
 
       <section className="grid gap-2">
@@ -47,7 +61,8 @@ export function PrivacyPage(): JSX.Element {
         <p>
           Der Kurskatalog beruht auf Angaben aus ALMA. Dazu gehören Namen von Lehrpersonen
           und ihre Zuordnung zu Lehrveranstaltungen. Diese Informationen helfen bei der
-          Semesterplanung. Auch öffentlich zugängliche Angaben können personenbezogen sein.
+          Semesterplanung. Bewertungen dienen dem Erfahrungsaustausch über Lehrveranstaltungen.
+          Auch öffentlich zugängliche Angaben können personenbezogen sein.
         </p>
         <p>
           Kursbewertungen enthalten Bewertung, Kommentar, Semester und gegebenenfalls
@@ -64,13 +79,6 @@ export function PrivacyPage(): JSX.Element {
           Ältere Feedbackeinträge können noch eine Seitenroute enthalten.
           Nutze für Datenschutzanfragen den Kontakt in Abschnitt 1.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
-          <p className="text-fg-muted">
-            Entwurfsstand: Die rechtliche Grundlage und Interessenabwägung für
-            Katalogdaten, Bewertungen und Feedback sowie die Information der Lehrpersonen
-            werden vor Freigabe abschließend geprüft.
-          </p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">
@@ -93,19 +101,19 @@ export function PrivacyPage(): JSX.Element {
         <h2 className="text-base font-semibold text-fg">5. Cookies und Browser-Speicher</h2>
         <p>
           Ein HttpOnly-Session-Cookie hält dich angemeldet, normalerweise für bis zu
-          30 Tage. Local Storage merkt Einstellungen wie Theme, Layout und eingeklappte
-          Bereiche. Session Storage enthält nutzerbezogene API-Caches, Import-Zwischenstände
-          und lokale Diagnosen. Private Session-Daten werden beim Abmelden oder
-          Kontowechsel bereinigt; allgemeine Anzeigeeinstellungen bleiben erhalten.
+          30 Tage. Local Storage merkt von dir gewählte Einstellungen wie Theme, Layout
+          und eingeklappte Bereiche; voreingestellte Werte werden nicht automatisch
+          gespeichert. Session Storage sichert Zwischenstände eines von dir gestarteten
+          Transcript-Imports und verhindert wiederholtes Neuladen nach einem Update.
+          API-Caches, lokale Diagnosen und der Semester-Hinweis bleiben nur im Arbeitsspeicher
+          der geöffneten Seite. Private Daten werden beim Abmelden oder Kontowechsel
+          bereinigt; gewählte Anzeigeeinstellungen bleiben erhalten.
         </p>
         <p>
           Die Anwendung bindet keine Werbung oder Analyse-Tracker ein. Schriftarten
           werden lokal ausgeliefert. Für technisch notwendige Speicherung gilt die
-          Ausnahme des § 25 Abs. 2 TDDDG; andere Speicherzwecke müssen gesondert bewertet werden.
+          Ausnahme des § 25 Abs. 2 TDDDG.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
-          <p className="text-fg-muted">Entwurfsstand: Die Prüfung der einzelnen Speicherzwecke ist noch nicht abgeschlossen.</p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">
@@ -124,12 +132,6 @@ export function PrivacyPage(): JSX.Element {
             Datenschutzbedingungen
           </a>. Eine ausschließliche Speicherung in Deutschland wird hier nicht zugesichert.
         </p>
-        {LEGAL_OPERATOR.isPreview ? (
-          <p className="text-fg-muted">
-            Entwurfsstand: Die für das Betreiberkonto geltenden Vertragsbedingungen,
-            Empfänger und Übermittlungsgarantien müssen noch bestätigt werden.
-          </p>
-        ) : null}
       </section>
 
       <section className="grid gap-2">

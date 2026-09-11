@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { saveBrowserPreference } from '../utils/browserPreferences.ts'
 
 /**
  * A boolean toggle backed by localStorage so a UI preference (e.g. a collapsed
@@ -17,14 +18,10 @@ export function usePersistedToggle(
     }
   })
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(storageKey, String(value))
-    } catch {
-      // Ignore storage failures (private mode / quota); the toggle still works
-      // for the current session, it just is not persisted.
-    }
-  }, [storageKey, value])
+  function setPreference(next: boolean): void {
+    setValue(next)
+    saveBrowserPreference(storageKey, String(next))
+  }
 
-  return [value, setValue]
+  return [value, setPreference]
 }

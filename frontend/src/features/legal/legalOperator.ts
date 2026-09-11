@@ -1,20 +1,13 @@
 export interface LegalOperator {
-  isPreview: boolean
   name: string
   addressLines: readonly string[]
-  email: string
+  emailDisplay: string
 }
 
-// Replace these together after the actual operator and monitored mailbox are confirmed.
+// Shared contact for the joint operators; this is not the complete controller list.
 export const LEGAL_OPERATOR: LegalOperator = {
-  isPreview: true,
-  name: 'Max Mustermann',
-  addressLines: ['Musterstraße 1', '12345 Musterstadt', 'Deutschland'],
-  email: 'datenschutz@example.invalid',
-}
-
-export function getLegalContactHref(operator: LegalOperator): string | undefined {
-  // Sample details must never look like a working channel for personal requests.
-  if (operator.isPreview || operator.email.endsWith('.invalid')) return undefined
-  return `mailto:${operator.email}?subject=${encodeURIComponent('StudyPlanner: Datenschutzanfrage')}`
+  name: 'Yonatan Dankner',
+  addressLines: ['Hafengasse 11', '72070 Tübingen', 'Deutschland'],
+  // Obfuscate the displayed address to deter basic email scrapers.
+  emailDisplay: 'yonatan.dankner (at) gmail.com',
 }

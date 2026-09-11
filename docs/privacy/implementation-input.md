@@ -5,6 +5,16 @@ the next implementation pass. Background: [privacy audit](privacy-audit-2026-09.
 
 ## Local implementation update — 8 September 2026
 
+Follow-up — 10 September 2026: real contact details for Yonatan Dankner have
+replaced the preview values below; the email uses plain-text `(at)` at the user's
+request. The user confirmed it is his main mailbox and requested an independent
+storage review/removal of unnecessary storage without a consent-banner system.
+D7 now authorizes that focused cleanup: preference writes only on user changes;
+API caches, diagnostics and the badge in memory; legacy cache/log/badge cleanup.
+The prior shared-decision answer remains relevant; sole controllership has not
+been established. Existing database, moderation and administrator restrictions
+remain unchanged. See [current notes](privacy-notes.md) for the resulting behavior.
+
 The user authorised implementation and explicitly requested sample operator
 details for local review. The legal pages now use Max Mustermann, Musterstraße 1,
 12345 Musterstadt, Deutschland, and datenschutz@example.invalid from one shared
@@ -94,6 +104,17 @@ Corrections to the above, if any:  `NONE`
 
 ## 1. Operator and public contact details
 
+Confirmed follow-up — 10 September 2026: all four decide jointly. Yonatan is the
+contact and handles requests, technical exports/deletions and review complaints;
+the team assigns an available member during absences. Ben owns the Cloudflare
+account (Free; Pages, Workers, D1; no additional products reported). The team will
+record responsibilities in writing; no completed Article 26 agreement was supplied.
+Account/study data is used only for requested functions and secure operation,
+not sold or used for advertising, research or AI training; outside the team only
+engaged providers receive non-public data. Catalog data supports planning and
+reviews support course-experience exchange. Lecturers have not been informed.
+See privacy-notes.md for outstanding legal assessments and current behavior.
+
 These answers supply the Impressum and privacy notice. A contact person and the
 actual operator can be different; describe the situation rather than guessing a
 legal company type.
@@ -102,19 +123,19 @@ legal company type.
 | --- | --- |
 | Who actually runs the service and decides how user data is used? List the people or existing organisation involved. | Lena, Emre, Ben and Yonatan; full public identification is unresolved. |
 | Is there one decision-maker or do several members decide together? | All four decide together. Assess the appropriate joint-operator arrangement from these facts. |
-| Exact full operator name(s) intended for the public pages | UNKNOWN — no full names approved for publication yet; required information to resolve, not “no operator”. |
-| Public postal address: street, number, postcode, city, country | UNKNOWN — the group reports no project address; choose an authorised serviceable address before completing the Impressum. |
+| Exact full operator name(s) intended for the public pages | Yonatan Dankner as shared contact; complete identities for Lena, Emre and Ben still missing. |
+| Public postal address: street, number, postcode, city, country | Yonatan: Hafengasse 11, 72070 Tübingen, Germany. No common address for all four confirmed. |
 | German federal state where the operator is based | Baden-Württemberg |
 | If using a university/other organisation's address: permission and ability to receive mail there confirmed? | UNKNOWN |
-| Public email for privacy requests and review reports | UNKNOWN |
-| Is this mailbox working, and who checks it? A first name/team role is enough internally. | UNKNOWN |
-| Backup person during holidays/exams | UNKNOWN |
+| Public email for privacy requests and review reports | yonatan.dankner@gmail.com; display with `(at)` and no link/helper. |
+| Is this mailbox working, and who checks it? A first name/team role is enough internally. | Yonatan uses his main mailbox and checks it regularly (user-confirmed). |
+| Backup person during holidays/exams | An available team member by internal arrangement; no fixed deputy named. |
 
 Which of the above details are ready to appear on the website, and which are
-still drafts? UNKNOWN — no complete operator/contact block is ready for publication.
+still drafts? Yonatan's contact is approved; identification of all joint operators is incomplete.
 
 If several people jointly operate the service, describe the division of work
-(hosting, development, user requests, moderation): We are just one group of students, we all do everything together. We are not a company or an organisation.
+(hosting, development, user requests, moderation): Ben owns the hosting account. Yonatan handles requests, technical exports/deletions and complaints. All four decide jointly; remaining operation/access duties need a written allocation.
 
 ## 2. Actual use and release status
 
@@ -138,11 +159,11 @@ against the facts; these are product choices, not declarations of compliance.
 | --- | --- | --- |
 | D1 | Keep the existing planner, accounts, browser PDF parsing and account deletion. | ACCEPT |
 | D2 | Publish concise German privacy/imprint pages; avoid blanket privacy-consent checkboxes. Say if English is also wanted. | ACCEPT |
-| D3 | Use one visible email link for requests/reports without login or a star rating. No new contact backend needed for this option. | UNKNOWN — recommended simplest option; mailbox not selected. |
-| D4 | Manual handling with a short procedure; export helper only if needed. No user-facing privacy dashboard. | UNKNOWN — recommended; a working manual process still needs a handler. |
-| D5 | Decide whether reviews remain and how reports are handled; avoid a new moderation platform. | REJECTED as originally proposed (“No”). Desired alternative: UNKNOWN. Do not remove reviews, reports or moderation based on this answer. |
+| D3 | One contact for requests/reports without login or a star rating. | CONFIRMED: Yonatan's email as plain-text `(at)`, no link/helper. |
+| D4 | Manual handling, without a new dashboard. | CONFIRMED: Yonatan handles requests and technical exports/deletions; internal absence cover. |
+| D5 | Decide whether reviews remain and how reports are handled. | CONFIRMED follow-up: course-experience reviews remain; Yonatan handles reports by email. No new moderation platform or feature removal. |
 | D6 | Decide whether custom lecturer-name input should remain; this is separate from database changes. | Database changes rejected. Feature decision: UNKNOWN. Preserve existing input and records pending clarification. |
-| D7 | Keep analytics/advertising absent; assess storage individually before changing persistence. | No analytics or advertising confirmed. Storage changes: UNKNOWN; do not treat this answer as blanket approval. |
+| D7 | Keep analytics/advertising absent; assess storage individually. | Focused storage cleanup authorized and committed on 10 September; see current privacy notes. |
 | D8 | Replace shared/demo administrator privileges with named operators. Keep the existing security protections. | REJECTED (“no”). Do not change privileges under this brief; actual access remains unverified and a security concern to resolve. |
 | D9 | Retain minimal diagnostics for troubleshooting; remove usernames from new app error records unless a specific support need is identified. Verify provider logs separately. | UNKNOWN |
 | D10 | Keep the current database; verify hosting arrangements without changing them. | Do not change the database. No schema/data changes, new database, swap or migration authorised by this brief. Hosting changes also require a concrete decision. |
@@ -167,7 +188,7 @@ does not verify that the account is controlled by that person.
 | Are these individual accounts already created and controlled by the intended operators? | UNKNOWN |
 | Who currently uses the shared `test` account? Is it a public demo account? | UNKNOWN |
 | What should happen to `test`? | No privilege change authorised (D8). Account ownership and safe intended use: UNKNOWN. |
-| Who manages Cloudflare and production deployments? Team role/name only. | Group works together; actual account/deployment owner: UNKNOWN. |
+| Who manages Cloudflare and production deployments? Team role/name only. | Ben owns the account; other access/deployment duties remain to be allocated. |
 | Is two-factor authentication enabled for hosting administrators? | UNKNOWN |
 
 ## 5. Hosting facts
@@ -178,11 +199,11 @@ account settings and can provide verification steps for anything missing.
 
 | Information | Your answer |
 | --- | --- |
-| Cloudflare contracting customer: person or organisation (no account ID needed) | UNKNOWN |
+| Cloudflare contracting customer: person or organisation (no account ID needed) | Account in Ben's name; exact contractual identity not independently verified. |
 | Cloudflare plan: Free / Paid / UNKNOWN | Free |
 | Has the applicable data-processing agreement been confirmed? By whom and when? Public terms link or private evidence reference only. | UNKNOWN |
 | Any known region settings, transfer safeguards or related contract evidence? | UNKNOWN |
-| Cloudflare Analytics, Web Analytics, Zaraz, Turnstile or other dashboard features enabled? | UNKNOWN |
+| Cloudflare Analytics, Web Analytics, Zaraz, Turnstile or other dashboard features enabled? | None reported beyond Pages, Workers and D1. Verify dashboard; repository Workers observability is enabled. |
 | Other providers: domain registrar, contact mailbox, monitoring, external backups, etc. | UNKNOWN |
 | Logs exported elsewhere or database backups downloaded? Where, who has access, and for how long? Do not include contents. | UNKNOWN |
 | Known provider log/backup retention, if checked | UNKNOWN |

@@ -12,30 +12,68 @@ steps. These notes are not evidence that production obligations are complete.
 
 ## Operator and contact
 
-- Responsible person: **TODO before production**
-- Postal address: **TODO before production**
-- Monitored privacy/review email: **TODO before production**
-- The local legal preview uses **Max Mustermann**, **Musterstraße 1, 12345
-  Musterstadt, Deutschland**, and **datenschutz@example.invalid**, as requested.
-  These are fictional and must not be treated as the group's identity or mailbox.
-- Edit `frontend/src/features/legal/legalOperator.ts` to replace the shared
-  operator name, address lines and email on both legal pages. Keep `isPreview`
-  enabled until real operator facts AND the outstanding notice sections have
-  been completed. Disabling the preview does not establish compliance.
-- The sample email is deliberately not a mailto link. A real mailbox becomes
-  clickable once preview mode is disabled. The privacy page no longer sends
-  rights requests through the rating-required product feedback form.
-- Local preview: `http://localhost:5173/impressum` and
-  `http://localhost:5173/privacy`. This change is for local review; do not deploy
-  fictional operator details as a completed public legal notice.
+- Shared contact for the four joint operators: **Yonatan Dankner**
+- Postal address: **Hafengasse 11, 72070 Tübingen, Germany**
+- Privacy contact email: **yonatan.dankner@gmail.com**
+- On 10 September the user confirmed this is Yonatan's main mailbox and intended
+  request channel. A separate project mailbox is not required by this plan.
+  Delivery, actual handling and absence coverage have not been independently tested.
+- Both legal pages share these details through
+  `frontend/src/features/legal/legalOperator.ts`. At the user's request, the email
+  is plain text, `yonatan.dankner (at) gmail.com`, without a mailto link or
+  explanatory helper text. There is no raw address in the contact bundle.
+  This deters basic scraping only; mailbox delivery and monitoring have not been
+  independently verified.
+- Public draft banners, inline assessment TODOs and the unused preview flags
+  have been removed at the user's request. Track outstanding assessments here,
+  rather than in visitor-facing development notes. Legal bases for catalog,
+  reviews and feedback, deployed storage checks, and Cloudflare contracts/transfers
+  still need completion; this copy cleanup does not establish those facts.
+- The user expressly confirmed that all four decide together. Full identification
+  and public contact addresses for Lena, Emre and Ben are still missing. Yonatan's
+  address is not assumed to be a serviceable common address for everyone.
+- Yonatan checks his main mailbox regularly and handles requests, technical
+  exports/deletions and inaccurate/unlawful-content complaints. On absence the
+  team assigns an available member internally; no fixed deputy is specified.
+- The team commits to recording operation, access, deletion and request duties
+  in writing. This record captures the confirmed allocation, not a completed
+  Article 26 agreement. Remaining operation/access duties need allocation and
+  the complete arrangement's essence must be made available to affected people.
+- No company, VAT or DPO details were supplied or assumed.
 
 ## Hosting
 
 - Frontend: Cloudflare Pages
 - API: Cloudflare Workers
 - Database: Cloudflare D1, binding `studyplanner-db`
-- Cloudflare data-processing terms/DPA: account owner must verify acceptance and
-  record the responsible person/date before production.
+- User-confirmed account owner: Ben; Free plan, Pages, Workers and D1 only, with
+  no additional enabled products reported. Exact contractual identity and
+  dashboard settings have not been independently verified. The repository has
+  Workers observability enabled; that is distinct from an additional product.
+- Cloudflare data-processing terms/DPA, transfer safeguards and provider retention
+  remain unchecked for the account. Cloudflare states its DPA is incorporated
+  into the Self-Serve Subscription Agreement; do not assume a separate signature
+  is necessary or that account applicability has already been verified.
+
+## Confirmed purposes and remaining legal assessment
+
+The team uses non-public account/study data only for requested functionality and
+secure operation, with no sale, advertising, research or AI training. Outside
+the team, only engaged providers receive that data. Public course reviews and
+catalog data are separately disclosed; this statement does not make them private.
+
+The catalog supports study planning and reviews support exchange about courses.
+Private contact details and confidential information must not be published.
+Yonatan handles inaccurate or unlawful content reports. The user confirmed that
+lecturers have not been informed. Assess Article 14 and provide the required
+information unless a documented exception actually applies; no exception is
+assumed simply because the ALMA source is public. The purpose-specific legal
+bases and balancing assessment for catalog/review/feedback processing remain to
+be completed. No notifications have been sent by the agent.
+
+Sources: [GDPR Articles 14 and 26](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng),
+[EDPB lawful processing](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_en),
+and [Cloudflare GDPR terms](https://www.cloudflare.com/trust-hub/gdpr/).
 
 ## Data and simple retention
 
@@ -69,27 +107,44 @@ steps. These notes are not evidence that production obligations are complete.
 
 - `studyplanner_session`: necessary HttpOnly authentication cookie, normally up
   to 30 days or logout/account deletion.
-- Local storage: theme, catalogue layout, transcript collapse choices, and a
-  small semester badge. A legacy auth token is removed during migration.
-- Session storage: user-scoped API caches, transcript-import state, local API
-  diagnostics, and a chunk-reload guard. Private user/session data is cleared
-  on logout or account switch.
+- Local storage: theme, catalogue layout and transcript collapse choices are
+  saved only on an explicit change, not on initial rendering. The purpose is
+  restoring a chosen display setting. A legacy auth token is removed during migration.
+- Session storage: an unfinished, user-started transcript import is preserved
+  against reload loss; the chunk-reload guard prevents repeated reloads after a
+  deployment failure. Import data is removed on logout/account switch or when
+  the candidate list becomes empty. Browser session restoration can retain it.
+- API response caches, the bounded local diagnostic log and semester badge now
+  live only in page memory. They reset on full reload; private memory is cleared
+  on logout/account switch. Startup removes legacy session caches/logs and the
+  persisted badge without reading their contents. Stored plans/grades in D1 are
+  unaffected. Reloads fetch data again; SPA navigation still reuses responses.
 - No analytics, advertising trackers, or externally loaded Google Fonts were
   identified in the reviewed app paths. Provider features remain unverified.
-  A banner is not automatically required, but each storage use needs a section
-  25 TDDDG assessment; default preference writes and local diagnostics are not
-  automatically necessary simply because they are first-party.
+  The app-level assessment retains authentication, chosen display settings,
+  protection of an in-progress import and recovery from deployment failures for
+  their requested functional purposes under section 25(2) TDDDG. It removes
+  unnecessary persistence rather than adding a banner. This is not proof that
+  every provider-added feature is exempt: deployed network/storage checks and
+  Cloudflare dashboard settings remain to be verified.
+
+Browser-storage cleanup validation: unit tests cover no disk writes for API
+caches/diagnostics, expiry and user isolation, logout memory cleanup, explicit
+preference writes and unavailable storage. No browser was exposed by the browser
+tool inventory in this session, so interaction checks at 320px, 375px, 768px and
+desktop in light/dark mode remain outstanding. The cleanup changes persistence,
+not layout. Publish through the existing Pages Git integration after merging
+the completed branch into main with a non-fast-forward merge and pushing.
 
 ## Requests and review reports
 
 - Account deletion is available on the Account page and requires password,
   explicit confirmation, and CSRF protection.
-- Access, correction, portability, objections, and manual deletion requests are
-  intended to use the operator mailbox. That mailbox is not yet supplied; the
-  legal preview is not a functioning rights-request channel.
-- A review's “Report” link opens the review rules, which tell the reporter to
-  send the course/review details through the same contact form. The team can
-  investigate and use existing hide/delete moderation.
+- Access, correction, portability, objections, and manual deletion requests use
+  the operator email above, displayed on the public legal pages without login.
+- A review's “Report” link opens the review rules, which now display Yonatan's
+  shared contact and direct reports there by email, without a product rating or
+  login. The team can investigate and use existing hide/delete moderation.
 
 ## Database history
 
@@ -109,9 +164,11 @@ the documentation review did not change production permissions.
 
 ## Small-team operating procedure
 
-This is the proposed manual procedure for D4/D11; named handlers and an actual
-mailbox still need assignment. Keep case details in a restricted private record,
-never in this repository.
+Yonatan is the confirmed handler for D4/D11 and technical exports/deletions;
+absence cover is assigned by internal agreement to an available team member.
+The procedure below supports that allocation. Keep case details in a restricted
+private record, never in this repository. Assignment does not verify actual
+administrator access or change the existing no-database-operation constraint.
 
 1. **Receive a request:** record receipt, handler, request type and response due
    date. Check the mailbox regularly, including during exams and holidays.
@@ -143,8 +200,8 @@ and [EDPB breach guidance](https://www.edpb.europa.eu/sme/assess-the-risks/data-
 
 ## Local preview validation
 
-The contact helper tests cover inert sample mailboxes and a configured real
-mailto link. Browser review at 320px, 375px, 768px and desktop, in light/dark mode,
+The contact tests cover the supplied identity and an obfuscated display address
+without a raw email or mailto. Browser review at 320px, 375px, 768px and desktop, in light/dark mode,
 is still required: Edge was unavailable through the browser tools in this session
 and the surface inventory was empty. The page uses the existing responsive
 PageShell, wrapping text and breakable email addresses; this is not a substitute
@@ -170,5 +227,9 @@ The backend was deployed with `npm run deploy:backend` after the configuration
 check. Worker version 4745fa61-9c6e-4ba5-ae2e-28c943754139 returned a healthy
 response with a reachable database. The frontend release uses the authorized
 non-fast-forward merge into main and push to the Pages Git integration.
-The fictional contact information remains explicitly marked as a preview;
-publication does not resolve the outstanding operator and legal-notice facts.
+That release retained fictional preview contacts. The 10 September contact
+update replaces them with the supplied operator details. A subsequent copy cleanup
+removes public draft notices; outstanding assessments remain recorded internally.
+The contact update is committed on a dedicated
+branch; production publication uses a non-fast-forward merge into main and push
+to the existing Pages Git integration.

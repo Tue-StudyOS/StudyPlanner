@@ -3,6 +3,19 @@
 Reviewed: 8 September 2026. Repository baseline: `8da76f3` on
 `feature/dsgvo-minimum-compliance`.
 
+Follow-up, 10 September 2026: the user supplied Yonatan Dankner as responsible
+operator, with postal address and email. The shared privacy/imprint contact now
+uses those details with a plain-text `(at)` email at the user's request.
+Placeholder findings below describe the
+8 September baseline; see [current privacy notes](privacy-notes.md) for the update.
+Outstanding notice assessments, operational checks and any joint-controller
+responsibilities remain open.
+
+The subsequent browser-storage cleanup removes disk persistence for API caches,
+local diagnostics and the semester badge, and saves display preferences only on
+user changes. Storage findings below describe the audit baseline. The current
+inventory and outstanding deployed checks are in the linked privacy notes.
+
 ## Conclusion and scope
 
 Keep the simplified implementation. Most remaining work is completing truthful

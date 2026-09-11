@@ -449,6 +449,11 @@ and the frontend additionally stores them in `sessionStorage` for 24 h
 ([`sessionCache.ts`](../frontend/src/shared/utils/sessionCache.ts)) — the
 observed 1.43 MB entry.
 
+Update, 10 September 2026: the browser-storage cleanup changes this application
+cache to page memory. It still avoids repeat requests during SPA navigation, but
+a full reload now fetches again, subject to the unchanged HTTP cache headers.
+The measurements and scenario below describe the original implementation.
+
 So a real user fetches the 1.43 MB catalog **once per browser session**, not per
 page view. A load scenario that re-requests it every iteration would invent
 backend load that does not exist. `build-scenario.mjs` therefore splits the

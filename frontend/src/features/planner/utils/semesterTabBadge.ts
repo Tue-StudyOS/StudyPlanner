@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
+import { readSemesterBadge, setSemesterBadge } from '../../../shared/utils/semesterBadgeState.ts'
 import { LEGACY_PLANNER_ROUTE, ROUTES, semesterPath } from '../../routes'
 import { getCurrentSemesterLabel } from './semesterLabels'
 
@@ -9,39 +9,18 @@ import { getCurrentSemesterLabel } from './semesterLabels'
 export const SEMESTER_PLAN_CHANGED_EVENT = 'studyplanner:semester-plan-changed'
 const BADGE_CHANGED_EVENT = 'studyplanner:semester-tab-badge-changed'
 
-function readBadgeFlag(): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-  try {
-    return window.localStorage.getItem(BROWSER_STORAGE_KEYS.semesterTabBadge) === '1'
-  } catch {
-    return false
-  }
-}
-
 export function markSemesterBadge(): void {
-  if (typeof window === 'undefined') {
-    return
+  setSemesterBadge(true)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
   }
-  try {
-    window.localStorage.setItem(BROWSER_STORAGE_KEYS.semesterTabBadge, '1')
-  } catch {
-    // The badge event still updates the current tab when storage is unavailable.
-  }
-  window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
 }
 
 function clearBadgeFlag(): void {
-  if (typeof window === 'undefined') {
-    return
+  setSemesterBadge(false)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
   }
-  try {
-    window.localStorage.removeItem(BROWSER_STORAGE_KEYS.semesterTabBadge)
-  } catch {
-    // The in-memory event still clears the currently rendered badge.
-  }
-  window.dispatchEvent(new Event(BADGE_CHANGED_EVENT))
 }
 
 function isSemesterTabPath(pathname: string): boolean {
@@ -75,15 +54,15 @@ export function useSemesterTabBadge(): boolean {
   // Opening the current semester plan resolves the notification; visiting the
   // hub alone does not, so the card badge stays visible there.
   useEffect(() => {
-    if (location.pathname === semesterPath(getCurrentSemesterLabel()) && readBadgeFlag()) {
+    if (location.pathname === semesterPath(getCurrentSemesterLabel()) && readSemesterBadge()) {
       clearBadgeFlag()
     }
   }, [location.pathname])
 
-  return !isSemesterTabPath(location.pathname) && readBadgeFlag()
+  return !isSemesterTabPath(location.pathname) && readSemesterBadge()
 }
 
 export function useSemesterCardBadge(): boolean {
   useBadgeRevision()
-  return readBadgeFlag()
+  return readSemesterBadge()
 }
