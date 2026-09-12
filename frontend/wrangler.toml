@@ -4,8 +4,9 @@ name = "studyplaner"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-05-21"
 
-# Deployed Pages builds use same-origin /api/* (see apiBaseUrl.ts). The value below
-# is only a local-dev override when running Vite on localhost against production.
+# apiBaseUrl.ts uses VITE_API_BASE_URL when present, otherwise same-origin on
+# deployed hosts. A plain Vite build does not read this Wrangler configuration;
+# set the build environment explicitly (see docs/cloudflare-setup.md).
 [vars]
 VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 

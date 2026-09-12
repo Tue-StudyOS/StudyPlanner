@@ -5,9 +5,16 @@ Run commands from the repo root unless noted.
 ## 1. Scrape ALMA
 
 ```powershell
-uv run python -m alma_scraper.cli --details --from-semester "Sommer 2022"
-python backend/scripts/export_sqlite_to_d1.py --skip-schema --data-out backend/.tmp/d1-seed.sql
+cd data_collection
+uv sync
+uv run python -m alma.cli --details --from-semester "Sommer 2022"
+cd ..
 ```
+
+The scraper writes JSON under data_collection/output/. It does not update the
+tracked alma.sqlite automatically. Review the output and use the
+[in-place ALMA import](../docs/cloudflare-runtime-config.md#catalog-refresh) for
+production; include every period to retain.
 
 ## 2. Scrape Moodle
 
@@ -62,22 +69,18 @@ uv run --no-project --with beautifulsoup4 --with requests python -m data_collect
 
 ## 4. Update D1
 
+Prepare a local catalog using the [local setup](../docs/cloudflare-development.md)
+first. Then apply the generated learning-platform supplements locally:
+
 ```powershell
-npm run db:verify-config
-npm run db:migrate:local
 cd backend
-npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
 npx wrangler d1 execute DB --local --file data/seed_moodle_links.sql
 npx wrangler d1 execute DB --local --file data/seed_illias.sql
 ```
 
-Use `--remote` instead of `--local` only when intentionally updating the deployed
-`studyplanner-db` binding. After remote data updates, deploy the Worker and
-frontend from the repo root:
-
-```powershell
-npm run deploy:backend
-cd frontend
-npm run build
-npx wrangler pages deploy dist --project-name studyplaner
-```
+Production imports require a reviewed input and backup. Do not replace --local
+with --remote on the SQLite bootstrap seed: it is not a production refresh.
+Use the [catalog refresh guide](../docs/cloudflare-runtime-config.md#catalog-refresh)
+for ALMA, then apply reviewed supplemental seeds to the same DB. Data-only changes
+normally do not require a code deployment; use the [deployment guide](../docs/cloudflare-setup.md)
+when code or configuration changes too.

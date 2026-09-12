@@ -2,7 +2,7 @@
 
 Project instructions for the ALMA course-catalog scraper. Read this before
 changing anything under `data_collection/`. For runnable commands see
-[`QUICKSTART.md`](QUICKSTART.md); for environment setup see [`SETUP.md`](SETUP.md).
+[`QUICKSTART.md`](QUICKSTART.md); for environment setup see [setup](QUICKSTART.md#setup).
 
 ## What this is
 

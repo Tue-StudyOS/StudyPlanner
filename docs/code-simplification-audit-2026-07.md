@@ -1,5 +1,9 @@
 # Code Simplification Audit — July 2026
 
+> Historical snapshot, not current setup instructions. Resource names, counts and
+> open findings below describe the audit at that time. For current operations use
+> [runtime configuration](cloudflare-runtime-config.md) and [local setup](cloudflare-development.md).
+
 ## Product surfaces
 
 The main navigation contains three student workflows:

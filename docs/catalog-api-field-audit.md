@@ -8,7 +8,7 @@ This note records the database fields exposed by the API-backed course catalog. 
 
 The current overview and favorites cards need these fields:
 
-- stable course id
+- numeric catalog course id (not stable across reseeds)
 - course number
 - title
 - lecturer display names
@@ -40,12 +40,12 @@ The frontend uses these public catalog responses:
 1. `GET /api/catalog/courses`
    - frontend-ready list payload for the overview and favorites views
    - accepts `period=<periodId>`; without it the newest semester is returned
+   - `period=all` requests the deduplicated multi-period catalog used by the overview
 2. `GET /api/catalog/courses/<id>`
    - detail payload with schedule, content, exams, and regulation options
 3. `GET /api/catalog/periods`
    - semesters available in the multi-period catalog (`periodId`, `label`,
-     `courseCount`), newest first; drives the semester selector in the catalog
-     overview and the period-matched course list in the semester planner
+     `courseCount`), newest first; supports period-aware catalog and planner requests
 
 The API returns frontend-ready lecturers, types, ECTS, regulation options, and
 complete schedule data. ALMA may store a lecture and its exercise/tutoriums as

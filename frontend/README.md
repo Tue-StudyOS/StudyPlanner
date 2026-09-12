@@ -1,60 +1,69 @@
-# StudyPlanner Frontend
+# StudyPlanner frontend
 
-## Quick start
+React 19, TypeScript, Vite and Tailwind CSS 4. Pages Functions live in `functions/`;
+the browser application lives in `src/`.
 
-```bash
+## Run locally
+
+Complete the [one-time backend and D1 setup](../docs/cloudflare-development.md#one-time-setup),
+then start Vite from the repository root:
+
+```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-The Vite app runs at `http://localhost:5173`.
+Open [localhost:5173/catalog](http://localhost:5173/catalog). Keep
+`npx wrangler dev` running from `backend/` in another terminal.
 
-## Important local API behavior
+## API configuration
 
-When the frontend runs on `localhost` and `VITE_API_BASE_URL` is not set, it calls the local Worker at:
+`src/shared/utils/apiBaseUrl.ts` resolves the API base as follows:
 
-```text
-http://localhost:8787
+1. A non-empty `VITE_API_BASE_URL` wins, with its trailing slash removed.
+2. On localhost or 127.0.0.1, the default is `http://localhost:8787`.
+3. On other hosts, the default is same-origin `/api/*`.
+
+Use localhost:5173 for the checked backend CORS allow-list. Vite reads overrides
+from frontend env files and the shell; editing an env file requires a restart.
+Wrangler's `[vars]` does not configure a plain local `npm run build`.
+
+For deliberate testing with a deployed account, see
+[the production API override](../docs/cloudflare-development.md#troubleshooting).
+Sessions use HttpOnly cookies and CSRF proofs; see [authentication](../docs/authentication.md).
+
+## Checks
+
+From `frontend/`:
+
+```powershell
+npm test
+npm run lint
+npm run build
 ```
 
-That means login, register, favorites, planner, transcript, and other personal features require the backend to run too.
+Unit tests live in `tests/` and run with Node's TypeScript stripping. Runtime
+imports in tested modules must use explicit `.ts` extensions.
 
-## Test this frontend branch with your existing deployed account
+For transcript parser changes:
 
-Create `frontend/.env.local` (gitignored):
-
-```bash
-VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
+```powershell
+npm run test:transcript-parser
+npm run validate:transcripts
 ```
 
-Then restart Vite:
+The validation script reads local PDF fixtures; inspect
+`scripts/validate-transcript-pdfs.ts` for its fixture paths. Personal PDFs must
+remain uncommitted. For UI changes, check 320px, 375px, 768px and desktop in light
+and dark mode using the [mobile checklist](../docs/mobile-testing.md).
 
-```bash
-npm run dev
-```
+## Build and deploy
 
-Now `http://localhost:5173` talks to the same production API Worker as `https://studyplaner.pages.dev`, so your deployed account can be used locally.
+`npm run build` typechecks and creates `dist/`. `npm run preview` previews that
+static build; it does not run Pages Functions. Test the gateway with
+`npx wrangler pages dev dist --port 8789` and the backend/MCP processes in the
+[AI integration guide](../docs/ai-integrations-setup.md#local-smoke-test).
 
-Production builds call the Worker's public URL directly instead of the Pages
-`/api` proxy. The Pages Functions proxy remains in place as a fallback path.
-
-> The reason previously given here — that service bindings crash Python Workers
-> during isolate initialization while external HTTP ingress is unaffected
-> ([workerd#6624](https://github.com/cloudflare/workerd/issues/6624)) — **is not
-> supported by later measurement.** Every isolate hang recorded in
-> `docs/load-test-2026-08.md` was observed on direct `workers.dev` ingress, so
-> the ingress path is not what distinguishes them. Calling directly is still
-> reasonable (one hop fewer), but not for that reason.
-
-## Full local auth testing
-
-For isolated local users you also need:
-
-1. a local D1 database with migrations + seed data
-2. `backend/.dev.vars` with `AUTH_TOKEN_SECRET`
-3. `npx wrangler dev --persist-to .wrangler/state`
-
-`npx wrangler login` alone is not enough for auth. It logs the CLI into Cloudflare, but it does not create `AUTH_TOKEN_SECRET` for local Worker runs.
-
-See the repo root `README.md` for the full backend + D1 setup.
+See [Cloudflare deployment](../docs/cloudflare-setup.md) for explicit build-time
+API configuration and branch preview versus production deployment.
