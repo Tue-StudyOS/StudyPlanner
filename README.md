@@ -9,8 +9,6 @@ Computer Science and related study programs.
 
 [![StudyPlanner's live catalog with search, course cards, ECTS and study-area badges](docs/images/catalog.png)](https://studyplaner.pages.dev/catalog)
 
-*The live catalog, captured on 11 September 2026.*
-
 ## What you can do
 
 - Browse and filter the public ALMA catalog, with course details and schedules.
