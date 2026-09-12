@@ -1,176 +1,142 @@
-# Cloudflare Setup
+# Deploy to Cloudflare
 
-See `docs/cloudflare-runtime-config.md` for the current active resource names.
-The approved production binding is `studyplanner-db`
-(`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`). Do not switch the active database or
-recreate it during routine deployment or recovery work.
+For development on your computer, use the [local setup](cloudflare-development.md).
+This guide deploys the existing production resources listed in
+[runtime configuration](cloudflare-runtime-config.md).
 
-## 1. Prerequisites
+## Before deployment
 
-Install Wrangler globally or use `npx`.
+From the repository root:
 
-```bash
-npm install -g wrangler
-```
-
-Login:
-
-```bash
-npx wrangler login
-```
-
-## 2. Confirm the active D1 database
-
-The current active database already exists in Cloudflare:
-
-```text
-studyplanner-db = 80ca9092-ddc6-454a-b04a-8ccae85ef2f5
-```
-
-Run the config guard before applying migrations or deploying:
-
-```bash
+```powershell
 npm run db:verify-config
+npm run test:frontend
+npm --prefix frontend run lint
+npm --prefix frontend run build
 ```
 
-## 3. Apply the schema migration
+Use a dedicated branch. Merge completed work into main with a non-fast-forward
+merge, as required by [AGENTS.md](../AGENTS.md). Authenticate Wrangler with
+`npx wrangler login` when deploying from a developer machine.
 
-Local:
+The active database already exists: **studyplanner-db**
+(`80ca9092-ddc6-454a-b04a-8ccae85ef2f5`), binding **DB**.
+Do not create or swap a database for a normal deployment. Apply any required
+migrations locally first. Remote schema changes require approval and a backup:
 
-```bash
-npm run db:migrate:local
-```
-
-Remote, only after explicit approval:
-
-```bash
+```powershell
+# Repository root, after approval
 npm run db:migrate:remote
 ```
 
-## 4. Export the tracked SQLite data for D1
+Do not use the legacy SQLite bootstrap seed as a production restore. See
+[catalog refresh](cloudflare-runtime-config.md#catalog-refresh).
 
-From the repo root:
+## Backend Worker
 
-```bash
-python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql
-```
+The deployment script runs the config guard before Wrangler:
 
-## 5. Import the generated data dump into D1
-
-Local:
-
-```bash
-cd backend
-npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
-```
-
-Remote, only after explicit approval and backup:
-
-```bash
-cd backend
-npx wrangler d1 execute DB --remote --file .tmp/d1-seed.sql
-```
-
-## 6. Run the backend locally
-
-```bash
-cd backend
-npx wrangler dev
-```
-
-## 7. Deploy the backend
-
-```bash
-npm run db:verify-config
+```powershell
+# Repository root
 npm run deploy:backend
 ```
 
-## 8. Connect the frontend in Cloudflare Pages
+The Worker requires the production AUTH_TOKEN_SECRET secret, the DB binding and
+ALLOWED_ORIGINS. To provision a missing production secret, enter it at Wrangler's
+interactive prompt:
 
-Cloudflare Dashboard:
-
-```text
-Workers & Pages → Create application → Pages → Import an existing Git repository
+```powershell
+cd backend
+npx wrangler secret put AUTH_TOKEN_SECRET
 ```
 
-Use these values:
+Local .dev.vars values are not uploaded. Rotating an existing signing secret
+invalidates sessions, so do not replace it as a routine setup step.
 
-```text
-Repository: this repository
-Root directory: frontend
-Build command: npm run build
-Build output directory: dist
-Production branch: main
+## MCP Worker
+
+Only needed when the adapter changes, or during initial setup. From the root:
+
+```powershell
+npm run test:mcp
+npm run build:mcp
+cd integrations/studyplanner-mcp
+npx wrangler deploy
 ```
 
-Set this environment variable in Pages. Current production builds call the API Worker origin directly:
+Deploy the API before the MCP adapter, and the adapter before a Pages gateway
+change that depends on it.
 
-```text
-VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev
+## Frontend and Pages Functions
+
+From the repository root, this builds with an explicit production API origin and
+deploys a **branch preview**:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
+npm run build
+npx wrangler pages deploy dist --project-name studyplaner --branch <feature-branch>
+Remove-Item Env:VITE_API_BASE_URL
 ```
 
-Also keep the Pages Functions service bindings from `frontend/wrangler.toml` so the public gateway can forward `/mcp`, `/messages`, `/sse`, `/privacy`, and `/app/catalog-results.html` to `studyplanner-mcp`. The API service binding remains configured for manual gateway tests, but browser API calls go directly to `studyplanner-api` to avoid Cloudflare Worker-to-Python-Worker proxy hangs.
+Replace the branch placeholder with your actual feature branch. Run this in a
+dedicated terminal so the temporary env override does not affect local development.
 
-## 9. Connect the backend in Cloudflare Workers
+For an approved production release, build the completed main checkout and use:
 
-Cloudflare Dashboard:
-
-```text
-Workers & Pages → Create application → Worker → Import an existing Git repository
+```powershell
+npx wrangler pages deploy dist --project-name studyplaner --branch main
 ```
 
-Use these values:
+That last command runs from frontend/ after the same build step. Explicit branch
+selection avoids publishing a feature branch to the wrong destination.
 
-```text
-Repository: this repository
-Root directory: repository root
-Build command: automatic / none
-Deploy command: npm run deploy:backend
+Vite reads VITE_API_BASE_URL at build time. If it is absent, deployed hosts use
+same-origin /api/*; a configured value points browsers directly at that origin.
+Do not assume Wrangler's [vars] supplies the variable to a plain local Vite build.
+Pages gateway forwarding is configured separately with STUDYPLANNER_API_ORIGIN
+and the service bindings in frontend/wrangler.toml.
+
+## Automatic deployments
+
+For a Git-connected Pages project, configure:
+
+| Setting | Value |
+| --- | --- |
+| Project | studyplaner |
+| Root directory | frontend |
+| Build command | npm run build |
+| Output directory | dist |
+| Production branch | main |
+| Build variable | VITE_API_BASE_URL=https://studyplanner-api.ben-tischberger.workers.dev |
+
+Configure preview variables and gateway bindings as well if branch previews are
+enabled. Such previews share production services unless explicitly isolated.
+
+A push triggers a deployment **only if** the corresponding Cloudflare Git
+integration and branch/watch-path settings are enabled. Repository files alone
+do not establish that dashboard state. The checked GitHub workflow
+[verify-cloudflare-config.yml](../.github/workflows/verify-cloudflare-config.yml)
+verifies config; it does not deploy.
+
+For Worker Git integration, use the repository root and deploy command
+`npm run deploy:backend`. Verify the Cloudflare deployment result after a push.
+
+## Smoke checks
+
+```powershell
+Invoke-RestMethod https://studyplanner-api.ben-tischberger.workers.dev/health
+Invoke-RestMethod 'https://studyplaner.pages.dev/api/catalog/courses?limit=2'
+Invoke-RestMethod https://studyplaner.pages.dev/api/ai/meta
 ```
 
-Make sure the Worker has the `DB` D1 binding, the `ALLOWED_ORIGINS` variable, and
-the `AUTH_TOKEN_SECRET` Worker secret. Apply all pending D1 migrations before
-deploying a Worker version that queries their new columns.
+Also check the catalog in a signed-out browser, refresh a course detail URL, and
+verify login, planner persistence and the privacy page when those surfaces change.
+For MCP discovery use the [integration smoke checks](ai-integrations-setup.md).
 
-Recommended `ALLOWED_ORIGINS` value for Pages production plus preview deployments:
+## Team access
 
-```text
-https://studyplaner.pages.dev,https://*.studyplaner.pages.dev,http://localhost:5173
-```
-
-## 10. Domains
-
-Recommended split:
-
-```text
-www.example.com  → Cloudflare Pages
-api.example.com  → Cloudflare Worker
-```
-
-After connecting domains, update:
-
-- `VITE_API_BASE_URL`
-- `ALLOWED_ORIGINS`
-
-## 11. Team access
-
-GitHub:
-
-- Add collaborators or use a GitHub organization.
-- Protect `main`.
-- Prefer pull requests for all production changes.
-
-Cloudflare:
-
-- Invite team members through account members.
-- Require MFA, individual accounts, and the smallest role that supports each
-  person's duties; avoid giving everyone super-admin access.
-- Keep at least two trusted admins for production access.
-- Review access quarterly and after every team change. Record the result in the
-  restricted compliance store; do not commit member/account details.
-
-## 12. Known limits for the first migration
-
-- The frontend still relies on mock/bootstrap JSON.
-- Full-text search from SQLite is not migrated in the first D1 step.
-- The local scraper stays local and is not deployed to Cloudflare.
+Use individual Cloudflare accounts, MFA and the smallest sufficient role. Protect
+main and require the config verification check. Review account access after team
+changes; keep private access records outside the repository.

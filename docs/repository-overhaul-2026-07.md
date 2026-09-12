@@ -1,5 +1,9 @@
 # Repository Overhaul Report — July 2026
 
+> Historical snapshot, not current setup instructions. Resource names, counts and
+> open findings below describe the audit at that time. For current operations use
+> [runtime configuration](cloudflare-runtime-config.md) and [local setup](cloudflare-development.md).
+
 ## Scope
 
 This overhaul reviewed the tracked repository, the production D1 catalog, the

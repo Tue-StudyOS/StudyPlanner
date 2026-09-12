@@ -1,5 +1,9 @@
 # Cloudflare open-testing audit
 
+> Historical snapshot, not current setup instructions. Resource names, counts and
+> open findings below describe the audit at that time. For current operations use
+> [runtime configuration](cloudflare-runtime-config.md) and [local setup](cloudflare-development.md).
+
 ## Scope
 
 This document is the canonical repo-side audit and planning note for the first open-testing Cloudflare setup. For the current deployable resource names and guard commands, see `docs/cloudflare-runtime-config.md`.
@@ -583,7 +587,7 @@ When the scraper/importer evolves, prefer this order:
 | --- | --- |
 | `backend/data/alma.sqlite` | still required for the current scraper -> SQLite -> D1 bootstrap flow |
 | `einzupflegene_po/` | current official PO 2021 seed source used by `backend/scripts/export_sqlite_to_d1.py` |
-| `docs/cloudflare-test-plan.md` | can stay as historical/operator context if rewritten to point at this audit |
+| `docs/cloudflare-setup.md` | current deployment instructions supersede the removed initial migration test plan |
 
 ### Naming and migration hygiene follow-ups
 
@@ -623,7 +627,7 @@ When the scraper/importer evolves, prefer this order:
 
 ## Canonical use of this document
 
-Use this file as the main reference for follow-up Cloudflare work.
+Use this file only as historical evidence. Current Cloudflare work follows [runtime configuration](cloudflare-runtime-config.md).
 
 Other repo docs should summarize, link here, and avoid reintroducing conflicting statements about:
 

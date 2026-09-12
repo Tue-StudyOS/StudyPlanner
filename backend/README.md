@@ -1,6 +1,6 @@
 # StudyPlanner API Backend
 
-This folder contains the Cloudflare Worker API and D1 migration assets. See `../docs/cloudflare-runtime-config.md` for the canonical active Cloudflare resource names.
+This folder contains the Cloudflare Worker API and D1 migration assets. See [runtime configuration](../docs/cloudflare-runtime-config.md) for the canonical active Cloudflare resource names.
 
 ## Structure
 
@@ -42,6 +42,12 @@ backend/
   - `GET /api/me/semester-plans`, `GET/PUT/DELETE /api/me/semester-plans/<semester>`
   - `POST /api/me/semester-plans/<semester>/balance`
   - `GET /api/me/progress`
+- Additional routes:
+  - `GET /api/config`
+  - `GET /api/catalog/courses/<id>/reviews`
+  - `PUT/DELETE /api/me/course-reviews/<courseId>`
+  - `DELETE /api/me/account`, `DELETE /api/me/transcript-data`
+  - `GET/POST /api/client-errors` (read access is authenticated and scoped)
 - `POST /api/feedback` – public user feedback submission
 
 ## D1 databases
@@ -53,51 +59,41 @@ backend/
 
 ## User/auth schema
 
-The user-owned schema is intentionally reduced to three tables:
+The core account state uses three tables:
 
 1. `user_auth` — username, email, password hash/salt, auth timestamps
 2. `user_state` — display/profile settings, favorites JSON, semester plans JSON
 3. `user_progress` — completed courses JSON, transcript review items JSON
 
-`user_sessions` is removed. Auth uses stateless HMAC-signed bearer tokens with `username`, `iat`, and `exp` claims. Configure the signing key as a Worker secret:
+Additional user-owned data includes course reviews and external links; these
+use stable ALMA course keys and must survive catalog reseeds.
 
-```bash
-cd backend
-npx wrangler secret put AUTH_TOKEN_SECRET --name studyplanner-api
-```
-
-Logout deletes the client-side token only. Trade-off: without server-side token state there is no immediate all-device revocation; tokens remain valid until `AUTH_TOKEN_TTL_SECONDS` expires.
+There is no user_sessions table. Sessions are HMAC-signed tokens in HttpOnly
+cookies, with CSRF protection for authenticated mutations. Changing credentials
+increments the account session version and invalidates old sessions. Logout
+expires the browser cookie and clears private browser caches. See
+[authentication](../docs/authentication.md) for the full contract.
 
 ## Local development
 
-```bash
+Complete the [one-time local setup](../docs/cloudflare-development.md#one-time-setup)
+for dependencies, backend/.dev.vars, local migrations and catalog seeding.
+Then run from the repository root:
+
+```powershell
 cd backend
 npx wrangler dev
 ```
 
-For local auth testing, provide `AUTH_TOKEN_SECRET` via an ignored local `.dev.vars` file or your Wrangler secret setup.
+The Worker listens on http://localhost:8787. No FastAPI/Uvicorn server or pip
+installation is needed; Wrangler runs the Python Worker runtime.
 
 ## D1 workflow
 
-Apply schema migrations locally first through the checked `DB` binding from the repo root:
-
-```bash
-npm run db:verify-config
-npm run db:migrate:local
-```
-
-Create a data-only SQL dump from the tracked SQLite database plus the official PO 2021 JSON seeds from `einzupflegene_po/`:
-
-```bash
-python backend/scripts/export_sqlite_to_d1.py --data-out backend/.tmp/d1-seed.sql
-```
-
-Import the generated dump into the local D1 database:
-
-```bash
-cd backend
-npx wrangler d1 execute DB --local --file .tmp/d1-seed.sql
-```
+Use the [local setup](../docs/cloudflare-development.md) for a fresh local DB.
+The SQLite exporter needs --skip-schema when producing a seed so it does not
+rewrite an existing migration. Use the [in-place catalog refresh](../docs/cloudflare-runtime-config.md#catalog-refresh)
+for production ALMA updates. The local bootstrap snapshot is not a production backup.
 
 ## Moodle learning-platform links
 

@@ -97,7 +97,11 @@ https://studyplaner.pages.dev/sse
 
 ## Local smoke test
 
-Run the three public pieces locally:
+Complete the [one-time local setup](cloudflare-development.md#one-time-setup).
+Run the three public pieces in separate terminals, each starting at the repo root.
+Keep the backend running so Wrangler can discover its local service binding.
+These commands test public gateway endpoints; ordinary app development needs only
+Vite and the backend.
 
 ```bash
 # terminal 1: backend AI facade at http://localhost:8787
@@ -127,46 +131,17 @@ curl -X POST http://localhost:8789/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-## Deploy order
+## Deployment
 
-1. Verify config:
+Follow the [deployment guide](cloudflare-setup.md): API first, then MCP, then
+Pages. It includes checks, build-time API configuration and explicit preview/main
+branch selection. After deployment, verify the public endpoints:
 
-   ```bash
-   npm run db:verify-config
-   ```
-
-2. Deploy the backend AI facade:
-
-   ```bash
-   npm run deploy:backend
-   ```
-
-3. Deploy the MCP Worker:
-
-   ```bash
-   npm run test:mcp
-   npm run build:mcp
-   cd integrations/studyplanner-mcp
-   npx wrangler deploy
-   ```
-
-4. Deploy the Pages gateway/frontend:
-
-   ```bash
-   cd frontend
-   npm run build
-   npx wrangler pages deploy dist --project-name studyplaner
-   ```
-
-5. Production smoke tests:
-
-   ```bash
-   curl https://studyplaner.pages.dev/api/ai/meta
-   curl https://studyplaner.pages.dev/privacy
-   curl -X POST https://studyplaner.pages.dev/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-   ```
+```powershell
+Invoke-RestMethod https://studyplaner.pages.dev/api/ai/meta
+Invoke-WebRequest https://studyplaner.pages.dev/privacy
+Invoke-RestMethod -Method Post -Uri https://studyplaner.pages.dev/mcp -ContentType 'application/json' -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
 
 ## What unlocks the next phases
 

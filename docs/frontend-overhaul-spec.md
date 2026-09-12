@@ -1,5 +1,9 @@
 # Frontend Overhaul Spec
 
+> Design proposal with historical baseline descriptions. This is not a current
+> feature inventory or deployment runbook. See the [documentation index](README.md)
+> for maintained guides; proposed features are not necessarily implemented.
+
 Goal: turn the app from a nice demo into a daily-use tool. The Planner becomes the
 primary surface, the Catalog becomes a semester-independent course directory with
 offering-likelihood data, and all views get decluttered: minimal info first, details

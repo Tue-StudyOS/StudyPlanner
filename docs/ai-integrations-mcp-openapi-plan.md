@@ -1,5 +1,9 @@
 # AI Integrations Plan: ChatGPT Actions, Hosted MCP, and StudyPlanner Tools
 
+> Design proposal with historical baseline descriptions. This is not a current
+> feature inventory or deployment runbook. See the [documentation index](README.md)
+> for maintained guides; proposed features are not necessarily implemented.
+
 This document describes how StudyPlanner can expose the course catalog and personal planning features as native AI tools for ChatGPT first and Claude/MCP second. It is intentionally implementation-oriented so a future coding agent can build the feature incrementally.
 
 ## Decisions for the first implementation

@@ -1,70 +1,73 @@
-# Semester Planner Model and API
+# Semester planner model and API
 
-This note defines the backend shape for account-based weekly semester plans after the user-schema reduction.
+A signed-in student can save a weekly plan per semester. The frontend combines
+catalog appointments with selected courses, hidden slots and optional manual
+slots. Changes are automatically saved after a debounce; there is no separate
+edit/save workflow.
 
-## Goal
+## Storage
 
-A signed-in student can save one planned weekly schedule per semester. The planner does not invent new course times; it stores which courses are in the plan and derives the visible weekly grid from course schedule data already present in D1.
+Plans live in user_state.semester_plans_json, keyed by semester label. Each entry
+contains semesterLabel, optional title/notes, courseIds, courseAssignments,
+hiddenSlotIds, manualSlots, createdAtUnix and updatedAtUnix.
 
-## Data model
+The current API still uses numeric catalog IDs, serialized as strings in its
+responses. Those IDs are not stable across ALMA reseeds. Do not copy that legacy
+pattern into new user-generated data: use stable ALMA course keys as described in
+[runtime configuration](cloudflare-runtime-config.md#catalog-refresh).
 
-Semester plans are stored inside `user_state.semester_plans_json`. The JSON value is an object keyed by semester label.
+## Routes
 
-Each semester entry contains:
+All routes require a session; mutations require X-CSRF-Token.
 
-- `semesterLabel` – for example `SS 2026`
-- `title` – optional display title
-- `notes` – optional free text
-- `courseIds` – selected catalog course ids as strings
-- `courseAssignments` – optional course-id to regulation-area mapping
-- `hiddenSlotIds` – optional hidden schedule slots
-- `createdAtUnix`, `updatedAtUnix`
+| Method and path | Behavior |
+| --- | --- |
+| GET /api/me/semester-plans | List saved semester headers |
+| GET /api/me/semester-plans/<semester> | Read a saved plan |
+| PUT /api/me/semester-plans/<semester> | Create or replace a plan |
+| DELETE /api/me/semester-plans/<semester> | Remove a plan |
+| POST /api/me/semester-plans/<semester>/balance | Calculate regulation assignments without saving |
 
-This replaces the old per-plan tables and keeps all account/planner state in `user_state`.
-
-## Why this is enough
-
-- the real weekly slots already exist in `appointments` / `parallel_groups`
-- a saved semester plan only needs the selected course set plus small UI metadata
-- overlap detection can be computed from the stored course ids plus public schedule data
-- the model stays small and easy to export as account state
-
-## API
-
-### `GET /api/me/semester-plans`
-
-Returns the list of saved semester headers for the current user.
-
-### `GET /api/me/semester-plans/<semester_label>`
-
-Returns one semester plan plus its selected course ids.
-
-### `PUT /api/me/semester-plans/<semester_label>`
-
-Creates or replaces the saved plan for one semester.
-
-Request body:
+A PUT body has this shape (IDs and area codes are illustrative; use current
+catalog IDs and compatible regulation codes):
 
 ```json
 {
-  "title": "My SS 2026 plan",
-  "notes": "optional",
-  "courseIds": ["964", "978", "1006"],
-  "courseAssignments": {"964": "INFO"},
-  "hiddenSlotIds": []
+  "title": "My semester",
+  "notes": null,
+  "courseIds": ["964", "978"],
+  "courseAssignments": {"964": "INFO-INFO"},
+  "hiddenSlotIds": [],
+  "manualSlots": [
+    {"id": "manual-964", "courseId": "964", "day": "Monday", "time": "10:00-12:00"}
+  ]
 }
 ```
 
-### `DELETE /api/me/semester-plans/<semester_label>`
+Manual slots may also include room and label. Save validation rejects unknown
+course IDs and normalizes stored assignments against the selected regulation.
 
-Removes one saved semester plan.
+## Regulation balancing
 
-## Frontend contract
+The balance request accepts courseIds and optional courseAssignments. Its response
+contains assignments, warnings, unassignedCourseIds, summary and strictSolutionFound.
+It uses explicit regulation mappings, completed ECTS and effective area capacity
+(maxEcts when present, otherwise requiredEcts).
 
-The frontend planner combines:
+The backend favors assigning courses and balanced area distribution before
+preserving previous preferences. Incompatible or capacity-limited courses can
+remain unassigned. Compatible manual assignments may overfill an area and produce
+a visible warning. The balance endpoint itself does not persist; the frontend
+adopts its result into the plan and uses normal autosave.
 
-- favorite courses as draggable candidates
-- public catalog schedule data for rendering the grid
-- saved course ids from the semester-plan API for persistence
+Known API limitation retained from earlier QA: strictSolutionFound describes the
+searchable course set, so unknown/unmapped requested courses can still appear in
+warnings while that flag is true. Consumers must also inspect warnings and
+unassignedCourseIds.
 
-This keeps the planner aligned with the reduced user schema and avoids duplicating schedule logic in separate user-specific tables.
+## Source references
+
+- [Persistence and slot validation](../backend/src/services/user_semester_plans.py).
+- [Backend balancing](../backend/src/services/planner_assignments.py).
+- [Frontend state and autosave](../frontend/src/features/planner/hooks/useSemesterPlanner.ts).
+- [Authentication](authentication.md) and [mobile checklist](mobile-testing.md).

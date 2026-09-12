@@ -2,6 +2,9 @@
 
 ## Setup
 
+Run the commands in this guide from `data_collection/` (from the repository root,
+run `cd data_collection` first). Python 3.11+ is required.
+
 ### Option 1: Using `uv` (Recommended)
 
 1. **Install dependencies:**
