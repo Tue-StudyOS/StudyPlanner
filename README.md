@@ -22,6 +22,28 @@ Computer Science and related study programs.
 Catalog browsing is public. Personal plans and progress use an account. Tour
 examples are isolated from real account data.
 
+## AI integrations and public links
+
+The public integration is read-only and requires no authentication. It supports
+catalog search, course-number resolution and course details, with no access to
+accounts, profiles, progress, semester plans, transcripts or credentials.
+
+| Link | Purpose |
+| --- | --- |
+| [Web app and public gateway](https://studyplaner.pages.dev) | Main application and integration gateway |
+| [AI metadata](https://studyplaner.pages.dev/api/ai/meta) | Integration metadata and discovery |
+| [OpenAPI schema](https://studyplaner.pages.dev/api/ai/openapi.json) | Import URL for ChatGPT Custom GPT Actions; authentication: None |
+| [MCP endpoint](https://studyplaner.pages.dev/mcp) | Remote Claude/MCP connector URL; authentication: None |
+| [SSE discovery](https://studyplaner.pages.dev/sse) | Compatibility discovery URL for older MCP clients |
+| [Privacy policy](https://studyplaner.pages.dev/privacy) | Privacy URL for integration setup |
+
+The full [ChatGPT setup](docs/ai-integrations-setup.md#chatgpt-custom-gpt-setup)
+retains the suggested GPT instructions and example prompts. The
+[Claude/MCP setup](docs/ai-integrations-setup.md#claude--mcp-setup) includes the
+Claude Desktop bridge configuration and discovery troubleshooting.
+For the three-terminal backend/MCP/Pages workflow and request examples, use the
+[local AI gateway smoke test](docs/ai-integrations-setup.md#local-smoke-test).
+
 ## Run locally
 
 First time here? Follow the **[one-time setup](docs/cloudflare-development.md#one-time-setup)**
@@ -84,6 +106,44 @@ it during deployment. Keep `AUTH_TOKEN_SECRET` out of Git.
 [Runtime configuration](docs/cloudflare-runtime-config.md) documents resource names,
 catalog refresh safeguards and the production-wide simulated-semester toggle.
 [Authentication](docs/authentication.md) explains cookies and CSRF protection.
+
+| Database | Name | ID |
+| --- | --- | --- |
+| Active, binding `DB` | `studyplanner-db` | `80ca9092-ddc6-454a-b04a-8ccae85ef2f5` |
+| Previous test database | `studyplaner-db-test` | `297f7a28-9069-431d-b989-49acf2537513` |
+
+Changing the active binding requires explicit approval. Database IDs are public
+configuration; signing secrets and generated credentials must never be committed.
+
+### Simulated semester
+
+The existing onboarding test toggle sets `SS 2025`, so the upcoming winter is
+`WS 2025/26`. These commands run from the repository root:
+
+```powershell
+npm run sim:status  # read the current production setting
+npm run sim:on      # set the simulated current semester to SS 2025
+npm run sim:off     # restore the real, date-derived semester
+```
+
+`sim:on` and `sim:off` write to production D1 and affect all visitors after reload,
+without a redeploy. See [runtime configuration](docs/cloudflare-runtime-config.md#simulated-semester)
+for the setting and how to choose a different semester.
+
+### Documentation shortcuts
+
+- [AI integration setup](docs/ai-integrations-setup.md)
+- [Runtime configuration and catalog refresh](docs/cloudflare-runtime-config.md)
+- [Local development and database setup](docs/cloudflare-development.md)
+- [Authentication and request security](docs/authentication.md)
+- [Mobile testing](docs/mobile-testing.md)
+- [Backend routes and tooling](backend/README.md)
+- [July repository overhaul report](docs/repository-overhaul-2026-07.md) — historical
+- [July code simplification audit](docs/code-simplification-audit-2026-07.md) — historical
+
+All documents previously listed in this README remain available above. Detailed
+setup examples live in their linked guides; the [documentation index](docs/README.md)
+covers the rest of the repository.
 
 [Privacy](https://studyplaner.pages.dev/privacy) ·
 [Imprint](https://studyplaner.pages.dev/impressum)

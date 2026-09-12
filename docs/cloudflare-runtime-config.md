@@ -90,3 +90,9 @@ sim:on sets SS 2025, making WS 2025/26 the upcoming winter semester.
 sim:off restores date-derived behavior. These settings affect all visitors after
 reload, without redeployment. This historical semester is a test fixture, not a
 claim about the latest available catalog.
+
+To choose another simulated semester, change the value in the root package.json
+sim:on script to an `SS <year>` or `WS <year>/<yy>` label before running it.
+The setting is stored in app_settings as simulated_current_semester_label;
+migration 0025 introduced that table and the toggle. Returning visitors may need
+one page reload to pick up a change.
