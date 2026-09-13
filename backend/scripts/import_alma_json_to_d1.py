@@ -1032,7 +1032,11 @@ def compare_catalog_snapshots(
     return problems
 
 
-def format_snapshot_report(before: CatalogSnapshot, after: CatalogSnapshot) -> str:
+def format_snapshot_report(before: CatalogSnapshot, after: CatalogSnapshot | None = None) -> str:
+    if after is None:
+        lines = [f"{'period':>8} {'courses':>8}"]
+        lines += [f"{period_id:>8} {metrics.get('courses', 0):>8}" for period_id, metrics in sorted(before.items())]
+        return "\n".join(lines)
     lines = [f"{'period':>8} {'courses before':>15} {'courses after':>14}"]
     for period_id in sorted(set(before) | set(after)):
         lines.append(
@@ -1217,7 +1221,7 @@ def main() -> None:
         print(f"[incremental] replacing period(s) {', '.join(replace_period_ids)}; reading target D1 ...")
         existing = load_existing_catalog_ids(query_target_db, replace_period_ids)
         before = load_catalog_snapshot(query_target_db)
-        print(format_snapshot_report(before[0], {}))
+        print(format_snapshot_report(before[0]))
 
     print("[build] generating seed plan ...")
     plan = build_seed_plan(data, existing)
