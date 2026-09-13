@@ -1127,28 +1127,35 @@ def wrangler_d1_execute_file(db_name: str, sql_path: Path, *, remote: bool, atte
     raise SystemExit(f"wrangler d1 execute failed after {attempts} attempts")
 
 
-def wrangler_d1_query(db_name: str, sql: str, *, remote: bool) -> list[dict[str, Any]]:
+def wrangler_d1_query(db_name: str, sql: str, *, remote: bool, attempts: int = 4) -> list[dict[str, Any]]:
     """Run one read query and return its rows.
 
     Uses --command because a remote --file execution goes through D1's import
-    API, which returns no result rows.
+    API, which returns no result rows. Retries because a transient "fetch
+    failed" once aborted the post-import verification after a successful seed.
     """
     single_line_sql = " ".join(sql.split())
     target = "--remote" if remote else "--local"
-    result = subprocess.run(
-        ["wrangler", "d1", "execute", db_name, target, "--json", "--command", single_line_sql],
-        cwd=ROOT_DIR, capture_output=True, text=True, shell=True,
-        stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
-    )
-    stdout = result.stdout or ""
-    json_start = min((index for index in (stdout.find("["), stdout.find("{")) if index != -1), default=-1)
-    if result.returncode != 0 or json_start == -1:
-        sys.stderr.write(result.stderr or "")
-        raise SystemExit(f"wrangler d1 query failed (exit {result.returncode}): {single_line_sql}\n{stdout}")
-    payload = json.loads(stdout[json_start:])
-    if isinstance(payload, dict):
-        raise SystemExit(f"wrangler d1 query failed: {payload}")
-    return [row for statement in payload for row in statement.get("results", [])]
+    failure = ""
+    for attempt in range(1, attempts + 1):
+        result = subprocess.run(
+            ["wrangler", "d1", "execute", db_name, target, "--json", "--command", single_line_sql],
+            cwd=ROOT_DIR, capture_output=True, text=True, shell=True,
+            stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
+        )
+        stdout = result.stdout or ""
+        json_start = min((index for index in (stdout.find("["), stdout.find("{")) if index != -1), default=-1)
+        try:
+            payload = json.loads(stdout[json_start:]) if json_start != -1 else None
+        except json.JSONDecodeError:
+            payload = None
+        if result.returncode == 0 and isinstance(payload, list):
+            return [row for statement in payload for row in statement.get("results", [])]
+        failure = f"exit {result.returncode}: {payload if payload is not None else stdout}\n{result.stderr or ''}"
+        if attempt < attempts:
+            print(f"[wrangler] query failed, retry {attempt + 1}/{attempts} in 5s ...")
+            time.sleep(5)
+    raise SystemExit(f"wrangler d1 query failed after {attempts} attempts: {single_line_sql}\n{failure}")
 
 
 QueryRows = Callable[[str], list[dict[str, Any]]]
