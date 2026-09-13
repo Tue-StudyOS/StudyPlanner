@@ -171,7 +171,7 @@ function UnconfirmedOfferingsToggle({
   onChange: (checked: boolean) => void
 }): React.ReactElement {
   return (
-    <label className="flex min-w-0 cursor-pointer flex-wrap items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
+    <label className="flex min-w-0 cursor-pointer items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
       <input
         type="checkbox"
         checked={checked}
