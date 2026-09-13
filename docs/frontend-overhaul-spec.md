@@ -54,16 +54,15 @@ Target model — every catalog course carries:
    this course (e.g. `["WiSe 2025/26", "SoSe 2026"]`).
 2. **Term type**: whether the course is a summer-term course, winter-term course,
    or both — derived from the offering history.
-3. **Offering status** relative to the semester currently being planned:
+3. **Offering status** relative to the semester currently being planned (the running
+   semester, or the upcoming one during the running semester's final month), evaluated
+   per season — a course confirmed for summer is not confirmed for winter:
    - `confirmed` — we have catalog data for that exact semester.
    - `likely` — no data for the target semester yet, but the course ran in the most
      recent same-season semester (e.g. planning WiSe 2026/27, course ran WiSe 2025/26).
    - `unknown` — the course did NOT run in the most recent same-season semester;
      we have no signal it will return.
-   - `always` — compulsory CS modules (Pflichtmodule Informatik). These are fixed
-     by the regulation and always offered; never downgrade them to likely/unknown.
-     `[?]` Decide how to detect them: regulation mapping (`hasRegulationMapping` /
-     `studyAreaOptions` with mandatory area type) vs. an explicit flag in the DB.
+   - Compulsory modules get no exemption; they need confirmation like any course.
 4. The catalog API gets an "all courses" mode: deduplicated courses across all
    periods (one entry per course, with offering history attached), instead of one
    period slice. Dedup key `[?]`: course number is the natural candidate, but verify

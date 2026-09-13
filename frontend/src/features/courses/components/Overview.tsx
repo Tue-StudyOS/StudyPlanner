@@ -34,9 +34,11 @@ import {
   extractCatalogDetailCourseId,
 } from '../utils/catalogDetailRoute.ts'
 import {
+  courseRanInSeasons,
   getCatalogCardSeasonTermType,
-  getLatestKnownSeasonTermType,
+  getDefaultCatalogTermSelection,
   getOfferingStatus,
+  getOfferingTargetSemesterLabel,
   getOutdatedOfferingSortRank,
   isCompulsoryCourse,
   isDefaultVisibleOfferingStatus,
@@ -44,6 +46,7 @@ import {
   resolveUnconfirmedOfferingToggleChecked,
   resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
+  type TermSeason,
 } from '../utils/catalogOffering.ts'
 import {
   CATALOG_SORT_LABELS,
@@ -143,25 +146,10 @@ function LayoutPreviewIcon({ next }: { next: CatalogLayout }) {
   )
 }
 
-const TERM_FILTER_OPTIONS: Array<{ value: 'summer' | 'winter'; label: string }> = [
+const TERM_FILTER_OPTIONS: Array<{ value: TermSeason; label: string }> = [
   { value: 'summer', label: 'Summer term' },
   { value: 'winter', label: 'Winter term' },
 ]
-
-function courseMatchesTermFilter(
-  termType: CourseTermType | undefined,
-  selectedTerms: Array<'summer' | 'winter'>,
-): boolean {
-  if (selectedTerms.length === 0) {
-    return true
-  }
-  if (termType === 'both') {
-    return true
-  }
-  return termType === 'summer' || termType === 'winter'
-    ? selectedTerms.includes(termType)
-    : false
-}
 
 function getTourSampleOfferingStatus(variant: 'confirmed' | 'likely' | 'unknown'): OfferingStatus {
   if (variant === 'likely') {
@@ -221,7 +209,7 @@ export function CoursesOverview() {
   // Time fields store plain digits; the inputs render them masked as HH:MM.
   const [timeFromDigits, setTimeFromDigits] = useState<string>('')
   const [timeToDigits, setTimeToDigits] = useState<string>('')
-  const [selectedTerms, setSelectedTerms] = useState<Array<'summer' | 'winter'>>([])
+  const [selectedTerms, setSelectedTerms] = useState<TermSeason[]>(() => getDefaultCatalogTermSelection())
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
   const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
@@ -294,17 +282,10 @@ export function CoursesOverview() {
   const offeringStatusByCourseId = useMemo(() => {
     const statusMap = new Map<string, OfferingStatus>()
     for (const course of courses) {
-      statusMap.set(course.id, getOfferingStatus(course, knownPeriodLabels))
+      statusMap.set(course.id, getOfferingStatus(course, knownPeriodLabels, new Date(), selectedTerms))
     }
     return statusMap
-  }, [courses, knownPeriodLabels])
-  const latestKnownTermTypeByCourseId = useMemo(() => {
-    const termTypeMap = new Map<string, CourseTermType>()
-    for (const course of courses) {
-      termTypeMap.set(course.id, getLatestKnownSeasonTermType(course, knownPeriodLabels))
-    }
-    return termTypeMap
-  }, [courses, knownPeriodLabels])
+  }, [courses, knownPeriodLabels, selectedTerms])
   const cardSeasonTermTypeByCourseId = useMemo(() => {
     const termTypeMap = new Map<string, CourseTermType>()
     for (const course of courses) {
@@ -442,7 +423,7 @@ export function CoursesOverview() {
           if (!courseMatchesStudyAreaFilter(course, selectedStudyAreaCodes, studyProgramCode)) {
             return false
           }
-          if (!courseMatchesTermFilter(latestKnownTermTypeByCourseId.get(course.id), selectedTerms)) {
+          if (!courseRanInSeasons(course, selectedTerms)) {
             return false
           }
           if (!courseMatchesTypeFilter(course, selectedCourseTypes)) {
@@ -478,7 +459,6 @@ export function CoursesOverview() {
     [
       completedByCatalogCourseId,
       courses,
-      latestKnownTermTypeByCourseId,
       offeringStatusByCourseId,
       selectedCourseTypes,
       selectedDays,
@@ -768,7 +748,9 @@ export function CoursesOverview() {
 
         <UnconfirmedOfferingsToggle
           checked={unconfirmedToggleChecked}
-          label={t('catalog.showUnconfirmedOfferings')}
+          label={t('catalog.showUnconfirmedOfferings', {
+            semesters: getOfferingTargetSemesterLabel(selectedTerms),
+          })}
           onChange={setShowUnconfirmedOfferings}
         />
       </div>
