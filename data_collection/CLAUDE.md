@@ -68,7 +68,7 @@ Period ids are opaque ALMA ints; the mapping is **not** chronological by number:
 | 226 | SoSe 2023 | 234 | WiSe 2023/24 |
 | 227 | SoSe 2024 | 235 | WiSe 2024/25 |
 | 228 | SoSe 2025 | 236 | WiSe 2025/26 |
-| 229 | SoSe 2026 | | |
+| 229 | SoSe 2026 | 237 | WiSe 2026/27 |
 
 `--from-semester LABEL` selects every period at or after `LABEL`
 (`parse_semester_tuple` understands e.g. `"Sommer 2026"`, `"Winter 2022/23"`).

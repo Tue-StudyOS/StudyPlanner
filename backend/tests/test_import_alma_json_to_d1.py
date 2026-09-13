@@ -1,7 +1,10 @@
 import sqlite3
 import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
+from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
@@ -9,8 +12,130 @@ from backend.scripts.import_alma_json_to_d1 import (  # noqa: E402
     CURRICULUM_LINK_REBUILD_STATEMENTS,
     STUDY_AREA_CODE_ALIASES,
     build_seed_plan,
+    compare_catalog_snapshots,
     derive_parallel_group_role,
+    load_catalog_snapshot,
+    load_existing_catalog_ids,
+    write_seed_sql,
 )
+
+MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
+
+
+def _alma_course(period_id: str, unit_id: str, number: str, lecturer: str) -> dict[str, Any]:
+    period_label = "Winter 2025/26" if period_id == "236" else "Winter 2026/27"
+    return {
+        "node_id": f"course-{unit_id}",
+        "unit_id": unit_id,
+        "period_id": period_id,
+        "period_label": period_label,
+        "title": f"{number} Example {unit_id} - Vorlesung",
+        "details": {
+            "fields": {"Nummer": number},
+            "categories": ["INFO-INFO"],
+            "content": {"sections": [{"title": "Inhalte", "text": "Text"}]},
+            "parallel_groups": [
+                {
+                    "title": "Group (Übung)",
+                    "fields": {"Verantwortliche/-r": lecturer},
+                    "appointments": [{"Rhythmus": "Mo. wöchentlich", "Von - Bis": "10:00 - 12:00"}],
+                }
+            ],
+        },
+    }
+
+
+class IncrementalImportTest(unittest.TestCase):
+    """A full seed followed by an incremental import, run against the real
+    migration schema, must leave the untouched period exactly as it was."""
+
+    def setUp(self) -> None:
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.row_factory = sqlite3.Row
+        # D1 provides unixepoch(); plain sqlite3 builds may not.
+        self.conn.create_function("unixepoch", -1, lambda *_: int(time.time()))
+        for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            self.conn.executescript(migration.read_text(encoding="utf-8"))
+        self.temp_dir = tempfile.TemporaryDirectory()
+        full_seed = {
+            "courses": [
+                _alma_course("236", "u1", "INFO4100", "Prof. A"),
+                _alma_course("236", "u2", "INFO4200", "Prof. B"),
+            ]
+        }
+        self._apply(build_seed_plan(full_seed), None)
+
+    def tearDown(self) -> None:
+        self.conn.close()
+        self.temp_dir.cleanup()
+
+    def _query(self, sql: str) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.conn.execute(sql).fetchall()]
+
+    def _apply(self, plan: Any, replace_period_ids: list[str] | None) -> None:
+        sql_path = Path(self.temp_dir.name) / "seed.sql"
+        write_seed_sql(sql_path, plan, replace_period_ids)
+        self.conn.executescript(sql_path.read_text(encoding="utf-8"))
+
+    def _import_incrementally(self, courses: list[dict[str, Any]]) -> tuple[Any, list[str]]:
+        before = load_catalog_snapshot(self._query)
+        existing = load_existing_catalog_ids(self._query, ["237"])
+        plan = build_seed_plan({"courses": courses}, existing)
+        self._apply(plan, ["237"])
+        after = load_catalog_snapshot(self._query)
+        problems = compare_catalog_snapshots(
+            before[0], after[0], before[1], after[1], {"237": len(plan.courses)}
+        )
+        return plan, problems
+
+    def test_adding_a_period_keeps_the_other_period_unchanged(self) -> None:
+        plan, problems = self._import_incrementally([
+            _alma_course("237", "u1", "INFO4100", "Prof. A"),
+            _alma_course("237", "u9", "INFO4900", "Prof. New"),
+        ])
+
+        self.assertEqual(problems, [])
+        self.assertEqual([course["id"] for course in plan.courses], [3, 4])
+        self.assertEqual([group["id"] for group in plan.parallel_groups], [3, 4])
+        # Prof. A already exists and is reused; only the new lecturer is inserted.
+        self.assertEqual([lecturer["display_name"] for lecturer in plan.lecturers], ["Prof. New"])
+        self.assertEqual(plan.lecturers[0]["id"], 3)
+        self.assertEqual(
+            self._query("SELECT period_id, COUNT(*) AS n FROM courses GROUP BY period_id ORDER BY period_id"),
+            [{"period_id": "236", "n": 2}, {"period_id": "237", "n": 2}],
+        )
+
+    def test_reimporting_a_period_keeps_course_ids_and_replaces_its_rows(self) -> None:
+        self._import_incrementally([
+            _alma_course("237", "u1", "INFO4100", "Prof. A"),
+            _alma_course("237", "u9", "INFO4900", "Prof. New"),
+        ])
+
+        plan, problems = self._import_incrementally([_alma_course("237", "u9", "INFO4900", "Prof. New")])
+
+        self.assertEqual(problems, [])
+        self.assertEqual([course["id"] for course in plan.courses], [4])
+        self.assertEqual(
+            self._query("SELECT COUNT(*) AS n FROM parallel_groups WHERE course_id = 3"), [{"n": 0}]
+        )
+        self.assertEqual(self._query("SELECT COUNT(*) AS n FROM courses WHERE period_id = '237'"), [{"n": 1}])
+
+    def test_regression_check_reports_a_changed_untouched_period(self) -> None:
+        before = load_catalog_snapshot(self._query)
+        self.conn.execute("UPDATE courses SET title = title || ' changed' WHERE id = 1")
+        after = load_catalog_snapshot(self._query)
+
+        problems = compare_catalog_snapshots(before[0], after[0], before[1], after[1], {})
+
+        self.assertEqual(len(problems), 1)
+        self.assertIn("period 236 changed", problems[0])
+
+    def test_regression_check_reports_a_wrong_imported_course_count(self) -> None:
+        snapshot, global_counts = load_catalog_snapshot(self._query)
+
+        problems = compare_catalog_snapshots(snapshot, snapshot, global_counts, global_counts, {"237": 5})
+
+        self.assertEqual(problems, ["period 237 has 0 courses, expected 5"])
 
 
 class ParallelGroupNormalizationTest(unittest.TestCase):

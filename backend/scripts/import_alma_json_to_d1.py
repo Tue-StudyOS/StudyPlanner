@@ -19,6 +19,22 @@ Two ways to run it:
     for all periods and reinserts only what's in the JSON, so a period missing
     from the JSON is dropped from prod.)
 
+  * Incremental (preferred for adding a new semester): --incremental replaces
+    only the periods present in the JSON and leaves every other period
+    untouched. It never creates, swaps, or migrates:
+
+        py backend/scripts/import_alma_json_to_d1.py \
+          --input <single-period courses_multi_semester.json> --incremental --apply
+
+    New rows get ids above the current maxima, re-imported courses keep their
+    course id (matched by period + unit_id), and existing lecturers are reused
+    by name, so ids referenced elsewhere stay valid. Before seeding it
+    snapshots per-period row counts and id checksums; afterwards it verifies
+    every other period is byte-for-byte unchanged in those metrics, the
+    imported periods hold the expected course count, and user data
+    (reviews, external links) is untouched. Any mismatch exits non-zero.
+    Without --apply it only reads the target D1 and writes the SQL (dry run).
+
 Seeding goes through D1's remote import, which has two sharp edges this script
 works around (see build_seed_plan / write_seed_chunks / BALLAST_* below):
 
@@ -47,7 +63,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, TextIO
+from typing import Any, Callable, Iterable, TextIO
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT_DIR.parent
@@ -114,6 +130,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--single-file-seed", action="store_true",
                         help="Seed via one d1 execute --file call instead of chunked imports. "
                              "Fails for large catalogs on remote D1; use only for --local.")
+    parser.add_argument("--incremental", action="store_true",
+                        help="Replace only the periods present in --input, keep all other periods, "
+                             "and verify them afterwards. Implies no create/swap/migrate.")
     return parser.parse_args()
 
 
@@ -186,6 +205,19 @@ class SeedPlan:
     appointments: list[dict[str, Any]] = field(default_factory=list)
 
 
+@dataclass
+class ExistingCatalogIds:
+    """Id state of the target D1 that an incremental import must build on."""
+    run_id: int
+    max_course_id: int = 0
+    max_group_id: int = 0
+    max_appointment_id: int = 0
+    lecturer_id_by_name: dict[str, int] = field(default_factory=dict)
+    # Courses of the periods being replaced, keyed by (period_id, unit_id), so a
+    # re-import keeps their ids and plans/favorites referencing them stay valid.
+    course_id_by_period_unit: dict[tuple[str, str], int] = field(default_factory=dict)
+
+
 def namespaced_node_id(period_id: str, node_id: str) -> str:
     return f"{period_id}:{node_id}"
 
@@ -230,9 +262,12 @@ def extract_weekday(rhythm_text: str | None) -> tuple[str | None, int | None]:
 
 # ----------------------------- Build plan -----------------------------------
 
-def build_seed_plan(data: dict[str, Any]) -> SeedPlan:
+def build_seed_plan(data: dict[str, Any], existing: ExistingCatalogIds | None = None) -> SeedPlan:
+    """Build the rows to insert. With ``existing`` (incremental import) ids
+    continue above the target DB's maxima and existing lecturers are reused;
+    ``plan.scrape_run`` is still filled but only written by a full seed."""
     plan = SeedPlan()
-    run_id = 1
+    run_id = existing.run_id if existing else 1
     now_unix = int(time.time())
 
     plan.scrape_run = {
@@ -251,15 +286,20 @@ def build_seed_plan(data: dict[str, Any]) -> SeedPlan:
     for node in data.get("catalog_nodes", []):
         _emit_catalog_node(plan, run_id, node, seen_node_keys)
 
-    lecturer_id_by_name: dict[str, int] = {}
-    next_course_id = 1
-    next_group_id = 1
-    next_appointment_id = 1
+    existing_lecturer_names = set(existing.lecturer_id_by_name) if existing else set()
+    lecturer_id_by_name: dict[str, int] = dict(existing.lecturer_id_by_name) if existing else {}
+    reusable_course_ids = existing.course_id_by_period_unit if existing else {}
+    next_course_id = (existing.max_course_id if existing else 0) + 1
+    next_group_id = (existing.max_group_id if existing else 0) + 1
+    next_appointment_id = (existing.max_appointment_id if existing else 0) + 1
 
     for course in data.get("courses", []):
         _emit_catalog_node(plan, run_id, course, seen_node_keys)
-        course_id = next_course_id
-        next_course_id += 1
+        course_key = (str(course.get("period_id") or ""), _course_unit_id(course))
+        course_id = reusable_course_ids.get(course_key)
+        if course_id is None:
+            course_id = next_course_id
+            next_course_id += 1
         next_group_id, next_appointment_id = _emit_course(
             plan,
             run_id=run_id,
@@ -271,6 +311,8 @@ def build_seed_plan(data: dict[str, Any]) -> SeedPlan:
         )
 
     for name, lecturer_id in sorted(lecturer_id_by_name.items(), key=lambda pair: pair[1]):
+        if name in existing_lecturer_names:
+            continue
         plan.lecturers.append({
             "id": lecturer_id,
             "display_name": name,
@@ -321,6 +363,10 @@ def _emit_catalog_node(
     })
 
 
+def _course_unit_id(course: dict[str, Any]) -> str:
+    return str(course.get("unit_id") or course.get("node_id") or "")
+
+
 def _emit_course(
     plan: SeedPlan,
     *,
@@ -348,7 +394,7 @@ def _emit_course(
         "id": course_id,
         "run_id": run_id,
         "node_id": namespaced,
-        "unit_id": str(course.get("unit_id") or raw_node_id),
+        "unit_id": _course_unit_id(course),
         "period_id": period_id,
         "title": catalog_title,
         "number": fields.get("Nummer") or derive_number_from_title(catalog_title),
@@ -549,7 +595,8 @@ def _get_or_create_lecturer(lecturer_id_by_name: dict[str, int], name: str) -> i
     existing = lecturer_id_by_name.get(normalized)
     if existing is not None:
         return existing
-    new_id = len(lecturer_id_by_name) + 1
+    # max, not len: an incremental import starts from the DB's existing ids.
+    new_id = max(lecturer_id_by_name.values(), default=0) + 1
     lecturer_id_by_name[normalized] = new_id
     return new_id
 
@@ -713,11 +760,67 @@ WHERE f."key" = '_categories_json' AND je.value = '{src}';"""
     for src, prog, dst in STUDY_AREA_CODE_ALIASES
 ]
 
-# Single-file form (write_seed_sql / --single-file-seed) keeps them together.
-CURRICULUM_LINK_REBUILD_SQL = "\n\n".join(CURRICULUM_LINK_REBUILD_STATEMENTS)
+def link_rebuild_statements(period_ids: Iterable[str] | None = None) -> list[str]:
+    """The curriculum link rebuild, optionally restricted to ``period_ids``.
+
+    An incremental import scopes it so links of untouched periods are not
+    re-derived (a study area added since their import would otherwise silently
+    change them).
+    """
+    if period_ids is None:
+        return list(CURRICULUM_LINK_REBUILD_STATEMENTS)
+    period_list = ", ".join(sql_literal(period_id) for period_id in sorted(set(period_ids)))
+    scoped: list[str] = []
+    for statement in CURRICULUM_LINK_REBUILD_STATEMENTS:
+        body = statement.rstrip().rstrip(";")
+        if 'WHERE f."key"' in body:
+            body += f"\n  AND f.course_id IN (SELECT id FROM courses WHERE period_id IN ({period_list}))"
+        else:
+            body += f"\nWHERE c.period_id IN ({period_list})"
+        scoped.append(body + ";")
+    return scoped
 
 
-def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
+def period_scoped_delete_statements(period_ids: Iterable[str]) -> list[str]:
+    """DELETEs removing only the catalog rows of ``period_ids``, children first.
+
+    Seeds run with foreign keys OFF, so ON DELETE CASCADE does not fire and every
+    child table has to be cleared explicitly. Lecturers and scrape_runs are shared
+    across periods and are kept.
+    """
+    period_list = ", ".join(sql_literal(period_id) for period_id in sorted(set(period_ids)))
+    course_ids = f"SELECT id FROM courses WHERE period_id IN ({period_list})"
+    group_ids = f"SELECT id FROM parallel_groups WHERE course_id IN ({course_ids})"
+    return [
+        f'DELETE FROM "appointments" WHERE parallel_group_id IN ({group_ids});',
+        f'DELETE FROM "parallel_group_lecturers" WHERE parallel_group_id IN ({group_ids});',
+        f'DELETE FROM "parallel_group_fields" WHERE parallel_group_id IN ({group_ids});',
+        *(
+            f'DELETE FROM "{table}" WHERE course_id IN ({course_ids});'
+            for table in (
+                "parallel_groups", "course_study_area_links", "course_curriculum_matches",
+                "course_lecturers", "content_sections", "course_fields", "course_placements",
+            )
+        ),
+        f'DELETE FROM "courses" WHERE period_id IN ({period_list});',
+        f'DELETE FROM "catalog_nodes" WHERE period_id IN ({period_list});',
+    ]
+
+
+def _write_reset(handle: TextIO, plan: SeedPlan, replace_period_ids: list[str] | None) -> None:
+    """Full seed: wipe every catalog table and insert the scrape run.
+    Incremental: remove only the periods being replaced."""
+    if replace_period_ids is None:
+        for table in SEEDED_TABLES_DELETE_ORDER:
+            handle.write(f'DELETE FROM "{table}";\n')
+        handle.write(insert_statement("scrape_runs", SCRAPE_RUN_COLUMNS,
+                                      [plan.scrape_run[c] for c in SCRAPE_RUN_COLUMNS]) + "\n")
+        return
+    for statement in period_scoped_delete_statements(replace_period_ids):
+        handle.write(statement + "\n")
+
+
+def write_seed_sql(out_path: Path, plan: SeedPlan, replace_period_ids: list[str] | None = None) -> None:
     """Emit FK-safe INSERTs for all catalog tables.
 
     Order: scrape_runs -> catalog_nodes -> lecturers -> courses -> course_placements
@@ -731,12 +834,8 @@ def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
         handle.write("PRAGMA foreign_keys = OFF;\n\n")
 
         handle.write("-- Clear previously imported catalog rows so the seed is re-runnable.\n")
-        for table in SEEDED_TABLES_DELETE_ORDER:
-            handle.write(f'DELETE FROM "{table}";\n')
+        _write_reset(handle, plan, replace_period_ids)
         handle.write("\n")
-
-        handle.write(insert_statement("scrape_runs", SCRAPE_RUN_COLUMNS,
-                                      [plan.scrape_run[c] for c in SCRAPE_RUN_COLUMNS]) + "\n\n")
         _write_rows(handle, "catalog_nodes", CATALOG_NODE_COLUMNS, plan.catalog_nodes)
         _write_rows(handle, "lecturers", LECTURER_COLUMNS, plan.lecturers)
         _write_rows(handle, "courses", COURSE_COLUMNS, plan.courses)
@@ -749,7 +848,7 @@ def write_seed_sql(out_path: Path, plan: SeedPlan) -> None:
         _write_rows(handle, "parallel_group_lecturers", PARALLEL_GROUP_LECTURER_COLUMNS, plan.parallel_group_lecturers)
         _write_rows(handle, "appointments", APPOINTMENT_COLUMNS, plan.appointments)
 
-        handle.write(CURRICULUM_LINK_REBUILD_SQL + "\n")
+        handle.write("\n\n".join(link_rebuild_statements(replace_period_ids)) + "\n")
         handle.write("PRAGMA foreign_keys = ON;\n")
 
 
@@ -770,7 +869,12 @@ def _seed_table_plan(plan: SeedPlan) -> list[tuple[str, list[str], list[dict[str
     ]
 
 
-def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> list[Path]:
+def write_seed_chunks(
+    out_dir: Path,
+    plan: SeedPlan,
+    rows_per_chunk: int,
+    replace_period_ids: list[str] | None = None,
+) -> list[Path]:
     """Write the seed as many small SQL files, one import call each.
 
     D1's remote import coalesces every same-table INSERT in a *single* file
@@ -793,13 +897,10 @@ def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> lis
         chunks.append(path)
         return path
 
-    # 1. Clear existing rows + insert the single scrape_runs row.
+    # 1. Clear existing rows (all, or only the replaced periods).
     with new_chunk("reset").open("w", encoding="utf-8") as handle:
         handle.write("PRAGMA foreign_keys = OFF;\n")
-        for table in SEEDED_TABLES_DELETE_ORDER:
-            handle.write(f'DELETE FROM "{table}";\n')
-        handle.write(insert_statement("scrape_runs", SCRAPE_RUN_COLUMNS,
-                                      [plan.scrape_run[c] for c in SCRAPE_RUN_COLUMNS]) + "\n")
+        _write_reset(handle, plan, replace_period_ids)
 
     # 2. One or more chunks per table, capped at rows_per_chunk rows each.
     for table, columns, rows in _seed_table_plan(plan):
@@ -812,7 +913,7 @@ def write_seed_chunks(out_dir: Path, plan: SeedPlan, rows_per_chunk: int) -> lis
     # 3. Rebuild the curriculum links once every course/field row exists. One
     #    chunk per statement so D1's import cannot coalesce the same-table
     #    INSERTs into an over-limit compound statement.
-    for statement in CURRICULUM_LINK_REBUILD_STATEMENTS:
+    for statement in link_rebuild_statements(replace_period_ids):
         with new_chunk("links").open("w", encoding="utf-8") as handle:
             handle.write("PRAGMA foreign_keys = OFF;\n")
             handle.write(statement + "\n")
@@ -843,6 +944,106 @@ def _write_rows(handle: TextIO, table: str, columns: list[str], rows: Iterable[d
         handle.write(f'INSERT INTO "{table}" ({column_list}) VALUES\n{tuples};\n')
         handle.write(BATCH_BREAKER + "\n")
     handle.write("\n")
+
+
+# ----------------------------- Incremental verification ---------------------
+
+# Per-period metrics compared before and after an incremental import. Every
+# query returns (period_id, <metrics>) rows. The id sums make a changed or
+# re-numbered row visible even when the counts happen to match. Kept free of
+# < > | & " % so they survive the Windows shell that runs wrangler.
+PERIOD_SNAPSHOT_QUERIES = [
+    "SELECT period_id, COUNT(*) AS courses, SUM(id) AS course_id_sum, "
+    "SUM(length(title)) AS title_chars, SUM(length(COALESCE(number, ''))) AS number_chars "
+    "FROM courses GROUP BY period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS parallel_groups, SUM(pg.id) AS parallel_group_id_sum "
+    "FROM parallel_groups AS pg JOIN courses AS c ON c.id = pg.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS appointments, SUM(a.id) AS appointment_id_sum "
+    "FROM appointments AS a JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id "
+    "JOIN courses AS c ON c.id = pg.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS course_fields "
+    "FROM course_fields AS f JOIN courses AS c ON c.id = f.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS content_sections "
+    "FROM content_sections AS s JOIN courses AS c ON c.id = s.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS course_lecturers "
+    "FROM course_lecturers AS l JOIN courses AS c ON c.id = l.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS study_area_links "
+    "FROM course_study_area_links AS l JOIN courses AS c ON c.id = l.course_id GROUP BY c.period_id",
+    "SELECT c.period_id AS period_id, COUNT(*) AS curriculum_matches "
+    "FROM course_curriculum_matches AS m JOIN courses AS c ON c.id = m.course_id GROUP BY c.period_id",
+    "SELECT period_id, COUNT(*) AS catalog_nodes FROM catalog_nodes GROUP BY period_id",
+]
+
+# User data keyed on the ALMA course number must never change during an import.
+GLOBAL_SNAPSHOT_QUERY = (
+    "SELECT (SELECT COUNT(*) FROM course_reviews) AS course_reviews, "
+    "(SELECT COUNT(*) FROM course_external_links) AS course_external_links, "
+    "(SELECT COUNT(*) FROM lecturers) AS lecturers"
+)
+
+CatalogSnapshot = dict[str, dict[str, int]]
+
+
+def merge_period_snapshot_rows(result_sets: Iterable[list[dict[str, Any]]]) -> CatalogSnapshot:
+    """Fold the PERIOD_SNAPSHOT_QUERIES results into {period_id: {metric: value}}."""
+    snapshot: CatalogSnapshot = {}
+    for rows in result_sets:
+        for row in rows:
+            period_id = str(row.get("period_id"))
+            metrics = snapshot.setdefault(period_id, {})
+            for key, value in row.items():
+                if key != "period_id":
+                    metrics[key] = int(value or 0)
+    return snapshot
+
+
+def compare_catalog_snapshots(
+    before: CatalogSnapshot,
+    after: CatalogSnapshot,
+    before_global: dict[str, int],
+    after_global: dict[str, int],
+    imported_course_counts: dict[str, int],
+) -> list[str]:
+    """Regression problems of an incremental import (empty list = OK).
+
+    Periods that were not imported must be unchanged in every metric; imported
+    periods must hold exactly the imported course count; reviews and external
+    links must be untouched and lecturers may only grow.
+    """
+    problems: list[str] = []
+    for period_id in sorted(set(before) | set(after)):
+        if period_id in imported_course_counts:
+            continue
+        if before.get(period_id) != after.get(period_id):
+            problems.append(
+                f"period {period_id} changed: before={before.get(period_id)} after={after.get(period_id)}"
+            )
+    for period_id, expected in sorted(imported_course_counts.items()):
+        actual = after.get(period_id, {}).get("courses", 0)
+        if actual != expected:
+            problems.append(f"period {period_id} has {actual} courses, expected {expected}")
+    for key in ("course_reviews", "course_external_links"):
+        if before_global.get(key) != after_global.get(key):
+            problems.append(f"{key} changed: {before_global.get(key)} -> {after_global.get(key)}")
+    if after_global.get("lecturers", 0) < before_global.get("lecturers", 0):
+        problems.append(
+            f"lecturers shrank: {before_global.get('lecturers')} -> {after_global.get('lecturers')}"
+        )
+    return problems
+
+
+def format_snapshot_report(before: CatalogSnapshot, after: CatalogSnapshot | None = None) -> str:
+    if after is None:
+        lines = [f"{'period':>8} {'courses':>8}"]
+        lines += [f"{period_id:>8} {metrics.get('courses', 0):>8}" for period_id, metrics in sorted(before.items())]
+        return "\n".join(lines)
+    lines = [f"{'period':>8} {'courses before':>15} {'courses after':>14}"]
+    for period_id in sorted(set(before) | set(after)):
+        lines.append(
+            f"{period_id:>8} {before.get(period_id, {}).get('courses', 0):>15} "
+            f"{after.get(period_id, {}).get('courses', 0):>14}"
+        )
+    return "\n".join(lines)
 
 
 # ----------------------------- Wrangler steps -------------------------------
@@ -926,6 +1127,63 @@ def wrangler_d1_execute_file(db_name: str, sql_path: Path, *, remote: bool, atte
     raise SystemExit(f"wrangler d1 execute failed after {attempts} attempts")
 
 
+def wrangler_d1_query(db_name: str, sql: str, *, remote: bool) -> list[dict[str, Any]]:
+    """Run one read query and return its rows.
+
+    Uses --command because a remote --file execution goes through D1's import
+    API, which returns no result rows.
+    """
+    single_line_sql = " ".join(sql.split())
+    target = "--remote" if remote else "--local"
+    result = subprocess.run(
+        ["wrangler", "d1", "execute", db_name, target, "--json", "--command", single_line_sql],
+        cwd=ROOT_DIR, capture_output=True, text=True, shell=True,
+        stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
+    )
+    stdout = result.stdout or ""
+    json_start = min((index for index in (stdout.find("["), stdout.find("{")) if index != -1), default=-1)
+    if result.returncode != 0 or json_start == -1:
+        sys.stderr.write(result.stderr or "")
+        raise SystemExit(f"wrangler d1 query failed (exit {result.returncode}): {single_line_sql}\n{stdout}")
+    payload = json.loads(stdout[json_start:])
+    if isinstance(payload, dict):
+        raise SystemExit(f"wrangler d1 query failed: {payload}")
+    return [row for statement in payload for row in statement.get("results", [])]
+
+
+QueryRows = Callable[[str], list[dict[str, Any]]]
+
+
+def load_existing_catalog_ids(query: QueryRows, period_ids: list[str]) -> ExistingCatalogIds:
+    maxima = query(
+        "SELECT (SELECT MIN(id) FROM scrape_runs) AS run_id, "
+        "(SELECT COALESCE(MAX(id), 0) FROM courses) AS max_course_id, "
+        "(SELECT COALESCE(MAX(id), 0) FROM parallel_groups) AS max_group_id, "
+        "(SELECT COALESCE(MAX(id), 0) FROM appointments) AS max_appointment_id"
+    )[0]
+    if maxima.get("run_id") is None:
+        raise SystemExit("Target D1 has no scrape run: run a full seed first, not --incremental.")
+    lecturers = query("SELECT id, display_name FROM lecturers")
+    period_list = ", ".join(sql_literal(period_id) for period_id in period_ids)
+    replaced_courses = query(f"SELECT id, period_id, unit_id FROM courses WHERE period_id IN ({period_list})")
+    return ExistingCatalogIds(
+        run_id=int(maxima["run_id"]),
+        max_course_id=int(maxima["max_course_id"]),
+        max_group_id=int(maxima["max_group_id"]),
+        max_appointment_id=int(maxima["max_appointment_id"]),
+        lecturer_id_by_name={str(row["display_name"]): int(row["id"]) for row in lecturers},
+        course_id_by_period_unit={
+            (str(row["period_id"]), str(row["unit_id"])): int(row["id"]) for row in replaced_courses
+        },
+    )
+
+
+def load_catalog_snapshot(query: QueryRows) -> tuple[CatalogSnapshot, dict[str, int]]:
+    period_snapshot = merge_period_snapshot_rows(query(sql) for sql in PERIOD_SNAPSHOT_QUERIES)
+    global_row = query(GLOBAL_SNAPSHOT_QUERY)[0]
+    return period_snapshot, {key: int(value or 0) for key, value in global_row.items()}
+
+
 def update_wrangler_toml(toml_path: Path, db_name: str, db_id: str) -> None:
     print(f"[wrangler.toml] updating binding -> name={db_name}, id={db_id}")
     text = toml_path.read_text(encoding="utf-8")
@@ -945,15 +1203,39 @@ def main() -> None:
     data = json.loads(args.input.read_text(encoding="utf-8"))
     print(f"[load] courses={len(data.get('courses', []))}, catalog_nodes={len(data.get('catalog_nodes', []))}")
 
+    remote = not args.local
+
+    def query_target_db(sql: str) -> list[dict[str, Any]]:
+        return wrangler_d1_query(args.db_name, sql, remote=remote)
+
+    existing: ExistingCatalogIds | None = None
+    replace_period_ids: list[str] | None = None
+    before: tuple[CatalogSnapshot, dict[str, int]] | None = None
+    if args.incremental:
+        replace_period_ids = sorted({
+            str(course["period_id"]) for course in data.get("courses", []) if course.get("period_id")
+        })
+        if not replace_period_ids:
+            raise SystemExit("--incremental needs courses tagged with period_id in the input JSON.")
+        refresh_windows_path()
+        print(f"[incremental] replacing period(s) {', '.join(replace_period_ids)}; reading target D1 ...")
+        existing = load_existing_catalog_ids(query_target_db, replace_period_ids)
+        before = load_catalog_snapshot(query_target_db)
+        print(format_snapshot_report(before[0]))
+
     print("[build] generating seed plan ...")
-    plan = build_seed_plan(data)
+    plan = build_seed_plan(data, existing)
     print(f"[build] catalog_nodes={len(plan.catalog_nodes)}, courses={len(plan.courses)}, "
           f"parallel_groups={len(plan.parallel_groups)}, appointments={len(plan.appointments)}, "
           f"lecturers={len(plan.lecturers)}, content_sections={len(plan.content_sections)}, "
           f"course_fields={len(plan.course_fields)}")
 
     print(f"[write] {args.out_sql}")
-    write_seed_sql(args.out_sql, plan)
+    write_seed_sql(args.out_sql, plan, replace_period_ids)
+
+    if args.incremental and not args.apply:
+        print("\nDry run: seed SQL written, target D1 left unchanged. Re-run with --apply to import.")
+        return
 
     if not args.apply:
         print("\nSeed SQL written. To push to Cloudflare D1 run again with --apply, or do it manually:")
@@ -964,24 +1246,43 @@ def main() -> None:
         return
 
     refresh_windows_path()
-    db_id = args.db_id
-    if not args.skip_create and db_id is None:
+    # An incremental import always targets the existing DB in place.
+    db_id = None if args.incremental else args.db_id
+    if not args.incremental and not args.skip_create and db_id is None:
         db_id = wrangler_d1_create(args.db_name)
     # Swap binding BEFORE migrate/seed so wrangler can resolve the DB by name from wrangler.toml.
-    if not args.skip_swap and db_id:
+    if not args.incremental and not args.skip_swap and db_id:
         update_wrangler_toml(args.wrangler_toml, args.db_name, db_id)
-    if not args.skip_migrate:
-        wrangler_d1_migrate(args.db_name, remote=not args.local)
+    if not args.incremental and not args.skip_migrate:
+        wrangler_d1_migrate(args.db_name, remote=remote)
     if not args.skip_seed:
         if args.single_file_seed:
-            wrangler_d1_execute_file(args.db_name, args.out_sql, remote=not args.local)
+            wrangler_d1_execute_file(args.db_name, args.out_sql, remote=remote)
         else:
             chunk_dir = args.out_sql.parent / "seed_chunks"
-            chunks = write_seed_chunks(chunk_dir, plan, args.chunk_rows)
+            chunks = write_seed_chunks(chunk_dir, plan, args.chunk_rows, replace_period_ids)
             print(f"[seed] executing {len(chunks)} chunk files from {chunk_dir} ...")
             for index, chunk in enumerate(chunks, start=1):
                 print(f"[seed] chunk {index}/{len(chunks)}: {chunk.name}")
-                wrangler_d1_execute_file(args.db_name, chunk, remote=not args.local)
+                wrangler_d1_execute_file(args.db_name, chunk, remote=remote)
+
+    if before is not None and replace_period_ids is not None:
+        print("[verify] comparing catalog snapshot before/after ...")
+        after = load_catalog_snapshot(query_target_db)
+        print(format_snapshot_report(before[0], after[0]))
+        imported_course_counts = {period_id: 0 for period_id in replace_period_ids}
+        for course in plan.courses:
+            imported_course_counts[course["period_id"]] += 1
+        problems = compare_catalog_snapshots(before[0], after[0], before[1], after[1], imported_course_counts)
+        if problems:
+            print("[verify] REGRESSION CHECK FAILED:")
+            for problem in problems:
+                print(f"  - {problem}")
+            raise SystemExit(1)
+        print(f"[verify] OK: other periods unchanged, user data untouched ({after[1]}).")
+        print("\nDone. Deploy the worker (cd backend && npx wrangler deploy) so isolates drop the "
+              "cached catalog responses (services/catalog_response_cache.py).")
+        return
 
     print("\nDone. Next steps:")
     print(f"  - Verify counts: wrangler d1 execute {args.db_name} {'--local' if args.local else '--remote'} "

@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  courseRanInSeasons,
   getCatalogCardSeasonTermType,
+  getDefaultCatalogTermSelection,
   getDetailSeasonTermType,
+  getPlanningSemesterLabel,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
+  getOfferingTargetSemesterLabel,
   getOutdatedOfferingSortRank,
   getRecentSeasonTermType,
   isCompulsoryCourse,
@@ -71,12 +75,64 @@ test('the best season wins for courses offered in both terms', () => {
   assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'confirmed')
 })
 
-test('compulsory courses are always offered', () => {
-  const course = {
+test('compulsory courses need confirmation like any other course', () => {
+  const skippedLastWinter = {
     offeredPeriods: ['Winter 2024/25'],
     studyAreaOptions: [buildAreaOption({ optionStatus: 'mandatory' })],
   }
-  assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'always')
+  assert.equal(getOfferingStatus(skippedLastWinter, KNOWN_PERIODS, NOW), 'unknown')
+  const ranLastWinter = {
+    offeredPeriods: ['Winter 2025/26'],
+    studyAreaOptions: [buildAreaOption({ studyAreaCode: 'MATH' })],
+  }
+  assert.equal(getOfferingStatus(ranLastWinter, KNOWN_PERIODS, NOW), 'likely')
+})
+
+// Final month of the summer semester 2026: planning has moved on to WS 2026/27.
+const LAST_SUMMER_MONTH = new Date('2026-09-13T12:00:00')
+
+test('getPlanningSemesterLabel switches to the upcoming semester in the final month', () => {
+  assert.equal(getPlanningSemesterLabel(NOW), 'SS 2026')
+  assert.equal(getPlanningSemesterLabel(new Date('2026-08-31T12:00:00')), 'SS 2026')
+  assert.equal(getPlanningSemesterLabel(LAST_SUMMER_MONTH), 'WS 2026/27')
+  assert.equal(getPlanningSemesterLabel(new Date('2027-02-10T12:00:00')), 'WS 2026/27')
+  assert.equal(getPlanningSemesterLabel(new Date('2027-03-05T12:00:00')), 'SS 2027')
+})
+
+test('getDefaultCatalogTermSelection preselects the upcoming season only in the final month', () => {
+  assert.deepEqual(getDefaultCatalogTermSelection(NOW), [])
+  assert.deepEqual(getDefaultCatalogTermSelection(LAST_SUMMER_MONTH), ['winter'])
+  assert.deepEqual(getDefaultCatalogTermSelection(new Date('2027-03-05T12:00:00')), ['summer'])
+})
+
+test('getOfferingTargetSemesterLabel names the target semesters of the selected seasons', () => {
+  assert.equal(getOfferingTargetSemesterLabel([], NOW), 'SS 26 / WS 26/27')
+  assert.equal(getOfferingTargetSemesterLabel(['winter'], NOW), 'WS 26/27')
+  assert.equal(getOfferingTargetSemesterLabel([], LAST_SUMMER_MONTH), 'WS 26/27 / SS 27')
+  assert.equal(getOfferingTargetSemesterLabel(['summer'], LAST_SUMMER_MONTH), 'SS 27')
+})
+
+test('a course confirmed only through its summer run is not confirmed for winter', () => {
+  const course = { offeredPeriods: ['Sommer 2026', 'Winter 2025/26'] }
+  assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'confirmed')
+  assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW, ['winter']), 'likely')
+  assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW, ['summer']), 'confirmed')
+})
+
+test('in the final summer month an ending summer course is no longer confirmed', () => {
+  const summerCourse = { offeredPeriods: ['Sommer 2026'] }
+  assert.equal(getOfferingStatus(summerCourse, KNOWN_PERIODS, LAST_SUMMER_MONTH), 'likely')
+  const knownWithNextWinter = ['Winter 2026/27', ...KNOWN_PERIODS]
+  const winterCourse = { offeredPeriods: ['Winter 2026/27'] }
+  assert.equal(getOfferingStatus(winterCourse, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']), 'confirmed')
+})
+
+test('courseRanInSeasons matches a term chip by any offering in that season', () => {
+  const course = { offeredPeriods: ['Sommer 2026', 'Winter 2022/23'] }
+  assert.equal(courseRanInSeasons(course, []), true)
+  assert.equal(courseRanInSeasons(course, ['winter']), true)
+  assert.equal(courseRanInSeasons({ offeredPeriods: ['Sommer 2026'] }, ['winter']), false)
+  assert.equal(courseRanInSeasons({}, ['summer']), false)
 })
 
 test('isCompulsoryCourse detects Pflicht markers from the regulation mapping', () => {
@@ -119,7 +175,6 @@ test('getCatalogCardSeasonTermType keeps icons for courses confirmed in the newe
 })
 
 test('catalog offering display helpers keep likely courses in normal order', () => {
-  assert.equal(isDefaultVisibleOfferingStatus('always'), true)
   assert.equal(isDefaultVisibleOfferingStatus('confirmed'), true)
   assert.equal(isDefaultVisibleOfferingStatus(undefined), true)
   assert.equal(isDefaultVisibleOfferingStatus('likely'), false)

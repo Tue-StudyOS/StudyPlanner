@@ -1,8 +1,15 @@
-import { getCurrentSemesterLabel, parseSemesterLabel } from '../../planner/utils/semesterLabels.ts'
+import {
+  formatSemesterLabelShort,
+  getCurrentSemesterLabel,
+  getRelativeSemesterLabel,
+  parseSemesterLabel,
+} from '../../planner/utils/semesterLabels.ts'
 import type { Course, CourseTermType, StudyAreaOption } from '../types'
 
-export type OfferingStatus = 'always' | 'confirmed' | 'likely' | 'unknown'
-type TermSeason = 'summer' | 'winter'
+export type OfferingStatus = 'confirmed' | 'likely' | 'unknown'
+export type TermSeason = 'summer' | 'winter'
+
+const TERM_SEASONS: readonly TermSeason[] = ['summer', 'winter']
 
 interface ParsedPeriodLabel {
   season: TermSeason
@@ -57,29 +64,91 @@ function newestStartYearForSeason(labels: string[], season: TermSeason): number 
   return newestYear
 }
 
+/**
+ * The semester the catalog plans for: the running semester, except in its final
+ * month (September / March), when students are already choosing courses for the
+ * upcoming one and the ending semester is no longer relevant.
+ */
+export function getPlanningSemesterLabel(now: Date = new Date()): string {
+  return getCurrentSemesterLabel(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+}
+
+function getSemesterSeason(semesterLabel: string): TermSeason | null {
+  const semester = parseSemesterLabel(semesterLabel)
+  if (!semester) {
+    return null
+  }
+  return semester.term === 'SS' ? 'summer' : 'winter'
+}
+
+/** Preselected term chips: the upcoming season once the running semester is in its final month. */
+export function getDefaultCatalogTermSelection(now: Date = new Date()): TermSeason[] {
+  const planningSemesterLabel = getPlanningSemesterLabel(now)
+  if (planningSemesterLabel === getCurrentSemesterLabel(now)) {
+    return []
+  }
+  const season = getSemesterSeason(planningSemesterLabel)
+  return season ? [season] : []
+}
+
+/** The planning semester and the one after it, i.e. the next occurrence of each season. */
+function getTargetSemesterLabels(now: Date): string[] {
+  const planningSemesterLabel = getPlanningSemesterLabel(now)
+  return [planningSemesterLabel, getRelativeSemesterLabel(planningSemesterLabel, 1)]
+}
+
 function targetStartYearForSeason(season: TermSeason, now: Date): number {
-  const currentSemester = parseSemesterLabel(getCurrentSemesterLabel(now))
-  if (!currentSemester) {
-    return now.getFullYear()
+  for (const label of getTargetSemesterLabels(now)) {
+    const semester = parseSemesterLabel(label)
+    if (semester && getSemesterSeason(label) === season) {
+      return semester.year
+    }
   }
-  if (season === 'summer') {
-    // During a winter semester the next summer term starts in the following year.
-    return currentSemester.term === 'SS' ? currentSemester.year : currentSemester.year + 1
+  return now.getFullYear()
+}
+
+function resolveSeasons(seasons: readonly TermSeason[]): readonly TermSeason[] {
+  return seasons.length > 0 ? seasons : TERM_SEASONS
+}
+
+/**
+ * The semesters offering confirmation is checked against for the selected term
+ * chips (all seasons when none is selected), e.g. "WS 26/27" or "WS 26/27 / SS 27".
+ * Shown on the catalog toggle so it is explicit which semesters "confirmed" means.
+ */
+export function getOfferingTargetSemesterLabel(
+  seasons: readonly TermSeason[] = [],
+  now: Date = new Date(),
+): string {
+  const selectedSeasons = resolveSeasons(seasons)
+  return getTargetSemesterLabels(now)
+    .filter((label) => {
+      const season = getSemesterSeason(label)
+      return season !== null && selectedSeasons.includes(season)
+    })
+    .map(formatSemesterLabelShort)
+    .join(' / ')
+}
+
+/** Term chip match: the course has run in at least one selected season (any season when none is selected). */
+export function courseRanInSeasons(
+  course: Pick<Course, 'offeredPeriods'>,
+  seasons: readonly TermSeason[],
+): boolean {
+  if (seasons.length === 0) {
+    return true
   }
-  // The winter term starting in the current semester year is always the next
-  // (or currently running) winter occurrence.
-  return currentSemester.year
+  return seasons.some((season) => newestStartYearForSeason(course.offeredPeriods ?? [], season) !== null)
 }
 
 const STATUS_RANK: Record<OfferingStatus, number> = {
-  always: 3,
   confirmed: 2,
   likely: 1,
   unknown: 0,
 }
 
 export function isDefaultVisibleOfferingStatus(status: OfferingStatus | undefined): boolean {
-  return status === undefined || status === 'always' || status === 'confirmed'
+  return status === undefined || status === 'confirmed'
 }
 
 export function isOutdatedOfferingStatus(status: OfferingStatus | undefined): boolean {
@@ -139,29 +208,29 @@ export function resolveUnconfirmedOfferingToggleChecked(
 }
 
 /**
- * Offering status of a course relative to its next (or currently running)
- * semester occurrence:
+ * Offering status of a course relative to the target semester of each given
+ * season (all seasons when none is given; the best season wins). Only the given
+ * seasons count, so a course confirmed for summer is not confirmed for winter.
  *
- * - `always`: compulsory module, fixed by the examination regulations.
  * - `confirmed`: catalog data exists for the target semester.
  * - `likely`: no catalog data for the target semester yet, but the course ran
  *   in the most recent same-season semester we have data for.
  * - `unknown`: the course did not run in the most recent same-season semester;
  *   there is no signal it will return.
+ *
+ * Compulsory modules get no exemption: the toggle label names the semesters it
+ * checks, and silently showing unconfirmed Pflicht courses contradicted it.
  */
 export function getOfferingStatus(
-  course: Pick<Course, 'offeredPeriods' | 'studyAreaOptions'>,
+  course: Pick<Course, 'offeredPeriods'>,
   knownPeriodLabels: string[],
   now: Date = new Date(),
+  seasons: readonly TermSeason[] = [],
 ): OfferingStatus {
-  if (isCompulsoryCourse(course)) {
-    return 'always'
-  }
-
   const offeredPeriods = course.offeredPeriods ?? []
   let bestStatus: OfferingStatus = 'unknown'
 
-  for (const season of ['summer', 'winter'] as const) {
+  for (const season of resolveSeasons(seasons)) {
     const courseNewestYear = newestStartYearForSeason(offeredPeriods, season)
     if (courseNewestYear === null) {
       continue

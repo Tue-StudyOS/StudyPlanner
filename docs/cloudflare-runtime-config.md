@@ -55,17 +55,39 @@ MCP uses its service binding. Local gateway fallback ports are 8787 and 8788.
 ## Catalog refresh
 
 Refresh the **existing production D1 in place** with reviewed ALMA output, after
-the required approval/backup. From the repository root:
+the required approval/backup.
+
+**Adding or updating a semester (preferred):** scrape only that semester and
+import it incrementally. Every other period is left untouched and verified:
+
+```powershell
+cd data_collection
+.\.venv\Scripts\python.exe -m alma.cli --details --from-semester "Winter 2026/27" --out output\ws2627\courses_multi_semester.json
+cd ..
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/ws2627/courses_multi_semester.json --incremental
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/ws2627/courses_multi_semester.json --incremental --apply
+```
+
+`--from-semester` selects every period from that label on, so it scrapes a single
+semester only while it is the newest one ALMA lists. Without `--apply` the
+incremental run is a dry run (reads the D1, writes the SQL). With `--apply` it
+replaces only the input's periods, keeps re-imported course ids, then compares a
+before/after snapshot and exits non-zero if any other period, reviews, or
+external links changed. Deploy the Worker afterwards so isolates drop cached
+catalog responses.
+
+**Full rebuild:**
 
 ```powershell
 python backend/scripts/import_alma_json_to_d1.py --input <courses_multi_semester.json> --apply --skip-create --skip-swap --skip-migrate
 ```
 
 Replace the input placeholder with the actual JSON path. Keep **every period
-that must survive** in the input: the importer deletes and replaces catalog rows.
-Read the importer docstring for remote-import limits and retry behavior.
+that must survive** in the input: the full rebuild deletes and replaces all catalog
+rows. Read the importer docstring for remote-import limits and retry behavior.
 
-Numeric courses.id values are reassigned during reseeding. New user-generated
+Numeric courses.id values are reassigned during a full rebuild (an incremental
+import keeps existing ids). New user-generated
 records must use the stable ALMA course number, falling back to unit_id, following
 course_catalog.normalize_review_key(). Reviews and external links follow this
 rule and must remain outside SEEDED_TABLES_DELETE_ORDER. Existing legacy
