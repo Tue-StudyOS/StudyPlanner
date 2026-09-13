@@ -14,7 +14,9 @@ cd ..
 The scraper writes JSON under data_collection/output/. It does not update the
 tracked alma.sqlite automatically. Review the output and use the
 [in-place ALMA import](../docs/cloudflare-runtime-config.md#catalog-refresh) for
-production; include every period to retain.
+production. To add a new semester, scrape only it (`--from-semester` set to that
+semester) and import it with `--incremental`; a full rebuild must include every
+period to retain.
 
 ## 2. Scrape Moodle
 
