@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { EyeIcon, EyeOffIcon } from '../../../shared/components/icons'
 import type { SupportedLanguage } from '../../i18n'
 import { useTranslation } from '../../i18n'
 import { getCurrentSemesterLabel } from '../../planner/utils/semesterLabels'
@@ -14,6 +15,45 @@ import { generateStartSemesters } from '../utils/studySetup.ts'
 import { AccountDataSection } from './AccountDataSection.tsx'
 
 type AuthMode = 'login' | 'register'
+
+function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+  required,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  autoComplete: string
+  required?: boolean
+  className: string
+}) {
+  const { t } = useTranslation()
+  const [isVisible, setIsVisible] = useState<boolean>(false)
+
+  return (
+    <div className="relative min-w-0">
+      <input
+        type={isVisible ? 'text' : 'password'}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        autoComplete={autoComplete}
+        required={required}
+        className={`${className} pr-10 [&::-ms-reveal]:hidden`}
+      />
+      <button
+        type="button"
+        onClick={() => setIsVisible((current) => !current)}
+        aria-label={isVisible ? t('account.hidePassword') : t('account.showPassword')}
+        aria-pressed={isVisible}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:text-fg"
+      >
+        {isVisible ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </div>
+  )
+}
 
 function normalizeErrorMessage(error: unknown): string {
   return normalizeAuthErrorMessage(error, {
@@ -346,10 +386,9 @@ export function AccountPage() {
                 </label>
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.newPassword')}</span>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={credNewPassword}
-                    onChange={(event) => setCredNewPassword(event.target.value)}
+                    onChange={setCredNewPassword}
                     autoComplete="new-password"
                     className={inputClass}
                   />
@@ -358,10 +397,9 @@ export function AccountPage() {
                 {credNewPassword ? (
                   <label className="grid gap-1.5">
                     <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.confirmNewPassword')}</span>
-                    <input
-                      type="password"
+                    <PasswordInput
                       value={credConfirmPassword}
-                      onChange={(event) => setCredConfirmPassword(event.target.value)}
+                      onChange={setCredConfirmPassword}
                       autoComplete="new-password"
                       className={inputClass}
                     />
@@ -369,10 +407,9 @@ export function AccountPage() {
                 ) : null}
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.currentPassword')}</span>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={credCurrentPassword}
-                    onChange={(event) => setCredCurrentPassword(event.target.value)}
+                    onChange={setCredCurrentPassword}
                     required
                     autoComplete="current-password"
                     className={inputClass}
@@ -515,10 +552,9 @@ export function AccountPage() {
               </label>
               <label className="grid gap-1.5">
                 <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{t('account.password')}</span>
-                <input
-                  type="password"
+                <PasswordInput
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={setPassword}
                   required
                   autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                   className={inputClass}
