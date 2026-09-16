@@ -20,11 +20,18 @@ a routine deletion target.
 
 ## Browser and gateway routing
 
+Deployed browsers call same-origin `/api/*` on the Pages host. The Pages Function
+proxies those requests to the API Worker over HTTP (`STUDYPLANNER_API_ORIGIN`) so
+the `studyplanner_session` cookie is first-party. Safari/iOS blocks the cookie
+when the app on `pages.dev` talks to `workers.dev` directly. `VITE_API_BASE_URL`
+remains in Pages config only as a localhost Vite override; `apiBaseUrl.ts`
+ignores it on deployed hosts.
+
 The source of truth is frontend/src/shared/utils/apiBaseUrl.ts:
 
-- A non-empty VITE_API_BASE_URL overrides API routing.
-- Without an override, localhost/127.0.0.1 use http://localhost:8787.
-- Without an override, deployed hosts use same-origin /api/*.
+- On localhost/127.0.0.1, a non-empty VITE_API_BASE_URL overrides API routing;
+  otherwise they use http://localhost:8787.
+- Deployed hosts always use same-origin /api/*, even if VITE_API_BASE_URL is set.
 
 The checked Pages config includes a direct Worker URL as public build
 configuration. An actual build's environment determines whether that override

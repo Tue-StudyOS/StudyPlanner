@@ -65,7 +65,9 @@ npx wrangler deploy
 ```
 
 Deploy the API before the MCP adapter, and the adapter before a Pages gateway
-change that depends on it.
+change that depends on it. Keep `VITE_API_BASE_URL` as a localhost Vite override.
+Deployed browsers ignore it and call same-origin `/api/*` so Safari/iOS can
+store the session cookie.
 
 ## Frontend and Pages Functions
 
@@ -92,8 +94,8 @@ npx wrangler pages deploy dist --project-name studyplaner --branch main
 That last command runs from frontend/ after the same build step. Explicit branch
 selection avoids publishing a feature branch to the wrong destination.
 
-Vite reads VITE_API_BASE_URL at build time. If it is absent, deployed hosts use
-same-origin /api/*; a configured value points browsers directly at that origin.
+Vite reads VITE_API_BASE_URL at build time, but deployed hosts always use
+same-origin /api/*. The variable is only a localhost override.
 Do not assume Wrangler's [vars] supplies the variable to a plain local Vite build.
 Pages gateway forwarding is configured separately with STUDYPLANNER_API_ORIGIN
 and the service bindings in frontend/wrangler.toml.

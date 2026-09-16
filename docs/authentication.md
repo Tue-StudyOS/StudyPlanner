@@ -8,6 +8,9 @@ a session-bound CSRF proof, but never the session token itself.
 
 - Production cookies use `HttpOnly`, `Secure`, `SameSite=None`, and `Path=/`.
   Local HTTP development uses `SameSite=Lax` without `Secure`.
+- Deployed browsers call same-origin `/api/*` on the Pages host so the cookie is
+  first-party. Direct browser calls to `workers.dev` are not used: Safari/iOS
+  treats that cookie as third-party and drops it.
 - Authenticated mutations require the `X-CSRF-Token` header.
 - A valid legacy bearer token is promoted once and then removed from local
   storage.

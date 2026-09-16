@@ -1,19 +1,20 @@
 # Cloudflare Pages project config.
-# VITE_API_BASE_URL is public build-time config, not a secret.
+# VITE_API_BASE_URL is public build-time config, not a secret. Deployed browsers
+# ignore it and call same-origin /api/* so Safari/iOS can store the session cookie.
 name = "studyplaner"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-05-21"
 
-# apiBaseUrl.ts uses VITE_API_BASE_URL when present, otherwise same-origin on
-# deployed hosts. A plain Vite build does not read this Wrangler configuration;
-# set the build environment explicitly (see docs/cloudflare-setup.md).
+# Localhost Vite override only. Deployed hosts ignore this and call same-origin
+# /api/* so Safari/iOS can store the session cookie. A plain Vite build does not
+# read this Wrangler configuration; see docs/cloudflare-setup.md.
 [vars]
 VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 
 [env.production.vars]
-# Use explicit Worker origins in production. Service bindings are kept below as
-# fallback config, but Python Workers currently hang when invoked through the
-# Pages service binding path.
+# STUDYPLANNER_API_ORIGIN is the HTTP hop used by functions/api/[[path]].ts.
+# VITE_API_BASE_URL stays as a local-dev override; apiBaseUrl.ts ignores it on
+# deployed hosts so the session cookie is first-party on the Pages origin.
 VITE_API_BASE_URL = "https://studyplanner-api.ben-tischberger.workers.dev"
 STUDYPLANNER_API_ORIGIN = "https://studyplanner-api.ben-tischberger.workers.dev"
 
