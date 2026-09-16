@@ -261,7 +261,7 @@ export function CoursesOverview() {
   const catalogBasePath = useResolvedPath('.').pathname
   const openCourseId = extractCatalogDetailCourseId(location.pathname, catalogBasePath)
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLButtonElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
   const { user } = useAuth()
@@ -308,24 +308,6 @@ export function CoursesOverview() {
   function getCompletedFor(course: Course): CompletedCourse | undefined {
     return completedByCatalogCourseId.get(course.id)
   }
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setPaginationState((current) => ({
-            ...current,
-            visibleCount: current.visibleCount + PAGE_SIZE,
-          }))
-        }
-      },
-      { rootMargin: '200px' },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [courses])
 
   function toggleLayout(): void {
     const next = layout === 'grid' ? 'list' : 'grid'
@@ -486,6 +468,35 @@ export function CoursesOverview() {
     + (showOnlyOpenMandatory ? 1 : 0)
     + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
+
+  function revealNextCatalogPage(): void {
+    setPaginationState((current) => ({
+      ...current,
+      visibleCount: current.visibleCount + PAGE_SIZE,
+    }))
+  }
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    const root = catalogScrollRef.current
+    if (!sentinel || !root || !hasMore) {
+      return
+    }
+
+    // The catalog scrolls inside this pane, not the window. Observing the
+    // viewport never sees the sentinel cross a threshold, so the first page
+    // (30 cards) stuck on "Loading more courses...".
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          revealNextCatalogPage()
+        }
+      },
+      { root, rootMargin: '200px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, visibleCount])
 
   function isAreaFilterActive(code: string): boolean {
     if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
@@ -846,9 +857,14 @@ export function CoursesOverview() {
             })}
           </div>
           {hasMore ? (
-            <div ref={sentinelRef} className="mt-6 text-center text-[13px] text-fg-muted">
+            <button
+              type="button"
+              ref={sentinelRef}
+              onClick={revealNextCatalogPage}
+              className="mt-6 w-full text-center text-[13px] text-fg-muted transition-colors hover:text-fg"
+            >
               {t('catalog.loadingMore')}
-            </div>
+            </button>
           ) : filteredCourses.length > PAGE_SIZE ? (
             <div className="mt-6 text-center text-[13px] text-fg-muted">
               {t('catalog.allShown', { count: filteredCourses.length })}
