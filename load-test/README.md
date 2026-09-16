@@ -47,12 +47,12 @@ Four design decisions follow from that:
   first 20 iterations on PBKDF2 measures registration cost, not steady-state
   traffic. `mint-sessions.mjs` collects cookies out of band; they last 30 days.
 - **The target is the Worker origin**
-  (`https://studyplanner-api.ben-tischberger.workers.dev`), because that is what
-  the deployed frontend calls. `VITE_API_BASE_URL` is baked into the Pages
-  build, so browsers skip the same-origin `/api/*` Pages Function entirely.
-  Verified against the live bundle — see `docs/load-test-2026-08.md` Phase 0.
-  (The `caches.default` catalog cache in `proxy.ts:65` consequently never runs
-  for web users.)
+  (`https://studyplanner-api.ben-tischberger.workers.dev`), because that is the
+  API CPU bottleneck. Deployed browsers now call same-origin `/api/*` on Pages
+  (Safari/iOS session-cookie fix); load tests still hit the Worker directly.
+  See `docs/load-test-2026-08.md` Phase 0 for the historical direct-browser
+  measurement. The `caches.default` catalog cache in `proxy.ts` can now run
+  for web users.
 - **Each VU does one expensive first load, then a lighter steady state.** The
   frontend caches the catalog, progress and planner payloads in `sessionStorage`
   for 24 h (`frontend/src/shared/utils/sessionCache.ts`), so a real user fetches

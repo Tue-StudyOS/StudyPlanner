@@ -148,5 +148,8 @@ verified; do not retry this bootstrap against production.
 - [Frontend checks](../frontend/README.md#checks)
 - [Scraper setup](../data_collection/QUICKSTART.md)
 
+`VITE_API_BASE_URL` is a localhost Vite override. Deployed Pages builds ignore it
+and call same-origin `/api/*` so Safari/iOS can store the session cookie.
+
 Reference: Cloudflare's [local development](https://developers.cloudflare.com/workers/local-development/)
 and [local secrets](https://developers.cloudflare.com/workers/configuration/secrets/) documentation.

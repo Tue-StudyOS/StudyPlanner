@@ -5,14 +5,21 @@ import { getApiBaseUrl, resolveApiBaseUrl } from '../../src/shared/utils/apiBase
 
 const PRODUCTION_API_BASE_URL = 'https://studyplanner-api.ben-tischberger.workers.dev'
 
-test('resolveApiBaseUrl returns configured origin for deployed hosts', () => {
-  assert.equal(
-    resolveApiBaseUrl('studyplaner.pages.dev', `${PRODUCTION_API_BASE_URL}/`),
-    PRODUCTION_API_BASE_URL,
-  )
+test('resolveApiBaseUrl keeps deployed hosts same-origin even when a Worker URL is configured', () => {
+  assert.equal(resolveApiBaseUrl('studyplaner.pages.dev', `${PRODUCTION_API_BASE_URL}/`), '')
+  assert.equal(resolveApiBaseUrl('preview.studyplaner.pages.dev', PRODUCTION_API_BASE_URL), '')
 })
 
-test('getApiBaseUrl returns empty string for deployed hosts without config', () => {
+test('resolveApiBaseUrl keeps custom production domains same-origin', () => {
+  assert.equal(resolveApiBaseUrl('studyos.example.edu', PRODUCTION_API_BASE_URL), '')
+})
+
+test('resolveApiBaseUrl uses the configured origin only on localhost', () => {
+  assert.equal(resolveApiBaseUrl('localhost', `${PRODUCTION_API_BASE_URL}/`), PRODUCTION_API_BASE_URL)
+  assert.equal(resolveApiBaseUrl('127.0.0.1', PRODUCTION_API_BASE_URL), PRODUCTION_API_BASE_URL)
+})
+
+test('getApiBaseUrl returns empty string for deployed hosts', () => {
   const originalWindow = globalThis.window
   globalThis.window = {
     location: { hostname: 'studyplaner.pages.dev' },
@@ -23,10 +30,6 @@ test('getApiBaseUrl returns empty string for deployed hosts without config', () 
   } finally {
     globalThis.window = originalWindow
   }
-})
-
-test('resolveApiBaseUrl returns configured origin for custom production domains', () => {
-  assert.equal(resolveApiBaseUrl('studyos.example.edu', PRODUCTION_API_BASE_URL), PRODUCTION_API_BASE_URL)
 })
 
 test('getApiBaseUrl falls back to the local Worker on localhost without env override', () => {

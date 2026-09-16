@@ -1,1 +1,2 @@
+# /api/* is served by functions/api/[[path]].ts, not this SPA fallback.
 /* /index.html 200

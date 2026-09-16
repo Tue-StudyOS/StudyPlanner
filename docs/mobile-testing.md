@@ -38,6 +38,17 @@ On real devices, prefer iOS Safari and Android Chrome.
 - **Account**: long emails (`break-all`) and long study-program names
   (`break-words`) wrap inside their cards.
 
+## iOS regression check (session cookie)
+
+Safari/iOS blocks third-party cookies. The app must call same-origin `/api/*`
+so `studyplanner_session` is stored on `studyplaner.pages.dev`, not on
+`workers.dev`. Covered by `frontend/tests/shared/apiBaseUrl.test.ts`.
+
+Manual check: on an iPhone or iPad (Safari, Prevent Cross-Site Tracking on),
+sign in and open Transcript. Personal courses must load. The historical failure
+was two red banners reading "Authentication is required for this endpoint"
+while the page still looked signed in.
+
 ## iOS regression check (ToR import)
 
 Safari/iOS lacks async iteration over `ReadableStream`, which pdf.js needs.

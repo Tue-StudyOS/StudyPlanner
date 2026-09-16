@@ -65,5 +65,10 @@ static build; it does not run Pages Functions. Test the gateway with
 `npx wrangler pages dev dist --port 8789` and the backend/MCP processes in the
 [AI integration guide](../docs/ai-integrations-setup.md#local-smoke-test).
 
-See [Cloudflare deployment](../docs/cloudflare-setup.md) for explicit build-time
-API configuration and branch preview versus production deployment.
+Production builds call same-origin `/api/*`. The Pages Function proxies to the
+Worker so the session cookie is first-party on `studyplaner.pages.dev`. Direct
+browser calls to `workers.dev` break sign-in on Safari/iOS. `VITE_API_BASE_URL`
+is only the localhost override.
+
+See [Cloudflare deployment](../docs/cloudflare-setup.md) for branch preview
+versus production deployment.

@@ -106,8 +106,8 @@ def _verify_frontend_wrangler(errors: list[str]) -> None:
     _record_check(errors, config.get('name') == EXPECTED_PAGES_PROJECT, f'{path}: Pages project name must stay {EXPECTED_PAGES_PROJECT!r}.')
     _record_check(errors, config.get('pages_build_output_dir') == EXPECTED_PAGES_OUTPUT_DIR, f'{path}: pages_build_output_dir must stay {EXPECTED_PAGES_OUTPUT_DIR!r}.')
     _record_check(errors, vars_config.get('VITE_API_BASE_URL') == EXPECTED_WORKERS_API_BASE_URL, f'{path}: preview VITE_API_BASE_URL must be {EXPECTED_WORKERS_API_BASE_URL!r} for local Pages dev overrides.')
-    _record_check(errors, production_vars.get('VITE_API_BASE_URL') == EXPECTED_WORKERS_API_BASE_URL, f'{path}: production VITE_API_BASE_URL must be {EXPECTED_WORKERS_API_BASE_URL!r}; deployed browser builds call the API Worker directly.')
-    _record_check(errors, production_vars.get('STUDYPLANNER_API_ORIGIN') == EXPECTED_WORKERS_API_BASE_URL, f'{path}: production STUDYPLANNER_API_ORIGIN must be {EXPECTED_WORKERS_API_BASE_URL!r} for manual Pages API gateway tests.')
+    _record_check(errors, production_vars.get('VITE_API_BASE_URL') == EXPECTED_WORKERS_API_BASE_URL, f'{path}: production VITE_API_BASE_URL must be {EXPECTED_WORKERS_API_BASE_URL!r} as the localhost Vite override; deployed browsers ignore it and use same-origin /api.')
+    _record_check(errors, production_vars.get('STUDYPLANNER_API_ORIGIN') == EXPECTED_WORKERS_API_BASE_URL, f'{path}: production STUDYPLANNER_API_ORIGIN must be {EXPECTED_WORKERS_API_BASE_URL!r} for the Pages /api HTTP gateway.')
 
     services = config.get('services')
     service_by_binding = _service_by_binding(services)
