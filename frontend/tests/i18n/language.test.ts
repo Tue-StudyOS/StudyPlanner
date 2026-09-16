@@ -30,4 +30,10 @@ test('createTranslator resolves localized app chrome labels', () => {
   assert.equal(createTranslator('de')('nav.catalog'), 'Katalog')
   assert.equal(createTranslator('en')('common.complete'), 'Complete')
   assert.equal(createTranslator('de')('common.complete'), 'Fertig')
+  assert.equal(
+    createTranslator('de')('feedback.anonymousNotice'),
+    'Sende Feedback ohne Accountzuordnung; übermittelt werden nur Bewertung und Nachricht.',
+  )
+  assert.equal(createTranslator('de')('account.showPassword'), 'Passwort anzeigen')
+  assert.equal(createTranslator('de')('account.hidePassword'), 'Passwort verbergen')
 })
