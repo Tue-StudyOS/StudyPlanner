@@ -77,10 +77,13 @@ python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/
 
 `--from-semester` selects every period from that label on, so it scrapes a single
 semester only while it is the newest one ALMA lists. Without `--apply` the
-incremental run is a dry run (reads the D1, writes the SQL). With `--apply` it
-replaces only the input's periods, keeps re-imported course ids, then compares a
-before/after snapshot and exits non-zero if any other period, reviews, or
-external links changed. Deploy the Worker afterwards so isolates drop cached
+incremental run is a dry run (reads the D1, writes the SQL). It lists the courses
+added, removed, or changed (title, times, rooms, dates) against the D1;
+`--skip-if-unchanged` stops there when nothing changed. With `--apply` it
+replaces only the input's periods and keeps re-imported course, parallel-group
+and appointment ids (saved plans store hidden tutorial slots by appointment id),
+then compares a before/after snapshot and exits non-zero if any other period,
+reviews, or external links changed. Deploy the Worker afterwards so isolates drop cached
 catalog responses.
 
 **Full rebuild:**
