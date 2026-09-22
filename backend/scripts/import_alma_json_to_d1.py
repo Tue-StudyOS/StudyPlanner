@@ -26,9 +26,12 @@ Two ways to run it:
         py backend/scripts/import_alma_json_to_d1.py \
           --input <single-period courses_multi_semester.json> --incremental --apply
 
-    New rows get ids above the current maxima, re-imported courses keep their
-    course id (matched by period + unit_id), and existing lecturers are reused
-    by name, so ids referenced elsewhere stay valid. Before seeding it
+    New rows get ids above the current maxima; re-imported courses keep their
+    course id (matched by period + unit_id) and their parallel-group and
+    appointment ids (matched by position within the course, since saved plans
+    store hidden tutorial slots by appointment id); existing lecturers are
+    reused by name. It prints which courses were added, removed, or changed;
+    --skip-if-unchanged stops there when nothing changed. Before seeding it
     snapshots per-period row counts and id checksums; afterwards it verifies
     every other period is byte-for-byte unchanged in those metrics, the
     imported periods hold the expected course count, and user data
@@ -133,6 +136,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--incremental", action="store_true",
                         help="Replace only the periods present in --input, keep all other periods, "
                              "and verify them afterwards. Implies no create/swap/migrate.")
+    parser.add_argument("--skip-if-unchanged", action="store_true",
+                        help="With --incremental: stop without writing anything when no course was added, "
+                             "removed, or changed (title, times, rooms, dates) compared to the target D1.")
     return parser.parse_args()
 
 
@@ -216,6 +222,67 @@ class ExistingCatalogIds:
     # Courses of the periods being replaced, keyed by (period_id, unit_id), so a
     # re-import keeps their ids and plans/favorites referencing them stay valid.
     course_id_by_period_unit: dict[tuple[str, str], int] = field(default_factory=dict)
+    # Their parallel groups and appointments, keyed by position within the course
+    # (ALMA's listing order). Saved semester plans store hidden tutorial slots as
+    # "<course id>:appointment:<appointment id>", so a re-import must keep these too.
+    group_id_by_key: dict[tuple[str, str, int], int] = field(default_factory=dict)
+    appointment_id_by_key: dict[tuple[str, str, int, int], int] = field(default_factory=dict)
+    # What the target DB currently holds for those courses, to report changes.
+    course_signatures: dict[tuple[str, str], "CourseSignature"] = field(default_factory=dict)
+
+
+# (title, sorted appointment tuples). Appointment tuple: (group position,
+# position, weekday, start, end, room, starts_on, ends_on) — what a student sees.
+CourseSignature = tuple[str, tuple[tuple[Any, ...], ...]]
+APPOINTMENT_SIGNATURE_COLUMNS = ("weekday", "start_time", "end_time", "room_text", "starts_on", "ends_on")
+
+
+def _appointment_signature(group_position: int, position: int, row: dict[str, Any]) -> tuple[Any, ...]:
+    return (int(group_position), int(position), *(row.get(column) or None for column in APPOINTMENT_SIGNATURE_COLUMNS))
+
+
+def plan_course_signatures(plan: "SeedPlan") -> dict[tuple[str, str], CourseSignature]:
+    group_by_id = {group["id"]: group for group in plan.parallel_groups}
+    appointments_by_course: dict[int, list[tuple[Any, ...]]] = {}
+    for appointment in plan.appointments:
+        group = group_by_id[appointment["parallel_group_id"]]
+        appointments_by_course.setdefault(group["course_id"], []).append(
+            _appointment_signature(group["position"], appointment["position"], appointment)
+        )
+    return {
+        (str(course["period_id"]), str(course["unit_id"])): (
+            str(course["title"]),
+            tuple(sorted(appointments_by_course.get(course["id"], []), key=repr)),
+        )
+        for course in plan.courses
+    }
+
+
+def describe_course_change(before: CourseSignature, after: CourseSignature) -> list[str]:
+    """Human-readable differences of one changed course, for the import log."""
+    details: list[str] = []
+    if before[0] != after[0]:
+        details.append(f"title {before[0]!r} -> {after[0]!r}")
+    removed = sorted(set(before[1]) - set(after[1]), key=repr)
+    added = sorted(set(after[1]) - set(before[1]), key=repr)
+    details += [f"- {appointment}" for appointment in removed]
+    details += [f"+ {appointment}" for appointment in added]
+    if not details and before[1] != after[1]:
+        details.append(f"appointment multiset differs ({len(before[1])} -> {len(after[1])} rows)")
+    return details
+
+
+def summarize_course_changes(
+    before: dict[tuple[str, str], CourseSignature],
+    after: dict[tuple[str, str], CourseSignature],
+) -> dict[str, list[str]]:
+    """Titles of courses added, removed, or changed (title/times/rooms/dates)
+    between the target DB and the import plan."""
+    return {
+        "added": sorted(after[key][0] for key in after.keys() - before.keys()),
+        "removed": sorted(before[key][0] for key in before.keys() - after.keys()),
+        "changed": sorted(after[key][0] for key in after.keys() & before.keys() if after[key] != before[key]),
+    }
 
 
 def namespaced_node_id(period_id: str, node_id: str) -> str:
@@ -308,6 +375,7 @@ def build_seed_plan(data: dict[str, Any], existing: ExistingCatalogIds | None = 
             lecturer_id_by_name=lecturer_id_by_name,
             next_group_id=next_group_id,
             next_appointment_id=next_appointment_id,
+            existing=existing,
         )
 
     for name, lecturer_id in sorted(lecturer_id_by_name.items(), key=lambda pair: pair[1]):
@@ -376,8 +444,12 @@ def _emit_course(
     lecturer_id_by_name: dict[str, int],
     next_group_id: int,
     next_appointment_id: int,
+    existing: ExistingCatalogIds | None = None,
 ) -> tuple[int, int]:
     period_id = str(course.get("period_id") or "")
+    unit_id = _course_unit_id(course)
+    reusable_group_ids = existing.group_id_by_key if existing else {}
+    reusable_appointment_ids = existing.appointment_id_by_key if existing else {}
     raw_node_id = str(course.get("node_id") or "")
     namespaced = namespaced_node_id(period_id, raw_node_id)
     details = course.get("details") or {}
@@ -456,8 +528,10 @@ def _emit_course(
         })
 
     for group_position, group in enumerate(details.get("parallel_groups") or [], start=1):
-        group_id = next_group_id
-        next_group_id += 1
+        group_id = reusable_group_ids.get((period_id, unit_id, group_position))
+        if group_id is None:
+            group_id = next_group_id
+            next_group_id += 1
         group_fields = group.get("fields") or {}
         plan.parallel_groups.append({
             "id": group_id,
@@ -511,8 +585,12 @@ def _emit_course(
                 })
 
         for appointment_position, appointment in enumerate(group.get("appointments") or [], start=1):
-            appointment_id = next_appointment_id
-            next_appointment_id += 1
+            appointment_id = reusable_appointment_ids.get(
+                (period_id, unit_id, group_position, appointment_position)
+            )
+            if appointment_id is None:
+                appointment_id = next_appointment_id
+                next_appointment_id += 1
             rhythm_text = appointment.get("Rhythmus")
             weekday, weekday_index = extract_weekday(rhythm_text)
             start_time, end_time = parse_time_range(appointment.get("Von - Bis"))
@@ -1172,7 +1250,19 @@ def load_existing_catalog_ids(query: QueryRows, period_ids: list[str]) -> Existi
         raise SystemExit("Target D1 has no scrape run: run a full seed first, not --incremental.")
     lecturers = query("SELECT id, display_name FROM lecturers")
     period_list = ", ".join(sql_literal(period_id) for period_id in period_ids)
-    replaced_courses = query(f"SELECT id, period_id, unit_id FROM courses WHERE period_id IN ({period_list})")
+    replaced_courses = query(f"SELECT id, period_id, unit_id, title FROM courses WHERE period_id IN ({period_list})")
+    replaced_groups = query(
+        "SELECT c.period_id AS period_id, c.unit_id AS unit_id, pg.position AS position, pg.id AS id "
+        f"FROM parallel_groups AS pg JOIN courses AS c ON c.id = pg.course_id WHERE c.period_id IN ({period_list})"
+    )
+    replaced_appointments = query(
+        "SELECT c.period_id AS period_id, c.unit_id AS unit_id, pg.position AS group_position, "
+        "a.position AS position, a.id AS id, "
+        + ", ".join(f"a.{column} AS {column}" for column in APPOINTMENT_SIGNATURE_COLUMNS)
+        + " FROM appointments AS a "
+        "JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id "
+        f"JOIN courses AS c ON c.id = pg.course_id WHERE c.period_id IN ({period_list})"
+    )
     return ExistingCatalogIds(
         run_id=int(maxima["run_id"]),
         max_course_id=int(maxima["max_course_id"]),
@@ -1182,7 +1272,34 @@ def load_existing_catalog_ids(query: QueryRows, period_ids: list[str]) -> Existi
         course_id_by_period_unit={
             (str(row["period_id"]), str(row["unit_id"])): int(row["id"]) for row in replaced_courses
         },
+        group_id_by_key={
+            (str(row["period_id"]), str(row["unit_id"]), int(row["position"])): int(row["id"])
+            for row in replaced_groups
+        },
+        appointment_id_by_key={
+            (str(row["period_id"]), str(row["unit_id"]), int(row["group_position"]), int(row["position"])): int(row["id"])
+            for row in replaced_appointments
+        },
+        course_signatures=_db_course_signatures(replaced_courses, replaced_appointments),
     )
+
+
+def _db_course_signatures(
+    courses: list[dict[str, Any]],
+    appointments: list[dict[str, Any]],
+) -> dict[tuple[str, str], CourseSignature]:
+    appointments_by_course: dict[tuple[str, str], list[tuple[Any, ...]]] = {}
+    for row in appointments:
+        appointments_by_course.setdefault((str(row["period_id"]), str(row["unit_id"])), []).append(
+            _appointment_signature(row["group_position"], row["position"], row)
+        )
+    return {
+        (str(row["period_id"]), str(row["unit_id"])): (
+            str(row["title"]),
+            tuple(sorted(appointments_by_course.get((str(row["period_id"]), str(row["unit_id"])), []), key=repr)),
+        )
+        for row in courses
+    }
 
 
 def load_catalog_snapshot(query: QueryRows) -> tuple[CatalogSnapshot, dict[str, int]]:
@@ -1236,6 +1353,21 @@ def main() -> None:
           f"parallel_groups={len(plan.parallel_groups)}, appointments={len(plan.appointments)}, "
           f"lecturers={len(plan.lecturers)}, content_sections={len(plan.content_sections)}, "
           f"course_fields={len(plan.course_fields)}")
+
+    if existing is not None:
+        planned_signatures = plan_course_signatures(plan)
+        changes = summarize_course_changes(existing.course_signatures, planned_signatures)
+        print(f"[changes] added={len(changes['added'])}, removed={len(changes['removed'])}, "
+              f"changed={len(changes['changed'])} (vs. target D1)")
+        for kind, titles in changes.items():
+            for title in titles:
+                print(f"  {kind}: {title}")
+        for key in sorted(existing.course_signatures.keys() & planned_signatures.keys()):
+            for detail in describe_course_change(existing.course_signatures[key], planned_signatures[key]):
+                print(f"    {planned_signatures[key][0][:60]}: {detail}")
+        if args.skip_if_unchanged and not any(changes.values()):
+            print("\nNo changes against the target D1; nothing imported.")
+            return
 
     print(f"[write] {args.out_sql}")
     write_seed_sql(args.out_sql, plan, replace_period_ids)
