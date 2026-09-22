@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import sys
 import tempfile
@@ -142,6 +143,43 @@ class IncrementalImportTest(unittest.TestCase):
         self.assertEqual(plan.appointments[0]["id"], before[0]["appointment_id"])
         # The added appointment gets a fresh id above every existing one.
         self.assertGreater(plan.appointments[1]["id"], before[0]["appointment_id"])
+
+    def _save_plan_hiding_first_appointment_of(self, unit_id: str) -> None:
+        row = self._query(
+            "SELECT c.id AS course_id, a.id AS appointment_id FROM appointments AS a "
+            "JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id "
+            f"JOIN courses AS c ON c.id = pg.course_id WHERE c.period_id = '237' AND c.unit_id = '{unit_id}'"
+        )[0]
+        plans = {"WS 2026/27": {
+            "courseIds": [str(row["course_id"])],
+            "hiddenSlotIds": [f"{row['course_id']}:appointment:{row['appointment_id']}"],
+        }}
+        # The user_auth row the FK expects is irrelevant here.
+        self.conn.execute("PRAGMA foreign_keys = OFF")
+        self.conn.execute(
+            "INSERT INTO user_state (username, display_name, semester_plans_json) VALUES ('student', 'S', ?)",
+            (json.dumps(plans),),
+        )
+
+    def test_regression_check_fails_when_saved_plans_lose_their_courses_or_slots(self) -> None:
+        self._import_incrementally([
+            _alma_course("237", "u1", "INFO4100", "Prof. A"),
+            _alma_course("237", "u9", "INFO4900", "Prof. New"),
+        ])
+        self._save_plan_hiding_first_appointment_of("u1")
+
+        # Re-importing unchanged data keeps every referenced id.
+        _, problems = self._import_incrementally([
+            _alma_course("237", "u1", "INFO4100", "Prof. A"),
+            _alma_course("237", "u9", "INFO4900", "Prof. New"),
+        ])
+        self.assertEqual(problems, [])
+
+        # Dropping the planned course strands both the course and its hidden slot.
+        _, problems = self._import_incrementally([_alma_course("237", "u9", "INFO4900", "Prof. New")])
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(problems[0].startswith("dangling_plan_course_refs grew: 0 -> 1"))
+        self.assertTrue(problems[1].startswith("dangling_plan_slot_refs grew: 0 -> 1"))
 
     def test_change_summary_reports_added_removed_and_changed_courses(self) -> None:
         self._import_incrementally([

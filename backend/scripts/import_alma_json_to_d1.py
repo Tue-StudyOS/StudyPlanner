@@ -1053,10 +1053,22 @@ PERIOD_SNAPSHOT_QUERIES = [
 ]
 
 # User data keyed on the ALMA course number must never change during an import.
+# Saved semester plans still reference catalog ids (courseIds, and hidden tutorial
+# slots as "<course id>:appointment:<appointment id>"); an import must never
+# increase the number of those references that point at nothing.
+_PLANS = (
+    "FROM user_state AS s, json_each(CASE WHEN json_valid(s.semester_plans_json) "
+    "THEN s.semester_plans_json ELSE '{}' END) AS plan"
+)
 GLOBAL_SNAPSHOT_QUERY = (
     "SELECT (SELECT COUNT(*) FROM course_reviews) AS course_reviews, "
     "(SELECT COUNT(*) FROM course_external_links) AS course_external_links, "
-    "(SELECT COUNT(*) FROM lecturers) AS lecturers"
+    "(SELECT COUNT(*) FROM lecturers) AS lecturers, "
+    f"(SELECT COUNT(*) {_PLANS}, json_each(COALESCE(json_extract(plan.value, '$.courseIds'), '[]')) AS ref "
+    "WHERE CAST(ref.value AS INTEGER) NOT IN (SELECT id FROM courses)) AS dangling_plan_course_refs, "
+    f"(SELECT COUNT(*) {_PLANS}, json_each(COALESCE(json_extract(plan.value, '$.hiddenSlotIds'), '[]')) AS ref "
+    "WHERE instr(ref.value, ':appointment:') != 0 AND CAST(substr(ref.value, instr(ref.value, ':appointment:') + 13) "
+    "AS INTEGER) NOT IN (SELECT id FROM appointments)) AS dangling_plan_slot_refs"
 )
 
 CatalogSnapshot = dict[str, dict[str, int]]
@@ -1107,6 +1119,12 @@ def compare_catalog_snapshots(
         problems.append(
             f"lecturers shrank: {before_global.get('lecturers')} -> {after_global.get('lecturers')}"
         )
+    for key in ("dangling_plan_course_refs", "dangling_plan_slot_refs"):
+        if after_global.get(key, 0) > before_global.get(key, 0):
+            problems.append(
+                f"{key} grew: {before_global.get(key)} -> {after_global.get(key)} "
+                "(saved plans now reference catalog rows that no longer exist)"
+            )
     return problems
 
 
