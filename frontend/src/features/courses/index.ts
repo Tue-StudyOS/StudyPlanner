@@ -12,12 +12,8 @@ export {
   getDetailSeasonTermType,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
-  getOutdatedOfferingSortRank,
   getRecentSeasonTermType,
   isCompulsoryCourse,
-  isDefaultVisibleOfferingStatus,
-  isOutdatedOfferingStatus,
-  resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
 } from './utils/catalogOffering.ts'
 export type {
