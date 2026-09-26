@@ -6,6 +6,7 @@ import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import { saveBrowserPreference } from '../../../shared/utils/browserPreferences.ts'
 import {
+  buildAllSelectableRegulationAreaOptions,
   buildFlexibleRegulationAreaOptions,
   formatRegulationAreaShortLabel,
   isMandatoryRegulationAreaCode,
@@ -26,6 +27,7 @@ import { useTranscript } from '../../transcript'
 import { ALL_CATALOG_PERIODS } from '../api'
 import { useCatalogCourses } from '../hooks/useCatalogCourses'
 import { useCatalogPeriods } from '../hooks/useCatalogPeriods'
+import { useGuestStudyProgram } from '../hooks/useGuestStudyProgram.ts'
 import { useHistoricalLecturerLookup } from '../hooks/useHistoricalLecturerLookup.ts'
 import { resolveCourseCardLecturerLabel } from '../utils/completedCourseLecturer.ts'
 import type { CompletedCourse, Course, CourseTermType } from '../types'
@@ -62,6 +64,7 @@ import {
   courseMatchesTypeFilter,
   type CourseTypeFilterValue,
 } from '../utils/courseTypeFilter.ts'
+import { resolveCatalogStudySelection } from '../utils/catalogStudyProgram.ts'
 import { courseMatchesStudyAreaFilter } from '../utils/studyAreaFilter.ts'
 import { timeDigitsToMinutes } from '../utils/timeInput.ts'
 import { CatalogProgressHint } from './CatalogProgressHint'
@@ -264,13 +267,36 @@ export function CoursesOverview() {
   const sentinelRef = useRef<HTMLButtonElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
-  const { user } = useAuth()
-  const studyProgramCode = user?.profile.studyProgramCode ?? null
+  const { user, isLoadingSession } = useAuth()
+  const accountStudyProgramCode = user?.profile.studyProgramCode ?? null
+  const showGuestStudyProgram = !isLoadingSession && accountStudyProgramCode === null
+  const {
+    studyPrograms,
+    selectedStudyProgramId,
+    isLoadingStudyPrograms,
+    studyProgramsError,
+    setSelectedStudyProgramId,
+  } = useGuestStudyProgram(showGuestStudyProgram)
+  const guestStudyProgram = studyPrograms.find((program) => program.id === selectedStudyProgramId) ?? null
+  const { studyProgramCode, regulationVersionCode } = resolveCatalogStudySelection(
+    accountStudyProgramCode
+      ? {
+          studyProgramCode: accountStudyProgramCode,
+          regulationVersionCode: user?.profile.regulationVersionCode ?? null,
+        }
+      : null,
+    guestStudyProgram
+      ? {
+          studyProgramCode: guestStudyProgram.code,
+          regulationVersionCode: guestStudyProgram.defaultRegulationVersionCode,
+        }
+      : null,
+  )
   const { periods, periodsError } = useCatalogPeriods()
   const catalogSearch = search.trim().length >= 2 ? search : ''
   const { courses, isLoading, error, refreshWarning } = useCatalogCourses(catalogSearch, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
-    useRegulationVersion(user?.profile.regulationVersionCode)
+    useRegulationVersion(regulationVersionCode)
   const { isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
@@ -324,8 +350,17 @@ export function CoursesOverview() {
   )
 
   const topicAreaOptions = useMemo(
-    () => buildFlexibleRegulationAreaOptions(regulationVersion?.ruleGroups ?? []),
-    [regulationVersion?.ruleGroups],
+    () => {
+      const ruleGroups = regulationVersion?.ruleGroups ?? []
+      // Guests have no progress snapshot, so the whole regulation (except the
+      // thesis) is the filter set. Signed-in users keep the elective chips
+      // plus whatever areas are still open.
+      if (!accountStudyProgramCode) {
+        return buildAllSelectableRegulationAreaOptions(ruleGroups)
+      }
+      return buildFlexibleRegulationAreaOptions(ruleGroups)
+    },
+    [accountStudyProgramCode, regulationVersion?.ruleGroups],
   )
   const regulationRuleGroups = useMemo(
     () => regulationVersion?.ruleGroups ?? [],
@@ -499,7 +534,7 @@ export function CoursesOverview() {
   }, [hasMore, visibleCount])
 
   function isAreaFilterActive(code: string): boolean {
-    if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
+    if (accountStudyProgramCode && isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
       return showOnlyOpenMandatory
     }
     return selectedStudyAreaCodes.includes(code)
@@ -508,13 +543,19 @@ export function CoursesOverview() {
   function handleAreaFilterSelect(code: string): void {
     preservedScrollTopRef.current = catalogScrollRef.current?.scrollTop ?? 0
     setAreFiltersOpen(false)
-    if (isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
+    if (accountStudyProgramCode && isMandatoryRegulationAreaCode(code, regulationRuleGroups)) {
       setShowOnlyOpenMandatory((current) => !current)
       setSelectedStudyAreaCodes([])
     } else {
       setShowOnlyOpenMandatory(false)
       setSelectedStudyAreaCodes((prev) => toggleInSelection(prev, code))
     }
+  }
+
+  function handleGuestStudyProgramChange(value: string): void {
+    setSelectedStudyProgramId(value ? Number(value) : null)
+    setSelectedStudyAreaCodes([])
+    setShowOnlyOpenMandatory(false)
   }
 
   useEffect(() => {
@@ -589,6 +630,12 @@ export function CoursesOverview() {
         </div>
       ) : null}
 
+      {!isOnboardingOpen && studyProgramsError ? (
+        <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
+          {studyProgramsError}
+        </div>
+      ) : null}
+
       <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
         <label className="block" data-tour="catalog-search">
           <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
@@ -616,6 +663,24 @@ export function CoursesOverview() {
           >
             {t('catalog.filters')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''} {areFiltersOpen ? '▴' : '▾'}
           </button>
+
+          {showGuestStudyProgram ? (
+            <label className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:max-w-[22rem]">
+              <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('setup.studyProgram')}</span>
+              <select
+                aria-label={t('setup.studyProgram')}
+                value={selectedStudyProgramId ?? ''}
+                disabled={isLoadingStudyPrograms}
+                onChange={(event) => handleGuestStudyProgramChange(event.target.value)}
+                className="min-w-0 w-full max-w-full rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+              >
+                <option value="">{t('setup.studyProgramPlaceholder')}</option>
+                {studyPrograms.map((studyProgram) => (
+                  <option key={studyProgram.id} value={studyProgram.id}>{studyProgram.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <span className="flex-1" />
 
@@ -668,7 +733,9 @@ export function CoursesOverview() {
 
               <FilterGroup label="Topic areas">
                 {isLoadingRegulationVersion ? (
-                  <div className="text-[12.5px] text-fg-muted">Loading your active regulation filters...</div>
+                  <div className="text-[12.5px] text-fg-muted">Loading regulation areas...</div>
+                ) : studyProgramsError ? (
+                  <div className="text-[12.5px] text-primary">{studyProgramsError}</div>
                 ) : topicFilterOptions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {topicFilterOptions.map((option) => (
@@ -683,8 +750,7 @@ export function CoursesOverview() {
                   </div>
                 ) : (
                   <div className="rounded-[10px] border border-dashed border-border px-4 py-3 text-[12.5px] text-fg-muted">
-                    Select a study program with an active examination regulation in Account to filter
-                    the catalog by regulation topic areas.
+                    {t('catalog.topicAreasEmpty')}
                   </div>
                 )}
               </FilterGroup>
@@ -845,6 +911,7 @@ export function CoursesOverview() {
                       favoriteLoading={!isTourSampleRow && isFavoriteSaving(course.id)}
                       showFavorite={canShowFavorites}
                       offeringStatus={offeringStatus}
+                      studyProgramCode={studyProgramCode}
                       seasonTermType={isTourSampleRow ? course.termType : cardSeasonTermTypeByCourseId.get(course.id) ?? course.termType}
                       regulationRuleGroups={regulationRuleGroups}
                       isAreaTagActive={isAreaFilterActive}
