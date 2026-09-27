@@ -158,6 +158,21 @@ class AlmaScraper:
             "Informatik",
             "M.Sc. Machine Learning (Version 2021)",
         ),
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "B.Sc. Medieninformatik (Version 2021)",
+        ),
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "B.Sc. Medizininformatik (Version 2021)",
+        ),
+        (
+            "Mathematisch-Naturwissenschaftliche",
+            "Informatik",
+            "B.Sc. Bioinformatik (Version 2021)",
+        ),
     )
 
     def __init__(

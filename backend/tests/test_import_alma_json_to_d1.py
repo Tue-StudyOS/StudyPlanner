@@ -290,11 +290,17 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
 
             INSERT INTO study_programs (id, code, name) VALUES
                 (1, 'BSC_INFO_2021', 'B.Sc. Informatik'),
-                (2, 'MSC_ML_2021', 'M.Sc. Machine Learning');
+                (2, 'MSC_ML_2021', 'M.Sc. Machine Learning'),
+                (4, 'BSC_BIOINFO_2021', 'B.Sc. Bioinformatik'),
+                (5, 'BSC_MEDIENINFO_2021', 'B.Sc. Medieninformatik'),
+                (6, 'BSC_MEDIZININFO_2021', 'B.Sc. Medizininformatik');
             INSERT INTO study_areas (id, program_id, code) VALUES
                 (10, 1, 'MATH'), (11, 1, 'PRAK'),
                 (20, 2, 'ML-FOUND'), (21, 2, 'ML-DIVERSE'),
-                (22, 2, 'ML-CS'), (23, 2, 'ML-EXP');
+                (22, 2, 'ML-CS'), (23, 2, 'ML-EXP'),
+                (40, 4, 'BIOINFO'), (41, 4, 'ELECTIVE'),
+                (50, 5, 'MEDIAINFO'), (51, 5, 'ELECTIVE'),
+                (60, 6, 'MED_BIO_PHYS'), (61, 6, 'MEDINFO'), (62, 6, 'ELECTIVE');
             """
         )
         self.conn.commit()
@@ -363,6 +369,20 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
             math_aliases,
             {("ModulMath1", "MATH"), ("ModulMath2", "MATH"), ("ModulMath3", "MATH"), ("ModulMath4", "MATH")},
         )
+
+    def test_additional_bsc_programs_link_named_alma_modules(self) -> None:
+        self._add_course(600, ["MDZINFM1310", "MDZINFM1410", "MDZINFM2510"])
+        self._add_course(601, ["MEINFM3164", "MEINFM3210"])
+        self._add_course(602, ["BIOINFM1110", "BIOINFM2210"])
+
+        self._rebuild_links()
+
+        self.assertEqual(
+            self._links(600),
+            {(60, "MDZINFM1310"), (61, "MDZINFM1410"), (62, "MDZINFM2510")},
+        )
+        self.assertEqual(self._links(601), {(50, "MEINFM3164"), (51, "MEINFM3210")})
+        self.assertEqual(self._links(602), {(40, "BIOINFM1110"), (41, "BIOINFM2210")})
 
     def test_machine_learning_mach_codes_link_to_the_confirmed_ml_areas(self) -> None:
         self._add_course(500, ["MACH-FML", "MACH-DTML", "MACH-GCS", "MACH-EP"])
