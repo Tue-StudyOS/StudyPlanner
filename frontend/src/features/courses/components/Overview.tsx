@@ -169,6 +169,7 @@ export function CoursesOverview() {
   const [selectedTerms, setSelectedTerms] = useState<TermSeason[]>(() => getDefaultCatalogTermSelection())
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
+  const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(true)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const filterSignature = useMemo(
@@ -181,6 +182,7 @@ export function CoursesOverview() {
         selectedStudyAreaCodes.join('|'),
         selectedTerms.join('|'),
         showOnlyOpenMandatory,
+        showUnconfirmedOfferings,
         sortOption,
         timeFromDigits,
         timeToDigits,
@@ -193,6 +195,7 @@ export function CoursesOverview() {
       selectedStudyAreaCodes,
       selectedTerms,
       showOnlyOpenMandatory,
+      showUnconfirmedOfferings,
       sortOption,
       timeFromDigits,
       timeToDigits,
@@ -399,6 +402,13 @@ export function CoursesOverview() {
           ) {
             return false
           }
+          if (
+            !showUnconfirmedOfferings
+            && (offeringStatusByCourseId.get(course.id) === 'likely'
+              || offeringStatusByCourseId.get(course.id) === 'unknown')
+          ) {
+            return false
+          }
           return true
         }),
         sortOption,
@@ -406,12 +416,14 @@ export function CoursesOverview() {
     [
       completedByCatalogCourseId,
       courses,
+      offeringStatusByCourseId,
       selectedCourseTypes,
       selectedDays,
       selectedEctsValues,
       selectedStudyAreaCodes,
       selectedTerms,
       showOnlyOpenMandatory,
+      showUnconfirmedOfferings,
       sortOption,
       studyProgramCode,
       timeWindow,
@@ -429,6 +441,7 @@ export function CoursesOverview() {
     + selectedTerms.length
     + selectedCourseTypes.length
     + (showOnlyOpenMandatory ? 1 : 0)
+    + (showUnconfirmedOfferings ? 0 : 1)
   const hasActiveFilters = activeFilterCount > 0
 
   function revealNextCatalogPage(): void {
@@ -500,6 +513,7 @@ export function CoursesOverview() {
     setSelectedTerms([])
     setSelectedCourseTypes([])
     setShowOnlyOpenMandatory(false)
+    setShowUnconfirmedOfferings(true)
   }
 
   const catalogSubtitle = t('catalog.subtitle')
@@ -739,6 +753,15 @@ export function CoursesOverview() {
           </div>
         ) : null}
 
+        <label className="flex min-w-0 cursor-pointer items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
+          <input
+            type="checkbox"
+            checked={showUnconfirmedOfferings}
+            onChange={(event) => setShowUnconfirmedOfferings(event.target.checked)}
+            className="h-4 w-4 shrink-0 accent-primary"
+          />
+          <span className="min-w-0 break-words">{t('catalog.showUnconfirmedOfferings')}</span>
+        </label>
       </div>
 
       {!isOnboardingOpen && refreshWarning ? (
