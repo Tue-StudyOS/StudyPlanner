@@ -111,7 +111,21 @@ test('in the final summer month an ending summer course is no longer confirmed',
   assert.equal(getOfferingStatus(summerCourse, KNOWN_PERIODS, LAST_SUMMER_MONTH), 'likely')
   const knownWithNextWinter = ['Winter 2026/27', ...KNOWN_PERIODS]
   const winterCourse = { offeredPeriods: ['Winter 2026/27'] }
-  assert.equal(getOfferingStatus(winterCourse, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']), 'confirmed')
+  // Catalog is published, but Tübingen lectures start on the second October Monday.
+  assert.equal(getOfferingStatus(winterCourse, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']), 'likely')
+  assert.equal(
+    getOfferingStatus(winterCourse, knownWithNextWinter, new Date('2026-10-11T12:00:00'), ['winter']),
+    'likely',
+  )
+  assert.equal(
+    getOfferingStatus(winterCourse, knownWithNextWinter, new Date('2026-10-12T00:00:00'), ['winter']),
+    'confirmed',
+  )
+  const skippedNextWinter = { offeredPeriods: ['Winter 2025/26'] }
+  assert.equal(
+    getOfferingStatus(skippedNextWinter, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']),
+    'unknown',
+  )
 })
 
 test('courseRanInSeasons matches a term chip by any offering in that season', () => {

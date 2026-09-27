@@ -1,3 +1,4 @@
+import { getLecturePeriod } from '../../planner/utils/lecturePeriod.ts'
 import {
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
@@ -127,14 +128,30 @@ const STATUS_RANK: Record<OfferingStatus, number> = {
   unknown: 0,
 }
 
+function targetSemesterLabel(season: TermSeason, startYear: number): string {
+  if (season === 'summer') {
+    return `SS ${startYear}`
+  }
+  return `WS ${startYear}/${String(startYear + 1).slice(-2)}`
+}
+
+/** Tübingen lectures start on the second Monday of April / October, not when the catalog is published. */
+function haveTargetLecturesStarted(season: TermSeason, startYear: number, now: Date): boolean {
+  const period = getLecturePeriod(targetSemesterLabel(season, startYear))
+  if (!period) {
+    return false
+  }
+  return now.getTime() >= period.start.getTime()
+}
+
 /**
  * Offering status of a course relative to the target semester of each given
  * season (all seasons when none is given; the best season wins). Only the given
  * seasons count, so a course confirmed for summer is not confirmed for winter.
  *
- * - `confirmed`: catalog data exists for the target semester.
- * - `likely`: no catalog data for the target semester yet, but the course ran
- *   in the most recent same-season semester we have data for.
+ * - `confirmed`: catalog data exists for the target semester and its lectures have started.
+ * - `likely`: the course is scheduled for that semester, or ran in the latest same-season
+ *   catalog, but lectures have not started yet.
  * - `unknown`: the course did not run in the most recent same-season semester;
  *   there is no signal it will return.
  *
@@ -160,10 +177,16 @@ export function getOfferingStatus(
     const targetYear = targetStartYearForSeason(season, now)
 
     let seasonStatus: OfferingStatus
-    if (knownNewestYear !== null && knownNewestYear >= targetYear) {
+    const catalogCoversTarget = knownNewestYear !== null && knownNewestYear >= targetYear
+    const lecturesStarted = haveTargetLecturesStarted(season, targetYear, now)
+    if (catalogCoversTarget && lecturesStarted) {
       seasonStatus = courseNewestYear >= targetYear ? 'confirmed' : 'unknown'
+    } else if (catalogCoversTarget && courseNewestYear >= targetYear) {
+      seasonStatus = 'likely'
+    } else if (!catalogCoversTarget && courseNewestYear === knownNewestYear) {
+      seasonStatus = 'likely'
     } else {
-      seasonStatus = courseNewestYear === knownNewestYear ? 'likely' : 'unknown'
+      seasonStatus = 'unknown'
     }
 
     if (STATUS_RANK[seasonStatus] > STATUS_RANK[bestStatus]) {
