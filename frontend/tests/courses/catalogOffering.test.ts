@@ -8,15 +8,9 @@ import {
   getPlanningSemesterLabel,
   getLatestKnownSeasonTermType,
   getOfferingStatus,
-  getOfferingTargetSemesterLabel,
-  getOutdatedOfferingSortRank,
   getRecentSeasonTermType,
   isCompulsoryCourse,
-  isDefaultVisibleOfferingStatus,
-  isOutdatedOfferingStatus,
   parsePeriodLabel,
-  resolveUnconfirmedOfferingToggleChecked,
-  resolveUnconfirmedOfferingVisibility,
 } from '../../src/features/courses/utils/catalogOffering.ts'
 import type { StudyAreaOption } from '../../src/features/courses/types.ts'
 
@@ -105,13 +99,6 @@ test('getDefaultCatalogTermSelection preselects the upcoming season only in the 
   assert.deepEqual(getDefaultCatalogTermSelection(new Date('2027-03-05T12:00:00')), ['summer'])
 })
 
-test('getOfferingTargetSemesterLabel names the target semesters of the selected seasons', () => {
-  assert.equal(getOfferingTargetSemesterLabel([], NOW), 'SS 26 / WS 26/27')
-  assert.equal(getOfferingTargetSemesterLabel(['winter'], NOW), 'WS 26/27')
-  assert.equal(getOfferingTargetSemesterLabel([], LAST_SUMMER_MONTH), 'WS 26/27 / SS 27')
-  assert.equal(getOfferingTargetSemesterLabel(['summer'], LAST_SUMMER_MONTH), 'SS 27')
-})
-
 test('a course confirmed only through its summer run is not confirmed for winter', () => {
   const course = { offeredPeriods: ['Sommer 2026', 'Winter 2025/26'] }
   assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'confirmed')
@@ -172,31 +159,6 @@ test('getCatalogCardSeasonTermType keeps icons for courses confirmed in the newe
     getCatalogCardSeasonTermType({ termType: 'both', offeredPeriods: [] }, KNOWN_PERIODS, NOW),
     'both',
   )
-})
-
-test('catalog offering display helpers keep likely courses in normal order', () => {
-  assert.equal(isDefaultVisibleOfferingStatus('confirmed'), true)
-  assert.equal(isDefaultVisibleOfferingStatus(undefined), true)
-  assert.equal(isDefaultVisibleOfferingStatus('likely'), false)
-  assert.equal(isDefaultVisibleOfferingStatus('unknown'), false)
-
-  assert.equal(isOutdatedOfferingStatus('likely'), false)
-  assert.equal(isOutdatedOfferingStatus('unknown'), true)
-  assert.equal(getOutdatedOfferingSortRank('confirmed'), 0)
-  assert.equal(getOutdatedOfferingSortRank('likely'), 0)
-  assert.equal(getOutdatedOfferingSortRank('unknown'), 1)
-})
-
-test('onboarding keeps unconfirmed courses visible during catalog intro; reopen-guide uses user setting', () => {
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, false, null), false)
-  assert.equal(resolveUnconfirmedOfferingVisibility(true, false, null), true)
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'catalog-search'), true)
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'reopen-guide'), false)
-  assert.equal(resolveUnconfirmedOfferingVisibility(false, true, 'catalog-card-unknown'), true)
-  assert.equal(resolveUnconfirmedOfferingVisibility(true, true, 'reopen-guide'), true)
-  assert.equal(resolveUnconfirmedOfferingToggleChecked(false, true, 'catalog-card'), true)
-  assert.equal(resolveUnconfirmedOfferingToggleChecked(false, true, 'reopen-guide'), false)
-  assert.equal(resolveUnconfirmedOfferingToggleChecked(true, true, 'reopen-guide'), true)
 })
 
 // During summer term 2026 the last *completed* semesters are Sommer 2025 and

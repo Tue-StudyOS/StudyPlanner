@@ -1,5 +1,4 @@
 import {
-  formatSemesterLabelShort,
   getCurrentSemesterLabel,
   getRelativeSemesterLabel,
   parseSemesterLabel,
@@ -111,25 +110,6 @@ function resolveSeasons(seasons: readonly TermSeason[]): readonly TermSeason[] {
   return seasons.length > 0 ? seasons : TERM_SEASONS
 }
 
-/**
- * The semesters offering confirmation is checked against for the selected term
- * chips (all seasons when none is selected), e.g. "WS 26/27" or "WS 26/27 / SS 27".
- * Shown on the catalog toggle so it is explicit which semesters "confirmed" means.
- */
-export function getOfferingTargetSemesterLabel(
-  seasons: readonly TermSeason[] = [],
-  now: Date = new Date(),
-): string {
-  const selectedSeasons = resolveSeasons(seasons)
-  return getTargetSemesterLabels(now)
-    .filter((label) => {
-      const season = getSemesterSeason(label)
-      return season !== null && selectedSeasons.includes(season)
-    })
-    .map(formatSemesterLabelShort)
-    .join(' / ')
-}
-
 /** Term chip match: the course has run in at least one selected season (any season when none is selected). */
 export function courseRanInSeasons(
   course: Pick<Course, 'offeredPeriods'>,
@@ -147,66 +127,6 @@ const STATUS_RANK: Record<OfferingStatus, number> = {
   unknown: 0,
 }
 
-export function isDefaultVisibleOfferingStatus(status: OfferingStatus | undefined): boolean {
-  return status === undefined || status === 'confirmed'
-}
-
-export function isOutdatedOfferingStatus(status: OfferingStatus | undefined): boolean {
-  return status === 'unknown'
-}
-
-export function getOutdatedOfferingSortRank(status: OfferingStatus | undefined): number {
-  return isOutdatedOfferingStatus(status) ? 1 : 0
-}
-
-const CATALOG_TOUR_UNCONFIRMED_PREVIEW_STEP_IDS = new Set([
-  'catalog-progress-hint',
-  'catalog-search',
-  'catalog-filters',
-  'catalog-card',
-  'catalog-card-likely',
-  'catalog-card-unknown',
-])
-
-export function isCatalogTourUnconfirmedPreviewStep(activeStepId: string | null): boolean {
-  return activeStepId !== null && CATALOG_TOUR_UNCONFIRMED_PREVIEW_STEP_IDS.has(activeStepId)
-}
-
-export function resolveUnconfirmedOfferingVisibility(
-  showUnconfirmedOfferings: boolean,
-  isOnboardingOpen: boolean,
-  activeStepId: string | null,
-): boolean {
-  if (showUnconfirmedOfferings) {
-    return true
-  }
-  if (!isOnboardingOpen) {
-    return false
-  }
-  if (activeStepId === 'reopen-guide') {
-    return false
-  }
-  return isCatalogTourUnconfirmedPreviewStep(activeStepId)
-}
-
-/** Tour checkbox: forced on while introducing catalog cards; mirrors user setting on reopen-guide. */
-export function resolveUnconfirmedOfferingToggleChecked(
-  showUnconfirmedOfferings: boolean,
-  isOnboardingOpen: boolean,
-  activeStepId: string | null,
-): boolean {
-  if (!isOnboardingOpen) {
-    return showUnconfirmedOfferings
-  }
-  if (activeStepId === 'reopen-guide') {
-    return showUnconfirmedOfferings
-  }
-  if (isCatalogTourUnconfirmedPreviewStep(activeStepId)) {
-    return true
-  }
-  return showUnconfirmedOfferings
-}
-
 /**
  * Offering status of a course relative to the target semester of each given
  * season (all seasons when none is given; the best season wins). Only the given
@@ -218,8 +138,8 @@ export function resolveUnconfirmedOfferingToggleChecked(
  * - `unknown`: the course did not run in the most recent same-season semester;
  *   there is no signal it will return.
  *
- * Compulsory modules get no exemption: the toggle label names the semesters it
- * checks, and silently showing unconfirmed Pflicht courses contradicted it.
+ * Compulsory modules get no exemption. A Pflicht course that missed the
+ * target semester is unconfirmed, same as any other course.
  */
 export function getOfferingStatus(
   course: Pick<Course, 'offeredPeriods'>,

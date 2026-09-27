@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
@@ -40,13 +40,7 @@ import {
   getCatalogCardSeasonTermType,
   getDefaultCatalogTermSelection,
   getOfferingStatus,
-  getOfferingTargetSemesterLabel,
-  getOutdatedOfferingSortRank,
   isCompulsoryCourse,
-  isDefaultVisibleOfferingStatus,
-  isOutdatedOfferingStatus,
-  resolveUnconfirmedOfferingToggleChecked,
-  resolveUnconfirmedOfferingVisibility,
   type OfferingStatus,
   type TermSeason,
 } from '../utils/catalogOffering.ts'
@@ -164,46 +158,6 @@ function getTourSampleOfferingStatus(variant: 'confirmed' | 'likely' | 'unknown'
   return 'confirmed'
 }
 
-function UnconfirmedOfferingsToggle({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean
-  label: string
-  onChange: (checked: boolean) => void
-}): React.ReactElement {
-  return (
-    <label className="flex min-w-0 cursor-pointer items-center gap-2 border-t border-border-light pt-3 text-[12.5px] font-medium text-fg">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="peer sr-only"
-      />
-      <span
-        aria-hidden
-        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface ${
-          checked
-            ? 'border-primary bg-primary text-white'
-            : 'border-border bg-surface text-transparent'
-        }`}
-      >
-        <svg width={12} height={12} viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path
-            d="M2.2 6.2 4.8 8.8 9.8 3.2"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <span className="min-w-0 break-words">{label}</span>
-    </label>
-  )
-}
-
 export function CoursesOverview() {
   const [search, setSearch] = useState<string>('')
   const [selectedEctsValues, setSelectedEctsValues] = useState<number[]>([])
@@ -215,7 +169,6 @@ export function CoursesOverview() {
   const [selectedTerms, setSelectedTerms] = useState<TermSeason[]>(() => getDefaultCatalogTermSelection())
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
-  const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const filterSignature = useMemo(
@@ -228,7 +181,6 @@ export function CoursesOverview() {
         selectedStudyAreaCodes.join('|'),
         selectedTerms.join('|'),
         showOnlyOpenMandatory,
-        showUnconfirmedOfferings,
         sortOption,
         timeFromDigits,
         timeToDigits,
@@ -241,7 +193,6 @@ export function CoursesOverview() {
       selectedStudyAreaCodes,
       selectedTerms,
       showOnlyOpenMandatory,
-      showUnconfirmedOfferings,
       sortOption,
       timeFromDigits,
       timeToDigits,
@@ -419,16 +370,6 @@ export function CoursesOverview() {
           : null
       )
     : null
-  const shouldShowUnconfirmedOfferings = resolveUnconfirmedOfferingVisibility(
-    showUnconfirmedOfferings,
-    isOnboardingOpen,
-    activeStepId,
-  )
-  const unconfirmedToggleChecked = resolveUnconfirmedOfferingToggleChecked(
-    showUnconfirmedOfferings,
-    isOnboardingOpen,
-    activeStepId,
-  )
 
   const filteredCourses = useMemo(
     () =>
@@ -458,31 +399,18 @@ export function CoursesOverview() {
           ) {
             return false
           }
-          if (
-            !shouldShowUnconfirmedOfferings
-            && !isDefaultVisibleOfferingStatus(offeringStatusByCourseId.get(course.id))
-          ) {
-            return false
-          }
           return true
         }),
         sortOption,
-      // Only stale catalog entries move behind the normal results; likely-but-
-      // unconfirmed courses keep the selected catalog order.
-      ).sort((left, right) =>
-        getOutdatedOfferingSortRank(offeringStatusByCourseId.get(left.id))
-        - getOutdatedOfferingSortRank(offeringStatusByCourseId.get(right.id)),
       ),
     [
       completedByCatalogCourseId,
       courses,
-      offeringStatusByCourseId,
       selectedCourseTypes,
       selectedDays,
       selectedEctsValues,
       selectedStudyAreaCodes,
       selectedTerms,
-      shouldShowUnconfirmedOfferings,
       showOnlyOpenMandatory,
       sortOption,
       studyProgramCode,
@@ -501,7 +429,6 @@ export function CoursesOverview() {
     + selectedTerms.length
     + selectedCourseTypes.length
     + (showOnlyOpenMandatory ? 1 : 0)
-    + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
   function revealNextCatalogPage(): void {
@@ -573,7 +500,6 @@ export function CoursesOverview() {
     setSelectedTerms([])
     setSelectedCourseTypes([])
     setShowOnlyOpenMandatory(false)
-    setShowUnconfirmedOfferings(false)
   }
 
   const catalogSubtitle = t('catalog.subtitle')
@@ -581,16 +507,6 @@ export function CoursesOverview() {
   const visibleCatalogRows = activeCatalogSampleVariant
     ? [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
     : visibleCourses
-  const firstOutdatedVisibleCourseId = shouldShowUnconfirmedOfferings
-    ? visibleCatalogRows.find((course) => {
-      const isTourSampleCourse = Boolean(
-        activeCatalogSampleVariant
-        && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id,
-      )
-      return !isTourSampleCourse
-        && isOutdatedOfferingStatus(offeringStatusByCourseId.get(course.id))
-    })?.id ?? null
-    : null
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
 
   return (
@@ -823,13 +739,6 @@ export function CoursesOverview() {
           </div>
         ) : null}
 
-        <UnconfirmedOfferingsToggle
-          checked={unconfirmedToggleChecked}
-          label={t('catalog.showUnconfirmedOfferings', {
-            semesters: getOfferingTargetSemesterLabel(selectedTerms),
-          })}
-          onChange={setShowUnconfirmedOfferings}
-        />
       </div>
 
       {!isOnboardingOpen && refreshWarning ? (
@@ -870,27 +779,17 @@ export function CoursesOverview() {
               const offeringStatus = isTourSampleRow
                 ? sampleOfferingStatus
                 : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
-              const shouldShowUnconfirmedDivider = course.id === firstOutdatedVisibleCourseId
 
               return (
-                <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
-                  {shouldShowUnconfirmedDivider ? (
-                    <div className="col-span-full my-2 flex min-w-0 items-center gap-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                      <span className="h-px min-w-0 flex-1 bg-border-light" />
-                      <span className="max-w-full shrink break-words px-1">
-                        {t('catalog.unconfirmedDivider')}
-                      </span>
-                      <span className="h-px min-w-0 flex-1 bg-border-light" />
-                    </div>
-                  ) : null}
-                  <div
-                    className="min-w-0 h-full"
-                    data-tour={
-                      isTourSampleRow && activeCatalogSampleVariant
-                        ? getTourCatalogSampleTarget(activeCatalogSampleVariant)
-                        : index === 0 ? 'catalog-card' : undefined
-                    }
-                  >
+                <div
+                  key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}
+                  className="min-w-0 h-full"
+                  data-tour={
+                    isTourSampleRow && activeCatalogSampleVariant
+                      ? getTourCatalogSampleTarget(activeCatalogSampleVariant)
+                      : index === 0 ? 'catalog-card' : undefined
+                  }
+                >
                     <CourseCard
                       course={course}
                       detailTo={isTourSampleRow ? undefined : encodeCatalogDetailSegment(course.id)}
@@ -918,8 +817,7 @@ export function CoursesOverview() {
                       onAreaTagClick={handleAreaFilterSelect}
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
-                  </div>
-                </Fragment>
+                </div>
               )
             })}
           </div>
