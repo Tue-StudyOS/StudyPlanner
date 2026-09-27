@@ -2,6 +2,7 @@ export const BROWSER_STORAGE_KEYS = {
   legacyAuthToken: 'studyplanner.auth.token',
   theme: 'theme',
   catalogLayout: 'studyplaner.catalogLayout',
+  guestStudyProgramId: 'studyplaner.guestStudyProgramId',
   transcriptCreditedCollapsed: 'studyplaner.transcript.collapse.credited',
   transcriptSavedIssuesCollapsed: 'studyplaner.transcript.collapse.savedIssues',
   transcriptCurrentReviewCollapsed: 'studyplaner.transcript.collapse.currentReview',

@@ -28,6 +28,8 @@ interface CourseCardProps {
   favoriteLoading?: boolean
   showFavorite?: boolean
   offeringStatus?: OfferingStatus
+  // Guest catalog picks pass a program here; otherwise the signed-in profile is used.
+  studyProgramCode?: string | null
   // Overrides the raw course.termType so callers can align season tags with
   // the same catalog freshness window they use for filtering.
   seasonTermType?: CourseTermType
@@ -62,6 +64,7 @@ export function CourseCard({
   favoriteLoading = false,
   showFavorite = true,
   offeringStatus = 'confirmed',
+  studyProgramCode,
   seasonTermType,
   regulationRuleGroups = [],
   isAreaTagActive,
@@ -72,7 +75,11 @@ export function CourseCard({
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const areaTags = buildCourseAreaTags(course, user?.profile.studyProgramCode ?? null, regulationRuleGroups)
+  const areaTags = buildCourseAreaTags(
+    course,
+    studyProgramCode !== undefined ? studyProgramCode : (user?.profile.studyProgramCode ?? null),
+    regulationRuleGroups,
+  )
   const resolvedLecturerLabel = lecturerLabel ?? formatCourseLecturerName(course)
   // Likely-offered courses get a dashed border: plannable, but not confirmed.
   const borderClasses = isActive
