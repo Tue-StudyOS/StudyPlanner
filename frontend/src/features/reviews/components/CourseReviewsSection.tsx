@@ -1,10 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { StarRating } from '../../../shared/components/StarRating'
-import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
 import type { TranslationKey } from '../../i18n/translations'
-import { ROUTES } from '../../routes'
 import { useCourseReviews } from '../hooks/useCourseReviews.ts'
 import type { CourseReviewSummary } from '../types.ts'
 import {
@@ -77,7 +74,6 @@ function SummaryHeadline({ summary }: { summary: CourseReviewSummary }) {
 
 export function CourseReviewsSection({ courseId }: CourseReviewsSectionProps) {
   const { t } = useTranslation()
-  const { isAuthenticated } = useAuth()
   const { data, isLoading, loadError, isSaving, saveError, submitReview, removeReview } =
     useCourseReviews(courseId)
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false)
@@ -104,14 +100,7 @@ export function CourseReviewsSection({ courseId }: CourseReviewsSectionProps) {
     <div className="grid min-w-0 gap-4">
       {/* The write action leads the section so it stays reachable without
           scrolling past the summary and the whole review list. */}
-      {!isAuthenticated ? (
-        <div className="rounded-[10px] border border-dashed border-border bg-surface px-3 py-2.5 text-[12.5px] text-fg-muted">
-          {t('reviews.signInPrompt')}{' '}
-          <Link to={ROUTES.account} className="font-medium text-primary hover:underline">
-            {t('common.signInOrCreate')}
-          </Link>
-        </div>
-      ) : isFormOpen ? (
+      {isFormOpen ? (
         <ReviewForm
           options={data.options}
           existingReview={data.viewerReview}

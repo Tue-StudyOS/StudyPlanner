@@ -66,9 +66,10 @@ export function PrivacyPage(): JSX.Element {
         </p>
         <p>
           Kursbewertungen enthalten Bewertung, Kommentar, Semester und gegebenenfalls
-          eine Lehrperson. Sie erscheinen öffentlich ohne deinen Nutzernamen, bleiben
-          intern aber deinem Account zugeordnet. Eine vollständige Anonymität besteht
-          deshalb nicht. Bitte veröffentliche keine privaten Kontaktdaten oder vertraulichen
+          eine Lehrperson. Sie erscheinen öffentlich ohne Namen. Mit Account bleibt die
+          Bewertung intern diesem Account zugeordnet. Ohne Account speichern wir nur den
+          Hash eines zufälligen Browser-Tokens, damit dasselbe Gerät die Bewertung ändern
+          kann. Bitte veröffentliche keine privaten Kontaktdaten oder vertraulichen
           Angaben über andere Personen.
         </p>
         <p>

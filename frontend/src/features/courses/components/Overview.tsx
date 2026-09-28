@@ -557,7 +557,7 @@ export function CoursesOverview() {
       <div
         ref={catalogScrollRef}
         data-tour-scroll-root
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        className="min-h-0 min-w-0 w-full max-w-full flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-y-contain"
       >
       {/* Capped, centered content width keeps cards readable on wide screens;
           the cap applies to both the one- and two-column layouts. */}
@@ -590,7 +590,7 @@ export function CoursesOverview() {
         </div>
       ) : null}
 
-      <div className="mb-6 grid gap-4 rounded-[10px] border border-border bg-surface px-5 py-5">
+      <div className="mb-6 grid min-w-0 max-w-full gap-4 overflow-x-hidden rounded-[10px] border border-border bg-surface px-5 py-5">
         <label className="block" data-tour="catalog-search">
           <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
             {t('catalog.search')}
@@ -619,14 +619,14 @@ export function CoursesOverview() {
           </button>
 
           {showGuestStudyProgram ? (
-            <label className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:max-w-[22rem]">
+            <label className="flex w-full min-w-0 max-w-full basis-full items-center gap-2 sm:w-auto sm:max-w-[22rem] sm:basis-auto">
               <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('setup.studyProgram')}</span>
               <select
                 aria-label={t('setup.studyProgram')}
                 value={selectedStudyProgramId ?? ''}
                 disabled={isLoadingStudyPrograms}
                 onChange={(event) => handleGuestStudyProgramChange(event.target.value)}
-                className="min-w-0 w-full max-w-full rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+                className="w-0 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
               >
                 <option value="">{t('setup.studyProgramPlaceholder')}</option>
                 {studyPrograms.map((studyProgram) => (
@@ -648,13 +648,13 @@ export function CoursesOverview() {
             <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
           </button>
 
-          <label className="flex items-center gap-2">
-            <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
+          <label className="flex min-w-0 max-w-full items-center gap-2">
+            <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
               aria-label="Sort courses"
               value={sortOption}
               onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
-              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+              className="w-0 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary sm:w-auto sm:flex-none"
             >
               {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -814,7 +814,7 @@ export function CoursesOverview() {
             Showing {filteredCourses.length} course{filteredCourses.length !== 1 ? 's' : ''}
             {hasActiveFilters ? ' after applying the active filters.' : '.'}
           </div>
-          <div className={`grid items-stretch gap-3.5 ${gridColsClass}`} data-tour="catalog-card-list">
+          <div className={`grid w-full min-w-0 max-w-full items-stretch gap-3.5 ${gridColsClass}`} data-tour="catalog-card-list">
             {visibleCatalogRows.map((course, index) => {
               const isTourSampleRow = Boolean(
                 activeCatalogSampleVariant

@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
 
 from db.d1 import execute, execute_batch, fetch_all, fetch_one
-from services.authentication import get_authenticated_user, require_authenticated_user
+from http_utils import get_request_header
+from services.authentication import (
+    AuthorizationError,
+    get_authenticated_user,
+    require_authenticated_user,
+    require_csrf_protection,
+)
 from services.client_error_log import is_diagnostics_administrator
 from services.course_catalog import get_course_review_key, load_course_review_options
+
+GUEST_REVIEW_TOKEN_HEADER = 'X-Guest-Review-Token'
+_GUEST_AUTHOR_PREFIX = 'guest:'
+_GUEST_TOKEN_PATTERN = re.compile(r'^[A-Za-z0-9_-]{43,64}$')
 
 MIN_COMMENT_LENGTH = 3
 MAX_COMMENT_LENGTH = 2000
@@ -30,6 +42,31 @@ class CourseReviewAccessError(PermissionError):
 
 def _safe_text(value: Any) -> str:
     return str(value).strip() if value is not None else ''
+
+
+def guest_review_author_key(token: str) -> str | None:
+    """Map a browser token to the stored author key. The token itself is not stored."""
+    if not _GUEST_TOKEN_PATTERN.fullmatch(token):
+        return None
+    digest = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    return f'{_GUEST_AUTHOR_PREFIX}{digest}'
+
+
+async def review_author_key(env: Any, request: Any, *, required: bool) -> str | None:
+    """Signed-in authors use their account. Everyone else uses a browser token."""
+    user = await get_authenticated_user(env, request)
+    if user is not None:
+        if required:
+            await require_csrf_protection(env, request)
+        username = _safe_text(user.get('username'))
+        return username or None
+
+    author_key = guest_review_author_key(
+        _safe_text(get_request_header(request, GUEST_REVIEW_TOKEN_HEADER))
+    )
+    if required and author_key is None:
+        raise AuthorizationError('Authentication is required for this endpoint.')
+    return author_key
 
 
 def _validate_overall_rating(value: Any) -> int:
@@ -247,10 +284,7 @@ async def get_course_reviews(env: Any, request: Any, course_id: int) -> dict[str
     rows = await _fetch_visible_reviews(env, review_key)
     # The read stays public, so resolve the session without requiring one; it
     # only decides which review the viewer is allowed to edit.
-    viewer_username: str | None = None
-    user = await get_authenticated_user(env, request)
-    if user:
-        viewer_username = _safe_text(user.get('username')) or None
+    viewer_username = await review_author_key(env, request, required=False)
 
     reviews = [_to_public_review(row, viewer_username) for row in rows]
     viewer_review = next((review for review in reviews if review['isMine']), None)
@@ -270,8 +304,9 @@ async def save_course_review(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Insert or replace the caller's single review for this course."""
-    user = await require_authenticated_user(env, request)
-    username = _safe_text(user.get('username'))
+    username = await review_author_key(env, request, required=True)
+    if username is None:
+        raise AuthorizationError('Authentication is required for this endpoint.')
     review_key = await _require_review_key(env, course_id)
     options = await load_course_review_options(env, course_id)
     review_input = build_review_input(payload, options)
@@ -314,8 +349,9 @@ async def save_course_review(
 
 async def delete_course_review(env: Any, request: Any, course_id: int) -> dict[str, Any]:
     """Delete the caller's own review; other authors' rows are untouched."""
-    user = await require_authenticated_user(env, request)
-    username = _safe_text(user.get('username'))
+    username = await review_author_key(env, request, required=True)
+    if username is None:
+        raise AuthorizationError('Authentication is required for this endpoint.')
     review_key = await _require_review_key(env, course_id)
 
     await execute_batch(

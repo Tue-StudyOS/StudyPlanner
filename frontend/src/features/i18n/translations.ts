@@ -229,9 +229,8 @@ export const TRANSLATIONS = {
     'reviews.cancel': 'Cancel',
     'reviews.delete': 'Delete my review',
     'reviews.yourReview': 'Your review',
-    'reviews.signInPrompt': 'Reviews are published anonymously, but you need an account to write one.',
     'reviews.anonymousNotice':
-      'Reviews are shown anonymously. Your account is stored only so you can edit your own review.',
+      'Reviews are shown without a name. This browser can edit the review you publish here.',
     'reviews.ratingChipLabel': 'Average rating {average} out of 5 from {count} reviews',
     'reviews.errorMissingOverall': 'Pick an overall rating from 1 to 5 stars.',
     'reviews.errorCommentTooShort': 'Your review is too short. Write at least 3 characters or leave it empty.',
@@ -573,10 +572,8 @@ export const TRANSLATIONS = {
     'reviews.cancel': 'Abbrechen',
     'reviews.delete': 'Meine Bewertung löschen',
     'reviews.yourReview': 'Deine Bewertung',
-    'reviews.signInPrompt':
-      'Bewertungen werden anonym veröffentlicht, zum Schreiben brauchst du aber ein Konto.',
     'reviews.anonymousNotice':
-      'Bewertungen werden anonym angezeigt. Dein Konto wird nur gespeichert, damit du deine eigene Bewertung bearbeiten kannst.',
+      'Bewertungen werden ohne Namen angezeigt. In diesem Browser kannst du die Bewertung, die du hier veröffentlichst, später ändern.',
     'reviews.ratingChipLabel': 'Durchschnittsbewertung {average} von 5 aus {count} Bewertungen',
     'reviews.errorMissingOverall': 'Wähle eine Gesamtbewertung von 1 bis 5 Sternen.',
     'reviews.errorCommentTooShort':

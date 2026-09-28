@@ -66,16 +66,18 @@ class UserPrivacyTest(unittest.IsolatedAsyncioTestCase):
 
         execute_batch.assert_awaited_once()
         statements = execute_batch.await_args.args[1]
-        self.assertEqual(len(statements), 4)
+        self.assertEqual(len(statements), 5)
         self.assertIn('UPDATE client_error_log', statements[0][0])
         self.assertIn('removedOnAccountDeletion', statements[1][0])
-        self.assertIn('DELETE FROM request_rate_limits', statements[2][0])
-        self.assertIn('DELETE FROM user_auth', statements[3][0])
+        self.assertIn('DELETE FROM course_reviews', statements[2][0])
+        self.assertIn('DELETE FROM request_rate_limits', statements[3][0])
+        self.assertIn('DELETE FROM user_auth', statements[4][0])
         self.assertEqual(statements[0][1], ['alice'])
         self.assertEqual(statements[1][1], ['alice'])
-        self.assertNotIn('alice', statements[2][1])
-        self.assertNotIn('alice@example.test', statements[2][1])
-        self.assertEqual(statements[3][1], ['alice'])
+        self.assertEqual(statements[2][1], ['alice'])
+        self.assertNotIn('alice', statements[3][1])
+        self.assertNotIn('alice@example.test', statements[3][1])
+        self.assertEqual(statements[4][1], ['alice'])
 
 
 if __name__ == '__main__':
