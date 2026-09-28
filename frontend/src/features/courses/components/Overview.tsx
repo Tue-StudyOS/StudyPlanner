@@ -607,12 +607,12 @@ export function CoursesOverview() {
           />
         </label>
 
-        <div className="flex flex-wrap items-center gap-2.5" data-tour="catalog-filters">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5" data-tour="catalog-filters">
           <button
             type="button"
             onClick={() => setAreFiltersOpen((open) => !open)}
             aria-expanded={areFiltersOpen}
-            className={`rounded-md border px-3.5 py-2 text-[12.5px] font-medium transition-colors ${
+            className={`self-start rounded-md border px-3.5 py-2 text-[12.5px] font-medium transition-colors ${
               hasActiveFilters
                 ? 'border-primary/40 bg-primary/5 text-primary'
                 : 'border-border bg-surface text-fg hover:bg-surface-hover'
@@ -622,14 +622,14 @@ export function CoursesOverview() {
           </button>
 
           {showGuestStudyProgram ? (
-            <label className="flex w-full min-w-0 basis-full items-center gap-2 sm:w-80 sm:flex-none sm:basis-auto">
-              <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('setup.studyProgram')}</span>
+            <label className="grid min-w-0 w-full gap-1.5 sm:flex sm:w-80 sm:items-center sm:gap-2">
+              <span className="text-[12px] font-semibold text-fg-muted">{t('setup.studyProgram')}</span>
               <select
                 aria-label={t('setup.studyProgram')}
                 value={selectedStudyProgramId ?? ''}
                 disabled={isLoadingStudyPrograms}
                 onChange={(event) => handleGuestStudyProgramChange(event.target.value)}
-                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+                className="w-full min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
               >
                 <option value="">{t('setup.studyProgramPlaceholder')}</option>
                 {studyPrograms.map((studyProgram) => (
@@ -639,25 +639,23 @@ export function CoursesOverview() {
             </label>
           ) : null}
 
-          <span className="flex-1" />
-
           <button
             type="button"
             onClick={toggleLayout}
             aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
             title={layout === 'grid' ? 'Single column' : 'Two columns'}
-            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg sm:ml-auto md:flex"
           >
             <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
           </button>
 
-          <label className="flex items-center gap-2">
+          <label className="grid min-w-0 w-full gap-1.5 sm:ml-auto sm:flex sm:w-auto sm:items-center sm:gap-2">
             <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
               aria-label="Sort courses"
               value={sortOption}
               onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
-              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+              className="w-full min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary sm:w-auto"
             >
               {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
