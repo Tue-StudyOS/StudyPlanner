@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
@@ -169,7 +169,7 @@ export function CoursesOverview() {
   const [selectedTerms, setSelectedTerms] = useState<TermSeason[]>(() => getDefaultCatalogTermSelection())
   const [selectedCourseTypes, setSelectedCourseTypes] = useState<CourseTypeFilterValue[]>([])
   const [showOnlyOpenMandatory, setShowOnlyOpenMandatory] = useState<boolean>(false)
-  const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(true)
+  const [showUnconfirmedOfferings, setShowUnconfirmedOfferings] = useState<boolean>(false)
   const [areFiltersOpen, setAreFiltersOpen] = useState<boolean>(false)
   const [sortOption, setSortOption] = useState<CatalogSortOption>('title')
   const filterSignature = useMemo(
@@ -374,6 +374,15 @@ export function CoursesOverview() {
       )
     : null
 
+  const explicitCatalogQuery =
+    catalogSearch.length > 0
+    || selectedStudyAreaCodes.length > 0
+    || selectedEctsValues.length > 0
+    || selectedDays.length > 0
+    || selectedCourseTypes.length > 0
+    || timeWindow.startMinutes !== null
+    || timeWindow.endMinutes !== null
+
   const filteredCourses = useMemo(
     () =>
       sortCatalogCourses(
@@ -404,18 +413,23 @@ export function CoursesOverview() {
           }
           if (
             !showUnconfirmedOfferings
-            && (offeringStatusByCourseId.get(course.id) === 'likely'
-              || offeringStatusByCourseId.get(course.id) === 'unknown')
+            && !explicitCatalogQuery
+            && offeringStatusByCourseId.get(course.id) === 'likely'
           ) {
             return false
           }
           return true
         }),
         sortOption,
-      ),
+      ).sort((left, right) => {
+        const leftUnknown = offeringStatusByCourseId.get(left.id) === 'unknown' ? 1 : 0
+        const rightUnknown = offeringStatusByCourseId.get(right.id) === 'unknown' ? 1 : 0
+        return leftUnknown - rightUnknown
+      }),
     [
       completedByCatalogCourseId,
       courses,
+      explicitCatalogQuery,
       offeringStatusByCourseId,
       selectedCourseTypes,
       selectedDays,
@@ -441,7 +455,7 @@ export function CoursesOverview() {
     + selectedTerms.length
     + selectedCourseTypes.length
     + (showOnlyOpenMandatory ? 1 : 0)
-    + (showUnconfirmedOfferings ? 0 : 1)
+    + (showUnconfirmedOfferings ? 1 : 0)
   const hasActiveFilters = activeFilterCount > 0
 
   function revealNextCatalogPage(): void {
@@ -513,7 +527,7 @@ export function CoursesOverview() {
     setSelectedTerms([])
     setSelectedCourseTypes([])
     setShowOnlyOpenMandatory(false)
-    setShowUnconfirmedOfferings(true)
+    setShowUnconfirmedOfferings(false)
   }
 
   const catalogSubtitle = t('catalog.subtitle')
@@ -522,6 +536,16 @@ export function CoursesOverview() {
     ? [TOUR_SAMPLE_COURSES[activeCatalogSampleVariant], ...visibleCourses.slice(1)]
     : visibleCourses
   const gridColsClass = layout === 'list' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+  const firstNoDataRowIndex = visibleCatalogRows.findIndex((course) => {
+    const isTourSampleRow = Boolean(
+      activeCatalogSampleVariant
+      && course.id === TOUR_SAMPLE_COURSES[activeCatalogSampleVariant].id,
+    )
+    const status = isTourSampleRow && activeCatalogSampleVariant
+      ? getTourSampleOfferingStatus(activeCatalogSampleVariant)
+      : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
+    return status === 'unknown'
+  })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -804,8 +828,13 @@ export function CoursesOverview() {
                 : offeringStatusByCourseId.get(course.id) ?? 'confirmed'
 
               return (
+                <Fragment key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}>
+                {index === firstNoDataRowIndex ? (
+                  <div className="col-span-full pt-2 text-[12px] font-semibold uppercase tracking-wide text-fg-muted">
+                    {t('catalog.noCurrentData')}
+                  </div>
+                ) : null}
                 <div
-                  key={isTourSampleRow ? `tour-${activeCatalogSampleVariant}` : course.id}
                   className="min-w-0 h-full"
                   data-tour={
                     isTourSampleRow && activeCatalogSampleVariant
@@ -841,6 +870,7 @@ export function CoursesOverview() {
                       onToggleFavorite={isTourSampleRow ? () => undefined : () => toggleFavorite(course.id)}
                     />
                 </div>
+                </Fragment>
               )
             })}
           </div>
