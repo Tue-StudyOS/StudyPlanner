@@ -107,8 +107,8 @@ Fields:
   - `BSC_MEDIZININFO_2021`
   - `MSC_INFO_2021`
   - `MSC_ML_2021`
-- keep the richer SQLite-derived `study_areas` / `course_curriculum_matches` bridge for the three already mapped programs (`BSC_INFO_2021`, `MSC_INFO_2021`, `MSC_ML_2021`)
-- seed JSON-only rule groups for the three additional bachelor programs until catalog mappings exist there as well
+- keep the richer SQLite-derived `study_areas` / `course_curriculum_matches` bridge for `BSC_INFO_2021`, `MSC_INFO_2021`, and `MSC_ML_2021`
+- Bioinformatik, Medieninformatik, and Medizininformatik use the same catalog link table: migration `0038` mirrors their rule groups into `study_areas`, and the ALMA importer aliases module codes onto those areas
 
 ## Study-program to regulation matching rule
 

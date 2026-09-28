@@ -298,7 +298,7 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
                 (10, 1, 'MATH'), (11, 1, 'PRAK'),
                 (20, 2, 'ML-FOUND'), (21, 2, 'ML-DIVERSE'),
                 (22, 2, 'ML-CS'), (23, 2, 'ML-EXP'),
-                (40, 4, 'BIOINFO'), (41, 4, 'ELECTIVE'),
+                (40, 4, 'BIOINFO'), (41, 4, 'ELECTIVE'), (42, 4, 'LIFE'),
                 (50, 5, 'MEDIAINFO'), (51, 5, 'ELECTIVE'),
                 (60, 6, 'MED_BIO_PHYS'), (61, 6, 'MEDINFO'), (62, 6, 'ELECTIVE');
             """
@@ -367,7 +367,14 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
 
         self.assertEqual(
             math_aliases,
-            {("ModulMath1", "MATH"), ("ModulMath2", "MATH"), ("ModulMath3", "MATH"), ("ModulMath4", "MATH")},
+            {
+                ("ModulMath1", "MATH"),
+                ("ModulMath2", "MATH"),
+                ("ModulMath3", "MATH"),
+                ("ModulMath4", "MATH"),
+                ("MDZINFM2310", "MATH"),
+                ("ModulBiost", "MATH"),
+            },
         )
 
     def test_additional_bsc_programs_link_named_alma_modules(self) -> None:
@@ -383,6 +390,19 @@ class StudyAreaAliasLinkTest(unittest.TestCase):
         )
         self.assertEqual(self._links(601), {(50, "MEINFM3164"), (51, "MEINFM3210")})
         self.assertEqual(self._links(602), {(40, "BIOINFM1110"), (41, "BIOINFM2210")})
+
+    def test_bioinformatics_life_science_modules_link_to_life(self) -> None:
+        self._add_course(610, ["BIOINFM1240", "ModulZMG"])
+        self._add_course(611, ["BIOINFM1210", "ModulChem1"])
+        self._add_course(612, ["BIOINFM1220"])
+        self._add_course(613, ["ModulNeuro"])
+
+        self._rebuild_links()
+
+        self.assertEqual(self._links(610), {(42, "BIOINFM1240")})
+        self.assertEqual(self._links(611), {(42, "BIOINFM1210")})
+        self.assertEqual(self._links(612), {(42, "BIOINFM1220")})
+        self.assertEqual(self._links(613), {(42, "ModulNeuro")})
 
     def test_machine_learning_mach_codes_link_to_the_confirmed_ml_areas(self) -> None:
         self._add_course(500, ["MACH-FML", "MACH-DTML", "MACH-GCS", "MACH-EP"])
