@@ -51,7 +51,7 @@ def build_cors_headers(request: Any, env: Any) -> dict[str, str]:
 
     headers: dict[str, str] = {
         "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-        "access-control-allow-headers": "Authorization, Content-Type, X-CSRF-Token",
+        "access-control-allow-headers": "Authorization, Content-Type, X-CSRF-Token, X-Guest-Review-Token",
         # Diagnostic; see isolate_identity. Every response path funnels through
         # here, which is why the marker is attached at this point rather than in
         # each responder.

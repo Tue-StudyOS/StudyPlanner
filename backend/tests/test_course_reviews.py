@@ -265,10 +265,10 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
             patch.object(course_reviews, "fetch_all", AsyncMock(return_value=[])),
             patch.object(
                 course_reviews,
-                "require_authenticated_user",
+                "get_authenticated_user",
                 AsyncMock(return_value={"username": "student"}),
             ),
-            patch.object(course_reviews, "get_authenticated_user", AsyncMock(return_value=None)),
+            patch.object(course_reviews, "require_csrf_protection", AsyncMock()),
             patch.object(course_reviews, "get_course_review_key", AsyncMock(return_value="inf-01")),
             patch.object(
                 course_reviews, "load_course_review_options", AsyncMock(return_value=OPTIONS)
@@ -314,10 +314,10 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
             patch.object(course_reviews, "fetch_all", AsyncMock(return_value=[])),
             patch.object(
                 course_reviews,
-                "require_authenticated_user",
+                "get_authenticated_user",
                 AsyncMock(return_value={"username": "student"}),
             ),
-            patch.object(course_reviews, "get_authenticated_user", AsyncMock(return_value=None)),
+            patch.object(course_reviews, "require_csrf_protection", AsyncMock()),
             patch.object(course_reviews, "get_course_review_key", AsyncMock(return_value="inf-01")),
             patch.object(
                 course_reviews, "load_course_review_options", AsyncMock(return_value=OPTIONS)
@@ -330,6 +330,36 @@ class SaveAndDeleteReviewTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('removedOnAuthorDeletion', statements[0][0])
         self.assertIn("WHERE course_key = ? AND username = ?", statements[1][0])
         self.assertEqual(statements[1][1], ["inf-01", "student"])
+
+    async def test_guest_save_stores_a_hash_of_the_browser_token(self) -> None:
+        execute = AsyncMock()
+        token = "a" * 43
+        request = type("Request", (), {"headers": {"X-Guest-Review-Token": token}})()
+
+        with (
+            patch.object(course_reviews, "execute", execute),
+            patch.object(course_reviews, "fetch_all", AsyncMock(return_value=[])),
+            patch.object(course_reviews, "get_authenticated_user", AsyncMock(return_value=None)),
+            patch.object(course_reviews, "get_course_review_key", AsyncMock(return_value="inf-01")),
+            patch.object(
+                course_reviews, "load_course_review_options", AsyncMock(return_value=OPTIONS)
+            ),
+        ):
+            await course_reviews.save_course_review(
+                object(),
+                request,
+                42,
+                {"overallRating": 4},
+            )
+
+        stored_author = execute.await_args.args[2][1]
+        self.assertEqual(stored_author, course_reviews.guest_review_author_key(token))
+        self.assertTrue(stored_author.startswith("guest:"))
+        self.assertNotIn(token, stored_author)
+
+    def test_guest_token_must_be_a_browser_secret(self) -> None:
+        self.assertIsNone(course_reviews.guest_review_author_key("short"))
+        self.assertIsNone(course_reviews.guest_review_author_key("guest:" + ("a" * 43)))
 
 
 class ModerationTest(unittest.IsolatedAsyncioTestCase):

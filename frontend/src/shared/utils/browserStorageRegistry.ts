@@ -3,6 +3,7 @@ export const BROWSER_STORAGE_KEYS = {
   theme: 'theme',
   catalogLayout: 'studyplaner.catalogLayout',
   guestStudyProgramId: 'studyplaner.guestStudyProgramId',
+  guestReviewToken: 'studyplaner.guestReviewToken',
   transcriptCreditedCollapsed: 'studyplaner.transcript.collapse.credited',
   transcriptSavedIssuesCollapsed: 'studyplaner.transcript.collapse.savedIssues',
   transcriptCurrentReviewCollapsed: 'studyplaner.transcript.collapse.currentReview',

@@ -55,12 +55,7 @@ export function useCourseReviews(courseId: string): UseCourseReviewsResult {
   }, [courseId])
 
   const runWrite = useCallback(
-    async (write: (token: string, id: string) => Promise<CourseReviewsResponse>): Promise<boolean> => {
-      if (!csrfToken) {
-        setSaveError('Your session may have expired. Please sign in again.')
-        return false
-      }
-
+    async (write: (token: string | null, id: string) => Promise<CourseReviewsResponse>): Promise<boolean> => {
       setIsSaving(true)
       setSaveError(null)
       try {

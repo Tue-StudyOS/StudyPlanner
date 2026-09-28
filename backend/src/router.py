@@ -658,6 +658,41 @@ async def route_request(request: Any, env: Any) -> Any:
             feedback = await submit_feedback(env, request, await read_json_object(request))
             return json_response(feedback, request=request, env=env, status=201)
 
+        # Review writes sit here, before the public GET-only gate below.
+        if (
+            path.startswith("/api/catalog/courses/")
+            and path.endswith("/reviews")
+            and method in {"PUT", "DELETE"}
+        ):
+            review_course_id = _parse_numeric_path_id(
+                path.removeprefix("/api/catalog/courses/").removesuffix("/reviews")
+            )
+            if review_course_id is None:
+                return error_response(
+                    code="invalid_course_id",
+                    message="Course ids must be numeric.",
+                    request=request,
+                    env=env,
+                    status=400,
+                )
+            await enforce_rate_limit(env, request, COURSE_REVIEW_POLICY)
+            if method == "PUT":
+                return json_response(
+                    await save_course_review(
+                        env,
+                        request,
+                        review_course_id,
+                        await read_json_object(request),
+                    ),
+                    request=request,
+                    env=env,
+                )
+            return json_response(
+                await delete_course_review(env, request, review_course_id),
+                request=request,
+                env=env,
+            )
+
         if method != "GET":
             return _method_not_allowed_response(request, env)
 
@@ -796,9 +831,6 @@ async def route_request(request: Any, env: Any) -> Any:
         # Must precede the catalog detail branch below, which would otherwise
         # swallow the reviews sub-path.
         if path.startswith("/api/catalog/courses/") and path.endswith("/reviews"):
-            if method != "GET":
-                return _method_not_allowed_response(request, env)
-
             review_course_id = _parse_numeric_path_id(
                 path.removeprefix("/api/catalog/courses/").removesuffix("/reviews")
             )
@@ -812,7 +844,8 @@ async def route_request(request: Any, env: Any) -> Any:
                 )
 
             # Deliberately uncached: the public catalog cache headers would hide
-            # a new review behind a 15-minute edge cache.
+            # a new review behind a 15-minute edge cache. Writes are handled
+            # above the public GET-only gate.
             return json_response(
                 await get_course_reviews(env, request, review_course_id),
                 request=request,

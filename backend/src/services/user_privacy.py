@@ -60,6 +60,7 @@ async def delete_current_user_account(
                 """,
                 [username],
             ),
+            ('DELETE FROM course_reviews WHERE username = ?', [username]),
             (
                 """
                 DELETE FROM request_rate_limits
