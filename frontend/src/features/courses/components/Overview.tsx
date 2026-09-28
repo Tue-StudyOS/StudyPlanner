@@ -639,7 +639,7 @@ export function CoursesOverview() {
             </label>
           ) : null}
 
-          <div className="flex min-w-0 w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+          <div className="flex min-w-0 w-full flex-col gap-1.5 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-2">
             <label className="grid min-w-0 w-full gap-1.5 sm:flex sm:w-auto sm:shrink-0 sm:items-center sm:gap-2">
               <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
               <select
