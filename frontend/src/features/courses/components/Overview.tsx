@@ -639,31 +639,32 @@ export function CoursesOverview() {
             </label>
           ) : null}
 
-          <label className="grid min-w-0 w-full gap-1.5 sm:flex sm:w-auto sm:items-center sm:gap-2">
-            <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
-            <select
-              aria-label="Sort courses"
-              value={sortOption}
-              onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
-              className="w-full min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary sm:w-auto"
+          <div className="flex min-w-0 w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+            <label className="grid min-w-0 w-full gap-1.5 sm:flex sm:w-auto sm:shrink-0 sm:items-center sm:gap-2">
+              <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
+              <select
+                aria-label="Sort courses"
+                value={sortOption}
+                onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
+                className="w-full min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary sm:w-auto"
+              >
+                {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={toggleLayout}
+              aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
+              title={layout === 'grid' ? 'Single column' : 'Two columns'}
+              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
             >
-              {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            onClick={toggleLayout}
-            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
-            title={layout === 'grid' ? 'Single column' : 'Two columns'}
-            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
-          >
-            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
-          </button>
+              <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
+            </button>
+          </div>
         </div>
 
         {areFiltersOpen ? (
