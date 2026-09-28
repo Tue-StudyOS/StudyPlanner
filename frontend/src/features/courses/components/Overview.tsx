@@ -639,17 +639,7 @@ export function CoursesOverview() {
             </label>
           ) : null}
 
-          <button
-            type="button"
-            onClick={toggleLayout}
-            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
-            title={layout === 'grid' ? 'Single column' : 'Two columns'}
-            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg sm:ml-auto md:flex"
-          >
-            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
-          </button>
-
-          <label className="grid min-w-0 w-full gap-1.5 sm:ml-auto sm:flex sm:w-auto sm:items-center sm:gap-2">
+          <label className="grid min-w-0 w-full gap-1.5 sm:flex sm:w-auto sm:items-center sm:gap-2">
             <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
               aria-label="Sort courses"
@@ -664,6 +654,16 @@ export function CoursesOverview() {
               ))}
             </select>
           </label>
+
+          <button
+            type="button"
+            onClick={toggleLayout}
+            aria-label={layout === 'grid' ? 'Switch to single-column view' : 'Switch to two-column view'}
+            title={layout === 'grid' ? 'Single column' : 'Two columns'}
+            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg md:flex"
+          >
+            <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
+          </button>
         </div>
 
         {areFiltersOpen ? (
