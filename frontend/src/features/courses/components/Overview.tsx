@@ -422,9 +422,12 @@ export function CoursesOverview() {
         }),
         sortOption,
       ).sort((left, right) => {
-        const leftUnknown = offeringStatusByCourseId.get(left.id) === 'unknown' ? 1 : 0
-        const rightUnknown = offeringStatusByCourseId.get(right.id) === 'unknown' ? 1 : 0
-        return leftUnknown - rightUnknown
+        const rank = (status: OfferingStatus | undefined): number => {
+          if (status === 'unknown') return 2
+          if (status === 'likely') return 1
+          return 0
+        }
+        return rank(offeringStatusByCourseId.get(left.id)) - rank(offeringStatusByCourseId.get(right.id))
       }),
     [
       completedByCatalogCourseId,
@@ -619,14 +622,14 @@ export function CoursesOverview() {
           </button>
 
           {showGuestStudyProgram ? (
-            <label className="flex w-full min-w-0 max-w-full basis-full items-center gap-2 sm:w-auto sm:max-w-[22rem] sm:basis-auto">
+            <label className="flex w-full min-w-0 basis-full items-center gap-2 sm:w-80 sm:flex-none sm:basis-auto">
               <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('setup.studyProgram')}</span>
               <select
                 aria-label={t('setup.studyProgram')}
                 value={selectedStudyProgramId ?? ''}
                 disabled={isLoadingStudyPrograms}
                 onChange={(event) => handleGuestStudyProgramChange(event.target.value)}
-                className="w-0 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
               >
                 <option value="">{t('setup.studyProgramPlaceholder')}</option>
                 {studyPrograms.map((studyProgram) => (
@@ -648,13 +651,13 @@ export function CoursesOverview() {
             <LayoutPreviewIcon next={layout === 'grid' ? 'list' : 'grid'} />
           </button>
 
-          <label className="flex min-w-0 max-w-full items-center gap-2">
-            <span className="shrink-0 text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
+          <label className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-fg-muted">{t('catalog.sort')}</span>
             <select
               aria-label="Sort courses"
               value={sortOption}
               onChange={(event) => setSortOption(event.target.value as CatalogSortOption)}
-              className="w-0 min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary sm:w-auto sm:flex-none"
+              className="rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] text-fg outline-none transition-colors focus:border-primary"
             >
               {Object.entries(CATALOG_SORT_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
