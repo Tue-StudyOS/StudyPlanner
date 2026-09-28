@@ -18,6 +18,11 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Native selects and checkboxes follow the theme instead of the light system control. */
+html {
+  color-scheme: light;
+}
+
 @theme {
   --font-sans: 'Inter', -apple-system, sans-serif;
   --font-serif: 'Source Serif 4', Georgia, serif;
@@ -218,6 +223,7 @@ body {
 }
 
 .dark {
+  color-scheme: dark;
   --color-bg: rgb(26 28 32);
   --color-surface: #27292F;
   --color-surface-hover: #2E3036;
