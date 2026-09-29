@@ -9,6 +9,7 @@ interface StudyAreaAssignmentFieldProps {
   helpText?: string
   tone?: 'default' | 'error'
   size?: 'default' | 'compact'
+  optionLabel?: 'short' | 'full'
   onChange: (studyAreaCode: string) => void
 }
 
@@ -33,13 +34,14 @@ export function StudyAreaAssignmentField({
   helpText,
   tone = 'default',
   size = 'default',
+  optionLabel = 'short',
   onChange,
 }: StudyAreaAssignmentFieldProps) {
   const selectedOption = options.find((option) => option.code === value) ?? options[0] ?? null
   const compact = size === 'compact'
 
   return (
-    <div className="grid gap-1">
+    <div className="grid min-w-0 gap-1">
       <div>
         <div className={`text-[10.5px] font-semibold uppercase tracking-[0.08em] ${labelClasses(tone)}`}>
           {label}
@@ -72,7 +74,7 @@ export function StudyAreaAssignmentField({
           {value === null || value === '' ? <option value="" hidden /> : null}
           {options.map((option) => (
             <option key={option.code} value={option.code} title={option.label}>
-              {option.shortLabel}
+              {optionLabel === 'full' ? option.label : option.shortLabel}
             </option>
           ))}
         </select>

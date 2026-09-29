@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CompletedCourse, MasterCat } from '../../courses'
 import type { TranscriptCoursePreview } from '../types'
 import { normalizeText } from '../utils/buildTranscriptImportCandidates'
+import { buildCustomCompletedCourse, parsePositiveEcts } from '../utils/customCompletedCourse.ts'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
@@ -16,8 +17,11 @@ import {
   buildManualSemesterOptions,
   getManualSemesterDefault,
 } from '../utils/manualSemesterOptions.ts'
+import { useTranslation } from '../../i18n'
 
 const ALL_CATEGORIES: MasterCat[] = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
+
+type ManualEntryMode = 'catalog' | 'custom'
 
 function buildManualCompletedCoursePayload({
   selectedCourse,
@@ -68,8 +72,13 @@ export function ManualCompletedCourseForm({
   isSaving,
   onSave,
 }: ManualCompletedCourseFormProps) {
+  const { t } = useTranslation()
   const semesterOptions = useMemo(() => buildManualSemesterOptions(defaultSemester), [defaultSemester])
+  const [entryMode, setEntryMode] = useState<ManualEntryMode>('catalog')
   const [selectedCourse, setSelectedCourse] = useState<TranscriptCoursePreview | null>(null)
+  const [customTitle, setCustomTitle] = useState<string>('')
+  const [customEcts, setCustomEcts] = useState<string>('')
+  const [customCode, setCustomCode] = useState<string>('')
   const [semester, setSemester] = useState<string>(() =>
     getManualSemesterDefault(defaultSemester, semesterOptions),
   )
@@ -93,29 +102,42 @@ export function ManualCompletedCourseForm({
     [masterCat, regulationRuleGroups, selectedCourse?.masterCats, selectedCourse?.studyAreaOptions, studyProgramCode],
   )
   const hasActiveRegulation = Boolean(regulationVersionCode && regulationRuleGroups.length > 0)
-  const areaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
-  const isAreaLocked = mappedAreaOptions.length === 1
-  const resolvedStudyAreaCode = isAreaLocked
+  const catalogAreaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
+  const isCatalogAreaLocked = mappedAreaOptions.length === 1
+  const isCustomAreaLocked = flexibleAreaOptions.length === 1
+  const resolvedCatalogStudyAreaCode = isCatalogAreaLocked
     ? mappedAreaOptions[0].code
     : mappedAreaOptions.length > 1
       ? (mappedAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
       : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
+  const resolvedCustomStudyAreaCode = isCustomAreaLocked
+    ? flexibleAreaOptions[0].code
+    : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
+  const resolvedStudyAreaCode = entryMode === 'custom' ? resolvedCustomStudyAreaCode : resolvedCatalogStudyAreaCode
   const resolvedMasterCat = resolvedStudyAreaCode
     ? studyAreaCodeToMasterCat(resolvedStudyAreaCode) ?? masterCat
     : masterCat
   const shouldWarnMissingArea = Boolean(
-    selectedCourse
+    hasActiveRegulation
     && semester.trim()
-    && hasActiveRegulation
-    && areaOptions.length > 1
+    && (entryMode === 'custom' ? flexibleAreaOptions.length > 1 : Boolean(selectedCourse) && catalogAreaOptions.length > 1)
     && !resolvedStudyAreaCode,
   )
 
   function resetForm(): void {
     setSelectedCourse(null)
+    setCustomTitle('')
+    setCustomEcts('')
+    setCustomCode('')
     setSemester(getManualSemesterDefault(defaultSemester, semesterOptions))
     setGrade(null)
     setMasterCat('INFO')
+    setStudyAreaCode(null)
+    setError(null)
+  }
+
+  function switchEntryMode(nextMode: ManualEntryMode): void {
+    setEntryMode(nextMode)
     setStudyAreaCode(null)
     setError(null)
   }
@@ -127,6 +149,44 @@ export function ManualCompletedCourseForm({
   }
 
   async function handleSave(): Promise<void> {
+    if (!semester.trim()) {
+      setError('Select the semester for this completed course.')
+      return
+    }
+
+    if (entryMode === 'custom') {
+      const title = customTitle.trim()
+      const ects = parsePositiveEcts(customEcts)
+      if (!title) {
+        setError(t('transcript.manual.missingTitle'))
+        return
+      }
+      if (ects === null) {
+        setError(t('transcript.manual.missingEcts'))
+        return
+      }
+      if (hasActiveRegulation && flexibleAreaOptions.length > 0 && !resolvedCustomStudyAreaCode) {
+        setError(t('transcript.manual.missingArea'))
+        return
+      }
+
+      const saved = await onSave(
+        buildCustomCompletedCourse({
+          title,
+          ects,
+          externalCourseCode: customCode,
+          semester,
+          grade,
+          studyAreaCode: resolvedCustomStudyAreaCode,
+          masterCat: resolvedMasterCat,
+        }),
+      )
+      if (saved) {
+        resetForm()
+      }
+      return
+    }
+
     if (!selectedCourse) {
       setError('Choose a catalog course first.')
       return
@@ -137,12 +197,7 @@ export function ManualCompletedCourseForm({
       return
     }
 
-    if (!semester.trim()) {
-      setError('Select the semester for this completed course.')
-      return
-    }
-
-    if (hasActiveRegulation && areaOptions.length > 0 && !resolvedStudyAreaCode) {
+    if (hasActiveRegulation && catalogAreaOptions.length > 0 && !resolvedCatalogStudyAreaCode) {
       setError('Select a compatible regulation area before saving this course.')
       return
     }
@@ -152,7 +207,7 @@ export function ManualCompletedCourseForm({
         selectedCourse,
         semester,
         grade,
-        studyAreaCode: resolvedStudyAreaCode,
+        studyAreaCode: resolvedCatalogStudyAreaCode,
         masterCat: resolvedMasterCat,
       }),
     )
@@ -163,27 +218,108 @@ export function ManualCompletedCourseForm({
     resetForm()
   }
 
+  const areaField = isLoadingRegulationVersion ? (
+    <div className="rounded-md border border-border-light bg-surface-hover/25 px-2.5 py-1.5 text-[12px] text-fg-muted lg:self-end">
+      Loading regulation...
+    </div>
+  ) : hasActiveRegulation ? (
+    <StudyAreaAssignmentField
+      label={t('transcript.manual.area')}
+      value={resolvedStudyAreaCode}
+      options={entryMode === 'custom' ? flexibleAreaOptions : catalogAreaOptions}
+      locked={entryMode === 'custom' ? isCustomAreaLocked : isCatalogAreaLocked}
+      size="compact"
+      optionLabel="full"
+      tone={shouldWarnMissingArea ? 'error' : 'default'}
+      onChange={setStudyAreaCode}
+    />
+  ) : null
+
   return (
-    <div className="flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 lg:h-[24rem] lg:min-h-0 lg:overflow-hidden">
+    <div className={`flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 ${entryMode === 'catalog' ? 'lg:h-[24rem] lg:min-h-0 lg:overflow-hidden' : 'lg:min-h-[24rem]'}`}>
       <div className="shrink-0 text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
 
+      <div className="mt-3 flex flex-wrap gap-1" role="group" aria-label={t('transcript.manual.mode')}>
+        <button
+          type="button"
+          aria-pressed={entryMode === 'catalog'}
+          onClick={() => switchEntryMode('catalog')}
+          className={`rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors ${entryMode === 'catalog' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-fg hover:bg-surface-hover'}`}
+        >
+          {t('transcript.manual.catalogMode')}
+        </button>
+        <button
+          type="button"
+          aria-pressed={entryMode === 'custom'}
+          onClick={() => switchEntryMode('custom')}
+          className={`rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors ${entryMode === 'custom' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-fg hover:bg-surface-hover'}`}
+        >
+          {t('transcript.manual.customMode')}
+        </button>
+      </div>
+
       <div className="mt-4 grid content-start gap-3.5 lg:min-h-0 lg:flex-1">
-        <CatalogCoursePicker
-          selectedCourse={selectedCourse}
-          studyProgramCode={studyProgramCode}
-          compact
-          onSelect={handleCatalogCourseSelect}
-        />
+        {entryMode === 'catalog' ? (
+          <CatalogCoursePicker
+            selectedCourse={selectedCourse}
+            studyProgramCode={studyProgramCode}
+            compact
+            onSelect={handleCatalogCourseSelect}
+          />
+        ) : (
+          <div className="grid gap-3">
+            <p className="text-[12px] text-fg-muted">{t('transcript.manual.customHint')}</p>
+            <label className="grid gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                {t('transcript.manual.title')}
+              </span>
+              <input
+                type="text"
+                value={customTitle}
+                onChange={(event) => setCustomTitle(event.target.value)}
+                placeholder={t('transcript.manual.titlePlaceholder')}
+                className="w-full min-w-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                  {t('transcript.manual.ects')}
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={customEcts}
+                  onChange={(event) => setCustomEcts(event.target.value)}
+                  placeholder="6"
+                  className="w-full min-w-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                />
+              </label>
+              <label className="grid min-w-0 gap-1">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                  {t('transcript.manual.code')}
+                </span>
+                <input
+                  type="text"
+                  value={customCode}
+                  onChange={(event) => setCustomCode(event.target.value)}
+                  placeholder={t('transcript.manual.codePlaceholder')}
+                  className="w-full min-w-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+                />
+              </label>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="grid gap-1">
+          <label className="grid min-w-0 gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
               Semester
             </span>
             <select
               value={semester}
               onChange={(event) => setSemester(event.target.value)}
-              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+              className="w-full min-w-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
             >
               {semesterOptions.map((semesterOption) => (
                 <option key={semesterOption} value={semesterOption}>
@@ -193,31 +329,18 @@ export function ManualCompletedCourseForm({
             </select>
           </label>
 
-          <label className="grid gap-1">
+          <label className="grid min-w-0 gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
               Grade
             </span>
             <TranscriptGradeSelect
               value={grade}
               onChange={setGrade}
-              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
+              className="w-full min-w-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg outline-none focus:border-primary"
             />
           </label>
 
-          {isLoadingRegulationVersion ? (
-            <div className="rounded-md border border-border-light bg-surface-hover/25 px-2.5 py-1.5 text-[12px] text-fg-muted lg:self-end">
-              Loading regulation...
-            </div>
-          ) : hasActiveRegulation ? (
-            <StudyAreaAssignmentField
-              value={resolvedStudyAreaCode}
-              options={areaOptions}
-              locked={isAreaLocked}
-              size="compact"
-              tone={shouldWarnMissingArea ? 'error' : 'default'}
-              onChange={setStudyAreaCode}
-            />
-          ) : null}
+          {areaField}
         </div>
 
         {!isLoadingRegulationVersion && !hasActiveRegulation ? (
