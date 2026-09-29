@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useResolvedPath } from 'react-router-dom'
 import { CourseCard } from '../../../shared/components/CourseCard'
 import { useTranslation } from '../../i18n'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
@@ -15,6 +15,8 @@ import {
 import { useProgressSnapshot } from '../../dashboard/hooks/useProgressSnapshot'
 import { useAuth } from '../../auth'
 import { useFavorites } from '../../favorites'
+import { ROUTES, semesterPath } from '../../routes'
+import { formatSemesterLabelDisplay } from '../../planner/utils/semesterLabels.ts'
 import { useOnboarding } from '../../onboarding'
 import {
   TOUR_SAMPLE_COURSES,
@@ -221,7 +223,7 @@ export function CoursesOverview() {
   const sentinelRef = useRef<HTMLButtonElement>(null)
   const catalogScrollRef = useRef<HTMLDivElement>(null)
   const preservedScrollTopRef = useRef(0)
-  const { user, isLoadingSession } = useAuth()
+  const { user, isAuthenticated, isLoadingSession } = useAuth()
   const accountStudyProgramCode = user?.profile.studyProgramCode ?? null
   const showGuestStudyProgram = !isLoadingSession && accountStudyProgramCode === null
   const {
@@ -251,7 +253,7 @@ export function CoursesOverview() {
   const { courses, isLoading, error, refreshWarning } = useCatalogCourses(catalogSearch, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(regulationVersionCode)
-  const { isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
+  const { semesterLabel: interestedSemesterLabel, isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
     useFavorites()
   const { completedCourses } = useTranscript()
   const { progressSnapshot } = useProgressSnapshot()
@@ -568,6 +570,18 @@ export function CoursesOverview() {
 
       <h1 className={catalogSubtitle ? 'mb-2 text-[22px] font-semibold tracking-[-0.01em] text-fg' : 'mb-6 text-[22px] font-semibold tracking-[-0.01em] text-fg'}>{t('catalog.title')}</h1>
       {catalogSubtitle ? <p className="mb-6 text-fg-mid">{catalogSubtitle}</p> : null}
+      {isAuthenticated ? (
+        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+          <Link to={semesterPath(interestedSemesterLabel)} className="break-words hover:text-primary">
+            {t('catalog.interestedSemester', { semester: formatSemesterLabelDisplay(interestedSemesterLabel) })}
+          </Link>
+          {new URLSearchParams(location.search).has('semester') ? (
+            <Link to={ROUTES.catalog} className="break-words underline hover:text-primary">
+              {t('catalog.currentPlanningSemester')}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {!isOnboardingOpen && favoritesError ? (
         <div className="mb-4 rounded-[10px] border border-border bg-surface px-4 py-3 text-[13px] text-primary">
@@ -846,7 +860,7 @@ export function CoursesOverview() {
                 >
                     <CourseCard
                       course={course}
-                      detailTo={isTourSampleRow ? undefined : encodeCatalogDetailSegment(course.id)}
+                      detailTo={isTourSampleRow ? undefined : `${encodeCatalogDetailSegment(course.id)}${location.search}`}
                       isFavorite={isTourSampleRow ? false : isFavorite(course.id)}
                       isActive={!isTourSampleRow && openCourseId === course.id}
                       isCompleted={!isTourSampleRow && Boolean(getCompletedFor(course))}
@@ -903,7 +917,7 @@ export function CoursesOverview() {
           favoriteLoading={isFavoriteSaving(openCourseId)}
           showFavorite={canShowFavorites}
           onToggleFavorite={() => toggleFavorite(openCourseId)}
-          onClose={() => navigate(catalogBasePath)}
+          onClose={() => navigate(`${catalogBasePath}${location.search}`)}
         />
       ) : null}
     </div>

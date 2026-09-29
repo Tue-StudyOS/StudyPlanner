@@ -53,9 +53,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <FavoritesProvider>
-          <TranscriptProvider>
-            <BrowserRouter>
+        <BrowserRouter>
+          <FavoritesProvider>
+            <TranscriptProvider>
               <OnboardingProvider>
                 <StudySetupGate />
                 <Suspense fallback={<RouteFallback />}>
@@ -87,9 +87,9 @@ function App() {
                   </Routes>
                 </Suspense>
               </OnboardingProvider>
-            </BrowserRouter>
-          </TranscriptProvider>
-        </FavoritesProvider>
+            </TranscriptProvider>
+          </FavoritesProvider>
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   )

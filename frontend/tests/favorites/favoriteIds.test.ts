@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { toggleFavoriteId, updateSavingFavoriteIds } from '../../src/features/favorites/utils/favoriteIds.ts'
+import { toggleFavoriteId } from '../../src/features/favorites/utils/favoriteIds.ts'
 
 test('toggleFavoriteId adds and removes one course without mutating the input', () => {
   const favoriteIds = ['course-a']
@@ -14,10 +14,8 @@ test('toggleFavoriteId adds and removes one course without mutating the input', 
   assert.deepEqual(favoriteIds, ['course-a'])
 })
 
-test('updateSavingFavoriteIds tracks one saving entry per course', () => {
-  const savingFavoriteIds = updateSavingFavoriteIds(['course-a'], 'course-a', true)
-
-  assert.deepEqual(savingFavoriteIds, ['course-a'])
-  assert.deepEqual(updateSavingFavoriteIds(savingFavoriteIds, 'course-b', true), ['course-a', 'course-b'])
-  assert.deepEqual(updateSavingFavoriteIds(savingFavoriteIds, 'course-a', false), [])
+test('removing a star removes every period alias of that logical course', () => {
+  const favoriteIds = ['42', '142', '99']
+  assert.deepEqual(toggleFavoriteId(favoriteIds, '142', [['42', '142'], ['99']]), ['99'])
+  assert.deepEqual(favoriteIds, ['42', '142', '99'])
 })

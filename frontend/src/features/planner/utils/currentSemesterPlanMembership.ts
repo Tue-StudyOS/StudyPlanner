@@ -20,19 +20,3 @@ export function dropCourseFromPlanFields(
     ),
   }
 }
-
-export function keepInterestedCoursesInPlanFields(
-  plan: SemesterPlanWriteFields,
-  favoriteIds: readonly string[],
-): SemesterPlanWriteFields {
-  const interestedIds = new Set(favoriteIds)
-  return plan.courseIds.reduce(
-    (filteredPlan, courseId) =>
-      interestedIds.has(courseId) ? filteredPlan : dropCourseFromPlanFields(filteredPlan, courseId),
-    plan,
-  )
-}
-
-export function arePlanCourseIdsEqual(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((courseId, index) => courseId === right[index])
-}

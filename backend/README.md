@@ -36,7 +36,7 @@ backend/
 - Auth and user data:
   - `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/session`, `POST /api/auth/logout`
   - `GET/PATCH /api/me/profile`, `PATCH /api/me/credentials`
-  - `GET/PUT /api/me/favorites`
+  - `GET /api/me/favorites?semesterLabel=<semester>`, `PUT /api/me/favorites` with `semesterLabel` (semester-specific Interested; see [planner model](../docs/semester-planner.md))
   - `GET/PUT /api/me/completed-courses`, `POST /api/me/completed-courses/import`
   - `GET/PUT /api/me/transcript-issues`
   - `GET /api/me/semester-plans`, `GET/PUT/DELETE /api/me/semester-plans/<semester>`

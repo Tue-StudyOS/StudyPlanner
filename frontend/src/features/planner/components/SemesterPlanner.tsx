@@ -12,6 +12,7 @@ import {
   normalizeCatalogCourseIds,
 } from '../../courses/utils/catalogCourseLookup.ts'
 import { useFavorites } from '../../favorites'
+import { interestedCatalogPath } from '../../favorites/utils/interestedSemester.ts'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import {
@@ -79,7 +80,7 @@ export function SemesterPlanner({
   const { isAuthenticated, csrfToken, user } = useAuth()
   const { t } = useTranslation()
   const { isOpen: isOnboardingOpen, activeStepId } = useOnboarding()
-  const { favoriteIds, isFavoriteSaving, toggleFavorite } = useFavorites()
+  const { favoriteIds, isLoadingFavorites, favoritesError, isFavoriteSaving, toggleFavorite } = useFavorites()
   const {
     completedCourses,
     isLoadingCompletedCourses,
@@ -546,8 +547,9 @@ export function SemesterPlanner({
       activeTerm={isPlannerTourPreview ? null : activeTerm}
       activeSemesterLabel={activeSemesterLabel}
       plannedCourseIds={displayPlannedCourseIds}
-      isLoading={isPlannerTourPreview ? false : isLoading}
-      error={isPlannerTourPreview ? null : error}
+      isLoading={isPlannerTourPreview ? false : isLoading || isLoadingFavorites}
+      error={isPlannerTourPreview ? null : favoritesError ?? error}
+      catalogTo={interestedCatalogPath(activeSemesterLabel)}
       studyProgramCode={displayStudyProgramCode}
       regulationRuleGroups={displayRuleGroups}
       planAssignments={displayPlanAssignments}
@@ -583,6 +585,14 @@ export function SemesterPlanner({
         </h1>
 
         <SaveIndicator isSaving={isSavingSemesterPlan} />
+        {initialSemesterLabel ? (
+          <Link
+            to={interestedCatalogPath(activeSemesterLabel)}
+            className="rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
+          >
+            {t('catalog.interestedSemester', { semester: formatSemesterLabelShort(activeSemesterLabel) })}
+          </Link>
+        ) : null}
 
         {isSmallViewport && showFavoritesPanel ? (
           <button

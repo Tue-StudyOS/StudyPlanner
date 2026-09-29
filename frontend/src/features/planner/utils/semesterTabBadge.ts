@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { readSemesterBadge, setSemesterBadge } from '../../../shared/utils/semesterBadgeState.ts'
-import { LEGACY_PLANNER_ROUTE, ROUTES, semesterPath } from '../../routes'
-import { getCurrentSemesterLabel } from './semesterLabels'
+import { LEGACY_PLANNER_ROUTE, ROUTES, semesterPath } from '../../routes.ts'
+import { getPlanningSemesterLabel } from '../../courses/utils/catalogOffering.ts'
 
-// One flag: a course was added to the current semester plan from outside its
-// planner page. Only the current semester card (and the semester tab) show it.
+// One flag for the catalog's default planning semester. Archived stars do not
+// notify a different semester's card.
 export const SEMESTER_PLAN_CHANGED_EVENT = 'studyplanner:semester-plan-changed'
 const BADGE_CHANGED_EVENT = 'studyplanner:semester-tab-badge-changed'
 
@@ -51,10 +51,10 @@ export function useSemesterTabBadge(): boolean {
   const location = useLocation()
   useBadgeRevision()
 
-  // Opening the current semester plan resolves the notification; visiting the
+  // Opening the planning semester resolves the notification; visiting the
   // hub alone does not, so the card badge stays visible there.
   useEffect(() => {
-    if (location.pathname === semesterPath(getCurrentSemesterLabel()) && readSemesterBadge()) {
+    if (location.pathname === semesterPath(getPlanningSemesterLabel()) && readSemesterBadge()) {
       clearBadgeFlag()
     }
   }, [location.pathname])

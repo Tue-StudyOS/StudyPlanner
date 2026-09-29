@@ -1,4 +1,4 @@
-import { ApiError, createCsrfHeaders, fetchJson } from '../../shared/utils/api'
+import { ApiError, createCsrfHeaders, fetchJson } from '../../shared/utils/api.ts'
 import type { SemesterPlan, SemesterPlanSummary } from './types'
 
 interface SemesterPlansResponse {

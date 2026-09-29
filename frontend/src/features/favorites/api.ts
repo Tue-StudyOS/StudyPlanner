@@ -1,26 +1,29 @@
-import { createCsrfHeaders, fetchJson } from '../../shared/utils/api'
+import { createCsrfHeaders, fetchJson } from '../../shared/utils/api.ts'
 
-interface FavoritesResponse {
+export interface FavoritesResponse {
+  semesterLabel: string
   favoriteCourseIds: string[]
+  favoriteCourseGroups: string[][]
   count: number
 }
 
-export async function fetchFavoriteCourseIds(): Promise<string[]> {
-  const response = await fetchJson<FavoritesResponse>('/api/me/favorites')
-  return response.favoriteCourseIds
+export async function fetchFavoriteCourseIds(semesterLabel: string): Promise<FavoritesResponse> {
+  return fetchJson<FavoritesResponse>(
+    `/api/me/favorites?semesterLabel=${encodeURIComponent(semesterLabel)}`,
+  )
 }
 
 export async function saveFavoriteCourseIds(
   csrfToken: string,
+  semesterLabel: string,
   favoriteCourseIds: string[],
-): Promise<string[]> {
-  const response = await fetchJson<FavoritesResponse>('/api/me/favorites', {
+): Promise<FavoritesResponse> {
+  return fetchJson<FavoritesResponse>('/api/me/favorites', {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       ...createCsrfHeaders(csrfToken),
     },
-    body: JSON.stringify({ favoriteCourseIds }),
+    body: JSON.stringify({ semesterLabel, favoriteCourseIds }),
   })
-  return response.favoriteCourseIds
 }

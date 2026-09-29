@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  dropCourseFromPlanFields,
-  keepInterestedCoursesInPlanFields,
-} from '../../src/features/planner/utils/currentSemesterPlanMembership.ts'
+import { dropCourseFromPlanFields } from '../../src/features/planner/utils/currentSemesterPlanMembership.ts'
 import type { SemesterPlan } from '../../src/features/planner/types.ts'
 
 function createPlan(courseIds: string[]): Pick<
@@ -32,15 +29,4 @@ test('dropCourseFromPlanFields removes one course and its slots from the plan', 
   assert.deepEqual(nextPlan.hiddenSlotIds, ['keep:0'])
   assert.deepEqual(nextPlan.manualSlots?.map((slot) => slot.courseId), ['keep'])
   assert.deepEqual(nextPlan.courseAssignments, { keep: 'INFO-INFO' })
-})
-
-test('keepInterestedCoursesInPlanFields drops planned courses that are no longer interested', () => {
-  const nextPlan = keepInterestedCoursesInPlanFields(createPlan(['keep-a', 'drop', 'keep-b']), ['keep-b', 'keep-a'])
-
-  assert.deepEqual(nextPlan.courseIds, ['keep-a', 'keep-b'])
-  assert.deepEqual(nextPlan.hiddenSlotIds, ['keep-a:0', 'keep-b:0'])
-  assert.deepEqual(nextPlan.courseAssignments, {
-    'keep-a': 'INFO-INFO',
-    'keep-b': 'INFO-INFO',
-  })
 })
