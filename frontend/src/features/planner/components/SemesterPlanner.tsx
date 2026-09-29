@@ -13,6 +13,7 @@ import {
 } from '../../courses/utils/catalogCourseLookup.ts'
 import { useFavorites } from '../../favorites'
 import { interestedCatalogPath } from '../../favorites/utils/interestedSemester.ts'
+import { getPlanningSemesterLabel } from '../../courses/utils/catalogOffering.ts'
 import { useTranslation } from '../../i18n'
 import { useOnboarding } from '../../onboarding'
 import {
@@ -128,7 +129,7 @@ export function SemesterPlanner({
   )
   const { courses, isLoading, error } = useCatalogCourses('', 500, activePeriodId)
   const isPastSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) < 0
-  const isCurrentSemester = compareSemesterLabels(activeSemesterLabel, getCurrentSemesterLabel()) === 0
+  const isPlanningSemester = compareSemesterLabels(activeSemesterLabel, getPlanningSemesterLabel()) === 0
 
   // The all-period response is about 1.5 MB and is only needed to resolve
   // favorites from other terms. Past semesters and accounts without favorites
@@ -698,10 +699,10 @@ export function SemesterPlanner({
             regulationRuleGroups={displayRuleGroups}
             isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
             isBalancing={isBalancingAssignments}
-            balanceMessage={isCurrentSemester ? balanceMessage : null}
+            balanceMessage={isPlanningSemester ? balanceMessage : null}
             onSetAssignments={setAssignments}
             onRemoveCourse={handleRemoveCourse}
-            onAutoBalance={isCurrentSemester ? handleAutoBalanceAssignments : undefined}
+            onAutoBalance={isPlanningSemester ? handleAutoBalanceAssignments : undefined}
           />
         ) : null}
       </div>

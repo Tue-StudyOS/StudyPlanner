@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ROUTES } from '../../src/features/routes.ts'
+import { ROUTES, semesterPath } from '../../src/features/routes.ts'
 import { TOUR_STEP_DEFINITIONS, buildTourSteps } from '../../src/features/onboarding/steps.ts'
 import type { TranslationKey } from '../../src/features/i18n/translations.ts'
 
@@ -105,6 +105,29 @@ test('planner tour covers manual slots and tutorial chip picker', () => {
 
   assert.deepEqual(manualSlot?.targets, ['planner-manual-slot'])
   assert.deepEqual(tutorialSlots?.targets, ['planner-tutorial-slots'])
+})
+
+test('planner tour routes follow the March and September planning windows without moving hub steps', (context) => {
+  context.mock.timers.enable({ apis: ['Date'] })
+  const cases: [Date, string][] = [
+    [new Date(2026, 7, 31), 'SS 2026'],
+    [new Date(2026, 8, 1), 'WS 2026/27'],
+    [new Date(2026, 9, 1), 'WS 2026/27'],
+    [new Date(2027, 1, 28), 'WS 2026/27'],
+    [new Date(2027, 2, 1), 'SS 2027'],
+    [new Date(2027, 3, 1), 'SS 2027'],
+  ]
+  for (const [now, semesterLabel] of cases) {
+    context.mock.timers.setTime(now.getTime())
+    const steps = buildTourSteps(keyTranslator)
+    for (const definition of TOUR_STEP_DEFINITIONS.filter((step) => step.route === ROUTES.planner)) {
+      assert.equal(
+        steps.find((step) => step.id === definition.id)?.route,
+        definition.semesterHub ? ROUTES.planner : semesterPath(semesterLabel),
+        `${definition.id} on ${now.toISOString()}`,
+      )
+    }
+  }
 })
 
 test('buildTourSteps resolves labels without adding auto-advance metadata', () => {
