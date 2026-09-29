@@ -14,6 +14,33 @@ function lookupKey(courseKey: string, periodId: string): string {
   return `${courseKey}|${periodId}`
 }
 
+export interface CatalogLecturerEntry {
+  periodId: string
+  courseId: string
+  number: string
+  lecturer: string
+}
+
+/** One map for every semester, built from the compact lecturer index. */
+export function buildLecturerLookupFromEntries(
+  entries: readonly CatalogLecturerEntry[],
+): Map<string, string> {
+  const lookup = new Map<string, string>()
+  for (const entry of entries) {
+    if (!entry.periodId || !entry.lecturer.trim()) {
+      continue
+    }
+    if (entry.courseId) {
+      lookup.set(lookupKey(entry.courseId, entry.periodId), entry.lecturer)
+    }
+    const courseNumber = normalizeCourseNumber(entry.number)
+    if (courseNumber) {
+      lookup.set(lookupKey(courseNumber, entry.periodId), entry.lecturer)
+    }
+  }
+  return lookup
+}
+
 /**
  * Builds a period-scoped lecturer lookup from one semester's catalog slice.
  */

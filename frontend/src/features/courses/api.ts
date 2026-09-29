@@ -1,4 +1,5 @@
 import { fetchJson } from '../../shared/utils/api'
+import type { CatalogLecturerEntry } from './utils/completedCourseLecturer.ts'
 import type { CatalogPeriod, Course } from './types'
 
 interface CatalogCoursesResponse {
@@ -29,6 +30,11 @@ export async function fetchCatalogCourses(
 
   const response = await fetchJson<CatalogCoursesResponse>(`/api/catalog/courses?${query.toString()}`)
   return response.courses
+}
+
+export async function fetchCatalogLecturerIndex(): Promise<CatalogLecturerEntry[]> {
+  const response = await fetchJson<{ entries: CatalogLecturerEntry[] }>('/api/catalog/lecturers')
+  return response.entries
 }
 
 export async function fetchCatalogPeriods(): Promise<CatalogPeriod[]> {

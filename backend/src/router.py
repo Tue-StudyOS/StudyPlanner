@@ -48,6 +48,7 @@ from services.course_catalog import (
     get_catalog_course_detail,
     get_course_detail,
     list_catalog_courses,
+    list_catalog_lecturer_index,
     list_catalog_periods,
     list_courses,
 )
@@ -721,6 +722,7 @@ async def route_request(request: Any, env: Any) -> Any:
                         "courses": "/api/courses?limit=50",
                         "courseDetail": "/api/courses/<id>",
                         "catalogPeriods": "/api/catalog/periods",
+                        "catalogLecturers": "/api/catalog/lecturers",
                         "catalogCourses": "/api/catalog/courses?limit=100&period=<periodId|all>",
                         "catalogCourseDetail": "/api/catalog/courses/<id>",
                         "catalogCourseReviews": "/api/catalog/courses/<id>/reviews",
@@ -778,6 +780,32 @@ async def route_request(request: Any, env: Any) -> Any:
                     "count": len(periods),
                     "periods": periods,
                 },
+                request=request,
+                env=env,
+                extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+            )
+
+        if path == "/api/catalog/lecturers":
+            # Same reason as the course list: rebuilding this on every catalog
+            # visit stacks on top of period=all and kills the isolate.
+            cache_key = "lecturers"
+            cached_body = catalog_response_cache.get(cache_key)
+            if cached_body is not None:
+                return encoded_json_response(
+                    cached_body,
+                    request=request,
+                    env=env,
+                    extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,
+                )
+
+            entries = await list_catalog_lecturer_index(env)
+            encoded = json.dumps(
+                {"count": len(entries), "entries": entries},
+                ensure_ascii=False,
+            ).encode("utf-8")
+            catalog_response_cache.put(cache_key, encoded)
+            return encoded_json_response(
+                encoded,
                 request=request,
                 env=env,
                 extra_headers=_PUBLIC_CATALOG_CACHE_HEADERS,

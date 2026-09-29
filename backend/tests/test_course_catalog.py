@@ -771,5 +771,61 @@ class AttachReviewSummariesTest(unittest.IsolatedAsyncioTestCase):
             await course_catalog._attach_review_summaries(object(), summaries)
 
 
+class GroupCatalogLecturerRowsTest(unittest.TestCase):
+    def test_joins_lecturers_for_one_offering_and_skips_blanks(self) -> None:
+        entries = course_catalog.group_catalog_lecturer_rows(
+            [
+                {
+                    "periodId": "2023W",
+                    "courseId": 12,
+                    "number": "INF-101",
+                    "displayName": "Prof. Dr. Ada Lovelace",
+                },
+                {
+                    "periodId": "2023W",
+                    "courseId": 12,
+                    "number": "INF-101",
+                    "displayName": "Prof. Dr. Ada Lovelace",
+                },
+                {
+                    "periodId": "2023W",
+                    "courseId": 12,
+                    "number": "INF-101",
+                    "displayName": "  ",
+                },
+                {
+                    "periodId": "2023W",
+                    "courseId": 12,
+                    "number": "INF-101",
+                    "displayName": "Prof. Dr. Grace Hopper",
+                },
+                {
+                    "periodId": "2024S",
+                    "courseId": 40,
+                    "number": "INF-200",
+                    "displayName": "Prof. Dr. Current",
+                },
+            ]
+        )
+
+        self.assertEqual(
+            entries,
+            [
+                {
+                    "periodId": "2023W",
+                    "courseId": "12",
+                    "number": "INF-101",
+                    "lecturer": "Prof. Dr. Ada Lovelace, Prof. Dr. Grace Hopper",
+                },
+                {
+                    "periodId": "2024S",
+                    "courseId": "40",
+                    "number": "INF-200",
+                    "lecturer": "Prof. Dr. Current",
+                },
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
