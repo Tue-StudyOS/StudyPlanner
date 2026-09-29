@@ -1,12 +1,12 @@
 import type { TranslationKey } from '../i18n/translations.ts'
 import { ROUTES, semesterPath } from '../routes.ts'
-import { getCurrentSemesterLabel } from '../planner/utils/semesterLabels.ts'
+import { getPlanningSemesterLabel } from '../courses/utils/catalogOffering.ts'
 import type { TourStep } from './types.ts'
 
 interface TourStepDefinition extends Omit<TourStep, 'title' | 'body'> {
   titleKey: TranslationKey
   bodyKey: TranslationKey
-  /** Stay on /semester hub instead of opening the current semester plan. */
+  /** Stay on /semester hub instead of opening the planning semester. */
   semesterHub?: boolean
 }
 
@@ -189,7 +189,7 @@ export const TOUR_STEP_DEFINITIONS: TourStepDefinition[] = [
 
 function resolveStepRoute(step: TourStepDefinition): string | undefined {
   if (step.route === ROUTES.planner && !step.semesterHub) {
-    return semesterPath(getCurrentSemesterLabel())
+    return semesterPath(getPlanningSemesterLabel())
   }
   return step.route
 }

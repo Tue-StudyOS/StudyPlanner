@@ -69,7 +69,11 @@ The catalog defaults to the existing planning window: it switches to summer on
 March 1 and winter on September 1. A new semester has no stars or automatically
 copied courses; previous lists, saved plans and completed courses remain intact.
 There is no requirement to complete the previous semester. The semester hub's
-existing earlier visibility window is unchanged.
+existing earlier visibility window is unchanged. The introduction tour opens
+this same planning semester; its hub steps still stay on the semester overview.
+Auto-Balance and its feedback are available in the planning semester, including
+March/September before that term begins. Other semester plans remain accessible
+without the automatic balancing control.
 
 An explicit semester plan uses that semester's Interested list. Its catalog
 link carries `?semester=<label>`; catalog detail drawers preserve that scope.
