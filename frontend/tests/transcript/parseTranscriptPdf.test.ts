@@ -3,6 +3,7 @@ import test from 'node:test'
 import type { Course, MasterCat } from '../../src/features/courses/index.ts'
 import type { ParsedTranscriptEntry } from '../../src/features/transcript/types.ts'
 import {
+  acceptCandidateAsCustomCourse,
   acceptCandidateAsUebk,
   buildTranscriptImportCandidates,
   canImportTranscriptCandidate,
@@ -560,6 +561,30 @@ test('automatched courses can be converted back to anonymous übK rows', () => {
   assert.equal(acceptedAsUebk.title, entry.extractedTitle)
   assert.equal(acceptedAsUebk.ects, entry.extractedEcts)
   assert.equal(canImportTranscriptCandidate(acceptedAsUebk), true)
+})
+
+test('unmatched transcript rows can be credited to an elective area instead of only übK', () => {
+  const entry = createEntry({
+    sourceSection: 'Wahlpflichtfach Informatik',
+    extractedTitle: 'Algorithms at the partner university',
+    titleCandidates: ['Algorithms at the partner university'],
+    extractedEcts: 6,
+    extractedSemester: 'WS 2024/25',
+  })
+
+  const [candidate] = buildTranscriptImportCandidates([entry], [], {
+    studyProgramCode: 'BSC_INFO_2021',
+    regulationRuleGroups: BSC_INFO_RULE_GROUPS,
+  })
+  assert.equal(canImportTranscriptCandidate(candidate), false)
+
+  const acceptedAsElective = acceptCandidateAsCustomCourse(candidate, 'INFO')
+  assert.equal(acceptedAsElective.matchedCourse, null)
+  assert.equal(acceptedAsElective.courseId, null)
+  assert.equal(acceptedAsElective.studyAreaCode, 'INFO')
+  assert.equal(acceptedAsElective.masterCat, 'INFO')
+  assert.equal(acceptedAsElective.status, 'matched')
+  assert.equal(canImportTranscriptCandidate(acceptedAsElective), true)
 })
 
 // Mirrors the live BSC_INFO_2021 rule groups (real German group types).

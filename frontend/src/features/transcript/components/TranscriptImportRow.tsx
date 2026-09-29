@@ -3,8 +3,10 @@ import type { MasterCat } from '../../courses'
 import { useTranslation } from '../../i18n'
 import type { TranscriptImportCandidate } from '../types'
 import {
+  acceptCandidateAsCustomCourse,
   acceptCandidateAsUebk,
   applyCatalogCourseMatch,
+  detachCatalogMatch,
   resolveSectionRuleGroupCode,
   UEBK_AREA_CODE,
   updateTranscriptImportCandidate,
@@ -53,7 +55,6 @@ export function TranscriptImportRow({
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState<boolean>(false)
   const displayTitle = candidate.matchedCourse?.title ?? candidate.title
-  const displayNumber = candidate.matchedCourse?.number ?? candidate.courseNumber ?? t('transcript.row.catalogRequired')
   const gradeText = candidate.grade === null
     ? t('transcript.row.noGrade')
     : `${t('transcript.row.grade')} ${candidate.grade.toFixed(1)}`
@@ -97,8 +98,12 @@ export function TranscriptImportRow({
   const canAssignAsUebk = !hasActiveRegulation || flexibleAreaOptions.some(
     (option) => option.code.trim().toUpperCase() === UEBK_AREA_CODE,
   )
-  const isAcceptedAsUebk = !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
-  const isMissingCatalogCourse = !candidate.matchedCourse && !isAcceptedAsUebk
+  const isCustomCourse = !candidate.matchedCourse && Boolean(candidate.studyAreaCode?.trim())
+  const isAcceptedAsUebk = isCustomCourse && candidate.studyAreaCode === UEBK_AREA_CODE
+  const isMissingCatalogCourse = !candidate.matchedCourse && !isCustomCourse
+  const displayNumber = candidate.matchedCourse?.number
+    ?? candidate.courseNumber
+    ?? (isCustomCourse ? t('transcript.row.customCourse') : t('transcript.row.catalogRequired'))
   const isMissingSemester = !candidate.semester.trim()
   const hasAssignmentIssue = Boolean(
     hasActiveRegulation
@@ -199,16 +204,34 @@ export function TranscriptImportRow({
             />
           </div>
 
-          {canAssignAsUebk ? (
+          {canAssignAsUebk || flexibleAreaOptions.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border-light bg-surface-hover/30 px-3 py-2">
               <span className="min-w-0 flex-1 text-[11.5px] text-fg-muted">
                 {isAcceptedAsUebk
                   ? t('transcript.row.uebkAccepted')
-                  : candidate.matchedCourse
-                    ? t('transcript.row.uebkReplaceOrAccept')
-                    : t('transcript.row.uebkAcceptNew')}
+                  : isCustomCourse
+                    ? t('transcript.row.customAccepted')
+                    : candidate.matchedCourse
+                      ? t('transcript.row.uebkReplaceOrAccept')
+                      : t('transcript.row.customAcceptNew')}
               </span>
-              {!isAcceptedAsUebk ? (
+              {candidate.matchedCourse ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const detached = detachCatalogMatch(candidate)
+                    const keepsArea = flexibleAreaOptions.some((option) => option.code === detached.studyAreaCode)
+                    onChange(
+                      keepsArea
+                        ? detached
+                        : updateTranscriptImportCandidate(detached, { studyAreaCode: null }),
+                    )
+                  }}
+                  className="shrink-0 rounded-md border border-border px-3 py-1.5 text-[11.5px] font-medium text-fg transition-colors hover:bg-surface-hover"
+                >
+                  {t('transcript.row.useCustom')}
+                </button>
+              ) : !isCustomCourse && canAssignAsUebk ? (
                 <button
                   type="button"
                   onClick={() => onChange(acceptCandidateAsUebk(candidate))}
@@ -260,17 +283,23 @@ export function TranscriptImportRow({
             {hasActiveRegulation ? (
               <StudyAreaAssignmentField
                 value={candidate.studyAreaCode}
-                options={areaOptions}
-                locked={isAreaLocked}
-                disabled={areaOptions.length === 0}
+                options={isCustomCourse || isMissingCatalogCourse ? flexibleAreaOptions : areaOptions}
+                locked={isAreaLocked && !isMissingCatalogCourse && !isCustomCourse}
+                disabled={(isCustomCourse || isMissingCatalogCourse ? flexibleAreaOptions : areaOptions).length === 0}
                 size="compact"
-                tone={hasAssignmentIssue ? 'error' : 'default'}
+                optionLabel="full"
+                tone={hasAssignmentIssue || (isMissingCatalogCourse && hasActiveRegulation) ? 'error' : 'default'}
                 onChange={(nextStudyAreaCode) => {
+                  if (!nextStudyAreaCode) {
+                    return
+                  }
                   onChange(
-                    updateTranscriptImportCandidate(candidate, {
-                      studyAreaCode: nextStudyAreaCode || null,
-                      masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
-                    }),
+                    candidate.matchedCourse
+                      ? updateTranscriptImportCandidate(candidate, {
+                          studyAreaCode: nextStudyAreaCode,
+                          masterCat: studyAreaCodeToMasterCat(nextStudyAreaCode) ?? candidate.masterCat,
+                        })
+                      : acceptCandidateAsCustomCourse(candidate, nextStudyAreaCode),
                   )
                 }}
               />

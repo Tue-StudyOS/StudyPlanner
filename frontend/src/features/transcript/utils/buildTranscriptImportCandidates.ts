@@ -23,8 +23,9 @@ interface CourseMatchResult {
   priority: number
 }
 
-// Rows without a catalog match can be accepted as written; they then count
-// toward the always-assignable übK area.
+// Rows without a catalog match can be stored as a custom course. übK is the
+// one-click default; any other selected regulation area (for example an
+// elective / Wahlbereich) is equally valid.
 export const UEBK_AREA_CODE = 'UEBK'
 
 const STOP_WORDS = new Set([
@@ -300,8 +301,8 @@ function getValidationIssues(candidate: TranscriptImportCandidate): string[] {
   return [...new Set(issues)]
 }
 
-function isAcceptedAsUebk(candidate: TranscriptImportCandidate): boolean {
-  return !candidate.matchedCourse && candidate.studyAreaCode === UEBK_AREA_CODE
+function isAcceptedCustomCourse(candidate: TranscriptImportCandidate): boolean {
+  return !candidate.matchedCourse && Boolean(candidate.studyAreaCode?.trim())
 }
 
 function getStatus(candidate: TranscriptImportCandidate, validationIssues: string[]): TranscriptImportStatus {
@@ -311,7 +312,7 @@ function getStatus(candidate: TranscriptImportCandidate, validationIssues: strin
   if (candidate.courseId && candidate.matchedCourse) {
     return 'matched'
   }
-  if (isAcceptedAsUebk(candidate)) {
+  if (isAcceptedCustomCourse(candidate)) {
     return 'matched'
   }
   if (candidate.matchOptions.length > 0) {
@@ -327,13 +328,16 @@ function getStatusDetail(candidate: TranscriptImportCandidate, status: Transcrip
   if (status === 'matched' && candidate.matchedCourse) {
     return `Ready to import as ${candidate.matchedCourse.number || candidate.matchedCourse.title}.`
   }
-  if (status === 'matched' && isAcceptedAsUebk(candidate)) {
-    return 'Will be imported as written and counted toward the übK area.'
+  if (status === 'matched' && isAcceptedCustomCourse(candidate)) {
+    if (candidate.studyAreaCode === UEBK_AREA_CODE) {
+      return 'Will be imported as written and counted toward the übK area.'
+    }
+    return `Will be imported as a custom course in ${candidate.studyAreaCode}.`
   }
   if (status === 'uncertain') {
     return 'Choose the right catalog course from the suggested matches before importing.'
   }
-  return 'Search the catalog and assign the correct course — or accept the row as written into übK.'
+  return 'Search the catalog and assign the correct course — or choose a regulation area to import it as a custom course.'
 }
 
 function finalizeCandidate(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
@@ -719,13 +723,35 @@ export function updateTranscriptImportCandidate(
   })
 }
 
-export function acceptCandidateAsUebk(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
+export function acceptCandidateAsCustomCourse(
+  candidate: TranscriptImportCandidate,
+  studyAreaCode: string,
+): TranscriptImportCandidate {
+  const normalizedCode = studyAreaCode.trim().toUpperCase()
   return finalizeCandidate({
     ...candidate,
     title: candidate.extractedTitle,
     ects: candidate.extractedEcts,
-    studyAreaCode: UEBK_AREA_CODE,
-    masterCat: studyAreaCodeToMasterCat(UEBK_AREA_CODE) ?? candidate.masterCat,
+    studyAreaCode: normalizedCode,
+    masterCat: studyAreaCodeToMasterCat(normalizedCode) ?? candidate.masterCat,
+    matchedCourse: null,
+    courseId: null,
+    courseNumber: null,
+    isUserEdited: true,
+  })
+}
+
+export function acceptCandidateAsUebk(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
+  return acceptCandidateAsCustomCourse(candidate, UEBK_AREA_CODE)
+}
+
+// Drops a catalog match so the written transcript row can be credited to an
+// elective area. Keeps a regulation area only when one was already chosen.
+export function detachCatalogMatch(candidate: TranscriptImportCandidate): TranscriptImportCandidate {
+  return finalizeCandidate({
+    ...candidate,
+    title: candidate.extractedTitle,
+    ects: candidate.extractedEcts ?? candidate.ects,
     matchedCourse: null,
     courseId: null,
     courseNumber: null,
@@ -738,7 +764,7 @@ export function canImportTranscriptCandidate(candidate: TranscriptImportCandidat
   const hasCatalogMatch = Boolean(candidate.courseId && candidate.matchedCourse)
 
   return Boolean(
-    (hasCatalogMatch || isAcceptedAsUebk(candidate)) &&
+    (hasCatalogMatch || isAcceptedCustomCourse(candidate)) &&
       candidate.semester.trim() &&
       candidate.ects !== null &&
       candidate.ects > 0 &&
