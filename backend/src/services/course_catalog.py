@@ -602,6 +602,67 @@ async def list_catalog_periods(env: Any) -> list[dict[str, Any]]:
     return periods
 
 
+def group_catalog_lecturer_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Collapse one row per lecturer into one compact record per course offering.
+
+    The catalog card only needs the historical name, so this stays a join and a
+    group instead of building the full course payload once per semester.
+    """
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        period_id = str(row.get("periodId") or "")
+        course_id = str(row.get("courseId") or "")
+        if not period_id or not course_id:
+            continue
+        bucket = grouped.get((period_id, course_id))
+        if bucket is None:
+            bucket = {
+                "periodId": period_id,
+                "courseId": course_id,
+                "number": str(row.get("number") or ""),
+                "names": [],
+            }
+            grouped[(period_id, course_id)] = bucket
+        display_name = str(row.get("displayName") or "").strip()
+        if display_name and display_name not in bucket["names"]:
+            bucket["names"].append(display_name)
+
+    entries: list[dict[str, str]] = []
+    for bucket in grouped.values():
+        lecturer = ", ".join(bucket["names"])
+        if not lecturer:
+            continue
+        entries.append(
+            {
+                "periodId": bucket["periodId"],
+                "courseId": bucket["courseId"],
+                "number": bucket["number"],
+                "lecturer": lecturer,
+            }
+        )
+    return entries
+
+
+async def list_catalog_lecturer_index(env: Any) -> list[dict[str, str]]:
+    """Lecturer names for every catalog offering, without course schedules or options."""
+    rows = await fetch_all(
+        env,
+        f"""
+        SELECT
+            c.period_id AS periodId,
+            c.id AS courseId,
+            COALESCE(c.number, '') AS number,
+            l.display_name AS displayName
+        FROM courses AS c
+        JOIN course_lecturers AS cl ON cl.course_id = c.id
+        JOIN lecturers AS l ON l.id = cl.lecturer_id
+        WHERE {CATALOG_FILTER_SQL}
+        ORDER BY c.period_id ASC, c.id ASC, l.display_name ASC
+        """,
+    )
+    return group_catalog_lecturer_rows(rows)
+
+
 def _derive_term_type(period_labels: list[str]) -> str:
     """Classify a course as a summer-term, winter-term, or both-terms offering."""
     has_summer = False

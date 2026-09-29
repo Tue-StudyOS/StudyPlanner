@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { CatalogPeriod, CompletedCourse, Course } from '../../src/features/courses/types.ts'
 import {
+  buildLecturerLookupFromEntries,
   buildPeriodLecturerLookup,
   resolveCourseCardLecturerLabel,
   resolveHistoricalLecturerRaw,
@@ -60,6 +61,26 @@ test('formatCourseLecturerName joins multiple lecturers with commas', () => {
 test('resolveCourseCardLecturerLabel prefers the lecturer from the completed semester', () => {
   const lookup = buildPeriodLecturerLookup('p2023w', [
     course({ id: '101', number: 'INF-101', lecturer: 'Prof. Dr. Historical Lecturer' }),
+  ])
+
+  const label = resolveCourseCardLecturerLabel(
+    course({ lecturer: 'Prof. Dr. Current Lecturer' }),
+    completed({ semester: 'WS 2023/24', courseNumber: 'INF-101' }),
+    periods,
+    lookup,
+  )
+
+  assert.equal(label, 'Historical Lecturer')
+})
+
+test('buildLecturerLookupFromEntries matches a completed course by number and period', () => {
+  const lookup = buildLecturerLookupFromEntries([
+    {
+      periodId: 'p2023w',
+      courseId: '999',
+      number: 'INF-101',
+      lecturer: 'Prof. Dr. Historical Lecturer',
+    },
   ])
 
   const label = resolveCourseCardLecturerLabel(

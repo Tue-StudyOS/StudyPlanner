@@ -1,95 +1,75 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CatalogPeriod, CompletedCourse } from '../types.ts'
-import { fetchCatalogCourses } from '../api.ts'
+import { fetchCatalogLecturerIndex } from '../api.ts'
 import { findCatalogPeriodForSemesterLabel } from '../utils/periods.ts'
-import { buildPeriodLecturerLookup, mergePeriodLecturerLookups } from '../utils/completedCourseLecturer.ts'
-import { mapWithConcurrency } from '../../../shared/utils/mapWithConcurrency.ts'
+import {
+  buildLecturerLookupFromEntries,
+  type CatalogLecturerEntry,
+} from '../utils/completedCourseLecturer.ts'
+import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 
-interface LookupState {
-  cacheKey: string
-  lookup: Map<string, string>
-}
+const LECTURER_INDEX_CACHE_KEY = 'catalog:lecturers'
 
-function buildCacheKey(periodIds: string[]): string {
-  return periodIds.join('|')
+function completedPeriodKey(completedCourses: CompletedCourse[], periods: CatalogPeriod[]): string {
+  const ids = new Set<string>()
+  for (const completed of completedCourses) {
+    const period = findCatalogPeriodForSemesterLabel(periods, completed.semester)
+    if (period) {
+      ids.add(period.periodId)
+    }
+  }
+  return [...ids].sort().join('|')
 }
 
 /**
- * Loads catalog slices for semesters with completed courses so cards can show
- * the lecturer from the term the course was actually taken in.
+ * Lecturer from the semester a course was completed in.
+ *
+ * One compact index, not a full catalog download per semester. Those downloads
+ * ran beside `period=all` on the catalog page and exhausted the Worker isolate;
+ * the next requests, including session and config, then failed with 500.
  */
 export function useHistoricalLecturerLookup(
   completedCourses: CompletedCourse[],
   periods: CatalogPeriod[],
 ): Map<string, string> {
-  const periodIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const completed of completedCourses) {
-      const period = findCatalogPeriodForSemesterLabel(periods, completed.semester)
-      if (period) {
-        ids.add(period.periodId)
-      }
-    }
-    return [...ids].sort()
-  }, [completedCourses, periods])
-
-  const cacheKey = buildCacheKey(periodIds)
+  const periodKey = useMemo(
+    () => completedPeriodKey(completedCourses, periods),
+    [completedCourses, periods],
+  )
   const emptyLookup = useMemo(() => new Map<string, string>(), [])
-  const [state, setState] = useState<LookupState>(() => ({
-    cacheKey,
-    lookup: emptyLookup,
-  }))
-
-  if (state.cacheKey !== cacheKey) {
-    setState({ cacheKey, lookup: emptyLookup })
-  }
+  const [lookup, setLookup] = useState<Map<string, string>>(emptyLookup)
 
   useEffect(() => {
-    if (periodIds.length === 0) {
+    if (!periodKey) {
       return
     }
 
     let cancelled = false
 
-    async function loadHistoricalLecturers(): Promise<void> {
+    async function loadLecturers(): Promise<void> {
       try {
-        // Bounded rather than Promise.all. The original reason given here — that
-        // concurrent response *bytes* overwhelm one backend isolate — turned out
-        // to be wrong: the fault is CPU, and a purely sequential stream kills an
-        // isolate just as well (docs/load-test-2026-08.md). The real cost is that
-        // each period costs the backend ~70-100 ms of CPU, so firing every period
-        // at once concentrates that burst. Bounding still helps by spreading the
-        // work, but the durable fix is to stop asking for a ~530 KB payload when
-        // only id, number and lecturer are used.
-        const lookups = await mapWithConcurrency(periodIds, 2, async (periodId) => {
-          const courses = await fetchCatalogCourses('', 1000, periodId)
-          return buildPeriodLecturerLookup(periodId, courses)
-        })
+        const cached = readSessionCache<CatalogLecturerEntry[]>(LECTURER_INDEX_CACHE_KEY)
+        const entries = cached ?? (await fetchCatalogLecturerIndex())
+        if (!cached) {
+          writeSessionCache(LECTURER_INDEX_CACHE_KEY, entries)
+        }
         if (cancelled) {
           return
         }
-        setState((current) =>
-          current.cacheKey === cacheKey
-            ? { cacheKey, lookup: mergePeriodLecturerLookups(lookups) }
-            : current,
-        )
+        setLookup(buildLecturerLookupFromEntries(entries))
       } catch {
         if (!cancelled) {
-          setState((current) =>
-            current.cacheKey === cacheKey
-              ? { cacheKey, lookup: emptyLookup }
-              : current,
-          )
+          setLookup(emptyLookup)
         }
       }
     }
 
-    void loadHistoricalLecturers()
+    void loadLecturers()
 
     return () => {
       cancelled = true
     }
-  }, [cacheKey, emptyLookup, periodIds])
+  }, [emptyLookup, periodKey])
 
-  return periodIds.length === 0 ? emptyLookup : state.lookup
+  return periodKey ? lookup : emptyLookup
 }
