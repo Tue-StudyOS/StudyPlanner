@@ -451,7 +451,9 @@ async def route_request(request: Any, env: Any) -> Any:
 
         if path == "/api/me/favorites":
             if method == "GET":
-                favorites = await get_current_user_favorites(env, request)
+                favorites = await get_current_user_favorites(
+                    env, request, parse_qs(parsed_url.query, keep_blank_values=True).get('semesterLabel', [None])[0],
+                )
                 return json_response(favorites, request=request, env=env)
             if method == "PUT":
                 favorites = await replace_current_user_favorites(

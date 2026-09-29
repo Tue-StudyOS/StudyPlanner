@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { CourseTermType } from '../../courses'
+import { getPlanningSemesterLabel } from '../../courses/utils/catalogOffering.ts'
 import { SeasonGlyphWatermark } from '../../../shared/components/SeasonGlyphWatermark.tsx'
 import {
   SEASON_SEMESTER_BADGE_DOT_CLASS,
@@ -32,7 +33,7 @@ function seasonForLabel(semesterLabel: string): CourseTermType | undefined {
 export function SemesterCard({ semesterLabel, to, stats, tourAnchorId }: SemesterCardProps) {
   const isCurrentSemester = compareSemesterLabels(semesterLabel, getCurrentSemesterLabel()) === 0
   const hasBadge = useSemesterCardBadge()
-  const showNotificationBadge = isCurrentSemester && hasBadge
+  const showNotificationBadge = semesterLabel === getPlanningSemesterLabel() && hasBadge
 
   return (
     <Link

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getErrorMessage } from '../../../shared/utils/errorMessage.ts'
 import { invalidateSessionCache, readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { useAuth } from '../../auth'
+import { getPlanningSemesterLabel } from '../../courses/utils/catalogOffering.ts'
 import { fetchSemesterPlan, fetchSemesterPlans, saveSemesterPlan } from '../api'
 import type { ManualPlannerSlot, SemesterPlan, SemesterPlanSummary } from '../types'
 import { reconcileSavedPlanAssignments } from '../utils/semesterPlanAssignments.ts'
@@ -97,11 +98,10 @@ export function useSemesterPlanner(initialSemesterLabel?: string): UseSemesterPl
   const [plannerError, setPlannerError] = useState<string | null>(null)
   const currentSemesterLabel = getCurrentSemesterLabel()
   const latestSelectableSemesterLabel = getLatestSelectableSemesterLabel()
-  // The current semester is the default; an explicit initial label (e.g. the
-  // "/test" semester route) opens that semester instead. Older plans stay
-  // reachable through the minimal switcher.
+  // Match catalog stars to the planning window, while explicit semester routes
+  // continue to open their own saved plan.
   const [activeSemesterLabel, setActiveSemesterLabelState] = useState<string>(
-    initialSemesterLabel?.trim() || currentSemesterLabel,
+    initialSemesterLabel?.trim() || getPlanningSemesterLabel(),
   )
   const [planReloadToken, setPlanReloadToken] = useState<number>(0)
 
