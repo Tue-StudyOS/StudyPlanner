@@ -13,6 +13,7 @@ from .scraper import (
     PeriodOption,
     ScrapeOptions,
     parse_semester_tuple,
+    select_latest_periods,
 )
 
 
@@ -140,6 +141,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--latest",
+        action="store_true",
+        help=(
+            "Scrape only the newest semester ALMA lists, across the Informatik "
+            "catalog and every degree program this scraper covers."
+        ),
+    )
+    parser.add_argument(
         "--from-semester",
         metavar="LABEL",
         help=(
@@ -223,10 +232,13 @@ def main() -> None:
         print(f"period {args.probe_branch_permalink}: {permalink}")
         return
 
+    if args.latest and args.from_semester:
+        raise SystemExit("Pass either --latest or --from-semester, not both.")
+
     resume_state = _load_resume_state(args)
     out_path, progress_path = _resolve_output_paths(args, resume_state)
 
-    if args.from_semester or resume_state is not None:
+    if args.latest or args.from_semester or resume_state is not None:
         result = _run_multi_period_scrape(
             scraper, args, out_path, progress_path, resume_state
         )
@@ -492,16 +504,23 @@ def _run_multi_period_scrape(
     are skipped and their existing courses/nodes feed the accumulator
     directly.
     """
-    cutoff = parse_semester_tuple(args.from_semester)
-    if cutoff is None:
-        raise SystemExit(
-            f"Could not parse --from-semester={args.from_semester!r} "
-            "(expected e.g. 'Sommer 2022' or 'Wintersemester 2022/23')."
-        )
-
-    periods = _select_periods(scraper.discover_periods(), cutoff)
-    if not periods:
-        raise SystemExit(f"No periods found at or after {args.from_semester!r}.")
+    discovered = scraper.discover_periods()
+    if args.latest:
+        periods = select_latest_periods(discovered)
+        if not periods:
+            raise SystemExit("ALMA listed no semester that could be parsed.")
+        # Recorded so --continue of this file resumes the same semester.
+        args.from_semester = periods[-1].label
+    else:
+        cutoff = parse_semester_tuple(args.from_semester)
+        if cutoff is None:
+            raise SystemExit(
+                f"Could not parse --from-semester={args.from_semester!r} "
+                "(expected e.g. 'Sommer 2022' or 'Wintersemester 2022/23')."
+            )
+        periods = _select_periods(discovered, cutoff)
+        if not periods:
+            raise SystemExit(f"No periods found at or after {args.from_semester!r}.")
 
     if resume_state is not None:
         completed_ids = resume_state["completed_period_ids"]

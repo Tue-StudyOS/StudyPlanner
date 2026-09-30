@@ -36,7 +36,9 @@ ALMA exposes the same courses through two different trees of the public
 
 Neither tree is a superset of the other, so the scraper crawls **both**: the VVZ
 branch (`INFORMATICS_BRANCH_CHAIN`) plus the degree-program branches
-(`PROGRAM_BRANCH_CHAINS`: M.Sc. CS, B.Sc. Informatik, M.Sc. ML). Courses are
+(`PROGRAM_BRANCH_CHAINS`: B.Sc. and M.Sc. Informatik, M.Sc. Machine Learning,
+B.Sc. Medieninformatik, B.Sc. Medizininformatik, B.Sc. Bioinformatik, each
+Version 2021). Courses are
 deduplicated by `unit_id`; `ScrapeOptions.skip_unit_ids` stops later branches
 from re-fetching detail pages a previous branch already got. `--no-programs`
 falls back to VVZ-only. See `cli._scrape_period_branches`.
@@ -72,8 +74,11 @@ Period ids are opaque ALMA ints; the mapping is **not** chronological by number:
 
 `--from-semester LABEL` selects every period at or after `LABEL`
 (`parse_semester_tuple` understands e.g. `"Sommer 2026"`, `"Winter 2022/23"`).
-Deep-path `title:NNNN` ids differ per period, so branches are rediscovered each
-period by title chain via `find_branch_permalink`.
+`--latest` selects only the newest semester ALMA currently lists, so a refresh
+of the covered catalog does not hardcode a year. Both modes crawl the VVZ
+branch and every `PROGRAM_BRANCH_CHAINS` entry. Deep-path `title:NNNN` ids
+differ per period, so branches are rediscovered each period by title chain via
+`find_branch_permalink`.
 
 ## Study-area attribution (how courses link to INFO-INFO etc.)
 
@@ -103,9 +108,29 @@ Teamprojekt still carries no mappable code, so it stays a known gap.
 - **Progress**: `tqdm` shows an outer "semesters" bar and an inner per-branch
   detail bar. Log lines go through `tqdm.write` so they don't corrupt the bars;
   `--quiet` disables both. `progress.json` is still written every course.
-- Coverage is scoped to the three Informatik programs above. Adding e.g.
-  Medieninformatik (which is where `User Experience` lives) is a one-entry
-  addition to `PROGRAM_BRANCH_CHAINS` plus any needed code aliases.
+- Coverage is the VVZ Informatik branch plus every program in
+  `PROGRAM_BRANCH_CHAINS`. A new program is one chain entry there, plus any
+  ALMA module-code aliases in `import_alma_json_to_d1.py`.
+
+## Refresh the newest semester
+
+From `data_collection/`, after `uv sync`:
+
+```powershell
+uv run python -m alma.cli --details --latest --out output\latest\courses_multi_semester.json
+```
+
+That is the Informatik catalog and every covered degree program, for whatever
+semester ALMA lists as newest. Import it without touching older periods:
+
+```powershell
+cd ..
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/latest/courses_multi_semester.json --incremental
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/latest/courses_multi_semester.json --incremental --apply
+```
+
+The first import is a dry run. Deploy the API Worker afterwards so catalog
+caches drop. See `docs/cloudflare-runtime-config.md`.
 
 ## Conventions
 

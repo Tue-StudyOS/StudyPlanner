@@ -37,19 +37,20 @@ run `cd data_collection` first). Python 3.11+ is required.
 
 ## Usage
 
-### Default: Informatik catalog (Recommended)
-
-Scrape the Informatik course catalog (Gesamtverzeichnis Lehrveranstaltungen
-Informatik) with course details:
+### Newest semester, everything this scraper covers
 
 ```powershell
-uv run python -m alma.cli --details
+uv run python -m alma.cli --details --latest --out output\latest\courses_multi_semester.json
 ```
 
-Each course detail includes a `categories` list — the module/study-program
-codes (e.g. `INFO-INFO`, `INFO-BASIS`) from its "Module / Studiengänge" tab.
+This crawls the Informatik Gesamtverzeichnis and every degree program in
+`PROGRAM_BRANCH_CHAINS` (Informatik, Machine Learning, Medieninformatik,
+Medizininformatik, Bioinformatik; Version 2021) for the newest semester ALMA
+lists. A run without `--latest` or `--from-semester` only follows the default
+start URL and misses those program trees.
 
-Output: `output/YYYY-MM-DD_HH-MM-SS/courses.json`
+Import that file with `--incremental` as described in
+[catalog refresh](../docs/cloudflare-runtime-config.md#catalog-refresh).
 
 ### Multiple semesters
 
@@ -63,7 +64,8 @@ uv run python -m alma.cli --details --from-semester "Sommer 2022"
 
 In multi-period mode the scraper crawls the VVZ "Gesamtverzeichnis
 Lehrveranstaltungen Informatik" branch **and** the degree-program branches
-(M.Sc. Computer Science, B.Sc. Informatik, M.Sc. Machine Learning). The
+(M.Sc. Computer Science, B.Sc. Informatik, M.Sc. Machine Learning,
+B.Sc. Medieninformatik, B.Sc. Medizininformatik, B.Sc. Bioinformatik). The
 program branches surface courses cross-listed from other faculties that count
 toward a study area but are missing from the VVZ branch. Courses shared
 between branches are deduplicated by `unit_id` and their detail pages are
@@ -124,6 +126,7 @@ output/
 ## Options
 
 - `--details` - Fetch course details (recommended)
+- `--latest` - Scrape only the newest semester, including every covered degree program
 - `--from-semester LABEL` - Scrape every semester from LABEL up to current
 - `--continue PATH` - Resume an interrupted multi-period scrape from PATH
 - `--full-catalog` - Scrape entire catalog

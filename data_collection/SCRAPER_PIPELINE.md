@@ -7,16 +7,18 @@ Run commands from the repo root unless noted.
 ```powershell
 cd data_collection
 uv sync
-uv run python -m alma.cli --details --from-semester "Sommer 2022"
+uv run python -m alma.cli --details --latest --out output\latest\courses_multi_semester.json
 cd ..
 ```
 
-The scraper writes JSON under data_collection/output/. It does not update the
-tracked alma.sqlite automatically. Review the output and use the
-[in-place ALMA import](../docs/cloudflare-runtime-config.md#catalog-refresh) for
-production. To add a new semester, scrape only it (`--from-semester` set to that
-semester) and import it with `--incremental`; a full rebuild must include every
-period to retain.
+That refreshes the newest semester ALMA lists, including the Informatik
+catalog and every degree program in `PROGRAM_BRANCH_CHAINS`. The scraper
+writes JSON under `data_collection/output/` and does not update the database.
+Review the output, then import it incrementally
+([catalog refresh](../docs/cloudflare-runtime-config.md#catalog-refresh)).
+
+A full history uses `--from-semester "Sommer 2022"` instead of `--latest`.
+A full rebuild must include every period that should stay in D1.
 
 ## 2. Scrape Moodle
 
