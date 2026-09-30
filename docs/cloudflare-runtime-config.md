@@ -69,15 +69,15 @@ import it incrementally. Every other period is left untouched and verified:
 
 ```powershell
 cd data_collection
-.\.venv\Scripts\python.exe -m alma.cli --details --from-semester "Winter 2026/27" --out output\ws2627\courses_multi_semester.json
+uv run python -m alma.cli --details --latest --out output\latest\courses_multi_semester.json
 cd ..
-python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/ws2627/courses_multi_semester.json --incremental
-python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/ws2627/courses_multi_semester.json --incremental --apply
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/latest/courses_multi_semester.json --incremental
+python backend/scripts/import_alma_json_to_d1.py --input data_collection/output/latest/courses_multi_semester.json --incremental --apply
 ```
 
-`--from-semester` selects every period from that label on, so it scrapes a single
-semester only while it is the newest one ALMA lists. Without `--apply` the
-incremental run is a dry run (reads the D1, writes the SQL). It lists the courses
+`--latest` scrapes only the newest semester ALMA lists, across the Informatik
+catalog and every degree program in `PROGRAM_BRANCH_CHAINS`. Without `--apply`
+the incremental run is a dry run (reads the D1, writes the SQL). It lists the courses
 added, removed, or changed (title, times, rooms, dates) against the D1;
 `--skip-if-unchanged` stops there when nothing changed. With `--apply` it
 replaces only the input's periods and keeps re-imported course, parallel-group

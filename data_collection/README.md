@@ -15,8 +15,8 @@ turned into the D1 seed by `backend/scripts/import_alma_json_to_d1.py`.
 Run from `data_collection/` after the [setup](QUICKSTART.md#setup).
 
 ```bash
-# From WiSe 2022/23 through the newest available semester:
-uv run python -m alma.cli --details --from-semester "Winter 2022/23"
+# Newest semester, Informatik catalog plus every covered degree program:
+uv run python -m alma.cli --details --latest --out output/latest/courses_multi_semester.json
 ```
 
 Output is written to `output/<timestamp>/courses_multi_semester.json`.

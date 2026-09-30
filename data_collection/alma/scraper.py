@@ -1122,6 +1122,19 @@ def _module_assignment_code(module_number: str, short_name: str) -> str | None:
     return None
 
 
+def select_latest_periods(periods: list[PeriodOption]) -> list[PeriodOption]:
+    """The newest semester ALMA listed, ignoring labels that did not parse.
+
+    Several options can share one semester. All of them are returned so none
+    of that semester is dropped.
+    """
+    dated = [period for period in periods if period.semester is not None]
+    if not dated:
+        return []
+    newest = max(period.semester for period in dated if period.semester is not None)
+    return [period for period in dated if period.semester == newest]
+
+
 def parse_semester_tuple(label: str) -> tuple[int, int] | None:
     """Return ``(year, kind)`` for a German semester label, or ``None``.
 
