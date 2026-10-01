@@ -56,8 +56,13 @@ test('a winter course that skipped the most recent winter catalog is unknown', (
   assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'unknown')
 })
 
-test('a summer course missing from the current summer catalog is unknown', () => {
+test('a course offered last season but missing from the published target catalog is unconfirmed', () => {
   const course = { offeredPeriods: ['Sommer 2025'], studyAreaOptions: [] }
+  assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'likely')
+})
+
+test('a course that also missed the previous same-season catalog is unknown', () => {
+  const course = { offeredPeriods: ['Sommer 2024'], studyAreaOptions: [] }
   assert.equal(getOfferingStatus(course, KNOWN_PERIODS, NOW), 'unknown')
 })
 
@@ -117,9 +122,19 @@ test('in the final summer month an ending summer course is no longer confirmed',
     getOfferingStatus(winterCourse, knownWithNextWinter, new Date('2026-10-11T12:00:00'), ['winter']),
     'confirmed',
   )
-  const skippedNextWinter = { offeredPeriods: ['Winter 2025/26'] }
+  const offeredLastWinterOnly = { offeredPeriods: ['Winter 2025/26', 'Winter 2024/25', 'Winter 2022/23'] }
+  // Ran every recent winter, absent from the published Winter 2026/27 catalog.
   assert.equal(
-    getOfferingStatus(skippedNextWinter, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']),
+    getOfferingStatus(offeredLastWinterOnly, knownWithNextWinter, LAST_SUMMER_MONTH, ['winter']),
+    'likely',
+  )
+  assert.equal(
+    getOfferingStatus(offeredLastWinterOnly, knownWithNextWinter, new Date('2026-10-01T12:00:00'), ['winter']),
+    'likely',
+  )
+  const staleWinter = { offeredPeriods: ['Winter 2024/25'] }
+  assert.equal(
+    getOfferingStatus(staleWinter, knownWithNextWinter, new Date('2026-10-01T12:00:00'), ['winter']),
     'unknown',
   )
 })

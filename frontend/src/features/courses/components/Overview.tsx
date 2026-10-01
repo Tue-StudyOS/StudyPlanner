@@ -424,11 +424,9 @@ export function CoursesOverview() {
         }),
         sortOption,
       ).sort((left, right) => {
-        const rank = (status: OfferingStatus | undefined): number => {
-          if (status === 'unknown') return 2
-          if (status === 'likely') return 1
-          return 0
-        }
+        // Unconfirmed courses stay in the chosen sort (title, ECTS). Only
+        // courses with no fresh catalog signal sit under the "no current data" heading.
+        const rank = (status: OfferingStatus | undefined): number => (status === 'unknown' ? 1 : 0)
         return rank(offeringStatusByCourseId.get(left.id)) - rank(offeringStatusByCourseId.get(right.id))
       }),
     [

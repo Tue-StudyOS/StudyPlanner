@@ -133,10 +133,12 @@ const STATUS_RANK: Record<OfferingStatus, number> = {
  * seasons count, so a course confirmed for summer is not confirmed for winter.
  *
  * - `confirmed`: the published catalog lists the course for the target semester.
- * - `likely`: that semester's catalog is not published yet, but the course ran
- *   in the latest same-season catalog.
- * - `unknown`: the course did not run in the most recent same-season semester;
- *   there is no signal it will return.
+ * - `likely`: not listed for the target semester, but offered in the previous
+ *   same-season term. A published target catalog that simply omits the course
+ *   is "not confirmed yet", not "no current data". Same when that catalog is
+ *   not published yet and the course ran in the latest same-season catalog.
+ * - `unknown`: the course also missed the previous same-season term, so there
+ *   is no fresh catalog signal.
  *
  * Compulsory modules get no exemption. A Pflicht course that missed the
  * target semester is unconfirmed, same as any other course.
@@ -161,9 +163,13 @@ export function getOfferingStatus(
 
     let seasonStatus: OfferingStatus
     const catalogCoversTarget = knownNewestYear !== null && knownNewestYear >= targetYear
-    if (catalogCoversTarget) {
-      seasonStatus = courseNewestYear >= targetYear ? 'confirmed' : 'unknown'
-    } else if (courseNewestYear === knownNewestYear) {
+    const ranInPreviousSeason = courseNewestYear === targetYear - 1
+    const ranInLatestUnpublishedCatalog = !catalogCoversTarget
+      && knownNewestYear !== null
+      && courseNewestYear === knownNewestYear
+    if (catalogCoversTarget && courseNewestYear >= targetYear) {
+      seasonStatus = 'confirmed'
+    } else if (ranInPreviousSeason || ranInLatestUnpublishedCatalog) {
       seasonStatus = 'likely'
     } else {
       seasonStatus = 'unknown'
