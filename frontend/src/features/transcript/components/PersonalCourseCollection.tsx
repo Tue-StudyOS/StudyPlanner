@@ -1,10 +1,15 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { CompletedCourse } from '../../courses'
 import { useTranslation } from '../../i18n'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { usePersistedToggle } from '../../../shared/hooks/usePersistedToggle'
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import type { TranscriptImportCandidate } from '../types'
+import {
+  buildCompletedCourseAreaOptions,
+  completedCourseAreaLabel,
+} from '../utils/completedCourseAreaOptions.ts'
+import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
 import { TrashIcon } from './icons'
 import { TranscriptImportRow } from './TranscriptImportRow'
 
@@ -90,16 +95,53 @@ function formatCompletedSubtitle(course: CompletedCourse): string {
 
 function CompletedCourseRow({
   course,
+  regulationRuleGroups,
+  isEditing,
+  isSaving,
+  areaLabel,
   onDelete,
+  onStudyAreaChange,
 }: {
   course: CompletedCourse
+  regulationRuleGroups: RegulationRuleGroup[]
+  isEditing: boolean
+  isSaving: boolean
+  areaLabel: string
   onDelete: () => void
+  onStudyAreaChange: (studyAreaCode: string) => void
 }) {
+  const areaOptions = useMemo(
+    () => buildCompletedCourseAreaOptions(course, regulationRuleGroups),
+    [course, regulationRuleGroups],
+  )
+  const canChangeArea = areaOptions.length > 1
+  const assignedAreaLabel = completedCourseAreaLabel(course, regulationRuleGroups)
+  const selectedAreaCode = areaOptions.find(
+    (option) => option.code.trim().toUpperCase() === (course.studyAreaCode ?? '').trim().toUpperCase(),
+  )?.code ?? course.studyAreaCode ?? null
+
   return (
     <div className="flex min-w-0 items-start gap-2.5 rounded-[10px] border border-border-light bg-surface-hover/30 px-3.5 py-3">
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-fg-mid">{course.title}</div>
-        <div className="mt-1 truncate text-[11.5px] text-fg-muted">{formatCompletedSubtitle(course)}</div>
+        <div className="mt-1 break-words text-[11.5px] text-fg-muted">{formatCompletedSubtitle(course)}</div>
+        {assignedAreaLabel && !(isEditing && canChangeArea) ? (
+          <div className="mt-1 break-words text-[11.5px] text-fg-muted">{assignedAreaLabel}</div>
+        ) : null}
+        {isEditing && canChangeArea ? (
+          <div className="mt-2.5 max-w-full sm:max-w-sm">
+            <StudyAreaAssignmentField
+              label={areaLabel}
+              value={selectedAreaCode}
+              options={areaOptions}
+              locked={false}
+              disabled={isSaving}
+              size="compact"
+              optionLabel="full"
+              onChange={onStudyAreaChange}
+            />
+          </div>
+        ) : null}
       </div>
       <button
         type="button"
@@ -130,7 +172,9 @@ export function PersonalCourseCollection({
   onImportSavedIssues,
   onResetCurrentReview,
   onClearSavedIssues,
+  isSavingCompleted,
   onDeleteCompleted,
+  onChangeCompletedArea,
   onClearAll,
 }: {
   currentReviewCandidates: TranscriptImportCandidate[]
@@ -149,7 +193,9 @@ export function PersonalCourseCollection({
   onImportSavedIssues: () => void
   onResetCurrentReview: () => void
   onClearSavedIssues: () => void
+  isSavingCompleted?: boolean
   onDeleteCompleted: (completedCourseId: string) => void
+  onChangeCompletedArea: (completedCourseId: string, studyAreaCode: string) => void
   onClearAll: () => void
 }) {
   const { t } = useTranslation()
@@ -168,7 +214,12 @@ export function PersonalCourseCollection({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setIsEditing((value) => !value)}
+            onClick={() => {
+              if (!isEditing) {
+                setIsCreditedCollapsed(false)
+              }
+              setIsEditing((value) => !value)
+            }}
             className={`rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
               isEditing
                 ? 'border-primary bg-primary/10 text-primary'
@@ -299,7 +350,12 @@ export function PersonalCourseCollection({
                 <CompletedCourseRow
                   key={course.id}
                   course={course}
+                  regulationRuleGroups={regulationRuleGroups}
+                  isEditing={isEditing}
+                  isSaving={Boolean(isSavingCompleted)}
+                  areaLabel={t('transcript.manual.area')}
                   onDelete={() => onDeleteCompleted(course.id)}
+                  onStudyAreaChange={(studyAreaCode) => onChangeCompletedArea(course.id, studyAreaCode)}
                 />
               ))}
             </CollapsibleSection>

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageShell } from '../../../shared/components/PageShell'
 import { PersonalFeatureNotice } from '../../../shared/components/PersonalFeatureNotice'
 import { useRegulationVersion } from '../../../shared/hooks/useRegulationVersion'
+import { studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
 import { buildTranscriptImportStorageKey } from '../../../shared/utils/browserStorageRegistry.ts'
 import { useAuth } from '../../auth'
 import { useTranslation } from '../../i18n'
@@ -90,6 +91,7 @@ function AuthenticatedTranscript() {
     addCompletedCourse,
     importCompletedCourses,
     removeCourse,
+    updateCourse,
     removeTranscriptImports,
     clearTranscriptData,
     clearCompletedCoursesError,
@@ -455,6 +457,18 @@ function AuthenticatedTranscript() {
     await persistTranscriptIssues([])
   }
 
+  function handleCompletedAreaChange(completedCourseId: string, studyAreaCode: string): void {
+    if (isTranscriptTourPreview || !studyAreaCode) {
+      return
+    }
+    const course = completedCourses.find((item) => item.id === completedCourseId)
+    if (!course || course.studyAreaCode?.trim().toUpperCase() === studyAreaCode.trim().toUpperCase()) {
+      return
+    }
+    const masterCat = studyAreaCodeToMasterCat(studyAreaCode) ?? course.masterCat
+    void updateCourse(completedCourseId, { studyAreaCode, masterCat })
+  }
+
   async function handleClearAll(): Promise<void> {
     clearCompletedCoursesError()
     setImportError(null)
@@ -614,7 +628,9 @@ function AuthenticatedTranscript() {
         onImportSavedIssues={handleImportSavedIssues}
         onResetCurrentReview={resetImportReview}
         onClearSavedIssues={() => void clearPersistedIssues()}
+        isSavingCompleted={displayIsSavingCompletedCourses}
         onDeleteCompleted={(completedCourseId) => void removeCourse(completedCourseId)}
+        onChangeCompletedArea={handleCompletedAreaChange}
         onClearAll={() => void handleClearAll()}
       />
 
