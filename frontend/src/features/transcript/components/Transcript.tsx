@@ -465,8 +465,16 @@ function AuthenticatedTranscript() {
     if (!course || course.studyAreaCode?.trim().toUpperCase() === studyAreaCode.trim().toUpperCase()) {
       return
     }
-    const masterCat = studyAreaCodeToMasterCat(studyAreaCode) ?? course.masterCat
-    void updateCourse(completedCourseId, { studyAreaCode, masterCat })
+    const ruleGroup = displayRegulationRuleGroups.find(
+      (group) => group.code.trim().toUpperCase() === studyAreaCode.trim().toUpperCase(),
+    )
+    const resolvedCode = ruleGroup?.code ?? studyAreaCode
+    const masterCat = studyAreaCodeToMasterCat(resolvedCode) ?? course.masterCat
+    void updateCourse(completedCourseId, {
+      studyAreaCode: resolvedCode,
+      studyAreaName: ruleGroup?.name ?? null,
+      masterCat,
+    })
   }
 
   async function handleClearAll(): Promise<void> {

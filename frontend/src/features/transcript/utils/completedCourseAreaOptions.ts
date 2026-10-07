@@ -1,6 +1,7 @@
 import type { CompletedCourse } from '../../courses/types.ts'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation.ts'
 import {
+  buildAllSelectableRegulationAreaOptions,
   buildFlexibleRegulationAreaOptions,
   buildRegulationAreaOptionByCode,
   formatRegulationAreaShortLabel,
@@ -49,9 +50,9 @@ function isCustomCompletedCourse(course: CompletedCourseAreaSource): boolean {
   return course.courseId == null || course.courseId === ''
 }
 
-// Credited courses keep the same area choices as the form that created them:
-// catalog matches use the server's assignable areas, custom courses can move
-// to any flexible area because they have no catalog mapping.
+// Credited courses can be moved to the area the transcript actually counted
+// them toward. Catalog matches may use any area of the active regulation
+// except the thesis; custom courses stay on flexible elective areas.
 export function buildCompletedCourseAreaOptions(
   course: CompletedCourseAreaSource,
   ruleGroups: RegulationRuleGroup[],
@@ -75,10 +76,11 @@ export function buildCompletedCourseAreaOptions(
     push(resolveAreaOption(option.studyAreaCode, option.studyAreaName, option.groupType, ruleGroups))
   }
 
-  if (isCustomCompletedCourse(course)) {
-    for (const option of buildFlexibleRegulationAreaOptions(ruleGroups)) {
-      push(option)
-    }
+  const regulationOptions = isCustomCompletedCourse(course)
+    ? buildFlexibleRegulationAreaOptions(ruleGroups)
+    : buildAllSelectableRegulationAreaOptions(ruleGroups)
+  for (const option of regulationOptions) {
+    push(option)
   }
 
   push(resolveAreaOption(course.studyAreaCode, course.studyAreaName, null, ruleGroups))
