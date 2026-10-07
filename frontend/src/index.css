@@ -92,6 +92,25 @@ body {
   overflow: hidden;
 }
 
+/* iPhone browsers are all WebKit. Focusing a control under 16px zooms the
+   page, and body { overflow: hidden } then keeps that zoom after blur, so
+   pinch-out never comes back. 16px is the size that skips the zoom.
+   Desktop (fine pointer) keeps the smaller StudyOS field sizes. */
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not([type='file']):not([type='hidden']):not([type='image']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+
+    /* "08:00" at 16px no longer fits the 4.25rem time boxes. */
+    input[inputmode='numeric'] {
+      width: 5rem;
+    }
+  }
+}
+
 @keyframes favorite-save-pop {
   0% {
     transform: scale(1);
