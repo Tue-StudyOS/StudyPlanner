@@ -27,9 +27,30 @@ test('catalog courses keep the server assignable areas and the current assignmen
     RULE_GROUPS,
   )
 
-  assert.deepEqual(options.map((option) => option.code), ['INFO-PRAK', 'INFO-TECH', 'INF'])
+  assert.deepEqual(options.map((option) => option.code), ['INFO-PRAK', 'INFO-TECH', 'INF', 'UEBK'])
   assert.equal(options[0]?.label, 'INFO-PRAK · Praktische Informatik')
   assert.equal(options[2]?.shortLabel, 'MAIN')
+})
+
+test('catalog courses can move to any regulation area except the thesis', () => {
+  const options = buildCompletedCourseAreaOptions(
+    {
+      courseId: '42',
+      studyAreaCode: 'PRAK',
+      studyAreaName: 'Wahlpflichtfach Praktische Informatik',
+      availableStudyAreaOptions: [
+        { studyAreaCode: 'PRAK', studyAreaName: 'Wahlpflichtfach Praktische Informatik', groupType: 'wahlpflicht' },
+      ],
+    },
+    [
+      { code: 'INF', name: 'Pflichtstudienbereich Informatik', groupType: 'pflicht', requiredEcts: 60 },
+      { code: 'PRAK', name: 'Wahlpflichtfach Praktische Informatik', groupType: 'wahlpflicht', requiredEcts: 12 },
+      { code: 'TECH', name: 'Wahlpflichtfach Technische Informatik', groupType: 'wahlpflicht', requiredEcts: 12 },
+      { code: 'THESIS', name: 'Bachelorarbeit', groupType: 'thesis', requiredEcts: 15 },
+    ],
+  )
+
+  assert.deepEqual(options.map((option) => option.code), ['PRAK', 'INF', 'TECH'])
 })
 
 test('custom courses can move to any flexible regulation area', () => {
