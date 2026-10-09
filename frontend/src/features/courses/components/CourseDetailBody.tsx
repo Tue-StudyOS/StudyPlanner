@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
 import { SEASON_HEADER_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
+import { buildCourseIcs, downloadCalendarIcs } from '../../planner/utils/icsExport.ts'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getDetailSeasonTermType } from '../utils/catalogOffering.ts'
@@ -104,6 +105,7 @@ function learningPlatformLabel(
 interface CourseDetailBodyProps {
   course: Course
   tutorialSelection?: TutorialSelectionProps
+  calendarExportReady?: boolean
   /**
    * Course reviews, rendered as the last section. Opt-in so the planner's
    * detail modal keeps showing catalog facts only.
@@ -122,11 +124,13 @@ interface CourseDetailBodyProps {
 export function CourseDetailBody({
   course,
   tutorialSelection,
+  calendarExportReady = true,
   reviewsSlot,
   footer,
 }: CourseDetailBodyProps) {
   const { t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
+  const calendarContent = calendarExportReady ? buildCourseIcs(course) : null
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
   const seasonTermType = getDetailSeasonTermType(course)
@@ -206,6 +210,27 @@ export function CourseDetailBody({
 
       <Section title={t('courseDetail.weeklySchedule')}>
         <CourseScheduleDetails course={course} tutorialSelection={tutorialSelection} />
+        <div className="mt-4 grid min-w-0 gap-1.5">
+          <button
+            type="button"
+            disabled={!calendarContent}
+            aria-describedby={`calendar-export-hint-${course.id}`}
+            onClick={() => {
+              if (!calendarContent) return
+              const filename = `studyplanner-${course.number || course.id}-${course.periodLabel}`
+                .replace(/[<>:"/\\|?*\s]+/g, '-')
+              downloadCalendarIcs(calendarContent, `${filename}.ics`)
+            }}
+            className="w-full max-w-full rounded-md border border-border px-3 py-2.5 text-[13px] font-medium text-fg transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t('planner.exportCalendar')}
+          </button>
+          <p id={`calendar-export-hint-${course.id}`} className="break-words text-[11px] leading-relaxed text-fg-muted">
+            {t(calendarContent ? 'courseDetail.calendarExportHint' : 'courseDetail.calendarExportUnavailable', {
+              period: course.periodLabel ?? '',
+            })}
+          </p>
+        </div>
       </Section>
 
       {hasValue(course.description) ? (
