@@ -168,6 +168,7 @@ export function PlannerCourseDetailModal({
         >
           <CourseDetailBody
             course={displayCourse}
+            calendarExportReady={Boolean(matchingDetailCourse)}
             tutorialSelection={isPlanned && allowTutorialSelection ? {
               hiddenSlotIds,
               onSelect: (slotId) => onSelectTutorialSlot(course.id, slotId),

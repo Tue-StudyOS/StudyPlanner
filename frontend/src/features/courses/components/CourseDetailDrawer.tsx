@@ -106,6 +106,7 @@ export function CourseDetailDrawer({
           {displayCourse ? (
             <CourseDetailBody
               course={displayCourse}
+              calendarExportReady={detailCourse?.id === courseId}
               reviewsSlot={<CourseReviewsSection courseId={courseId} />}
             />
           ) : (

@@ -4,6 +4,7 @@ import { cleanCourseTitle } from '../../courses/utils/courseTitle.ts'
 import { getLecturePeriod } from './lecturePeriod.ts'
 import { DAY_ORDER, isSingleDateSlot, normalizeWeekday, parseTimeRange } from './plannerFeedback.ts'
 import { getScheduleSlotId, isScheduleSlotHidden } from './scheduleSlotIds.ts'
+import { isTutorialLikeSlotType } from './plannerSlotSelection.ts'
 
 type Weekday = (typeof DAY_ORDER)[number]
 
@@ -83,6 +84,31 @@ function parseGermanDateAnywhere(value: string): Date | null {
   const rawYear = Number(match[3])
   const year = rawYear < 100 ? 2000 + rawYear : rawYear
   return new Date(year, Number(match[2]) - 1, Number(match[1]))
+}
+
+export function downloadCalendarIcs(content: string, filename: string): void {
+  const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+export function buildCourseIcs(course: Course): string | null {
+  // ponytail: omit tutorials rather than guessing which parallel group to attend.
+  const hiddenSlotIds = course.schedule.flatMap((slot, index) =>
+    isTutorialLikeSlotType([slot.type, slot.groupType, slot.groupTitle].filter(Boolean).join(' '))
+      ? [getScheduleSlotId(course, slot, index)]
+      : [],
+  )
+  const content = buildSemesterPlanIcs({
+    semesterLabel: course.periodLabel ?? '',
+    courses: [course],
+    hiddenSlotIds,
+  })
+  return content?.includes('BEGIN:VEVENT') ? content : null
 }
 
 interface SemesterIcsInput {
