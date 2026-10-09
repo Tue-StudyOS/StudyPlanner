@@ -104,7 +104,7 @@ export function buildCourseIcs(course: Course): string | null {
       : [],
   )
   const content = buildSemesterPlanIcs({
-    semesterLabel: course.periodLabel ?? '',
+    semesterLabel: (course.periodLabel ?? '').replace(/^Sommer\b/i, 'SS').replace(/^Winter\b/i, 'WS'),
     courses: [course],
     hiddenSlotIds,
   })

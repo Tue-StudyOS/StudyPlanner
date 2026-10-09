@@ -8,7 +8,7 @@ function buildCourse(overrides: Partial<Course>): Course {
     id: '42',
     number: 'INFM1010',
     title: 'Machine Learning (Vorlesung)',
-    periodLabel: 'SS 2026',
+    periodLabel: 'Sommer 2026',
     lecturer: 'Prof. Dr. Example',
     room: 'A104',
     types: ['Vorlesung'],
@@ -165,7 +165,7 @@ test('course export includes lectures and exams but omits every tutorial alterna
 
 test('course export uses its catalog semester and retains recurrence bounds and cancellations', () => {
   const ics = buildCourseIcs(buildCourse({
-    periodLabel: 'WS 2025/26',
+    periodLabel: 'Winter 2025/26',
     schedule: [{
       day: 'Di.', time: '14:00 - 16:00', room: 'N06', type: 'Vorlesung/Übung',
       startsOn: '2025-10-14', endsOn: '2026-02-03', cancellationDates: ['2025-12-23'],
@@ -177,6 +177,12 @@ test('course export uses its catalog semester and retains recurrence bounds and 
   assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20251014T140000/)
   assert.match(ics, /UNTIL=20260203T215959Z/)
   assert.match(ics, /EXDATE;TZID=Europe\/Berlin:20251223T140000/)
+})
+
+test('course export accepts planner semester labels as well as raw ALMA period labels', () => {
+  for (const periodLabel of ['SS 2026', 'Sommer 2026', 'WS 2025/26', 'Winter 2025/26']) {
+    assert.ok(buildCourseIcs(buildCourse({ periodLabel })), periodLabel)
+  }
 })
 
 test('course export includes timed exams only once and keeps other published exam dates', () => {
