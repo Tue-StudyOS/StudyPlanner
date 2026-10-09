@@ -20,18 +20,14 @@ function stubFetch(responses: (StubbedResponse | Error)[]): { calls: number } {
   const state = { calls: 0 }
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     if (String(input).includes('/api/client-errors')) {
-      return { ok: true, status: 204, text: async () => '' } as Response
+      return new Response(null, { status: 204 })
     }
     const next = responses[Math.min(state.calls, responses.length - 1)]
     state.calls += 1
     if (next instanceof Error) {
       throw next
     }
-    return {
-      ok: next.status >= 200 && next.status < 300,
-      status: next.status,
-      text: async () => next.body,
-    } as Response
+    return new Response(next.status === 204 ? null : next.body, { status: next.status })
   }) as typeof fetch
   return state
 }

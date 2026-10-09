@@ -1,6 +1,7 @@
 import { appendApiRequestLog } from './apiRequestLog.ts'
 import { getApiBaseUrl } from './apiBaseUrl.ts'
-import { reportClientErrorToServer } from './reportClientError.ts'
+import { flushClientErrorReports, reportClientErrorToServer, type ClientErrorReportPayload } from './reportClientError.ts'
+import { createRequestId, describeRequestDiagnostics, extractCloudflareErrorCode } from './requestDiagnostics.ts'
 
 export class ApiError extends Error {
   readonly status: number
@@ -26,7 +27,11 @@ export function parseApiErrorBody(
 ): { message: string; code?: string } {
   const fallbackMessage = `Request failed with status ${status}`
   const trimmed = bodyText.trim()
-  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+  const cloudflareCode = extractCloudflareErrorCode(bodyText)
+  if (cloudflareCode) {
+    return { message: fallbackMessage, code: `cloudflare_${cloudflareCode}` }
+  }
+  if (/^<!doctype|^<html/i.test(trimmed)) {
     return { message: fallbackMessage }
   }
   if (!bodyText) {
@@ -36,8 +41,11 @@ export function parseApiErrorBody(
   try {
     const errorPayload = JSON.parse(bodyText) as unknown
     if (typeof errorPayload === 'object' && errorPayload !== null) {
-      const { message, error } = errorPayload as { error?: string; message?: string }
-      return { message: message || fallbackMessage, code: error }
+      const { message, error } = errorPayload as { error?: unknown; message?: unknown }
+      return {
+        message: typeof message === 'string' && message ? message : fallbackMessage,
+        code: typeof error === 'string' ? error : undefined,
+      }
     }
   } catch {
     // Not JSON; fall through to the raw body text.
@@ -104,15 +112,22 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const requestUrl = `${apiBaseUrl}${normalizedPath}`
   const method = init?.method ?? 'GET'
+  let recoveredFailure: ClientErrorReportPayload | null = null
 
   for (let attempt = 1; ; attempt += 1) {
     const startedAt = Date.now()
+    const requestId = createRequestId()
+    const headers = new Headers(init?.headers)
+    headers.set('X-Request-ID', requestId)
     let response: Response | null = null
     let failure: RequestFailure | null = null
+    let result: T | undefined
+    let bodyText = ''
 
     try {
       response = await fetch(requestUrl, {
         ...init,
+        headers,
         credentials: init?.credentials ?? 'include',
       })
     } catch {
@@ -123,18 +138,27 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
       }
     }
 
-    if (response && !response.ok) {
-      let bodyText = ''
+    if (response) {
       try {
         bodyText = await response.text()
+        if (!response.ok) {
+          const { message, code } = parseApiErrorBody(bodyText, response.status)
+          failure = { status: response.status, code, message }
+        } else if (response.status !== 204) {
+          try {
+            result = JSON.parse(bodyText) as T
+          } catch {
+            failure = { status: response.status, code: 'invalid_json', message: 'The service returned an invalid response.' }
+          }
+        }
       } catch {
-        // Ignore unreadable bodies; the status-based fallback message is used.
+        failure = { status: 0, code: 'unreadable_response', message: 'The response could not be read.' }
       }
-      const { message, code } = parseApiErrorBody(bodyText, response.status)
-      failure = { status: response.status, code, message }
     }
 
     if (failure) {
+      failure.detail = describeRequestDiagnostics(response, requestId, attempt, startedAt, bodyText)
+      recoveredFailure ??= { ...failure, method, url: requestUrl, durationMs: Date.now() - startedAt }
       // Every attempt is logged locally — the retries are themselves a signal —
       // but only the final one is reported to the backend.
       appendApiRequestLog({
@@ -172,28 +196,22 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
     }
 
     const okResponse = response as Response
+    if (recoveredFailure) {
+      reportClientErrorToServer({
+        ...recoveredFailure,
+        detail: `${recoveredFailure.detail}\nRecovered on attempt: ${attempt}`,
+      })
+    }
+    void flushClientErrorReports()
     appendApiRequestLog({
       timestamp: Date.now(),
       method,
       url: requestUrl,
       status: okResponse.status,
       message: 'OK',
+      detail: describeRequestDiagnostics(okResponse, requestId, attempt, startedAt),
       durationMs: Date.now() - startedAt,
     })
-
-    if (okResponse.status === 204) {
-      return undefined as T
-    }
-
-    const bodyText = await okResponse.text()
-    try {
-      return JSON.parse(bodyText) as T
-    } catch {
-      throw new ApiError(
-        'Something went wrong on our side. Please try again shortly.',
-        okResponse.status,
-        'invalid_json',
-      )
-    }
+    return result as T
   }
 }

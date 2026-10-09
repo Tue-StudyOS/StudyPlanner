@@ -20,6 +20,8 @@ export interface ClientErrorReportPayload {
  */
 const MAX_REPORTS_PER_PAGE_LOAD = 10
 let reportsSentThisPageLoad = 0
+const pendingReports: { payload: ClientErrorReportPayload; attempts: number }[] = []
+let isFlushing = false
 
 /**
  * Statuses that are ordinary outcomes rather than defects: 401 is every
@@ -31,22 +33,19 @@ const UNREPORTED_STATUSES = new Set([401, 429])
 /** Exported for tests; page loads reset this naturally. */
 export function resetClientErrorReportBudget(): void {
   reportsSentThisPageLoad = 0
+  pendingReports.length = 0
 }
 
 export function shouldReportClientError(status: number): boolean {
   return !UNREPORTED_STATUSES.has(status) && reportsSentThisPageLoad < MAX_REPORTS_PER_PAGE_LOAD
 }
 
-/** Fire-and-forget diagnostics; the HttpOnly session cookie is sent by fetch. */
+/** Queue bounded, redacted reports; do not discard the evidence just because the API is down. */
 export function reportClientErrorToServer(payload: ClientErrorReportPayload): void {
   if (!shouldReportClientError(payload.status)) {
     return
   }
   reportsSentThisPageLoad += 1
-
-  const apiBaseUrl = getApiBaseUrl()
-  const normalizedPath = '/api/client-errors'
-  const requestUrl = apiBaseUrl ? `${apiBaseUrl}${normalizedPath}` : normalizedPath
 
   const sanitizedPayload = sanitizeDiagnosticFields({
     ...payload,
@@ -56,14 +55,37 @@ export function reportClientErrorToServer(payload: ClientErrorReportPayload): vo
       payload.pagePath ?? (typeof window === 'undefined' ? undefined : window.location.pathname),
   })
 
-  void fetch(requestUrl, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(sanitizedPayload),
-  }).catch(() => {
-    // Logging must never break the UI flow.
-  })
+  pendingReports.push({ payload: sanitizedPayload, attempts: 0 })
+  void flushClientErrorReports()
+}
+
+/** Retry after a real API request succeeds, never on a timer against an unhealthy Worker. */
+export async function flushClientErrorReports(): Promise<void> {
+  if (isFlushing) return
+  isFlushing = true
+  try {
+    while (pendingReports.length > 0) {
+      const report = pendingReports[0]
+      report.attempts += 1
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/client-errors`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(report.payload),
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!response.ok && (response.status >= 500 || response.status === 429)) {
+          if (report.attempts >= 3 && pendingReports[0] === report) pendingReports.shift()
+          return
+        }
+        if (pendingReports[0] === report) pendingReports.shift()
+      } catch {
+        if (report.attempts >= 3 && pendingReports[0] === report) pendingReports.shift()
+        return
+      }
+    }
+  } finally {
+    isFlushing = false
+  }
 }

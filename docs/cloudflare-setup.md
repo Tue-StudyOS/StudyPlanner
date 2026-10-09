@@ -137,6 +137,14 @@ Also check the catalog in a signed-out browser, refresh a course detail URL, and
 verify login, planner persistence and the privacy page when those surfaces change.
 For MCP discovery use the [integration smoke checks](ai-integrations-setup.md).
 
+## Failure diagnostics
+
+Use the [request diagnostics runbook](request-diagnostics.md) to correlate browser
+failures with persisted Worker exceptions. Confirm `X-Request-ID` and
+`X-Worker-Version` on API responses after deployment, and keep full invocation
+logging enabled. The runbook also explains runtime failures that happen before
+Python can log, cache-hit markers, and log-query access requirements.
+
 ## Team access
 
 Use individual Cloudflare accounts, MFA and the smallest sufficient role. Protect

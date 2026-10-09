@@ -1,8 +1,8 @@
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
 const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi
-const HEADER_PATTERN = /\b(cookie|set-cookie|authorization)\s*[:=]\s*[^\r\n]+/gi
-const SECRET_PATTERN = /\b(password|passwd|token|secret|csrf)\s*[:=]\s*[^\s,;]+/gi
-const ACADEMIC_DATA_PATTERN = /\b(transcript(?:\s+text)?|zeugnis|grade|note)\s*[:=]\s*[^\r\n,;]+/gi
+const HEADER_PATTERN = /\b(cookie|set-cookie|authorization)["']?\s*[:=]\s*[^\r\n]+/gi
+const SECRET_PATTERN = /\b(password|passwd|token|secret|csrf)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi
+const ACADEMIC_DATA_PATTERN = /\b(transcript(?:\s+text)?|zeugnis|grade|note)["']?\s*[:=]\s*[^\r\n,;]+/gi
 const URL_QUERY_PATTERN = /(https?:\/\/[^\s?#]+)\?[^\s#]*/gi
 
 export function normalizeDiagnosticPath(value: string): string {
@@ -45,8 +45,8 @@ export function sanitizeDiagnosticFields<T extends DiagnosticFields>(fields: T):
   return {
     ...fields,
     url: normalizeDiagnosticPath(fields.url),
-    message: redactDiagnosticText(fields.message) ?? '',
-    detail: redactDiagnosticText(fields.detail),
+    message: (redactDiagnosticText(fields.message) ?? '').slice(0, 500),
+    detail: redactDiagnosticText(fields.detail)?.slice(0, 4000),
     pagePath: fields.pagePath === undefined ? undefined : normalizeDiagnosticPath(fields.pagePath),
   }
 }

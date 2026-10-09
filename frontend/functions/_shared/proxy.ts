@@ -1,3 +1,6 @@
+import { normalizeDiagnosticPath } from '../../src/shared/utils/diagnosticRedaction.ts'
+import { createRequestId, readDiagnosticHeader, summarizeGatewayFailure } from '../../src/shared/utils/requestDiagnostics.ts'
+
 export interface ServiceBinding {
   fetch(input: Request | string, init?: RequestInit): Promise<Response>
 }
@@ -85,39 +88,93 @@ function createGatewayErrorResponse(target: GatewayTarget): Response {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
+        'x-error-source': 'gateway',
       },
     },
   )
 }
 
+function withDiagnosticHeaders(response: Response, requestId: string, cacheStatus: string): Response {
+  const result = new Response(response.body, response)
+  result.headers.set('x-request-id', requestId)
+  result.headers.set('x-gateway-cache', cacheStatus)
+  const upstreamRay = readDiagnosticHeader(response.headers, 'cf-ray')
+  if (upstreamRay) result.headers.set('x-upstream-cf-ray', upstreamRay)
+  // Let the Pages edge attach its own Ray rather than forwarding an origin Ray.
+  result.headers.delete('cf-ray')
+  if (cacheStatus === 'hit') {
+    // Cached bytes did not invoke the backend for this request ID.
+    for (const name of ['x-isolate-id', 'x-isolate-seq', 'x-isolate-age-ms', 'x-worker-version', 'x-upstream-cf-ray']) {
+      result.headers.delete(name)
+    }
+  }
+  if (response.status >= 500 && !result.headers.has('x-error-source')) {
+    result.headers.set('x-error-source', 'upstream')
+  }
+  return result
+}
+
 export async function proxyToGatewayTarget(context: GatewayContext, target: GatewayTarget): Promise<Response> {
-  const cache = isPublicCatalogRequest(context.request, target) ? getDefaultCache() : null
-  const cachedResponse = await cache?.match(context.request)
+  const requestId = createRequestId(context.request.headers.get('x-request-id'))
+  const headers = new Headers(context.request.headers)
+  headers.set('x-request-id', requestId)
+  const request = new Request(context.request, { headers })
+  const cache = isPublicCatalogRequest(request, target) ? getDefaultCache() : null
+  const cachedResponse = await cache?.match(request)
   if (cachedResponse) {
-    return cachedResponse
+    return withDiagnosticHeaders(cachedResponse, requestId, 'hit')
   }
 
   const fallbackOrigin = resolveFallbackOrigin(
-    context.request.url,
+    request.url,
     target,
     getConfiguredFallbackOrigin(context.env, target),
   )
   const binding = getServiceBinding(context.env, target)
-  const response = fallbackOrigin
-    ? await fetch(new Request(buildUpstreamUrl(context.request.url, fallbackOrigin), context.request))
-    : binding
-      // Preserve the public Pages URL for the bound worker. The AI facade uses
-      // the request origin to build public OpenAPI links, so do not rewrite it.
-      ? await binding.fetch(context.request)
-      : createGatewayErrorResponse(target)
+  let response: Response
+  try {
+    response = fallbackOrigin
+      ? await fetch(new Request(buildUpstreamUrl(request.url, fallbackOrigin), request))
+      // Preserve the public Pages origin for service-bound workers.
+      : binding ? await binding.fetch(request) : createGatewayErrorResponse(target)
+  } catch (error) {
+    // Python can fail before its entrypoint is reached. The JavaScript gateway
+    // still returns a correlated error instead of an opaque Pages exception.
+    console.error(JSON.stringify({
+      event: 'gateway_exception', requestId, target, method: request.method,
+      path: normalizeDiagnosticPath(request.url),
+      cfRay: readDiagnosticHeader(request.headers, 'cf-ray'),
+      exceptionType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      fault: summarizeGatewayFailure(error instanceof Error ? error.message : ''),
+    }))
+    response = new Response(JSON.stringify({
+      error: 'gateway_upstream_failure',
+      message: 'The backend is temporarily unavailable.',
+      requestId,
+    }), { status: 502, headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'x-error-source': 'gateway',
+    } })
+  }
 
+  if (response.status >= 500) {
+    console.error(JSON.stringify({
+      event: 'gateway_failure', requestId, target, method: request.method,
+      path: normalizeDiagnosticPath(request.url), status: response.status,
+      errorSource: response.headers.get('x-error-source') ?? 'upstream',
+      upstreamRay: readDiagnosticHeader(response.headers, 'cf-ray'),
+      workerVersion: readDiagnosticHeader(response.headers, 'x-worker-version'),
+      isolateId: readDiagnosticHeader(response.headers, 'x-isolate-id'),
+    }))
+  }
   if (cache && response.ok) {
-    const cacheWrite = cache.put(context.request, response.clone())
+    const cacheWrite = cache.put(request, response.clone())
     if (context.waitUntil) {
       context.waitUntil(cacheWrite)
     } else {
       await cacheWrite
     }
   }
-  return response
+  return withDiagnosticHeaders(response, requestId, cache ? 'miss' : 'bypass')
 }
