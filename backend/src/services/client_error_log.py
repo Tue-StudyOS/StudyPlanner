@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 from urllib.parse import urlsplit
 
 from db.d1 import execute, fetch_all
+from diagnostic_redaction import redact_diagnostic_text as _redact_text
 from env_config import get_env_value
 from services.authentication import get_authenticated_user
 
@@ -16,21 +16,6 @@ MAX_CODE_LENGTH = 64
 MAX_LIST_ENTRIES = 200
 MAX_STORED_ENTRIES = 500
 ALLOWED_METHODS = {'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'}
-SENSITIVE_FIELD_PATTERN = re.compile(
-    r'\b(password|passwd|token|secret|csrf)\s*[:=]\s*[^\s,;]+',
-    re.IGNORECASE,
-)
-BEARER_PATTERN = re.compile(r'\bBearer\s+[A-Za-z0-9._~+/=-]+', re.IGNORECASE)
-HEADER_PATTERN = re.compile(
-    r'\b(cookie|set-cookie|authorization)\s*[:=]\s*[^\r\n]+',
-    re.IGNORECASE,
-)
-EMAIL_PATTERN = re.compile(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', re.IGNORECASE)
-ACADEMIC_DATA_PATTERN = re.compile(
-    r'\b(transcript(?:\s+text)?|zeugnis|grade|note)\s*[:=]\s*[^\r\n,;]+',
-    re.IGNORECASE,
-)
-URL_QUERY_PATTERN = re.compile(r'(https?://[^\s?#]+)\?[^\s#]*', re.IGNORECASE)
 
 
 class ClientErrorLogError(ValueError):
@@ -53,17 +38,6 @@ def _normalize_path(value: Any, *, max_length: int) -> str:
     if not path.startswith('/'):
         path = f'/{path}'
     return path[:max_length]
-
-
-def _redact_text(value: Any, *, max_length: int) -> str:
-    text = _safe_text(value, max_length=max_length * 2)
-    text = URL_QUERY_PATTERN.sub(r'\1?[redacted-query]', text)
-    text = BEARER_PATTERN.sub('Bearer [redacted-token]', text)
-    text = HEADER_PATTERN.sub(r'\1: [redacted]', text)
-    text = SENSITIVE_FIELD_PATTERN.sub(r'\1: [redacted]', text)
-    text = ACADEMIC_DATA_PATTERN.sub(r'\1: [redacted-academic-data]', text)
-    text = EMAIL_PATTERN.sub('[redacted-email]', text)
-    return text[:max_length]
 
 
 def _validate_method(value: Any) -> str:

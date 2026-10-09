@@ -51,7 +51,7 @@ function LogEntryCard({
   meta?: string
 }) {
   return (
-    <article className="rounded-[10px] border border-border bg-surface px-4 py-3 text-[12px] text-fg">
+    <article className="min-w-0 w-full max-w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-[12px] text-fg">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span
           className={`font-semibold ${status >= 400 || status === 0 ? 'text-primary' : 'text-fg'}`}
@@ -67,7 +67,7 @@ function LogEntryCard({
       {code ? <div className="mt-1">Code: {code}</div> : null}
       <div className="mt-1 break-words">{message}</div>
       {detail ? (
-        <pre className="mt-2 max-h-32 overflow-auto rounded-md bg-surface-hover p-2 text-[11px] text-fg-muted whitespace-pre-wrap break-all">
+        <pre className="mt-2 max-h-64 max-w-full overflow-auto rounded-md bg-surface-hover p-2 text-[11px] text-fg-muted whitespace-pre-wrap break-all">
           {detail}
         </pre>
       ) : null}
@@ -84,6 +84,19 @@ export function RequestLogPage() {
 
   const reloadSessionEntries = (): void => {
     setSessionEntries(readApiRequestLog())
+  }
+
+  const downloadSessionLog = (): void => {
+    const blob = new Blob([JSON.stringify({
+      exportedAtUtc: new Date().toISOString(),
+      entries: readApiRequestLog(),
+    }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'studyplanner-request-diagnostics.json'
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const reloadServerEntries = async (): Promise<void> => {
@@ -113,10 +126,18 @@ export function RequestLogPage() {
         <div>
           <h1 className="text-[18px] font-semibold text-fg">Request log</h1>
           <p className="mt-1 text-[13px] text-fg-muted">
-            API failures from this browser session and your server-side history.
+            API attempts with request IDs, Cloudflare details, and your server-side history.
+            Download the session log before reloading the page.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex max-w-full flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={downloadSessionLog}
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-fg hover:bg-surface-hover"
+          >
+            Download session log
+          </button>
           <button
             type="button"
             onClick={reloadSessionEntries}
@@ -154,7 +175,7 @@ export function RequestLogPage() {
         </div>
         {sessionEntries.length === 0 ? (
           <div className="rounded-[10px] border border-dashed border-border bg-surface px-6 py-8 text-center text-[13px] text-fg-muted">
-            No failures in this browser session yet.
+            No API requests in this page session yet.
           </div>
         ) : (
           <div className="space-y-3">

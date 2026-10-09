@@ -15,8 +15,12 @@ test('parseApiErrorBody replaces HTML error pages with a generic status message'
   })
 })
 
-test('parseApiErrorBody keeps plain-text bodies like Cloudflare runtime error pages', () => {
-  assert.deepEqual(parseApiErrorBody('error code: 1101', 500), { message: 'error code: 1101' })
+test('parseApiErrorBody identifies Cloudflare runtime errors in text and HTML', () => {
+  for (const body of ['error code: 1101', '<html><title>Error 1101</title>private page</html>']) {
+    assert.deepEqual(parseApiErrorBody(body, 500), {
+      message: 'Request failed with status 500', code: 'cloudflare_1101',
+    })
+  }
 })
 
 test('parseApiErrorBody falls back to the status message for empty bodies', () => {
@@ -27,6 +31,12 @@ test('parseApiErrorBody falls back to the status message for JSON payloads witho
   assert.deepEqual(parseApiErrorBody('{"error":"database_error"}', 500), {
     message: 'Request failed with status 500',
     code: 'database_error',
+  })
+})
+
+test('parseApiErrorBody does not trust non-string fields in external JSON', () => {
+  assert.deepEqual(parseApiErrorBody('{"message":{"password":"private"},"error":123}', 500), {
+    message: 'Request failed with status 500', code: undefined,
   })
 })
 

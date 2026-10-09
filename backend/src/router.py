@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import traceback
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -1152,10 +1151,11 @@ async def route_request(request: Any, env: Any) -> Any:
     except AuthConfigurationError as exc:
         return error_response(
             code="authentication_not_configured",
-            message=str(exc),
+            message="Authentication is temporarily unavailable.",
             request=request,
             env=env,
             status=500,
+            exception=exc,
         )
     except CsrfProtectionError as exc:
         return error_response(
@@ -1176,19 +1176,20 @@ async def route_request(request: Any, env: Any) -> Any:
     except D1ExecutionError as exc:
         return error_response(
             code="database_error",
-            message=str(exc),
+            message="The database is temporarily unavailable.",
             request=request,
             env=env,
             status=500,
+            exception=exc,
         )
-    except Exception:
-        traceback.print_exc()
+    except Exception as exc:
         return error_response(
             code="internal_server_error",
             message="The server hit an unexpected error while processing this request.",
             request=request,
             env=env,
             status=500,
+            exception=exc,
         )
 
     return error_response(

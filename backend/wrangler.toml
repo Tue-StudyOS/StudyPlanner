@@ -23,6 +23,17 @@ workers_dev = true
 [observability]
 enabled = true
 head_sampling_rate = 1
+redact_query_string = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+head_sampling_rate = 1
+persist = true
+
+# Include the actual deployed version in responses and structured failure logs.
+[version_metadata]
+binding = "WORKER_VERSION"
 
 [vars]
 ENVIRONMENT = "production"
