@@ -156,7 +156,7 @@ export function CourseDetailBody({
     factRows.push([t('courseDetail.lecturer'), formatCourseLecturerName(course)])
   }
   const ectsText = formatEcts(course.ects)
-  if (ectsText) factRows.push(['ECTS', ectsText])
+  if (ectsText) factRows.push([course.ectsSource === 'catalog_tree' ? t('courseDetail.treeEcts') : 'ECTS', ectsText])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
   const participantLimitText = formatParticipantLimits(course.participantLimits)
   if (participantLimitText) factRows.push([t('courseDetail.participants'), participantLimitText])
