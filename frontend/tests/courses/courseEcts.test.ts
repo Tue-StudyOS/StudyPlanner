@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Course } from '../../src/features/courses/types.ts'
-import { resolveCourseEcts } from '../../src/features/courses/utils/courseEcts.ts'
+import { getCourseEctsLabel, resolveCourseEcts } from '../../src/features/courses/utils/courseEcts.ts'
 
 function course(ects: number | null = null): Course {
   return { ects, ectsSource: 'catalog_tree', ectsTreeOptions: [
@@ -36,4 +36,18 @@ test('explicit values and unsupported courses remain unchanged', () => {
   assert.equal(resolveCourseEcts(explicit, 'MSC_INFO_2021'), explicit)
   const unknown = { ects: null } as Course
   assert.equal(resolveCourseEcts(unknown, 'MSC_INFO_2021'), unknown)
+})
+
+test('ambiguous credits are visible without assigning a numeric value', () => {
+  const unresolved = resolveCourseEcts(course())
+  assert.equal(unresolved.ects, null)
+  assert.equal(getCourseEctsLabel(unresolved), '6 / 9')
+  assert.equal(getCourseEctsLabel(resolveCourseEcts(course(), 'MSC_INFO_2021')), '9')
+  assert.equal(getCourseEctsLabel(resolveCourseEcts(course(), 'BSC_BIOINFO_2021')), '6')
+})
+
+test('unsupported programs and courses still have no invented credit label', () => {
+  assert.equal(getCourseEctsLabel(resolveCourseEcts(course(), 'UNKNOWN')), null)
+  assert.equal(getCourseEctsLabel({ ects: null } as Course), null)
+  assert.equal(getCourseEctsLabel({ ects: 7.5 } as Course), '7.5')
 })

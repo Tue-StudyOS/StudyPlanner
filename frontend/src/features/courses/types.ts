@@ -148,6 +148,7 @@ export interface Course {
   types: string[]
   ects: number | null
   ectsSource?: 'catalog_tree' | null
+  ectsAlternatives?: number[]
   ectsTreeOptions?: Array<{ programCode: string; ects: number; sourceLabels: string[] }>
   sws: number | null
   masterCats: MasterCat[]

@@ -3,6 +3,7 @@ import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
 import { SEASON_HEADER_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
 import { CourseCalendarExport } from './CourseCalendarExport.tsx'
+import { getCourseEctsLabel } from '../utils/courseEcts.ts'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getDetailSeasonTermType } from '../utils/catalogOffering.ts'
@@ -21,11 +22,6 @@ const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration
 
 function hasValue(value: string | null | undefined): value is string {
   return Boolean(value) && !EMPTY_VALUES.has(value!.trim().toLowerCase())
-}
-
-function formatEcts(ects: number | null): string | null {
-  if (ects === null) return null
-  return Number.isInteger(ects) ? String(ects) : ects.toFixed(1)
 }
 
 function formatParticipantLimit(limit: CourseParticipantLimit): string | null {
@@ -155,8 +151,11 @@ export function CourseDetailBody({
   if (hasValue(course.lecturer) || (course.lecturers?.length ?? 0) > 0) {
     factRows.push([t('courseDetail.lecturer'), formatCourseLecturerName(course)])
   }
-  const ectsText = formatEcts(course.ects)
-  if (ectsText) factRows.push([course.ectsSource === 'catalog_tree' ? t('courseDetail.treeEcts') : 'ECTS', ectsText])
+  const ectsText = getCourseEctsLabel(course)
+  if (ectsText) factRows.push([
+    course.ectsSource === 'catalog_tree' ? t('courseDetail.treeEcts') : 'ECTS',
+    course.ects === null ? `${ectsText} · ${t('courseDetail.programDependentEcts')}` : ectsText,
+  ])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
   const participantLimitText = formatParticipantLimits(course.participantLimits)
   if (participantLimitText) factRows.push([t('courseDetail.participants'), participantLimitText])

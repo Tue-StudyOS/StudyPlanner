@@ -110,6 +110,10 @@ resolves them for the selected guest or account study program; conflicting
 values within that program remain unknown. Explicit ECTS values always win.
 Cards, details, planner and course pickers use the same resolution utility.
 Course details label fallback values as coming from the ALMA catalog.
+When no single value can be resolved, cards and details display the available
+credit alternatives (for example, `6 / 9 ECTS`) with a program-dependent hint.
+The numeric `ects` stays null so unresolved alternatives never enter planner
+totals as guessed credits. Courses without credit evidence retain no ECTS tag.
 
 No database migration or additional scrape is needed when catalog tree nodes
 are already stored. LLM Engineering (`ML4370`, Winter 2026/27) resolves to 9 ECTS
@@ -117,7 +121,7 @@ for M.Sc. Informatik and 6 for B.Sc. Bioinformatik/Medizininformatik. Algorithms
 in Bioinformatics remains unknown because its Kolloquien placement has no
 credit-bearing group. Missing tags without a selected program dropped from
 43 to 37 of 140 displayed local courses. The local validation passed 262 backend
-tests and 393 frontend tests (five skipped), lint, build, and the config guard.
+tests and 395 frontend tests (five skipped), lint, build, and the config guard.
 Production has not been updated.
 
 ## Moodle learning-platform links
