@@ -222,7 +222,7 @@ export function CourseCard({
               </span>
             ) : null}
             {ectsLabel ? (
-              <span title={course.ects === null ? t('courseDetail.programDependentEcts') : undefined}>
+              <span title={course.ects === null ? t(course.ectsProgramMatched === false ? 'courseDetail.ectsNotConfirmedForProgram' : 'courseDetail.programDependentEcts') : undefined}>
                 {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
               </span>
             ) : null}

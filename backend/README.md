@@ -114,6 +114,13 @@ When no single value can be resolved, cards and details display the available
 credit alternatives (for example, `6 / 9 ECTS`) with a program-dependent hint.
 The numeric `ects` stays null so unresolved alternatives never enter planner
 totals as guessed credits. Courses without credit evidence retain no ECTS tag.
+If the selected program has no tree assignment, published values from other
+programs remain visible with an unconfirmed-for-selected-program hint. This
+preserves catalog evidence without assigning those credits to planner totals.
+Local verification of INF3433 with M.Sc. Machine Learning selected shows the
+published `3 / 6` alternatives as unconfirmed; M.Sc. Informatik resolves to 6.
+The evidence-preservation fix passes 397 frontend tests (five skipped), lint,
+build, and a local API-to-detail-hook rendering check for both programs.
 
 No database migration or additional scrape is needed when catalog tree nodes
 are already stored. LLM Engineering (`ML4370`, Winter 2026/27) resolves to 9 ECTS

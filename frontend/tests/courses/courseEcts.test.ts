@@ -46,8 +46,23 @@ test('ambiguous credits are visible without assigning a numeric value', () => {
   assert.equal(getCourseEctsLabel(resolveCourseEcts(course(), 'BSC_BIOINFO_2021')), '6')
 })
 
-test('unsupported programs and courses still have no invented credit label', () => {
-  assert.equal(getCourseEctsLabel(resolveCourseEcts(course(), 'UNKNOWN')), null)
+test('unmatched programs retain published evidence without assigning planner credits', () => {
+  const unmatched = resolveCourseEcts(course(), 'MSC_ML_2021')
+  assert.equal(unmatched.ects, null)
+  assert.equal(unmatched.ectsProgramMatched, false)
+  assert.equal(getCourseEctsLabel(unmatched), '6 / 9')
+})
+
+test('a single published value remains visible for an unmatched program', () => {
+  const original = course()
+  original.ectsTreeOptions = [original.ectsTreeOptions![0]]
+  const unmatched = resolveCourseEcts(original, 'MSC_ML_2021')
+  assert.equal(unmatched.ects, null)
+  assert.equal(unmatched.ectsProgramMatched, false)
+  assert.equal(getCourseEctsLabel(unmatched), '9')
+})
+
+test('courses without evidence still have no invented credit label', () => {
   assert.equal(getCourseEctsLabel({ ects: null } as Course), null)
   assert.equal(getCourseEctsLabel({ ects: 7.5 } as Course), '7.5')
 })

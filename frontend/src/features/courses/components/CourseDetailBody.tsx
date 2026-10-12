@@ -154,7 +154,7 @@ export function CourseDetailBody({
   const ectsText = getCourseEctsLabel(course)
   if (ectsText) factRows.push([
     course.ectsSource === 'catalog_tree' ? t('courseDetail.treeEcts') : 'ECTS',
-    course.ects === null ? `${ectsText} · ${t('courseDetail.programDependentEcts')}` : ectsText,
+    course.ects === null ? `${ectsText} · ${t(course.ectsProgramMatched === false ? 'courseDetail.ectsNotConfirmedForProgram' : 'courseDetail.programDependentEcts')}` : ectsText,
   ])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
   const participantLimitText = formatParticipantLimits(course.participantLimits)

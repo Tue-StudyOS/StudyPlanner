@@ -149,6 +149,7 @@ export interface Course {
   ects: number | null
   ectsSource?: 'catalog_tree' | null
   ectsAlternatives?: number[]
+  ectsProgramMatched?: boolean
   ectsTreeOptions?: Array<{ programCode: string; ects: number; sourceLabels: string[] }>
   sws: number | null
   masterCats: MasterCat[]

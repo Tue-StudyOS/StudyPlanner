@@ -6,7 +6,7 @@ import { fetchCatalogCourseDetail } from '../api'
 import type { Course } from '../types'
 
 function buildCacheKey(courseId: string): string {
-  return `catalog:course-detail:v2:${courseId}`
+  return `catalog:course-detail:v3:${courseId}`
 }
 
 export function useCatalogCourseDetail(courseId: string | undefined, studyProgramCode?: string | null): {
