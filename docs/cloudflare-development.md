@@ -69,7 +69,9 @@ Production catalog refresh uses the separate [runtime workflow](cloudflare-runti
 The calendar audit uses an isolated local D1 copy of production, stored under
 `backend/.tmp/calendar-local-ready`. The previous default local database remains
 intact. The ignored SQL snapshot and SQLite backup contain production data and
-must never be committed. The local snapshot has 1,524 courses and 5,254 appointments.
+must never be committed. The initial production copy had 1,524 courses and 5,254
+appointments. After the full local WS 2026/27 refresh it has 1,525 courses and
+5,257 appointments.
 
 Start the backend against this copy with:
 
@@ -87,10 +89,15 @@ npm run dev
 ```
 
 Open `http://localhost:5173/catalog/1210` for Mathematics for Machine Learning.
-The local pilot restores weekdays on its seven appointments and eleven ALMA
-cancellation dates while keeping appointment IDs and all unrelated rows intact.
-Other courses still match the production snapshot. No production import or
-deployment is part of this validation. The individual export now offers no,
+The initial pilot restored weekdays on its seven appointments and eleven ALMA
+cancellation dates. The subsequent complete scrape is stored in ignored
+`data_collection/output/calendar-local-2026-10-12/courses_multi_semester.json`.
+It refreshed only WS 2026/27: 148 courses, 471 appointments and 641 exclusions.
+All 147 existing course IDs and 22 saved tutorial references were preserved;
+other semesters and user data were compared row by row and remained intact.
+One course was added and none removed. A pre-refresh backup is stored in ignored
+`backend/.tmp/calendar-before-full-refresh.sqlite`.
+No production import or deployment is part of this validation. The individual export now offers no,
 one, or all tutorials, with exams selected and resits unselected by default.
 
 For a future snapshot, `wrangler d1 export studyplanner-db --remote` reads
@@ -105,9 +112,16 @@ chunked seeds. Cancellation text participates in change detection. Incremental
 cleanup replaces cancellations only for the selected periods. One-off dates
 retain their date label even when their weekday is available.
 
+The full scrape exposed eight cancellations outside their appointment ranges.
+These are reported and ignored because they cannot exclude an occurrence of
+that series; malformed dates still stop the import. Unchanged meetings now
+reserve their existing IDs using dates, times and room before positional fallback
+for edited meetings. This preserved ten saved selections that would otherwise
+have shifted after ALMA inserted a schedule row.
+
 Validation passed with Wrangler 4.149.0: local D1 health and course-detail
 requests, a generated ICS containing two recurring lectures with exclusions
-and two one-off exams, 252 backend tests, five ALMA scraper tests, 386 frontend
+and two one-off exams, 254 backend tests, five ALMA scraper tests, 389 frontend
 tests (five skipped), frontend lint/build, and the Cloudflare config guard.
 Browser rendering was not inspected because no automation browser was available.
 The separate stale `assessment_dates` issue is not repaired by this pilot.

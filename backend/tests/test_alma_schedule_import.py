@@ -23,9 +23,16 @@ class ScheduleParsingTest(unittest.TestCase):
         )
 
     def test_invalid_cancellations_fail_explicitly(self) -> None:
-        for value in ("31.02.2027", "29.12.2025", "unknown", "29.12.2026 extra"):
+        for value in ("31.02.2027", "unknown", "29.12.2026 extra"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 parse_cancellation_dates(value, "2026-10-13", "2027-02-02")
+
+    def test_semester_cancellations_outside_shorter_series_are_reported_and_ignored(self) -> None:
+        with self.assertWarnsRegex(RuntimeWarning, 'outside'):
+            dates = parse_cancellation_dates(
+                '24.12.2026 31.12.2026 04.02.2027', '2026-10-15', '2027-01-28',
+            )
+        self.assertEqual(dates, ['2026-12-24', '2026-12-31'])
 
     def test_cancellations_require_a_published_range(self) -> None:
         with self.assertRaises(ValueError):
@@ -42,6 +49,27 @@ class ScheduleParsingTest(unittest.TestCase):
 
 
 class ScheduleRefreshTest(IncrementalImportTest):
+    def test_inserted_and_reordered_meetings_keep_saved_appointment_ids(self) -> None:
+        course = _alma_course("237", "u9", "INFO4900", "Prof. New")
+        group = course["details"]["parallel_groups"][0]
+        first = {"Rhythmus": "Mo. w\u00f6chentlich", "Von - Bis": "10:00 - 12:00", "Raum": "A"}
+        second = {"Rhythmus": "Mi. w\u00f6chentlich", "Von - Bis": "14:00 - 16:00", "Raum": "B"}
+        group["appointments"] = [first, second]
+        before, problems = self._import_incrementally([course])
+        self.assertEqual(problems, [])
+        self._save_plan_hiding_first_appointment_of("u9")
+        inserted = {"Rhythmus": "Di. w\u00f6chentlich", "Von - Bis": "08:00 - 10:00", "Raum": "C"}
+        group["appointments"] = [inserted, second, first]
+        after, problems = self._import_incrementally([course])
+        self.assertEqual(problems, [])
+        self.assertGreater(after.appointments[0]["id"], max(row["id"] for row in before.appointments))
+        self.assertEqual(after.appointments[1]["id"], before.appointments[1]["id"])
+        self.assertEqual(after.appointments[2]["id"], before.appointments[0]["id"])
+        self.assertEqual(
+            self._query(f"SELECT room_text FROM appointments WHERE id={before.appointments[0]['id']}"),
+            [{"room_text": "A"}],
+        )
+
     def test_refresh_preserves_ids_and_replaces_only_target_cancellations(self) -> None:
         course = _alma_course("237", "u9", "INFO4900", "Prof. New")
         appointment = course["details"]["parallel_groups"][0]["appointments"][0]

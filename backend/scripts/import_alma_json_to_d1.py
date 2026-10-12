@@ -64,6 +64,7 @@ import re
 import subprocess
 import sys
 import time
+import warnings
 from datetime import date, datetime
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -224,11 +225,12 @@ class ExistingCatalogIds:
     # Courses of the periods being replaced, keyed by (period_id, unit_id), so a
     # re-import keeps their ids and plans/favorites referencing them stay valid.
     course_id_by_period_unit: dict[tuple[str, str], int] = field(default_factory=dict)
-    # Their parallel groups and appointments, keyed by position within the course
-    # (ALMA's listing order). Saved semester plans store hidden tutorial slots as
-    # "<course id>:appointment:<appointment id>", so a re-import must keep these too.
+    # Group positions identify their schedules. Match unchanged appointments by
+    # dates, times and room before falling back to position for edited meetings,
+    # so an inserted ALMA row cannot silently re-point saved tutorial selections.
     group_id_by_key: dict[tuple[str, str, int], int] = field(default_factory=dict)
     appointment_id_by_key: dict[tuple[str, str, int, int], int] = field(default_factory=dict)
+    appointment_rows: list[dict[str, Any]] = field(default_factory=list)
     # What the target DB currently holds for those courses, to report changes.
     course_signatures: dict[tuple[str, str], "CourseSignature"] = field(default_factory=dict)
 
@@ -332,7 +334,7 @@ def extract_weekday(rhythm_text: str | None) -> tuple[str | None, int | None]:
 
 
 def parse_cancellation_dates(text: str | None, starts_on: str | None, ends_on: str | None) -> list[str]:
-    """Reject malformed or misplaced exclusions instead of exporting invented dates."""
+    """ALMA may publish semester-wide cancellations outside a shorter series."""
     if not text or not text.strip() or text.strip() == "-":
         return []
     values = re.findall(r"\d{2}\.\d{2}\.\d{4}", text)
@@ -342,9 +344,37 @@ def parse_cancellation_dates(text: str | None, starts_on: str | None, ends_on: s
     dates = sorted({datetime.strptime(value, "%d.%m.%Y").date().isoformat() for value in values})
     if not starts_on or not ends_on:
         raise ValueError("Cancellation dates require a published appointment date range")
-    if any(value < starts_on or value > ends_on for value in dates):
-        raise ValueError("Cancellation date falls outside its appointment date range")
-    return dates
+    outside_range = [value for value in dates if value < starts_on or value > ends_on]
+    if outside_range:
+        warnings.warn(
+            f"Ignoring ALMA cancellation dates outside {starts_on} - {ends_on}: {', '.join(outside_range)}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return [value for value in dates if starts_on <= value <= ends_on]
+
+
+def match_appointment_ids(appointments: list[dict[str, Any]], existing_rows: list[dict[str, Any]]) -> dict[int, int]:
+    """Reserve unchanged meetings before positional fallback for edited meetings."""
+    columns = ('start_time', 'end_time', 'room_text', 'starts_on', 'ends_on')
+    existing_by_identity: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for row in sorted(existing_rows, key=lambda row: int(row['position'])):
+        identity = tuple(row.get(column) or None for column in columns)
+        existing_by_identity.setdefault(identity, []).append(row)
+    matches: dict[int, int] = {}
+    for position, appointment in enumerate(appointments, start=1):
+        start, end = parse_time_range(appointment.get('Von - Bis'))
+        starts_on, ends_on = parse_date_range(appointment.get('Startdatum - Enddatum'))
+        identity = (start, end, appointment.get('Raum') or None, starts_on, ends_on)
+        candidates = existing_by_identity.get(identity, [])
+        if candidates:
+            matches[position] = int(candidates.pop(0)['id'])
+    reserved_ids = set(matches.values())
+    for row in existing_rows:
+        position, appointment_id = int(row['position']), int(row['id'])
+        if position <= len(appointments) and position not in matches and appointment_id not in reserved_ids:
+            matches[position] = appointment_id
+    return matches
 
 
 # ----------------------------- Build plan -----------------------------------
@@ -604,10 +634,18 @@ def _emit_course(
                     "source_text": responsible,
                 })
 
-        for appointment_position, appointment in enumerate(group.get("appointments") or [], start=1):
-            appointment_id = reusable_appointment_ids.get(
-                (period_id, unit_id, group_position, appointment_position)
-            )
+        appointments = group.get("appointments") or []
+        existing_rows = [
+            row for row in (existing.appointment_rows if existing else [])
+            if (str(row['period_id']), str(row['unit_id']), int(row['group_position'])) == (period_id, unit_id, group_position)
+        ]
+        matched_ids = match_appointment_ids(appointments, existing_rows)
+        for appointment_position, appointment in enumerate(appointments, start=1):
+            appointment_id = matched_ids.get(appointment_position)
+            if not existing_rows:
+                appointment_id = reusable_appointment_ids.get(
+                    (period_id, unit_id, group_position, appointment_position)
+                )
             if appointment_id is None:
                 appointment_id = next_appointment_id
                 next_appointment_id += 1
@@ -1493,6 +1531,7 @@ def load_existing_catalog_ids(query: QueryRows, period_ids: list[str]) -> Existi
             (str(row["period_id"]), str(row["unit_id"]), int(row["group_position"]), int(row["position"])): int(row["id"])
             for row in replaced_appointments
         },
+        appointment_rows=replaced_appointments,
         course_signatures=_db_course_signatures(replaced_courses, replaced_appointments),
     )
 
