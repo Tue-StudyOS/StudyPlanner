@@ -367,7 +367,13 @@ def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, An
     source_indexes: dict[str, int] = {}
 
     for row in appointment_rows:
-        day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
+        is_single_date = row.get("rhythm") == "Einzeltermin" or bool(
+            row.get("startsOn") and row.get("startsOn") == row.get("endsOn")
+        )
+        day = (
+            (_safe_text(row.get("dateText")) or _safe_text(row.get("startsOn")))
+            if is_single_date else (_safe_text(row.get("weekday")) or _safe_text(row.get("dateText")))
+        ) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
         source_course_id = str(row.get("courseId") or "")

@@ -64,6 +64,56 @@ Production catalog refresh uses the separate [runtime workflow](cloudflare-runti
 
 ## Daily startup
 
+### Local production snapshot for schedule validation (12 October 2026)
+
+The calendar audit uses an isolated local D1 copy of production, stored under
+`backend/.tmp/calendar-local-ready`. The previous default local database remains
+intact. The ignored SQL snapshot and SQLite backup contain production data and
+must never be committed. The local snapshot has 1,524 courses and 5,254 appointments.
+
+Start the backend against this copy with:
+
+```powershell
+cd backend
+npx wrangler dev --local --persist-to .tmp/calendar-local-ready --port 8787
+```
+
+In another terminal, start the frontend with an explicit local API:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL = 'http://localhost:8787'
+npm run dev
+```
+
+Open `http://localhost:5173/catalog/1210` for Mathematics for Machine Learning.
+The local pilot restores weekdays on its seven appointments and eleven ALMA
+cancellation dates while keeping appointment IDs and all unrelated rows intact.
+Other courses still match the production snapshot. No production import or
+deployment is part of this validation. Tutorial/resit selection remains outside
+this importer change; the existing individual export omits tutorials.
+
+For a future snapshot, `wrangler d1 export studyplanner-db --remote` reads
+production into an ignored SQL file. Import that dump only into an isolated
+local state, with all local Worker processes for that state stopped. The SQL
+export has no transaction wrapper; wrap the local SQLite restore in a transaction
+to avoid a slow autocommit per INSERT. Keep a backup before applying local tests.
+
+The importer now reads `Wochentag` and `Ausfalltermin`, accepts legacy headers,
+validates cancellation dates, and writes exclusions for both single-file and
+chunked seeds. Cancellation text participates in change detection. Incremental
+cleanup replaces cancellations only for the selected periods. One-off dates
+retain their date label even when their weekday is available.
+
+Validation passed with Wrangler 4.149.0: local D1 health and course-detail
+requests, a generated ICS containing two recurring lectures with exclusions
+and two one-off exams, 252 backend tests, five ALMA scraper tests, 386 frontend
+tests (five skipped), frontend lint/build, and the Cloudflare config guard.
+Browser rendering was not inspected because no automation browser was available.
+The separate stale `assessment_dates` issue is not repaired by this pilot.
+
+### Standard local state
+
 Open **two terminals, each at the repository root**.
 
 ```powershell
