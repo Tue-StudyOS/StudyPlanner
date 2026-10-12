@@ -95,6 +95,42 @@ The SQLite exporter needs --skip-schema when producing a seed so it does not
 rewrite an existing migration. Use the [in-place catalog refresh](../docs/cloudflare-runtime-config.md#catalog-refresh)
 for production ALMA updates. The local bootstrap snapshot is not a production backup.
 
+## Catalog ECTS fallback
+
+Catalog list and detail responses prefer curriculum-module ECTS, then explicit
+credit text in the course short comment. When both are absent, they inspect all
+stored `catalog_nodes` placements with the same ALMA unit and semester. Only the
+nearest PO 2021 `Veranstaltungsgruppe` label with `(N CP)` is used; study-area
+totals and unknown program prefixes are not course-credit evidence.
+
+Tree-derived responses include `ectsSource: "catalog_tree"` and
+`ectsTreeOptions` with program codes, candidate credits, and source labels.
+The top-level `ects` remains null if those candidates disagree. The frontend
+resolves them for the selected guest or account study program; conflicting
+values within that program remain unknown. Explicit ECTS values always win.
+Cards, details, planner and course pickers use the same resolution utility.
+Course details label fallback values as coming from the ALMA catalog.
+When no single value can be resolved, cards and details display the available
+credit alternatives (for example, `6 / 9 ECTS`) with a program-dependent hint.
+The numeric `ects` stays null so unresolved alternatives never enter planner
+totals as guessed credits. Courses without credit evidence retain no ECTS tag.
+If the selected program has no tree assignment, published values from other
+programs remain visible with an unconfirmed-for-selected-program hint. This
+preserves catalog evidence without assigning those credits to planner totals.
+Local verification of INF3433 with M.Sc. Machine Learning selected shows the
+published `3 / 6` alternatives as unconfirmed; M.Sc. Informatik resolves to 6.
+The evidence-preservation fix passes 397 frontend tests (five skipped), lint,
+build, and a local API-to-detail-hook rendering check for both programs.
+
+No database migration or additional scrape is needed when catalog tree nodes
+are already stored. LLM Engineering (`ML4370`, Winter 2026/27) resolves to 9 ECTS
+for M.Sc. Informatik and 6 for B.Sc. Bioinformatik/Medizininformatik. Algorithms
+in Bioinformatics remains unknown because its Kolloquien placement has no
+credit-bearing group. Missing tags without a selected program dropped from
+43 to 37 of 140 displayed local courses. The local validation passed 262 backend
+tests and 395 frontend tests (five skipped), lint, build, and the config guard.
+Production has not been updated.
+
 ## Moodle learning-platform links
 
 The public Moodle Informatik category is supplemental data for Moodle links and

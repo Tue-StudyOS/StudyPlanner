@@ -41,7 +41,7 @@ function SlotDetails({ slot }: { slot: ScheduleSlot }) {
         </div>
       ) : null}
       {(slot.cancellationDates?.length ?? 0) > 0 ? (
-        <div className="mt-0.5 break-words text-[11px] text-amber-600 dark:text-amber-400">
+        <div className="mt-0.5 break-words text-[11px] text-fg-muted">
           {t('courseDetail.cancellationDates', {
             dates: formatCancellationDates(slot.cancellationDates ?? [], language),
           })}

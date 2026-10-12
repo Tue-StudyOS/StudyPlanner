@@ -64,6 +64,8 @@ import re
 import subprocess
 import sys
 import time
+import warnings
+from datetime import date, datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, TextIO
@@ -85,7 +87,7 @@ GERMAN_WEEKDAY_INDEX = {
 TIME_RANGE_RE = re.compile(r"^\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*$")
 DATE_RANGE_RE = re.compile(r"^\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})\s*$")
 SINGLE_DATE_RE = re.compile(r"^\s*(\d{2}\.\d{2}\.\d{4})\s*$")
-WEEKDAY_PREFIX_RE = re.compile(r"^\s*(Mo\.|Di\.|Mi\.|Do\.|Fr\.|Sa\.|So\.|Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)\b")
+WEEKDAY_PREFIX_RE = re.compile(r"^\s*(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|Mo\.?|Di\.?|Mi\.?|Do\.?|Fr\.?|Sa\.?|So\.?)(?=\s|$)")
 # Catalog titles look like "INF2410 Theoretische Informatik 2: ... - Vorlesung".
 COURSE_NUMBER_TITLE_RE = re.compile(r"^([A-Z]{2,}[A-Z0-9./-]*)\s+\S")
 COURSE_TYPE_TITLE_RE = re.compile(r"\s-\s([^\W\d_][^\d]{1,38})$", re.UNICODE)
@@ -209,6 +211,7 @@ class SeedPlan:
     parallel_group_fields: list[dict[str, Any]] = field(default_factory=list)
     parallel_group_lecturers: list[dict[str, Any]] = field(default_factory=list)
     appointments: list[dict[str, Any]] = field(default_factory=list)
+    appointment_cancellations: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -222,19 +225,20 @@ class ExistingCatalogIds:
     # Courses of the periods being replaced, keyed by (period_id, unit_id), so a
     # re-import keeps their ids and plans/favorites referencing them stay valid.
     course_id_by_period_unit: dict[tuple[str, str], int] = field(default_factory=dict)
-    # Their parallel groups and appointments, keyed by position within the course
-    # (ALMA's listing order). Saved semester plans store hidden tutorial slots as
-    # "<course id>:appointment:<appointment id>", so a re-import must keep these too.
+    # Group positions identify their schedules. Match unchanged appointments by
+    # dates, times and room before falling back to position for edited meetings,
+    # so an inserted ALMA row cannot silently re-point saved tutorial selections.
     group_id_by_key: dict[tuple[str, str, int], int] = field(default_factory=dict)
     appointment_id_by_key: dict[tuple[str, str, int, int], int] = field(default_factory=dict)
+    appointment_rows: list[dict[str, Any]] = field(default_factory=list)
     # What the target DB currently holds for those courses, to report changes.
     course_signatures: dict[tuple[str, str], "CourseSignature"] = field(default_factory=dict)
 
 
 # (title, sorted appointment tuples). Appointment tuple: (group position,
-# position, weekday, start, end, room, starts_on, ends_on) — what a student sees.
+# position, weekday, start, end, room, starts_on, ends_on, cancellation_text).
 CourseSignature = tuple[str, tuple[tuple[Any, ...], ...]]
-APPOINTMENT_SIGNATURE_COLUMNS = ("weekday", "start_time", "end_time", "room_text", "starts_on", "ends_on")
+APPOINTMENT_SIGNATURE_COLUMNS = ("weekday", "start_time", "end_time", "room_text", "starts_on", "ends_on", "cancellation_text")
 
 
 def _appointment_signature(group_position: int, position: int, row: dict[str, Any]) -> tuple[Any, ...]:
@@ -323,8 +327,54 @@ def extract_weekday(rhythm_text: str | None) -> tuple[str | None, int | None]:
     if not match:
         return None, None
     raw = match.group(1)
+    if len(raw.rstrip(".")) == 2:
+        raw = raw.rstrip(".") + "."
     index = GERMAN_WEEKDAY_INDEX.get(raw)
     return raw, index
+
+
+def parse_cancellation_dates(text: str | None, starts_on: str | None, ends_on: str | None) -> list[str]:
+    """ALMA may publish semester-wide cancellations outside a shorter series."""
+    if not text or not text.strip() or text.strip() == "-":
+        return []
+    values = re.findall(r"\d{2}\.\d{2}\.\d{4}", text)
+    remainder = re.sub(r"\d{2}\.\d{2}\.\d{4}", "", text)
+    if not values or remainder.strip(" ,;\t\r\n"):
+        raise ValueError(f"Unsupported ALMA cancellation dates: {text!r}")
+    dates = sorted({datetime.strptime(value, "%d.%m.%Y").date().isoformat() for value in values})
+    if not starts_on or not ends_on:
+        raise ValueError("Cancellation dates require a published appointment date range")
+    outside_range = [value for value in dates if value < starts_on or value > ends_on]
+    if outside_range:
+        warnings.warn(
+            f"Ignoring ALMA cancellation dates outside {starts_on} - {ends_on}: {', '.join(outside_range)}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return [value for value in dates if starts_on <= value <= ends_on]
+
+
+def match_appointment_ids(appointments: list[dict[str, Any]], existing_rows: list[dict[str, Any]]) -> dict[int, int]:
+    """Reserve unchanged meetings before positional fallback for edited meetings."""
+    columns = ('start_time', 'end_time', 'room_text', 'starts_on', 'ends_on')
+    existing_by_identity: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for row in sorted(existing_rows, key=lambda row: int(row['position'])):
+        identity = tuple(row.get(column) or None for column in columns)
+        existing_by_identity.setdefault(identity, []).append(row)
+    matches: dict[int, int] = {}
+    for position, appointment in enumerate(appointments, start=1):
+        start, end = parse_time_range(appointment.get('Von - Bis'))
+        starts_on, ends_on = parse_date_range(appointment.get('Startdatum - Enddatum'))
+        identity = (start, end, appointment.get('Raum') or None, starts_on, ends_on)
+        candidates = existing_by_identity.get(identity, [])
+        if candidates:
+            matches[position] = int(candidates.pop(0)['id'])
+    reserved_ids = set(matches.values())
+    for row in existing_rows:
+        position, appointment_id = int(row['position']), int(row['id'])
+        if position <= len(appointments) and position not in matches and appointment_id not in reserved_ids:
+            matches[position] = appointment_id
+    return matches
 
 
 # ----------------------------- Build plan -----------------------------------
@@ -584,17 +634,37 @@ def _emit_course(
                     "source_text": responsible,
                 })
 
-        for appointment_position, appointment in enumerate(group.get("appointments") or [], start=1):
-            appointment_id = reusable_appointment_ids.get(
-                (period_id, unit_id, group_position, appointment_position)
-            )
+        appointments = group.get("appointments") or []
+        existing_rows = [
+            row for row in (existing.appointment_rows if existing else [])
+            if (str(row['period_id']), str(row['unit_id']), int(row['group_position'])) == (period_id, unit_id, group_position)
+        ]
+        matched_ids = match_appointment_ids(appointments, existing_rows)
+        for appointment_position, appointment in enumerate(appointments, start=1):
+            appointment_id = matched_ids.get(appointment_position)
+            if not existing_rows:
+                appointment_id = reusable_appointment_ids.get(
+                    (period_id, unit_id, group_position, appointment_position)
+                )
             if appointment_id is None:
                 appointment_id = next_appointment_id
                 next_appointment_id += 1
             rhythm_text = appointment.get("Rhythmus")
-            weekday, weekday_index = extract_weekday(rhythm_text)
+            weekday_text = appointment.get("Wochentag")
+            weekday, weekday_index = extract_weekday(
+                rhythm_text if not weekday_text or weekday_text.strip() == "-" else weekday_text
+            )
+            if weekday_text and weekday_text.strip() != "-" and weekday_index is None:
+                raise ValueError(f"Unsupported ALMA weekday: {weekday_text!r}")
             start_time, end_time = parse_time_range(appointment.get("Von - Bis"))
             starts_on, ends_on = parse_date_range(appointment.get("Startdatum - Enddatum"))
+            cancellation_text = appointment.get("Ausfalltermin") or appointment.get("Ausfall")
+            cancellation_dates = parse_cancellation_dates(cancellation_text, starts_on, ends_on)
+            if weekday_index is not None and any(date.fromisoformat(value).weekday() != weekday_index for value in cancellation_dates):
+                raise ValueError("Cancellation date does not match its appointment weekday")
+            plan.appointment_cancellations.extend(
+                {"appointment_id": appointment_id, "cancelled_on": value} for value in cancellation_dates
+            )
             plan.appointments.append({
                 "id": appointment_id,
                 "parallel_group_id": group_id,
@@ -613,7 +683,7 @@ def _emit_course(
                 "instructors_text": appointment.get("Dozent/-in") or appointment.get("Lehrperson"),
                 "expected_participants": _maybe_int(appointment.get("Erwartete Teilnehmerzahl")),
                 "note": appointment.get("Bemerkung"),
-                "cancellation_text": appointment.get("Ausfall"),
+                "cancellation_text": cancellation_text,
                 "raw_json": json.dumps(appointment, ensure_ascii=False),
             })
 
@@ -754,6 +824,7 @@ APPOINTMENT_COLUMNS = [
 # The curriculum link tables must be cleared too: their course_id values are
 # meaningless once courses are re-inserted with fresh ids.
 SEEDED_TABLES_DELETE_ORDER = [
+    "appointment_cancellations",
     "course_study_area_links", "course_curriculum_matches",
     "appointments", "parallel_group_lecturers", "parallel_group_fields", "parallel_groups",
     "course_lecturers", "content_sections", "course_fields", "course_placements",
@@ -1029,6 +1100,7 @@ def period_scoped_delete_statements(period_ids: Iterable[str]) -> list[str]:
     course_ids = f"SELECT id FROM courses WHERE period_id IN ({period_list})"
     group_ids = f"SELECT id FROM parallel_groups WHERE course_id IN ({course_ids})"
     return [
+        f'DELETE FROM "appointment_cancellations" WHERE appointment_id IN (SELECT id FROM appointments WHERE parallel_group_id IN ({group_ids}));',
         f'DELETE FROM "appointments" WHERE parallel_group_id IN ({group_ids});',
         f'DELETE FROM "parallel_group_lecturers" WHERE parallel_group_id IN ({group_ids});',
         f'DELETE FROM "parallel_group_fields" WHERE parallel_group_id IN ({group_ids});',
@@ -1084,6 +1156,7 @@ def write_seed_sql(out_path: Path, plan: SeedPlan, replace_period_ids: list[str]
         _write_rows(handle, "parallel_group_fields", PARALLEL_GROUP_FIELD_COLUMNS, plan.parallel_group_fields)
         _write_rows(handle, "parallel_group_lecturers", PARALLEL_GROUP_LECTURER_COLUMNS, plan.parallel_group_lecturers)
         _write_rows(handle, "appointments", APPOINTMENT_COLUMNS, plan.appointments)
+        _write_rows(handle, "appointment_cancellations", ["appointment_id", "cancelled_on"], plan.appointment_cancellations)
 
         handle.write("\n\n".join(link_rebuild_statements(replace_period_ids)) + "\n")
         handle.write("PRAGMA foreign_keys = ON;\n")
@@ -1103,6 +1176,7 @@ def _seed_table_plan(plan: SeedPlan) -> list[tuple[str, list[str], list[dict[str
         ("parallel_group_fields", PARALLEL_GROUP_FIELD_COLUMNS, plan.parallel_group_fields),
         ("parallel_group_lecturers", PARALLEL_GROUP_LECTURER_COLUMNS, plan.parallel_group_lecturers),
         ("appointments", APPOINTMENT_COLUMNS, plan.appointments),
+        ("appointment_cancellations", ["appointment_id", "cancelled_on"], plan.appointment_cancellations),
     ]
 
 
@@ -1457,6 +1531,7 @@ def load_existing_catalog_ids(query: QueryRows, period_ids: list[str]) -> Existi
             (str(row["period_id"]), str(row["unit_id"]), int(row["group_position"]), int(row["position"])): int(row["id"])
             for row in replaced_appointments
         },
+        appointment_rows=replaced_appointments,
         course_signatures=_db_course_signatures(replaced_courses, replaced_appointments),
     )
 

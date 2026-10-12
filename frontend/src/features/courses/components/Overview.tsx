@@ -250,7 +250,7 @@ export function CoursesOverview() {
   )
   const { periods, periodsError } = useCatalogPeriods()
   const catalogSearch = search.trim().length >= 2 ? search : ''
-  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(catalogSearch, CATALOG_LIMIT, ALL_CATALOG_PERIODS)
+  const { courses, isLoading, error, refreshWarning } = useCatalogCourses(catalogSearch, CATALOG_LIMIT, ALL_CATALOG_PERIODS, true, studyProgramCode)
   const { regulationVersion, isLoadingRegulationVersion, regulationVersionError } =
     useRegulationVersion(regulationVersionCode)
   const { semesterLabel: interestedSemesterLabel, isFavorite, isLoadingFavorites, isFavoriteSaving, favoritesError, toggleFavorite } =
@@ -909,6 +909,7 @@ export function CoursesOverview() {
       {openCourseId ? (
         <CourseDetailDrawer
           courseId={openCourseId}
+          studyProgramCode={studyProgramCode}
           listCourse={courses.find((course) => course.id === openCourseId) ?? null}
           isFavorite={isFavorite(openCourseId)}
           favoriteDisabled={isLoadingFavorites}

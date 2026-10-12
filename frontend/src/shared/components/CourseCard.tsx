@@ -6,6 +6,7 @@ import { getDetailSeasonTermType } from '../../features/courses/utils/catalogOff
 import { buildCourseAreaTags, getCompletedCourseCardVisibility } from '../../features/courses/utils/courseCardDisplay.ts'
 import { buildCourseSeasonIconTitle } from '../../features/courses/utils/courseOfferingLabel.ts'
 import { cleanCourseTitle } from '../../features/courses/utils/courseTitle.ts'
+import { getCourseEctsLabel } from '../../features/courses/utils/courseEcts.ts'
 import { formatCourseLecturerName } from '../../features/courses/utils/lecturerName.ts'
 import { useTranslation } from '../../features/i18n'
 import { formatAverageRating, shouldShowRatingChip } from '../../features/reviews'
@@ -89,9 +90,7 @@ export function CourseCard({
       : 'border-border hover:border-primary/30'
   const isDimmed = offeringStatus === 'unknown' && !isCompleted
   const title = cleanCourseTitle(course.title, course.number)
-  const ectsLabel = course.ects === null
-    ? null
-    : Number.isInteger(course.ects) ? String(course.ects) : course.ects.toFixed(1)
+  const ectsLabel = getCourseEctsLabel(course)
   const visibility = getCompletedCourseCardVisibility(isCompleted)
   const footerTags = visibility.showSecondaryDetails
     ? [
@@ -223,9 +222,9 @@ export function CourseCard({
               </span>
             ) : null}
             {ectsLabel ? (
-              <>
+              <span title={course.ects === null ? t(course.ectsProgramMatched === false ? 'courseDetail.ectsNotConfirmedForProgram' : 'courseDetail.programDependentEcts') : undefined}>
                 {ectsLabel} <span className="text-[11px] font-normal text-fg-muted">ECTS</span>
-              </>
+              </span>
             ) : null}
           </span>
         ) : null}

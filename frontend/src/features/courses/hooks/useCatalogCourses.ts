@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../../auth'
+import { resolveCourseEcts } from '../utils/courseEcts.ts'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { toUserFacingApiMessage } from '../../../shared/utils/userFacingApiError.ts'
 import { fetchCatalogCourses } from '../api'
@@ -16,7 +18,7 @@ interface CatalogQueryState {
 }
 
 function buildCacheKey(search: string, limit: number, periodId?: string): string {
-  return `catalog:courses:${search}::${limit}::${periodId ?? ''}`
+  return `catalog:courses:v3:${search}::${limit}::${periodId ?? ''}`
 }
 
 export function useCatalogCourses(
@@ -24,12 +26,15 @@ export function useCatalogCourses(
   limit: number = 200,
   periodId?: string,
   enabled: boolean = true,
+  studyProgramCode?: string | null,
 ): {
   courses: Course[]
   isLoading: boolean
   error: string | null
   refreshWarning: string | null
 } {
+  const { user } = useAuth()
+  const programCode = studyProgramCode === undefined ? user?.profile.studyProgramCode : studyProgramCode
   const cacheKey = enabled
     ? buildCacheKey(search, limit, periodId)
     : 'catalog:courses:disabled'
@@ -101,8 +106,9 @@ export function useCatalogCourses(
     }
   }, [cacheKey, enabled, limit, periodId, search])
 
+  const courses = useMemo(() => state.courses.map((course) => resolveCourseEcts(course, programCode)), [state.courses, programCode])
   return {
-    courses: state.courses,
+    courses,
     isLoading: state.isLoading,
     error: state.error,
     refreshWarning: state.refreshWarning,
