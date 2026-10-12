@@ -13,8 +13,8 @@ Computer Science and related study programs.
 
 - Browse and filter the public ALMA catalog, with course details and schedules.
 - Save favorites and build semester plans with a weekly calendar and calendar export.
-- Export an individual course from its detailed view as an `.ics` calendar, including
-  published exam dates but excluding tutorials and exercise groups. Uses the course's
+- Export an individual course from its detailed view as an `.ics` calendar, choosing
+  no tutorials, one tutorial, or all tutorials, plus optional exams and resits. Uses the course's
   catalog semester; no account or saved plan is needed.
 - Import a Transcript of Records PDF in your browser, review results, and track progress.
 - Check course assignments against your examination regulation and balance planned courses.

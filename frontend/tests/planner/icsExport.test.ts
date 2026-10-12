@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildCourseIcs, buildSemesterPlanIcs, downloadCalendarIcs } from '../../src/features/planner/utils/icsExport.ts'
+import { buildCourseIcs, buildSemesterPlanIcs, downloadCalendarIcs, getCourseExportTutorialOptions } from '../../src/features/planner/utils/icsExport.ts'
 import type { Course } from '../../src/features/courses/types.ts'
 
 function buildCourse(overrides: Partial<Course>): Course {
@@ -212,6 +212,56 @@ test('course export avoids guessing semesters or downloading empty calendars', (
     schedule: [{ day: 'TBA', time: 'TBA', room: 'TBA', type: 'Vorlesung' }],
     exams: [{ type: 'Klausur', date: 'TBA', duration: 'TBA' }],
   })), null)
+})
+
+test('individual export selects one tutorial or all without changing lectures', () => {
+  const course = buildCourse({ schedule: [
+    { id: 'lecture', day: 'Mo.', time: '10:00 - 12:00', room: 'Lecture', type: 'Vorlesung' },
+    { id: 'a', day: 'Di.', time: '08:00 - 10:00', room: 'Tutorial A', type: 'Exercise', groupType: 'Vorlesung/Übung', cancellationDates: ['2026-05-26'] },
+    { id: 'b', day: 'Mi.', time: '08:00 - 10:00', room: 'Tutorial B', type: 'Course', groupType: 'Tutorial' },
+  ], exams: [] })
+  const options = getCourseExportTutorialOptions(course)
+  assert.equal(options.length, 2)
+  const one = buildCourseIcs(course, { tutorialSlotIds: [options[0].id] })
+  assert.ok(one)
+  assert.equal((one.match(/BEGIN:VEVENT/g) ?? []).length, 2)
+  assert.match(one, /LOCATION:Lecture/)
+  assert.match(one, /LOCATION:Tutorial A/)
+  assert.doesNotMatch(one, /Tutorial B/)
+  assert.match(one, /EXDATE;TZID=Europe\/Berlin:20260526T080000/)
+  const all = buildCourseIcs(course, { tutorialSlotIds: 'all' })
+  assert.equal((all?.match(/BEGIN:VEVENT/g) ?? []).length, 3)
+  assert.equal((buildCourseIcs(course, { tutorialSlotIds: [] })?.match(/BEGIN:VEVENT/g) ?? []).length, 1)
+})
+
+test('exam and resit choices filter both timed appointments and metadata', () => {
+  const course = buildCourse({ schedule: [
+    { day: '28.07.2026', time: '10:00 - 12:00', room: 'Main exam', type: 'Klausur' },
+    { day: '15.09.2026', time: '10:00 - 12:00', room: 'Resit', type: 'Nachklausur' },
+  ], exams: [
+    { date: '2026-07-28', type: 'Klausur', duration: '' },
+    { date: '2026-09-15', type: 'Nachklausur', duration: '' },
+  ] })
+  const mainOnly = buildCourseIcs(course, { includeExams: true, includeResits: false })
+  assert.ok(mainOnly)
+  assert.match(mainOnly, /20260728/)
+  assert.doesNotMatch(mainOnly, /20260915/)
+  const resitOnly = buildCourseIcs(course, { includeExams: false, includeResits: true })
+  assert.ok(resitOnly)
+  assert.match(resitOnly, /20260915/)
+  assert.doesNotMatch(resitOnly, /20260728/)
+  assert.equal(buildCourseIcs(course, { includeExams: false, includeResits: false }), null)
+})
+
+test('tutorial-only courses can export a selection and ignore non-calendar slots', () => {
+  const course = buildCourse({ schedule: [
+    { id: 'a', day: 'Mo.', time: '10:00 - 12:00', room: 'A', type: 'Tutorial' },
+    { id: 'b', day: 'Mo.', time: '10:00 - 12:00', room: 'B', type: 'Tutorial', calendarRelevant: false },
+  ], exams: [] })
+  assert.equal(getCourseExportTutorialOptions(course).length, 1)
+  assert.equal(buildCourseIcs(course), null)
+  assert.ok(buildCourseIcs(course, { tutorialSlotIds: 'all' }))
+  assert.doesNotMatch(buildCourseIcs(course, { tutorialSlotIds: 'all' }) ?? '', /LOCATION:B/)
 })
 
 test('calendar download preserves the filename and content and releases the object URL', async (context) => {

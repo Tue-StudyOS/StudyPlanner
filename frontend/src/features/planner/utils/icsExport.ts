@@ -96,16 +96,39 @@ export function downloadCalendarIcs(content: string, filename: string): void {
   URL.revokeObjectURL(url)
 }
 
-export function buildCourseIcs(course: Course): string | null {
-  // ponytail: omit tutorials rather than guessing which parallel group to attend.
+export interface CourseCalendarOptions {
+  tutorialSlotIds?: readonly string[] | 'all'
+  includeExams?: boolean
+  includeResits?: boolean
+}
+
+export function getCourseExportTutorialOptions(course: Course): Array<{ id: string; label: string }> {
+  return course.schedule.flatMap((slot, index) => {
+    const role = slot.type && slot.type !== 'Course'
+      ? slot.type : [slot.groupType, slot.groupTitle].filter(Boolean).join(' ')
+    return slot.calendarRelevant !== false && isTutorialLikeSlotType(role)
+      ? [{ id: getScheduleSlotId(course, slot, index), label: [slot.day, slot.time, slot.room, slot.groupTitle].filter(Boolean).join(' · ') }]
+      : []
+  })
+}
+
+export function buildCourseIcs(course: Course, options: CourseCalendarOptions = {}): string | null {
+  const tutorials = new Set(getCourseExportTutorialOptions(course).map((option) => option.id))
+  const selected = options.tutorialSlotIds ?? []
+  const includeExam = (type: string): boolean => {
+    if (/nachklausur|resit/i.test(type)) return options.includeResits !== false
+    if (/klausur|pruefung|prüfung|exam/i.test(type)) return options.includeExams !== false
+    return true
+  }
   const hiddenSlotIds = course.schedule.flatMap((slot, index) =>
-    isTutorialLikeSlotType([slot.type, slot.groupType, slot.groupTitle].filter(Boolean).join(' '))
+    !includeExam(slot.type) || (tutorials.has(getScheduleSlotId(course, slot, index))
+      && selected !== 'all' && !selected.includes(getScheduleSlotId(course, slot, index)))
       ? [getScheduleSlotId(course, slot, index)]
       : [],
   )
   const content = buildSemesterPlanIcs({
     semesterLabel: (course.periodLabel ?? '').replace(/^Sommer\b/i, 'SS').replace(/^Winter\b/i, 'WS'),
-    courses: [course],
+    courses: [{ ...course, exams: course.exams.filter((exam) => includeExam(exam.type)) }],
     hiddenSlotIds,
   })
   return content?.includes('BEGIN:VEVENT') ? content : null

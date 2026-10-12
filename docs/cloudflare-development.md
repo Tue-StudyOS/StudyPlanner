@@ -90,8 +90,8 @@ Open `http://localhost:5173/catalog/1210` for Mathematics for Machine Learning.
 The local pilot restores weekdays on its seven appointments and eleven ALMA
 cancellation dates while keeping appointment IDs and all unrelated rows intact.
 Other courses still match the production snapshot. No production import or
-deployment is part of this validation. Tutorial/resit selection remains outside
-this importer change; the existing individual export omits tutorials.
+deployment is part of this validation. The individual export now offers no,
+one, or all tutorials, with exams selected and resits unselected by default.
 
 For a future snapshot, `wrangler d1 export studyplanner-db --remote` reads
 production into an ignored SQL file. Import that dump only into an isolated
