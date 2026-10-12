@@ -36,7 +36,7 @@ import {
   getSuggestedPlannerAssignment,
   resolveChosenInfoAlternativeAreaCode,
 } from '../utils/plannerAssignments'
-import { buildSemesterPlanIcs } from '../utils/icsExport.ts'
+import { buildSemesterPlanIcs, downloadCalendarIcs } from '../utils/icsExport.ts'
 import { shouldLoadPlannerAllCatalogCourses } from '../utils/plannerCatalogLoading.ts'
 import { isStoredSlotIdForCourse } from '../utils/scheduleSlotIds.ts'
 import {
@@ -414,13 +414,7 @@ export function SemesterPlanner({
     if (!icsContent) {
       return
     }
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `studyplanner-${activeSemesterLabel.replace(/[\s/]+/g, '-')}.ics`
-    anchor.click()
-    URL.revokeObjectURL(url)
+    downloadCalendarIcs(icsContent, `studyplanner-${activeSemesterLabel.replace(/[\s/]+/g, '-')}.ics`)
   }
 
   const showPastSemesterCourses = isPastSemester || usesCompletedCourseFallback
