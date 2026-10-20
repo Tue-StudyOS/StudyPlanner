@@ -12,9 +12,12 @@ without changing the user's viewed week.
 Desktop uses weekly columns; phone/tablet (up to 768px) uses dated day buttons and
 a selected-day agenda so simultaneous appointments remain readable and reachable.
 Saturday and Sunday appear when that week contains published appointments on
-either day. Date-only appointments are separate from timed events. Desktop hours
-expand beyond the usual 08:00–20:00 when needed. All planned courses retain detail
-and remove controls below the calendar, including when the viewed week is empty.
+either day. Untimed appointments remain above the time grid without a redundant
+row label. Desktop blocks omit duplicate time text because the axis shows their
+position; published times remain in tooltips and in the mobile agenda, which has
+no time axis. Desktop hours expand beyond the usual 08:00–20:00 when needed.
+All planned courses retain detail and remove controls below the calendar,
+including when the viewed week is empty.
 
 ## Source interpretation
 
