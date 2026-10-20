@@ -77,5 +77,20 @@ No courses, grades, semesters or user-facing titles are removed or replaced.
 Repairs persist on completed-course PUT (for an unchanged prior assignment) or
 import writes. New incompatible compulsory selections are rejected. Unclassified
 catalog-picked transcript courses can still use their official compulsory area;
-anonymous external rows remain limited to flexible areas. General flexible-area
-persistence and overflow presentation are separate follow-up work.
+anonymous external rows remain limited to flexible areas.
+
+## Manual planner moves and capacity
+
+Planner save validation uses the same active-PO elective categories as the UI,
+including ÜBK for non-compulsory courses. Tags from another program do not widen
+these targets. Compulsory or unresolved mappings remain restricted.
+
+An eligible manual choice remains saved even when its area exceeds the ECTS target.
+The progress card shows the excess; users can move another course out afterwards
+without a timed rollback. Explicit auto-assignment still respects area capacities,
+using current selected-PO module credits, published course credits or unambiguous
+program-specific tree credits. Unknown credits are not treated as zero-credit
+successes. Courses without any catalog classification stay unassigned; cross-listed
+courses with other-program classification retain the UI's flexible fallback.
+Assignments to removed or incompatible areas remain stale metadata and are dropped
+without removing courses from the semester plan.

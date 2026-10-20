@@ -222,7 +222,14 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         completed = await progress._load_completed_courses_for_progress({}, 'test', 1)
         areas = await progress._build_regulation_progress({}, 1, 'BSC_INFO_2021', completed)
         self.assertEqual(sum(area['earnedEcts'] for area in areas), 1125)
-        self.assertEqual(len(await planner_assignments._load_planned_courses({}, ids)), 125)
+        planner_options = await planner_assignments.load_course_options_for_regulation({}, 1, ids)
+        self.assertEqual(len(planner_options), 125)
+        with patch.object(planner_assignments, '_fetch_catalog_courses_by_ids', AsyncMock(return_value=[
+            {'id': course_id, 'title': f'Course {course_id}'} for course_id in ids
+        ])):
+            self.assertEqual(len(await planner_assignments._load_planned_courses(
+                {}, ids, planner_options, 'BSC_INFO_2021',
+            )), 125)
         await user_completed_courses.replace_current_user_completed_courses({}, object(), {'completedCourses': courses})
         self.assertTrue(all(course['studyAreaCode'] == 'INF' for course in self.stored))
         result = await user_completed_courses.import_current_user_completed_courses({}, object(), {

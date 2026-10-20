@@ -8,6 +8,7 @@ from db.d1 import fetch_all
 from services.anrechnung_optimizer import optimize_anrechnung
 from services.authentication import require_authenticated_user
 from services.regulation_assignment_options import (
+    is_flexible_rule_group as _is_flexible_rule_group,
     load_regulation_course_options as _load_course_rule_group_options,
     load_trusted_completed_course_options,
     canonicalize_compulsory_assignment,
@@ -99,41 +100,6 @@ def _normalize_grade(value: Any) -> float:
             return allowed_grade
     raise CompletedCourseUpdateError(
         'grade must use the official ToR scale: 1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, or 4.0.'
-    )
-
-
-def _is_flexible_rule_group(code: str, name: str | None, group_type: str | None) -> bool:
-    normalized_code = code.upper()
-    normalized_name = (name or '').strip().lower()
-    normalized_group_type = (group_type or '').strip().lower()
-
-    if normalized_code == 'THESIS':
-        return False
-    if normalized_code == 'UEBK':
-        return True
-    if normalized_group_type in {'elective_area', 'structured_elective'}:
-        return True
-    if normalized_code in {
-        'PRAK',
-        'TECH',
-        'THEO',
-        'INFO',
-        'ELECTIVE',
-        'INFO-PRAK',
-        'INFO-TECH',
-        'INFO-THEO',
-        'INFO-INFO',
-        'INFO-FOKUS',
-        'INFO-BASIS',
-        'ML-FOUND',
-        'ML-DIVERSE',
-        'ML-CS',
-        'ML-EXP',
-    }:
-        return True
-    return any(
-        keyword in normalized_name
-        for keyword in ('wahl', 'elective', 'fokus', 'basis', 'diverse', 'expanded')
     )
 
 

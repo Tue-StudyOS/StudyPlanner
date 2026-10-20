@@ -298,9 +298,11 @@ export function buildAssignableRegulationAreaOptions(
     return flexibleAreaOptions
   }
 
+  // Tags from other programs are not credit eligibility in the selected PO.
+  const mappedMasterCats = mappedAreaOptions.map((option) => option.masterCat)
+    .filter((masterCat): masterCat is MasterCat => masterCat !== null)
   const preferredMasterCats = [...new Set(
-    [...mappedAreaOptions.map((option) => option.masterCat), ...fallbackMasterCats]
-      .filter((masterCat): masterCat is MasterCat => masterCat !== null),
+    mappedMasterCats.length > 0 ? mappedMasterCats : fallbackMasterCats,
   )]
 
   const compatibleAreaOptions = flexibleAreaOptions.filter(
