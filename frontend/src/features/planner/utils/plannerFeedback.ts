@@ -242,7 +242,7 @@ function buildManualBlocks(
   return blocks
 }
 
-export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[] {
+export function markPlannerBlockOverlaps<T extends Omit<PlannerBlock, 'day'> & { day: string }>(blocks: T[]): T[] {
   return blocks.map((block) => {
     const hasOverlap = blocks.some((candidate) => {
       if (candidate.blockId === block.blockId || candidate.day !== block.day) {
