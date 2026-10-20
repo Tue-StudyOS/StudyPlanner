@@ -12,7 +12,8 @@ Computer Science and related study programs.
 ## What you can do
 
 - Browse and filter the public ALMA catalog, with course details and schedules.
-- Save favorites and build semester plans with a weekly calendar and calendar export.
+- Save favorites and build semester plans with a [date-aware weekly calendar](docs/planner-calendar.md),
+  date navigation, a mobile day agenda, and full-semester calendar export.
 - Export an individual course from its detailed view as an `.ics` calendar, choosing
   no tutorials, one tutorial, or all tutorials, plus optional exams and resits. Uses the course's
   catalog semester; no account or saved plan is needed.
