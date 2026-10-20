@@ -74,6 +74,8 @@ def _objective(
 def _baseline_area(course: dict[str, Any]) -> str | None:
     """The area a course counts toward today: its explicit choice, otherwise the
     primary (first, sort-ordered) candidate — mirroring the progress fallback."""
+    if course.get('assignmentNeedsReview'):
+        return None
     candidates = [str(code) for code in course.get('candidateAreaCodes') or [] if code]
     current = course.get('currentAreaCode')
     if current and str(current) in candidates:
@@ -100,7 +102,7 @@ def optimize_anrechnung(
         for course in courses:
             course_id = str(course['id'])
             candidates = [str(code) for code in course.get('candidateAreaCodes') or [] if code]
-            if len(candidates) <= 1:
+            if not candidates or (len(candidates) == 1 and course_id in assignment):
                 continue
             best_area = assignment.get(course_id)
             best_objective = _objective(assignment, courses_by_id, required_by_area)

@@ -10,7 +10,7 @@ import {
 
 export type CompletedCourseAreaSource = Pick<
   CompletedCourse,
-  'courseId' | 'studyAreaCode' | 'studyAreaName' | 'availableStudyAreaOptions'
+  'courseId' | 'studyAreaCode' | 'studyAreaName' | 'availableStudyAreaOptions' | 'categoryLocked' | 'assignmentRestricted'
 >
 
 function normalizeAreaCode(code: string | null | undefined): string {
@@ -51,8 +51,8 @@ function isCustomCompletedCourse(course: CompletedCourseAreaSource): boolean {
 }
 
 // Credited courses can be moved to the area the transcript actually counted
-// them toward. Catalog matches may use any area of the active regulation
-// except the thesis; custom courses stay on flexible elective areas.
+// them toward unless the server restricts them to compulsory destinations.
+// Custom courses stay on flexible elective areas.
 export function buildCompletedCourseAreaOptions(
   course: CompletedCourseAreaSource,
   ruleGroups: RegulationRuleGroup[],
@@ -74,6 +74,10 @@ export function buildCompletedCourseAreaOptions(
 
   for (const option of course.availableStudyAreaOptions ?? []) {
     push(resolveAreaOption(option.studyAreaCode, option.studyAreaName, option.groupType, ruleGroups))
+  }
+
+  if (course.categoryLocked || course.assignmentRestricted) {
+    return options
   }
 
   const regulationOptions = isCustomCompletedCourse(course)

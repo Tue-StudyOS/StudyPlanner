@@ -4,7 +4,7 @@ import type { StudyStats } from '../types'
 // Overarching-competence modules are ungraded and never enter the grade average.
 const OVERARCHING_COMPETENCE_CODE = 'UEBK'
 
-type GradeRelevantCourse = Pick<CompletedCourse, 'ects' | 'grade' | 'studyAreaCode'>
+type GradeRelevantCourse = Pick<CompletedCourse, 'ects' | 'grade' | 'studyAreaCode' | 'assignmentNeedsReview'>
 
 /**
  * Client-side equivalent of the backend progress summary, used only while the
@@ -24,6 +24,7 @@ export function computeStudyStats(
     .filter(
       (course) =>
         course.grade !== null
+        && !course.assignmentNeedsReview
         && (course.studyAreaCode ?? '').toUpperCase() !== OVERARCHING_COMPETENCE_CODE,
     )
     .map((course) => ({ grade: course.grade as number, weight: course.ects ?? 0 }))

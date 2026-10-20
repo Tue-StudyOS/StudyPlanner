@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from db.d1 import fetch_all
+from services.regulation_assignment_options import canonicalize_completed_courses
 from services.authentication import require_authenticated_user
 from services.user_data import load_user_progress_json, parse_json_array
 
@@ -190,11 +192,10 @@ async def _load_course_numbers_by_id(env: Any, course_ids: list[int]) -> dict[in
     if not course_ids:
         return {}
     unique_course_ids = sorted(set(course_ids))
-    placeholders = ', '.join('?' for _ in unique_course_ids)
     rows = await fetch_all(
         env,
-        f'SELECT id, number FROM courses WHERE id IN ({placeholders})',
-        unique_course_ids,
+        'SELECT id, number FROM courses WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))',
+        [json.dumps(unique_course_ids)],
     )
     return {
         int(row['id']): str(row['number'])
@@ -223,7 +224,7 @@ def _coerce_completed_course_for_progress(raw_course: Any, fallback_id: str) -> 
     return {
         'id': _safe_text(raw_course.get('id')) or fallback_id,
         'courseId': course_id,
-        'courseNumber': None,
+        'courseNumber': _safe_text(raw_course.get('courseNumber')),
         'externalCourseCode': _safe_text(raw_course.get('externalCourseCode')),
         'title': title,
         'ects': _normalize_float(raw_course.get('ects')) or 0.0,
@@ -235,18 +236,24 @@ def _coerce_completed_course_for_progress(raw_course: Any, fallback_id: str) -> 
     }
 
 
-async def _load_completed_courses_for_progress(env: Any, username: str) -> list[dict[str, Any]]:
+async def _load_completed_courses_for_progress(
+    env: Any,
+    username: str,
+    regulation_version_id: int | None = None,
+) -> list[dict[str, Any]]:
     stored_value = await load_user_progress_json(env, username, 'completed_courses_json')
     completed_courses = [
         completed_course
         for index, raw_course in enumerate(parse_json_array(stored_value))
         if (completed_course := _coerce_completed_course_for_progress(raw_course, str(index + 1))) is not None
     ]
+    completed_courses = await canonicalize_completed_courses(env, regulation_version_id, completed_courses)
     course_ids = [int(course['courseId']) for course in completed_courses if course.get('courseId') is not None]
     course_numbers = await _load_course_numbers_by_id(env, course_ids)
     for completed_course in completed_courses:
         course_id = int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
-        completed_course['courseNumber'] = course_numbers.get(course_id) if course_id is not None else None
+        if not completed_course.get('courseNumber') and not completed_course.get('assignmentNeedsReview'):
+            completed_course['courseNumber'] = course_numbers.get(course_id) if course_id is not None else None
     completed_courses.sort(key=lambda course: (course.get('createdAtUnix') or 0, str(course.get('id') or '')))
     return completed_courses
 
@@ -332,10 +339,9 @@ async def _build_regulation_progress(
     primary_rule_group_by_course_id: dict[int, int] = {}
 
     if completed_course_ids:
-        placeholders = ', '.join('?' for _ in completed_course_ids)
         course_mappings = await fetch_all(
             env,
-            f"""
+            """
             SELECT
                 rcm.course_id AS courseId,
                 rcm.rule_group_id AS ruleGroupId,
@@ -344,16 +350,18 @@ async def _build_regulation_progress(
             FROM regulation_course_mappings AS rcm
             JOIN regulation_rule_groups AS rrg ON rrg.id = rcm.rule_group_id
             WHERE rcm.regulation_version_id = ?
-              AND rcm.course_id IN ({placeholders})
+              AND rcm.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
             ORDER BY rcm.course_id ASC, rrg.sort_order ASC, rrg.code ASC
             """,
-            [active_regulation_version_id, *completed_course_ids],
+            [active_regulation_version_id, json.dumps(completed_course_ids)],
         )
         for mapping in course_mappings:
             course_id = int(mapping['courseId'])
             primary_rule_group_by_course_id.setdefault(course_id, int(mapping['ruleGroupId']))
 
     for completed_course in completed_courses:
+        if completed_course.get('assignmentNeedsReview'):
+            continue
         course_id = int(completed_course['courseId']) if completed_course.get('courseId') is not None else None
         earned_ects = _normalize_float(completed_course.get('ects')) or 0.0
         explicit_study_area_code = _normalize_study_area_code(completed_course.get('studyAreaCode'))
@@ -490,6 +498,7 @@ def _compute_average_grade(completed_courses: list[dict[str, Any]]) -> float | N
         (grade, _normalize_float(course.get('ects')) or 0.0)
         for course in completed_courses
         if (grade := _normalize_float(course.get('grade'))) is not None
+        and not course.get('assignmentNeedsReview')
         and _normalize_study_area_code(course.get('studyAreaCode')) != 'UEBK'
     ]
     graded_weight = sum(weight for _, weight in graded_pairs)
@@ -509,7 +518,7 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     if required_ects is None:
         required_ects = 120.0
 
-    completed_courses = await _load_completed_courses_for_progress(env, username)
+    completed_courses = await _load_completed_courses_for_progress(env, username, active_regulation_version_id)
 
     progress_categories = await fetch_all(
         env,

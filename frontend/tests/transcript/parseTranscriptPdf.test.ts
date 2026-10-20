@@ -766,3 +766,40 @@ test('entries without a catalog match stay visible as unmatched review candidate
   assert.equal(candidate.extractedTitle, entry.extractedTitle)
   assert.equal(candidate.matchOptions.length, 0)
 })
+
+test('Math3 allowed Pflicht mapping overrides INFO and a conflicting transcript section', () => {
+  const course = createCourse({
+    id: '1194', number: 'INF2010', title: 'Mathematik 3', masterCats: ['INFO'],
+    studyAreaOptions: [
+      {
+        programCode: 'BSC_INFO_2021', programName: null, studyAreaCode: 'MATH',
+        studyAreaName: 'Mathematik', areaType: 'pflicht', optionStatus: 'allowed',
+        ectsCounted: 9, moduleCode: 'INF2010', moduleTitle: 'Mathematik 3',
+      },
+      {
+        programCode: 'BSC_INFO_2021', programName: null, studyAreaCode: 'INFO',
+        studyAreaName: 'Elective', areaType: 'wahlpflicht', optionStatus: 'allowed',
+        ectsCounted: 9, moduleCode: null, moduleTitle: null,
+      },
+    ],
+  })
+  const [candidate] = buildTranscriptImportCandidates([createEntry({
+    sourceSection: 'Studium Professionale (übK)', extractedTitle: 'Mathematik 3',
+    titleCandidates: ['Mathematik 3'],
+  })], [course], { studyProgramCode: 'BSC_INFO_2021', regulationRuleGroups: BSC_INFO_RULE_GROUPS })
+  assert.equal(candidate.studyAreaCode, 'INF')
+  assert.deepEqual(candidate.matchedCourse?.regulationAreaCodes, ['INF'])
+})
+
+test('multiple compulsory candidates do not implicitly prefer MAIN over another compulsory destination', () => {
+  const course = createCourse({ id: 'ambiguous', title: 'Ambiguous module', studyAreaOptions: ['INF', 'UEBK'].map((studyAreaCode) => ({
+    programCode: 'BSC_INFO_2021', programName: null, studyAreaCode, studyAreaName: null,
+    areaType: 'pflicht', optionStatus: 'required', ectsCounted: 6, moduleCode: null, moduleTitle: null,
+  })) })
+  const [candidate] = buildTranscriptImportCandidates([createEntry({
+    sourceSection: 'Unzugeordnete Elemente', extractedTitle: 'Ambiguous module', titleCandidates: ['Ambiguous module'],
+  })], [course], { studyProgramCode: 'BSC_INFO_2021', regulationRuleGroups: BSC_INFO_RULE_GROUPS })
+  assert.equal(candidate.studyAreaCode, null)
+  assert.deepEqual(candidate.matchedCourse?.regulationAreaCodes, ['INF', 'UEBK'])
+  assert.equal(canImportTranscriptCandidate(candidate), false)
+})
