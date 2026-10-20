@@ -69,7 +69,7 @@ export function PlannerWeekView({ weekStart, blocks, dateItems, isMobilePlanner,
     <div data-tour="planner-grid" className="grid min-w-0 max-w-full gap-2" style={{ gridTemplateColumns: `42px repeat(${days.length}, minmax(0, 1fr))` }}>
       <div />
       {days.map((day, index) => <div key={day} className="min-w-0 text-center text-xs font-semibold text-fg-muted" data-calendar-date={addCalendarDays(weekStart, index)}>{day.slice(0, 3)}<span className="block">{formatCalendarDate(addCalendarDays(weekStart, index))}</span></div>)}
-      <div className="text-[10px] text-fg-muted">Date only</div>
+      <div aria-hidden="true" />
       {days.map((day, index) => <div key={day} className="min-w-0 space-y-1">{renderDateItems(addCalendarDays(weekStart, index))}</div>)}
       <div className="relative">
         {hours.map((hour, index) => <div key={hour} className="absolute right-0 -translate-y-1/2 text-[11px] tabular-nums text-fg-muted" style={{ top: index * PIXELS_PER_HOUR }}>{String(hour).padStart(2, '0')}:00</div>)}
@@ -80,7 +80,6 @@ export function PlannerWeekView({ weekStart, blocks, dateItems, isMobilePlanner,
           const height = Math.max((block.endMinutes - block.startMinutes) / 60 * PIXELS_PER_HOUR, 44)
           return <div key={block.blockId} data-calendar-event={block.blockId} className="absolute min-w-0" style={{ top: (block.startMinutes - startHour * 60) / 60 * PIXELS_PER_HOUR, height, left: buildBlockLeft(block.columnIndex, block.visibleColumnCount), width: buildBlockWidth(block.visibleColumnCount) }}>
             <button type="button" onClick={() => onOpenCourse(block.courseId)} aria-label={`Show details for ${block.courseTitle}`} title={`${block.courseTitle} · ${block.label} · ${block.room}`} className={`h-full w-full overflow-hidden rounded-lg border px-1 py-1 text-left shadow-sm focus:ring-1 focus:ring-fg-muted ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}>
-              <div className="text-[10px] tabular-nums">{block.label}</div>
               <div className="break-words text-xs font-semibold" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: getBlockTitleLineClamp(height, false, Boolean(block.slotType)), overflow: 'hidden' }}>{block.courseTitle}</div>
               <div className={`truncate text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>{block.slotType}</div>
             </button>
