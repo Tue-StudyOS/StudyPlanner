@@ -1,6 +1,8 @@
 import type { Course, MasterCat, StudyAreaOption } from '../../courses'
 import {
   buildAssignableRegulationAreaOptions,
+  hasCompulsoryCourseMapping,
+  isEligibleStudyAreaOption,
   buildRelevantCourseAreaOptions,
   isMandatoryRegulationAreaCode,
   studyAreaCodeToMasterCat,
@@ -132,7 +134,7 @@ function buildPreferredMasterCats(
   }
 
   const preferredMasterCats = studyAreaOptions
-    .filter((option) => option.programCode === studyProgramCode)
+    .filter((option) => isEligibleStudyAreaOption(option) && option.programCode === studyProgramCode)
     .map((option) => studyAreaCodeToMasterCat(option.studyAreaCode))
     .filter((masterCat): masterCat is MasterCat => masterCat !== null)
 
@@ -636,7 +638,7 @@ export function buildTranscriptImportCandidates(
     const hasCatalogAreaMapping = (matchedCourse?.regulationAreaCodes?.length ?? 0) > 0
     const sectionAreaCode = resolvedSectionAreaCode && (
       assignableRegulationAreaCodes.includes(resolvedSectionAreaCode)
-      || !hasCatalogAreaMapping
+      || (!hasCatalogAreaMapping && !hasCompulsoryCourseMapping(matchedCourse?.studyAreaOptions, context.studyProgramCode))
     )
       ? resolvedSectionAreaCode
       : null
@@ -650,9 +652,11 @@ export function buildTranscriptImportCandidates(
     const mandatoryAreaCodes = assignableRegulationAreaCodes.filter((areaCode) =>
       isMandatoryRegulationAreaCode(areaCode, context.regulationRuleGroups),
     )
+    const ambiguousCompulsoryAreas = hasCompulsoryCourseMapping(matchedCourse?.studyAreaOptions, context.studyProgramCode)
+      && assignableRegulationAreaCodes.length > 1
     const autoStudyAreaCode = sectionAreaCode
-      ?? (activeMappedAreaCodes.length === 1 ? activeMappedAreaCodes[0] : null)
-      ?? (mandatoryAreaCodes.length === 1 ? mandatoryAreaCodes[0] : null)
+      ?? (!ambiguousCompulsoryAreas && activeMappedAreaCodes.length === 1 ? activeMappedAreaCodes[0] : null)
+      ?? (!ambiguousCompulsoryAreas && mandatoryAreaCodes.length === 1 ? mandatoryAreaCodes[0] : null)
       ?? (assignableRegulationAreaCodes.length === 1 ? assignableRegulationAreaCodes[0] : null)
 
     return finalizeCandidate({

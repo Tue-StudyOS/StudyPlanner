@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -7,6 +8,8 @@ from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
 from services.regulation_assignment_options import (
     load_regulation_course_options,
+    has_unresolved_assignment_evidence,
+    canonicalize_completed_courses,
     load_regulation_rule_groups,
     normalize_optional_float as _normalize_float,
     normalize_study_area_code as _normalize_study_area_code,
@@ -89,6 +92,8 @@ async def load_course_options_for_regulation(
     )
     options_by_course_id: dict[int, list[CourseOption]] = {}
     for course_id, options in rows.items():
+        if has_unresolved_assignment_evidence(options):
+            continue
         options_by_course_id[course_id] = [
             CourseOption(
                 course_id=course_id,
@@ -192,20 +197,19 @@ async def _load_planned_courses(env: Any, course_ids: list[int]) -> dict[int, Pl
     if not course_ids:
         return {}
 
-    placeholders = ', '.join('?' for _ in course_ids)
     rows = await fetch_all(
         env,
-        f"""
+        """
         SELECT
             c.id,
             c.title,
             MAX(rcm.ects_counted) AS mappedEcts
         FROM courses AS c
         LEFT JOIN regulation_course_mappings AS rcm ON rcm.course_id = c.id
-        WHERE c.id IN ({placeholders})
+        WHERE c.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
         GROUP BY c.id, c.title
         """,
-        course_ids,
+        [json.dumps(course_ids)],
     )
     return {
         int(row['id']): PlannedCourse(
@@ -240,19 +244,24 @@ async def _load_completed_ects_by_area(
     env: Any,
     username: str,
     rule_groups: dict[str, RuleGroup],
+    regulation_version_id: int | None = None,
 ) -> tuple[dict[str, float], set[int]]:
     stored_value = await load_user_progress_json(env, username, 'completed_courses_json')
     completed_ects_by_area: dict[str, float] = {code: 0.0 for code in rule_groups}
     completed_course_ids: set[int] = set()
 
-    for raw_course in parse_json_array(stored_value):
+    completed_courses = await canonicalize_completed_courses(
+        env, regulation_version_id,
+        [course for course in parse_json_array(stored_value) if isinstance(course, dict)],
+    )
+    for raw_course in completed_courses:
         completed_course = _coerce_completed_course_record(raw_course)
         if completed_course is None:
             continue
         course_id, area_code, ects = completed_course
         if course_id is not None:
             completed_course_ids.add(course_id)
-        if area_code not in rule_groups:
+        if raw_course.get('assignmentNeedsReview') or area_code not in rule_groups:
             continue
         completed_ects_by_area[area_code] = completed_ects_by_area.get(area_code, 0.0) + ects
 
@@ -484,6 +493,7 @@ async def balance_current_user_semester_plan(
         env,
         username,
         rule_groups,
+        regulation_version_id,
     )
     assignments, warnings, unassigned_course_ids, summary, strict_solution_found = _balance_assignments(
         course_ids,

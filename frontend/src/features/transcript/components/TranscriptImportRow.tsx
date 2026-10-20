@@ -19,6 +19,7 @@ import { TranscriptGradeSelect } from './TranscriptGradeSelect'
 import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
 import {
   buildAssignableRegulationAreaOptions,
+  hasCompulsoryCourseMapping,
   buildFlexibleRegulationAreaOptions,
   buildRegulationAreaOptionByCode,
   studyAreaCodeToMasterCat,
@@ -87,14 +88,15 @@ export function TranscriptImportRow({
         : null,
     [candidate.matchedCourse, candidate.sourceSection, regulationRuleGroups],
   )
+  const hasCompulsoryMapping = hasCompulsoryCourseMapping(candidate.matchedCourse?.studyAreaOptions, studyProgramCode)
   const isAreaLocked = mappedAreaOptions.length === 1
   const areaOptions = useMemo(() => {
-    const baseAreaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
-    if (isAreaLocked || !sectionAreaOption || baseAreaOptions.some((option) => option.code === sectionAreaOption.code)) {
+    const baseAreaOptions = hasCompulsoryMapping || mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
+    if (hasCompulsoryMapping || isAreaLocked || !sectionAreaOption || baseAreaOptions.some((option) => option.code === sectionAreaOption.code)) {
       return baseAreaOptions
     }
     return [...baseAreaOptions, sectionAreaOption]
-  }, [flexibleAreaOptions, isAreaLocked, mappedAreaOptions, sectionAreaOption])
+  }, [flexibleAreaOptions, hasCompulsoryMapping, isAreaLocked, mappedAreaOptions, sectionAreaOption])
   const canAssignAsUebk = !hasActiveRegulation || flexibleAreaOptions.some(
     (option) => option.code.trim().toUpperCase() === UEBK_AREA_CODE,
   )

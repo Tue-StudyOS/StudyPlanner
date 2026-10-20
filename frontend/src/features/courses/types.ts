@@ -56,6 +56,8 @@ export interface CompletedCourse {
     groupType: string | null
   }>
   categoryLocked?: boolean
+  assignmentRestricted?: boolean
+  assignmentNeedsReview?: boolean
   isGradeCounted?: boolean
   grade: number | null
   semester: string

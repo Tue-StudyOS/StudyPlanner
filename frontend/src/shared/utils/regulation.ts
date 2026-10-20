@@ -162,10 +162,9 @@ export function buildRelevantCourseAreaOptions(
     return []
   }
 
-  const filteredOptions = studyAreaOptions.filter(
-    (option) => !studyProgramCode || option.programCode === studyProgramCode,
+  const relevantOptions = studyAreaOptions.filter(
+    (option) => isEligibleStudyAreaOption(option) && (!studyProgramCode || option.programCode === studyProgramCode),
   )
-  const relevantOptions = filteredOptions.length > 0 ? filteredOptions : studyProgramCode ? [] : studyAreaOptions
 
   return dedupeAreaOptions(
     relevantOptions
@@ -232,6 +231,34 @@ function isAlwaysAssignableArea(option: RegulationAreaOption): boolean {
   return option.code.trim().toUpperCase() === 'UEBK'
 }
 
+export function isEligibleStudyAreaOption(option: StudyAreaOption): boolean {
+  return !['blocked', 'excluded', 'forbidden'].includes(option.optionStatus?.trim().toLowerCase() ?? '')
+}
+
+export function isCompulsoryStudyAreaOption(option: StudyAreaOption): boolean {
+  if (!isEligibleStudyAreaOption(option)) {
+    return false
+  }
+  const areaType = option.areaType?.trim().toLowerCase() ?? ''
+  const status = option.optionStatus?.trim().toLowerCase() ?? ''
+  // "required" on an elective bucket describes the bucket, not each course.
+  if (['wahlpflicht', 'elective', 'elective_area', 'structured_elective'].includes(areaType)) {
+    return false
+  }
+  return ['pflicht', 'mandatory', 'required'].includes(status)
+    || (option.studyAreaCode?.trim().toUpperCase() !== 'UEBK'
+      && ['pflicht', 'mandatory', 'required'].includes(areaType))
+}
+
+export function hasCompulsoryCourseMapping(
+  studyAreaOptions: StudyAreaOption[] | undefined,
+  studyProgramCode: string | null | undefined,
+): boolean {
+  return Boolean(studyProgramCode && (studyAreaOptions ?? []).some((option) =>
+    option.programCode === studyProgramCode && isCompulsoryStudyAreaOption(option),
+  ))
+}
+
 export function buildAssignableRegulationAreaOptions(
   studyAreaOptions: StudyAreaOption[] | undefined,
   studyProgramCode: string | null | undefined,
@@ -242,43 +269,29 @@ export function buildAssignableRegulationAreaOptions(
   const activeRuleGroupCodes = new Set(
     ruleGroups.map((ruleGroup) => ruleGroup.code.trim().toUpperCase()),
   )
-  let mappedAreaOptions = ruleGroups.length > 0
+  const mappedAreaOptions = ruleGroups.length > 0
     ? allMappedAreaOptions.filter((option) => activeRuleGroupCodes.has(option.code.trim().toUpperCase()))
     : allMappedAreaOptions
 
-  // Some catalog modules still carry a legacy required area such as MATH,
-  // while the active BSc Informatik regulation combines it into INF (shown as
-  // MAIN). Resolve that legacy mapping against the selected regulation rather
-  // than leaking an area from another examination-regulation structure.
-  const hasRequiredLegacyMapping = (studyAreaOptions ?? []).some(
-    (option) =>
-      (!studyProgramCode || option.programCode === studyProgramCode)
-      && option.optionStatus.trim().toLowerCase() === 'required',
-  )
-  if (mappedAreaOptions.length === 0 && hasRequiredLegacyMapping) {
-    const mandatoryRuleGroups = ruleGroups.filter((ruleGroup) =>
-      isMandatoryRegulationAreaCode(ruleGroup.code, ruleGroups),
-    )
-    if (mandatoryRuleGroups.length === 1) {
-      const mandatoryRuleGroup = mandatoryRuleGroups[0]
-      const labels = buildAreaLabel(
-        mandatoryRuleGroup.code,
-        mandatoryRuleGroup.name,
-        mandatoryRuleGroup.groupType,
-      )
-      mappedAreaOptions = [{
-        code: mandatoryRuleGroup.code,
-        label: labels.label,
-        shortLabel: labels.shortLabel,
-        masterCat: studyAreaCodeToMasterCat(mandatoryRuleGroup.code),
-        isFlexible: false,
-      }]
+  // A course's Pflicht metadata, not a required elective bucket, restricts
+  // placement. Keep every certain destination when the catalog is ambiguous.
+  const compulsoryCodes = new Set((studyAreaOptions ?? [])
+    .filter((option) => studyProgramCode && option.programCode === studyProgramCode)
+    .filter((option) => isCompulsoryStudyAreaOption(option))
+    .map((option) => option.studyAreaCode?.trim().toUpperCase())
+    .map((code) => studyProgramCode === 'BSC_INFO_2021' && code === 'MATH'
+      && !activeRuleGroupCodes.has('MATH') && activeRuleGroupCodes.has('INF') ? 'INF' : code))
+  if (compulsoryCodes.size > 0) {
+    if ([...compulsoryCodes].some((code) => !code || !activeRuleGroupCodes.has(code))) {
+      return []
     }
+    return buildAllSelectableRegulationAreaOptions(ruleGroups)
+      .filter((option) => compulsoryCodes.has(option.code.trim().toUpperCase()))
   }
 
   // Courses without an explicit regulation mapping may only go into elective
   // areas; compulsory parts are reserved for their explicitly mapped modules.
-  // übK is open to everything regardless of category tags.
+  // Non-compulsory courses may also use UEBK.
   const flexibleAreaOptions = buildFlexibleRegulationAreaOptions(ruleGroups)
 
   if (mappedAreaOptions.length === 0) {

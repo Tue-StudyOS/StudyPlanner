@@ -2,6 +2,7 @@ import type { SupportedLanguage } from './types'
 
 export const TRANSLATIONS = {
   en: {
+    'transcript.assignmentNeedsReview': 'Choose the correct compulsory area. The previous assignment is not credited.',
     'nav.semester': 'Semester',
     'nav.semesterNewCourses': 'New courses added to your semester plan',
     'nav.catalog': 'Catalog',
@@ -373,6 +374,7 @@ export const TRANSLATIONS = {
     'tour.reopen.body': 'Tap here on any page to replay this tour.',
   },
   de: {
+    'transcript.assignmentNeedsReview': 'Bitte den richtigen Pflichtbereich wählen. Die bisherige Zuordnung wird nicht angerechnet.',
     'courseDetail.learningPlatforms': 'Lernplattformen',
     'courseDetail.openMoodle': 'Moodle-Kurs öffnen',
     'nav.semester': 'Semester',
