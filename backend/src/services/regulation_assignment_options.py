@@ -196,6 +196,24 @@ async def load_regulation_course_options(
     return options_by_course_id
 
 
+def is_flexible_rule_group(code: str, name: str | None, group_type: str | None) -> bool:
+    normalized_code = code.upper()
+    if normalized_code == 'THESIS':
+        return False
+    if normalized_code == 'UEBK':
+        return True
+    if (group_type or '').strip().lower() in {'elective_area', 'structured_elective'}:
+        return True
+    if normalized_code in {
+        'PRAK', 'TECH', 'THEO', 'INFO', 'ELECTIVE', 'INFO-PRAK', 'INFO-TECH',
+        'INFO-THEO', 'INFO-INFO', 'INFO-FOKUS', 'INFO-BASIS', 'ML-FOUND',
+        'ML-DIVERSE', 'ML-CS', 'ML-EXP',
+    }:
+        return True
+    return any(keyword in (name or '').strip().lower()
+               for keyword in ('wahl', 'elective', 'fokus', 'basis', 'diverse', 'expanded'))
+
+
 def compulsory_course_options(options: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [option for option in options if option.get('isCompulsory')]
 

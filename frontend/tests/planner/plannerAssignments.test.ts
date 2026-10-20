@@ -123,6 +123,37 @@ test('getCurrentPlannerAssignment keeps a valid manual choice and rejects an inv
   assert.equal(invalidManual, null)
 })
 
+test('manual selections remain valid above capacity while another course is moved out', () => {
+  const course = createCourse({
+    id: 'moving-course',
+    masterCats: ['PRAK', 'THEO'],
+    studyAreaOptions: [createStudyAreaOption('A-PRAK'), createStudyAreaOption('B-THEO')],
+  })
+  const context = {
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: RULE_GROUPS,
+    planAssignments: { [course.id]: 'B-THEO' },
+    plannedCourses: [course],
+    completedCourses: [createCompletedCourse({ id: 'full', ects: 9, studyAreaCode: 'B-THEO' })],
+  }
+  assert.equal(getCurrentPlannerAssignment(course, context), 'B-THEO')
+  assert.equal(getSuggestedPlannerAssignment(course, context), 'B-THEO')
+})
+
+test('tags from another program do not widen the selected PO assignment targets', () => {
+  const course = createCourse({
+    id: 'cross-listed',
+    masterCats: ['PRAK', 'THEO'],
+    studyAreaOptions: [createStudyAreaOption('A-PRAK'), {
+      ...createStudyAreaOption('B-THEO'), programCode: 'OTHER-PROGRAM',
+    }],
+  })
+  assert.deepEqual(
+    getPlannerCourseAreaOptions(course, STUDY_PROGRAM_CODE, RULE_GROUPS).map((option) => option.code),
+    ['A-PRAK'],
+  )
+})
+
 test('getSuggestedPlannerAssignment prefers the area with the most remaining capacity', () => {
   const course = createCourse({
     id: 'two-areas',
