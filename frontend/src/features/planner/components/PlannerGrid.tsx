@@ -13,9 +13,9 @@ import {
   buildBlockLeft,
   buildBlockWidth,
   buildDayLayout,
+  getPlannerCalendarMinWidth,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
-import { PlannerWeeklyListView } from './PlannerWeeklyListView'
 
 const DESKTOP_BLOCK_GAP_REM = 0.5
 
@@ -55,11 +55,11 @@ function ExportCalendarIcon() {
   )
 }
 
-function EmptyDayHint() {
+function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-2 text-center">
       <div className="text-[10px] leading-relaxed text-fg-muted sm:text-[11px]">
-        Drag interested courses here.
+        {isMobilePlanner ? 'Tap to add courses.' : 'Drag interested courses here.'}
       </div>
     </div>
   )
@@ -139,7 +139,7 @@ export function PlannerGrid({
           <div className="min-w-0">
             <h2 className="text-[14px] font-semibold text-fg">Weekly schedule</h2>
             {isMobilePlanner ? (
-              <p className="mt-1 text-[12px] text-fg-mid">Tap a session for details and tutorial choices.</p>
+              <p className="mt-1 text-[12px] leading-5 text-fg-mid">Swipe sideways for more days. Tap a course for details.</p>
             ) : null}
           </div>
           <div className="flex min-w-0 flex-wrap gap-2">
@@ -170,130 +170,131 @@ export function PlannerGrid({
             ) : null}
           </div>
         </div>
-        <div data-tour="planner-grid" className="min-w-0">
-          {isMobilePlanner ? (
-            <PlannerWeeklyListView
-              blocks={blocks}
-              isLoading={isLoadingSemesterPlan}
-              isPastSemester={isPastSemester}
-              onOpenCourse={onOpenCourse}
-              onRemoveCourse={onRemoveCourse}
-              onRequestAdd={isPastSemester ? onRequestManualSlot : onRequestAdd}
-            />
-          ) : (
-            <div className="grid min-w-0 grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2">
-              <div />
+        <div
+          data-tour="planner-grid"
+          role="region"
+          aria-label="Weekly calendar. Scroll horizontally to view all weekdays."
+          tabIndex={0}
+          className="min-w-0 max-w-full overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          <div
+            className="grid w-full grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2 py-2"
+            style={{ minWidth: `${getPlannerCalendarMinWidth(Object.values(dayLayouts))}px` }}
+          >
+            <div className="sticky left-0 z-20 bg-surface" />
+            {DAY_ORDER.map((day) => (
+              <div
+                key={day}
+                className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
+              >
+                {DAY_LABELS[day]}
+              </div>
+            ))}
+
+            <div className="sticky left-0 z-20 h-full bg-surface">
+              {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+                <div
+                  key={index}
+                  className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
+                  style={{ top: `${index * PIXELS_PER_HOUR}px` }}
+                >
+                  {`${String(START_HOUR + index).padStart(2, '0')}:00`}
+                </div>
+              ))}
+            </div>
+
+            <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
               {DAY_ORDER.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
+                  onClick={isMobilePlanner ? (event) => {
+                    if (event.target === event.currentTarget) onRequestAdd()
+                  } : undefined}
+                  className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
+                  style={{ height: `${totalHeight}px` }}
                 >
-                  {DAY_LABELS[day]}
-                </div>
-              ))}
+                  {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+                    <div
+                      key={`${day}-${index}`}
+                      className="pointer-events-none absolute inset-x-0 border-t border-border-light/70"
+                      style={{ top: `${index * PIXELS_PER_HOUR}px` }}
+                    />
+                  ))}
 
-              <div className="relative h-full">
-                {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
-                  <div
-                    key={index}
-                    className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
-                    style={{ top: `${index * PIXELS_PER_HOUR}px` }}
-                  >
-                    {`${String(START_HOUR + index).padStart(2, '0')}:00`}
-                  </div>
-                ))}
-              </div>
-
-              <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
-                {DAY_ORDER.map((day) => (
-                  <div
-                    key={day}
-                    className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
-                    style={{ height: `${totalHeight}px` }}
-                  >
-                    {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+                  {dayLayouts[day].visibleBlocks.map((block) => {
+                    const top =
+                      ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR)
+                      * PIXELS_PER_HOUR
+                    const height = Math.max(
+                      ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
+                      * PIXELS_PER_HOUR,
+                      44,
+                    )
+                    const titleLineClamp = getBlockTitleLineClamp(
+                      height,
+                      false,
+                      Boolean(block.slotType),
+                    )
+                    return (
                       <div
-                        key={`${day}-${index}`}
-                        className="pointer-events-none absolute inset-x-0 border-t border-border-light/70"
-                        style={{ top: `${index * PIXELS_PER_HOUR}px` }}
-                      />
-                    ))}
-
-                    {dayLayouts[day].visibleBlocks.map((block) => {
-                      const top =
-                        ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR)
-                        * PIXELS_PER_HOUR
-                      const height = Math.max(
-                        ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
-                        * PIXELS_PER_HOUR,
-                        44,
-                      )
-                      const titleLineClamp = getBlockTitleLineClamp(
-                        height,
-                        false,
-                        Boolean(block.slotType),
-                      )
-                      return (
-                        <div
-                          key={block.blockId}
-                          className="absolute"
-                          style={{
-                            top: `${top}px`,
-                            left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
-                            width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
-                            height: `${height}px`,
-                          }}
+                        key={block.blockId}
+                        className="absolute"
+                        style={{
+                          top: `${top}px`,
+                          left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
+                          width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
+                          height: `${height}px`,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onOpenCourse(block.courseId)}
+                          aria-label={`Show details for ${block.courseTitle}`}
+                          title={block.courseTitle}
+                          className={`flex h-full w-full flex-col items-stretch overflow-hidden rounded-[7px] border px-2 py-1 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
                         >
+                          <div
+                            className={`text-[12px] font-semibold leading-[15px] [overflow-wrap:anywhere] ${onRemoveCourse && !isPastSemester ? 'pr-6' : ''}`}
+                            style={{
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: titleLineClamp,
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {block.courseTitle}
+                          </div>
+                          {block.slotType ? (
+                            <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
+                              {block.slotType}
+                            </div>
+                          ) : null}
+                        </button>
+                        {onRemoveCourse && !isPastSemester ? (
                           <button
                             type="button"
-                            onClick={() => onOpenCourse(block.courseId)}
-                            aria-label={`Show details for ${block.courseTitle}`}
-                            title={block.courseTitle}
-                            className={`flex h-full w-full flex-col items-stretch overflow-hidden rounded-[7px] border px-2 py-1 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              onRemoveCourse(block.courseId)
+                            }}
+                            aria-label={`Remove ${block.courseTitle} from semester plan`}
+                            title="Remove from plan"
+                            className="absolute right-0.5 top-0.5 z-10 flex h-6 w-6 items-center justify-center rounded text-fg-mid transition-colors hover:bg-surface-hover hover:text-primary"
                           >
-                            <div
-                              className={`text-[12px] font-semibold leading-[15px] [overflow-wrap:anywhere] ${onRemoveCourse && !isPastSemester ? 'pr-4' : ''}`}
-                              style={{
-                                display: '-webkit-box',
-                                WebkitBoxOrient: 'vertical',
-                                WebkitLineClamp: titleLineClamp,
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {block.courseTitle}
-                            </div>
-                            {block.slotType ? (
-                              <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
-                                {block.slotType}
-                              </div>
-                            ) : null}
+                            <RemoveIcon size={10} />
                           </button>
-                          {onRemoveCourse && !isPastSemester ? (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                onRemoveCourse(block.courseId)
-                              }}
-                              aria-label={`Remove ${block.courseTitle} from semester plan`}
-                              title="Remove from plan"
-                              className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center text-fg-muted opacity-75 transition-opacity hover:opacity-100 hover:text-primary sm:h-5 sm:w-5"
-                            >
-                              <RemoveIcon size={10} />
-                            </button>
-                          ) : null}
-                        </div>
-                      )
-                    })}
+                        ) : null}
+                      </div>
+                    )
+                  })}
 
-                    {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
-                      <EmptyDayHint />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+                  {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
+                    <EmptyDayHint isMobilePlanner={isMobilePlanner} />
+                  ) : null}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {unscheduledPlannedCourses.length > 0 ? (

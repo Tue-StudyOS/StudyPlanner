@@ -33,18 +33,19 @@ On real devices, prefer iOS Safari and Android Chrome.
 - **Transcript**: upload card, stats, and manual form stack vertically; import
   review rows with long extracted titles truncate in the header and wrap when
   expanded; the semester/grade/area fields stack on narrow widths.
-- **Planner**: at 768 px and below, the week uses Monday–Friday sections with
-  full-width session rows; larger screens retain the timetable. Long titles,
-  room names and manual-slot labels wrap without clipping. Check overlapping
-  sessions stay readable and show a time-conflict label; hidden tutorial
-  alternatives must not appear or create false conflicts. Tap a row to open
-  course details/tutorial choices; test removal, Add courses on empty days,
-  Add slot, Export, unscheduled courses and Complete semester. Past semesters
+- **Planner**: the Monday–Friday calendar grid must remain visible at every
+  window width, including a narrow desktop browser. It must never switch to a
+  day-by-day agenda. On narrow screens, scroll sideways inside the calendar to
+  reach every weekday; the page itself must not overflow horizontally. The time
+  labels stay pinned while scrolling. Overlapping sessions get enough column
+  width to remain readable. Hidden tutorial alternatives must not appear or
+  create false conflicts. Select a course for details/tutorial choices; test
+  removal, adding courses, Add slot, Export, unscheduled courses and Complete semester. Past semesters
   must not expose removal, export or completion; adding a slot remains available.
   The favorites drawer and tutorial choices must remain usable on touch widths.
   Check the entire signed-in semester page, not only the timetable component:
   populated progress cards and area selectors must not widen the page's grid
-  tracks or push session rows beyond the viewport at 320 px and 375 px.
+  tracks or push the calendar container beyond the viewport at 320 px and 375 px.
 - **Account**: long emails (`break-all`) and long study-program names
   (`break-words`) wrap inside their cards.
 

@@ -5,6 +5,7 @@ import {
   END_HOUR,
   buildDayLayout,
   clampPlannerTimeRange,
+  getPlannerCalendarMinWidth,
 } from '../../src/features/planner/utils/plannerDayLayout.ts'
 
 function createBlock(id: string, startMinutes: number, endMinutes: number): PlannerBlock {
@@ -87,6 +88,21 @@ test('buildDayLayout keeps every overlapping block directly visible', () => {
 
 test('buildDayLayout returns empty results for an empty day', () => {
   assert.deepEqual(buildDayLayout([]), { visibleBlocks: [] })
+})
+
+test('calendar keeps readable day and overlap widths on narrow screens', () => {
+  const emptyDays = Array.from({ length: 5 }, () => buildDayLayout([]))
+  assert.equal(getPlannerCalendarMinWidth(emptyDays), 802)
+
+  for (const overlapCount of [1, 2, 5]) {
+    const layout = buildDayLayout(Array.from({ length: overlapCount }, (_, index) =>
+      createBlock(`overlap-${index}`, 600, 720),
+    ))
+    const width = getPlannerCalendarMinWidth([layout, ...emptyDays.slice(1)])
+    const dayWidth = (width - 42 - 5 * 8) / 5
+    assert.ok(dayWidth >= 144)
+    assert.ok(dayWidth / overlapCount >= 112)
+  }
 })
 
 test('planner visible boundary ends at 20:00', () => {
