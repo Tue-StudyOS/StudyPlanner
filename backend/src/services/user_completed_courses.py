@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import secrets
 from typing import Any
 
@@ -7,7 +8,14 @@ from db.d1 import fetch_all
 from services.anrechnung_optimizer import optimize_anrechnung
 from services.authentication import require_authenticated_user
 from services.regulation_assignment_options import (
+    is_flexible_rule_group as _is_flexible_rule_group,
     load_regulation_course_options as _load_course_rule_group_options,
+    load_trusted_completed_course_options,
+    canonicalize_compulsory_assignment,
+    compulsory_course_options,
+    has_unresolved_assignment_evidence,
+    completed_identity_key,
+    study_area_code_to_master_cat as _rule_group_code_to_master_cat,
     load_regulation_rule_groups as _load_rule_groups_for_regulation,
     normalize_study_area_code as _normalize_study_area_code,
 )
@@ -95,60 +103,6 @@ def _normalize_grade(value: Any) -> float:
     )
 
 
-def _rule_group_code_to_master_cat(code: str | None) -> str | None:
-    if not code:
-        return None
-    normalized = code.upper()
-    if normalized.endswith('TECH'):
-        return 'TECH'
-    if normalized.endswith('THEO'):
-        return 'THEO'
-    if normalized.endswith('PRAK'):
-        return 'PRAK'
-    if normalized in {'INFO', 'INFO-INFO', 'ML-CS'} or normalized.endswith('-INFO'):
-        return 'INFO'
-    if normalized in {'ELECTIVE', 'INFO-FOKUS', 'ML-DIVERSE', 'ML-EXP', 'PROSEM', 'UEBK'}:
-        return 'BASIS'
-    if normalized in {'MATH', 'INF', 'INFO-BASIS', 'ML-FOUND'} or normalized.endswith('BASIS'):
-        return 'BASIS'
-    return None
-
-
-def _is_flexible_rule_group(code: str, name: str | None, group_type: str | None) -> bool:
-    normalized_code = code.upper()
-    normalized_name = (name or '').strip().lower()
-    normalized_group_type = (group_type or '').strip().lower()
-
-    if normalized_code == 'THESIS':
-        return False
-    if normalized_code == 'UEBK':
-        return True
-    if normalized_group_type in {'elective_area', 'structured_elective'}:
-        return True
-    if normalized_code in {
-        'PRAK',
-        'TECH',
-        'THEO',
-        'INFO',
-        'ELECTIVE',
-        'INFO-PRAK',
-        'INFO-TECH',
-        'INFO-THEO',
-        'INFO-INFO',
-        'INFO-FOKUS',
-        'INFO-BASIS',
-        'ML-FOUND',
-        'ML-DIVERSE',
-        'ML-CS',
-        'ML-EXP',
-    }:
-        return True
-    return any(
-        keyword in normalized_name
-        for keyword in ('wahl', 'elective', 'fokus', 'basis', 'diverse', 'expanded')
-    )
-
-
 def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
     if not isinstance(payload, dict):
         raise CompletedCourseUpdateError('Each completed course must be a JSON object.')
@@ -182,6 +136,7 @@ def _normalize_completed_course(payload: Any) -> CompletedCoursePayload:
         id=_safe_text(payload.get('id')),
         courseId=course_id,
         externalCourseCode=_safe_text(payload.get('externalCourseCode')),
+        courseNumber=_safe_text(payload.get('courseNumber')),
         title=title,
         ects=_normalize_float(payload.get('ects'), field_name='ects'),
         masterCat=master_cat,
@@ -217,6 +172,11 @@ def _build_assignable_options(
     mapped_options: list[dict[str, Any]],
     rule_groups_by_code: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    if has_unresolved_assignment_evidence(mapped_options):
+        return []
+    compulsory = compulsory_course_options(mapped_options)
+    if compulsory:
+        return compulsory
     assignable_by_code: dict[str, dict[str, Any]] = {}
 
     for option in mapped_options:
@@ -259,6 +219,10 @@ def _resolve_assignment(
     mapped_options: list[dict[str, Any]],
     rule_groups_by_code: dict[str, dict[str, Any]],
 ) -> tuple[str | None, str, bool, list[dict[str, Any]]]:
+    if has_unresolved_assignment_evidence(mapped_options):
+        raise CompletedCourseUpdateError(
+            'This course has unresolved catalog identity or compulsory mapping and needs review before reassignment.'
+        )
     selected_study_area_code = _normalize_study_area_code(course.get('studyAreaCode'))
     assignable_options = _build_assignable_options(course, mapped_options, rule_groups_by_code)
     assignable_codes = [option['studyAreaCode'] for option in assignable_options if option.get('studyAreaCode')]
@@ -276,6 +240,10 @@ def _resolve_assignment(
                 'The selected regulation area is not part of your active examination regulation.'
             )
         is_assignable = selected_study_area_code in unique_assignable_codes
+        if compulsory_course_options(mapped_options) and not is_assignable:
+            raise CompletedCourseUpdateError(
+                'Compulsory courses can only be saved in their compulsory regulation area.'
+            )
         is_flexible = _is_flexible_rule_group(
             selected_study_area_code,
             _safe_text(rule_group.get('name')),
@@ -344,6 +312,7 @@ def _coerce_stored_completed_course(raw_course: Any, fallback_id: str) -> Stored
         id=_safe_text(raw_course.get('id')) or fallback_id,
         courseId=course_id,
         externalCourseCode=_safe_text(raw_course.get('externalCourseCode')),
+        courseNumber=_safe_text(raw_course.get('courseNumber')),
         title=title,
         ects=_optional_float(raw_course.get('ects')) or 0.0,
         masterCat=master_cat,
@@ -379,11 +348,10 @@ async def _load_course_numbers_by_id(env: Any, course_ids: list[int]) -> dict[in
         return {}
 
     unique_course_ids = sorted(set(course_ids))
-    placeholders = ', '.join('?' for _ in unique_course_ids)
     rows = await fetch_all(
         env,
-        f'SELECT id, number FROM courses WHERE id IN ({placeholders})',
-        unique_course_ids,
+        'SELECT id, number FROM courses WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))',
+        [json.dumps(unique_course_ids)],
     )
     return {
         int(row['id']): str(row['number'])
@@ -397,11 +365,10 @@ async def _validate_course_ids(env: Any, course_ids: list[int]) -> None:
         return
 
     unique_course_ids = sorted(set(course_ids))
-    placeholders = ', '.join('?' for _ in unique_course_ids)
     rows = await fetch_all(
         env,
-        f'SELECT id FROM courses WHERE id IN ({placeholders})',
-        unique_course_ids,
+        'SELECT id FROM courses WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))',
+        [json.dumps(unique_course_ids)],
     )
     existing_ids = {int(row['id']) for row in rows}
     missing_ids = [course_id for course_id in unique_course_ids if course_id not in existing_ids]
@@ -420,13 +387,14 @@ async def _serialize_completed_courses(
     stored_courses = await _load_stored_completed_courses(env, username)
     course_ids = [int(course['courseId']) for course in stored_courses if course.get('courseId') is not None]
     course_numbers = await _load_course_numbers_by_id(env, course_ids)
-    course_options = await _load_course_rule_group_options(env, regulation_version_id, course_ids)
+    course_options = await load_trusted_completed_course_options(env, regulation_version_id, stored_courses)
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
 
     serialized_courses: list[dict[str, Any]] = []
     for stored_course in stored_courses:
         course_id = int(stored_course['courseId']) if stored_course.get('courseId') is not None else None
-        row_options = course_options.get(course_id or -1, [])
+        row_options = course_options.get(completed_identity_key(stored_course), [])
+        stored_course = canonicalize_compulsory_assignment(stored_course, row_options)
         resolved_study_area_code = _normalize_study_area_code(stored_course.get('studyAreaCode'))
         master_cat = _normalize_master_cat(stored_course.get('masterCat'))
         if resolved_study_area_code:
@@ -460,7 +428,7 @@ async def _serialize_completed_courses(
             {
                 'id': str(stored_course['id']),
                 'courseId': str(course_id) if course_id is not None else None,
-                'courseNumber': course_numbers.get(course_id) if course_id is not None else None,
+                'courseNumber': stored_course.get('courseNumber') or (course_numbers.get(course_id) if not has_unresolved_assignment_evidence(row_options) else None),
                 'externalCourseCode': _safe_text(stored_course.get('externalCourseCode')),
                 'title': str(stored_course['title']),
                 'ects': float(stored_course['ects']),
@@ -469,7 +437,9 @@ async def _serialize_completed_courses(
                 'studyAreaName': _safe_text(rule_group.get('name')) if rule_group else None,
                 'availableStudyAreaOptions': assignable_options,
                 'categoryLocked': category_locked,
-                'isGradeCounted': resolved_study_area_code != 'UEBK',
+                'assignmentRestricted': bool(compulsory_course_options(row_options)) or has_unresolved_assignment_evidence(row_options),
+                'assignmentNeedsReview': bool(stored_course.get('assignmentNeedsReview')),
+                'isGradeCounted': resolved_study_area_code != 'UEBK' and not stored_course.get('assignmentNeedsReview'),
                 'grade': _optional_float(stored_course.get('grade')),
                 'semester': str(stored_course['semester']),
                 'source': _safe_text(stored_course.get('source')) or 'manual',
@@ -537,6 +507,7 @@ async def get_current_user_anrechnung_optimization(env: Any, request: Any) -> di
                 'grade': course.get('grade'),
                 'currentAreaCode': _normalize_study_area_code(course.get('studyAreaCode')),
                 'candidateAreaCodes': candidate_codes,
+                'assignmentNeedsReview': bool(course.get('assignmentNeedsReview')),
             }
         )
 
@@ -580,6 +551,7 @@ def _build_stored_completed_course(
         id=course.get('id') or _next_completed_course_id(),
         courseId=str(int(course['courseId'])) if course.get('courseId') is not None else None,
         externalCourseCode=course.get('externalCourseCode'),
+        courseNumber=course.get('courseNumber'),
         title=course['title'],
         ects=float(course['ects']),
         masterCat=course['masterCat'],
@@ -636,18 +608,20 @@ async def import_current_user_completed_courses(
     )
     valid_course_ids: set[int] = set()
     if incoming_course_ids:
-        placeholders = ', '.join('?' for _ in incoming_course_ids)
         rows = await fetch_all(
             env,
-            f'SELECT id FROM courses WHERE id IN ({placeholders})',
-            incoming_course_ids,
+            'SELECT id FROM courses WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))',
+            [json.dumps(incoming_course_ids)],
         )
         valid_course_ids = {int(row['id']) for row in rows}
 
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, incoming_course_ids)
     existing_stored_courses = await _load_stored_completed_courses(env, username)
-    next_stored_courses = list(existing_stored_courses)
+    existing_options = await load_trusted_completed_course_options(env, regulation_version_id, existing_stored_courses)
+    next_stored_courses = [canonicalize_compulsory_assignment(
+        course, existing_options.get(completed_identity_key(course), []),
+    ) for course in existing_stored_courses]
     stored_index_by_key = {
         _normalize_completed_course_key(course): index
         for index, course in enumerate(next_stored_courses)
@@ -689,6 +663,12 @@ async def import_current_user_completed_courses(
         existing_index = stored_index_by_key.get(course_key)
         if existing_index is not None:
             existing_course = next_stored_courses[existing_index]
+            if has_unresolved_assignment_evidence(existing_options.get(completed_identity_key(existing_course), [])) or (
+                existing_course.get('assignmentNeedsReview')
+                and completed_identity_key(existing_course) != completed_identity_key(normalized_course)
+            ):
+                failed.append({'id': item_id, 'message': 'An existing course with this catalog ID needs identity review before replacement.'})
+                continue
             if (
                 normalized_course.get('source') == 'transcript_import'
                 and _normalize_course_source(existing_course.get('source'), existing_course.get('id')) == 'transcript_import'
@@ -755,11 +735,22 @@ async def replace_current_user_completed_courses(
     completed_courses = [_normalize_completed_course(item) for item in raw_completed_courses]
     course_ids = [course['courseId'] for course in completed_courses if course['courseId'] is not None]
     validated_course_ids = [int(course_id) for course_id in course_ids]
-    await _validate_course_ids(env, validated_course_ids)
+    existing_stored_courses = await _load_stored_completed_courses(env, username)
+    existing_by_id = {str(course['id']): course for course in existing_stored_courses}
+    await _validate_course_ids(env, [
+        int(course['courseId']) for course in completed_courses
+        if course['courseId'] is not None and not (
+            (existing := existing_by_id.get(str(course.get('id'))))
+            and completed_identity_key(course) == completed_identity_key(existing)
+            and course.get('studyAreaCode') == existing.get('studyAreaCode')
+        )
+    ])
 
     rule_groups_by_code = await _load_rule_groups_for_regulation(env, regulation_version_id)
     course_options = await _load_course_rule_group_options(env, regulation_version_id, validated_course_ids)
-    existing_stored_courses = await _load_stored_completed_courses(env, username)
+    trusted_existing_options = await load_trusted_completed_course_options(
+        env, regulation_version_id, [*existing_stored_courses, *completed_courses],
+    )
     existing_created_by_id = {
         str(course['id']): int(course.get('createdAtUnix') or 0)
         for course in existing_stored_courses
@@ -770,6 +761,28 @@ async def replace_current_user_completed_courses(
     current_unix = _now_unix()
     for course in completed_courses:
         mapped_options = course_options.get(int(course['courseId']), []) if course['courseId'] is not None else []
+        existing = existing_by_id.get(str(course.get('id')))
+        existing_options = trusted_existing_options.get(completed_identity_key(existing), []) if existing else []
+        incoming_options = trusted_existing_options.get(completed_identity_key(course), [])
+        if existing and course.get('courseId') == existing.get('courseId') and (
+            completed_identity_key(course) == completed_identity_key(existing)
+            or (not has_unresolved_assignment_evidence(existing_options)
+                and not has_unresolved_assignment_evidence(incoming_options))
+        ):
+            mapped_options = existing_options
+            if course.get('studyAreaCode') == existing.get('studyAreaCode'):
+                canonical = canonicalize_compulsory_assignment(course, mapped_options)
+                if canonical.get('assignmentNeedsReview'):
+                    # Preserve unresolved rows in bulk PUTs without accepting a
+                    # new placement or borrowing the current catalog ID's mapping.
+                    normalized_courses.append(_build_stored_completed_course(
+                        CompletedCoursePayload(canonical), current_unix=current_unix,
+                        existing_created_at_unix=int(existing.get('createdAtUnix') or 0),
+                    ))
+                    continue
+                course = CompletedCoursePayload(canonical)
+        elif existing and course.get('courseId') == existing.get('courseId'):
+            mapped_options = [{'identityNeedsReview': True}]
         study_area_code, resolved_master_cat, _, _ = _resolve_assignment(
             course,
             mapped_options,

@@ -56,6 +56,8 @@ export interface CompletedCourse {
     groupType: string | null
   }>
   categoryLocked?: boolean
+  assignmentRestricted?: boolean
+  assignmentNeedsReview?: boolean
   isGradeCounted?: boolean
   grade: number | null
   semester: string
@@ -147,6 +149,10 @@ export interface Course {
   room: string
   types: string[]
   ects: number | null
+  ectsSource?: 'catalog_tree' | null
+  ectsAlternatives?: number[]
+  ectsProgramMatched?: boolean
+  ectsTreeOptions?: Array<{ programCode: string; ects: number; sourceLabels: string[] }>
   sws: number | null
   masterCats: MasterCat[]
   studyAreaOptions?: StudyAreaOption[]

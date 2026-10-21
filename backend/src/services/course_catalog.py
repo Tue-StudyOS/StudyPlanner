@@ -6,6 +6,9 @@ import re
 from typing import Any
 
 from db.d1 import D1ExecutionError, fetch_all, fetch_one
+from services.catalog_tree_credits import (
+    CATALOG_TREE_CREDITS_CTE, get_tree_credit_options, get_unambiguous_tree_credits,
+)
 
 # Cross-listed courses from other faculties (MAT-95-*, KOG, GTCNEURO, ...) fail the
 # organisation/number test but are deliberately scraped from the degree-program trees;
@@ -367,7 +370,13 @@ def _build_schedule(appointment_rows: list[dict[str, Any]]) -> list[dict[str, An
     source_indexes: dict[str, int] = {}
 
     for row in appointment_rows:
-        day = _safe_text(row.get("weekday")) or _safe_text(row.get("dateText")) or "TBA"
+        is_single_date = row.get("rhythm") == "Einzeltermin" or bool(
+            row.get("startsOn") and row.get("startsOn") == row.get("endsOn")
+        )
+        day = (
+            (_safe_text(row.get("dateText")) or _safe_text(row.get("startsOn")))
+            if is_single_date else (_safe_text(row.get("weekday")) or _safe_text(row.get("dateText")))
+        ) or "TBA"
         time_text = _safe_text(row.get("timeText")) or "TBA"
         room_text = _safe_text(row.get("roomText")) or "TBA"
         source_course_id = str(row.get("courseId") or "")
@@ -1044,6 +1053,9 @@ def _build_catalog_summary(
             ),
             None,
         )
+    tree_credit_options = get_tree_credit_options(variants) if ects is None else []
+    if tree_credit_options:
+        ects = get_unambiguous_tree_credits(tree_credit_options)
     semester_hours = next(
         (
             value
@@ -1095,6 +1107,8 @@ def _build_catalog_summary(
         "room": first_slot["room"] if first_slot else "TBA",
         "types": types,
         "ects": ects,
+        "ectsSource": "catalog_tree" if tree_credit_options else None,
+        "ectsTreeOptions": tree_credit_options,
         "sws": semester_hours,
         "masterCats": _normalize_master_cats(option_rows),
         "studyAreaOptions": regulation_options,
@@ -1130,10 +1144,12 @@ async def _fetch_catalog_courses_by_ids(env: Any, course_ids: list[int]) -> list
     return await fetch_all(
         env,
         f"""
+        {CATALOG_TREE_CREDITS_CTE}
         SELECT
             c.id,
             c.number,
             {COURSE_KEY_SQL} AS courseKey,
+            tp.paths_json AS catalogTreePathsJson,
             c.title,
             c.organisation,
             c.course_type AS courseType,
@@ -1146,6 +1162,7 @@ async def _fetch_catalog_courses_by_ids(env: Any, course_ids: list[int]) -> list
             c.period_id AS periodId,
             {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
+        LEFT JOIN tree_paths AS tp ON tp.unit_id = c.unit_id AND tp.period_id = c.period_id
         WHERE c.id IN ({JSON_ID_FILTER_SQL})
         """,
         [json.dumps(course_ids, separators=(",", ":"))],
@@ -1263,10 +1280,12 @@ async def list_catalog_courses(
     resolved_period_id = await _resolve_period_id(env, period_id)
     params: list[Any] = []
     sql = f"""
+        {CATALOG_TREE_CREDITS_CTE}
         SELECT
             c.id,
             c.number,
             COALESCE(c.number, c.unit_id) AS courseKey,
+            tp.paths_json AS catalogTreePathsJson,
             c.title,
             c.organisation,
             c.course_type AS courseType,
@@ -1279,6 +1298,7 @@ async def list_catalog_courses(
             c.period_id AS periodId,
             {PERIOD_LABEL_SQL} AS periodLabel
         FROM courses AS c
+        LEFT JOIN tree_paths AS tp ON tp.unit_id = c.unit_id AND tp.period_id = c.period_id
         WHERE {CATALOG_FILTER_SQL}
     """
 

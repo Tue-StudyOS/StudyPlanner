@@ -659,6 +659,7 @@ export function SemesterPlanner({
                 activeSemesterLabel={activeSemesterLabel}
                 isLoadingSemesterPlan={isLoadingSemesterPlan}
                 isPastSemester={isPastSemester}
+                isTourPreview={isPlannerTourPreview}
                 onDropCourse={handleAddCourse}
                 onRemoveCourse={isPastSemester ? undefined : handleRemoveCourse}
                 onOpenCourse={(courseId) => setOpenCourseId(courseId)}

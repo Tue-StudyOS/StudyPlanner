@@ -110,6 +110,7 @@ function CompletedCourseRow({
   onDelete: () => void
   onStudyAreaChange: (studyAreaCode: string) => void
 }) {
+  const { t } = useTranslation()
   const areaOptions = useMemo(
     () => buildCompletedCourseAreaOptions(course, regulationRuleGroups),
     [course, regulationRuleGroups],
@@ -125,14 +126,19 @@ function CompletedCourseRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-fg-mid">{course.title}</div>
         <div className="mt-1 break-words text-[11.5px] text-fg-muted">{formatCompletedSubtitle(course)}</div>
-        {assignedAreaLabel && !(isEditing && canChangeArea) ? (
+        {course.assignmentNeedsReview ? (
+          <div role="status" className="mt-1 break-words text-[11.5px] text-danger">
+            {t('transcript.assignmentNeedsReview')}
+          </div>
+        ) : null}
+        {assignedAreaLabel && !course.assignmentNeedsReview && !(isEditing && canChangeArea) ? (
           <div className="mt-1 break-words text-[11.5px] text-fg-muted">{assignedAreaLabel}</div>
         ) : null}
         {isEditing && canChangeArea ? (
           <div className="mt-2.5 max-w-full sm:max-w-sm">
             <StudyAreaAssignmentField
               label={areaLabel}
-              value={selectedAreaCode}
+              value={course.assignmentNeedsReview ? null : selectedAreaCode}
               options={areaOptions}
               locked={false}
               disabled={isSaving}

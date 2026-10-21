@@ -136,7 +136,7 @@ export function PlannerFeedback({
   }
 
   return (
-    <div className="min-w-0 max-w-full rounded-[10px] border border-border bg-surface px-3 py-4.5 sm:px-5" data-tour="planner-progress">
+    <div className="w-full min-w-0 max-w-full rounded-[10px] border border-border bg-surface px-3 py-4.5 sm:px-5" data-tour="planner-progress">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-[14px] font-semibold text-fg">Study progress for this semester</div>
@@ -199,7 +199,7 @@ export function PlannerFeedback({
               const afterPlanningEcts = roundEcts(area.creditedEcts + area.plannedEcts)
               const { creditedWidth, plannedWidth } = buildProgressWidths(area)
               const targetEcts = area.capacityEcts ?? area.requiredEcts
-              const overCapacityEcts = targetEcts !== null && targetEcts > 0
+              const overCapacityEcts = targetEcts !== null && targetEcts >= 0
                 ? Math.max(0, afterPlanningEcts - targetEcts)
                 : 0
               const targetLabel = targetEcts === null ? 'open' : roundEcts(targetEcts)
@@ -291,9 +291,9 @@ export function PlannerFeedback({
                   ) : null}
 
                   {overCapacityEcts > 0 ? (
-                    <div className="mt-2 text-[11.5px] font-medium text-primary">
-                      {roundEcts(overCapacityEcts)} ECTS more than this area needs — consider moving
-                      a course to another area.
+                    <div role="status" className="mt-2 text-[11.5px] font-medium text-primary">
+                      {roundEcts(overCapacityEcts)} ECTS more than this area needs. Your selection
+                      stays saved; you can move another course out to make room.
                     </div>
                   ) : null}
 
@@ -322,6 +322,7 @@ export function PlannerFeedback({
                           <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
                             {course.options.length > 1 ? (
                               <select
+                                aria-label={`Regulation area for ${course.title}`}
                                 value={course.assignedAreaCode}
                                 onChange={(event) =>
                                   handleManualAssignmentChange(course.id, event.target.value)
@@ -371,6 +372,7 @@ export function PlannerFeedback({
                       <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
                         {course.options.length > 0 ? (
                           <select
+                            aria-label={`Regulation area for ${course.title}`}
                             value=""
                             onChange={(event) =>
                               handleManualAssignmentChange(course.id, event.target.value)

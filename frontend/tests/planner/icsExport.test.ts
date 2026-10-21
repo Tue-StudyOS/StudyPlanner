@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildCourseIcs, buildSemesterPlanIcs, downloadCalendarIcs } from '../../src/features/planner/utils/icsExport.ts'
+import { buildCourseIcs, buildSemesterPlanIcs, downloadCalendarIcs, getCourseExportTutorialOptions } from '../../src/features/planner/utils/icsExport.ts'
 import type { Course } from '../../src/features/courses/types.ts'
 
 function buildCourse(overrides: Partial<Course>): Course {
@@ -115,7 +115,7 @@ test('uses ALMA recurrence bounds, cancellation dates, and ignores administrativ
 
   assert.ok(ics)
   assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20251014T140000/)
-  assert.match(ics, /UNTIL=20260203T215959Z/)
+  assert.match(ics, /UNTIL=20260203T225959Z/)
   assert.match(ics, /EXDATE;TZID=Europe\/Berlin:20251223T140000/)
   assert.doesNotMatch(ics, /Klausurkorrektur/)
 })
@@ -175,7 +175,7 @@ test('course export uses its catalog semester and retains recurrence bounds and 
   assert.ok(ics)
   assert.match(ics, /X-WR-CALNAME:StudyPlanner WS 2025\/26/)
   assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20251014T140000/)
-  assert.match(ics, /UNTIL=20260203T215959Z/)
+  assert.match(ics, /UNTIL=20260203T225959Z/)
   assert.match(ics, /EXDATE;TZID=Europe\/Berlin:20251223T140000/)
 })
 
@@ -214,6 +214,56 @@ test('course export avoids guessing semesters or downloading empty calendars', (
   })), null)
 })
 
+test('individual export selects one tutorial or all without changing lectures', () => {
+  const course = buildCourse({ schedule: [
+    { id: 'lecture', day: 'Mo.', time: '10:00 - 12:00', room: 'Lecture', type: 'Vorlesung' },
+    { id: 'a', day: 'Di.', time: '08:00 - 10:00', room: 'Tutorial A', type: 'Exercise', groupType: 'Vorlesung/Übung', cancellationDates: ['2026-05-26'] },
+    { id: 'b', day: 'Mi.', time: '08:00 - 10:00', room: 'Tutorial B', type: 'Course', groupType: 'Tutorial' },
+  ], exams: [] })
+  const options = getCourseExportTutorialOptions(course)
+  assert.equal(options.length, 2)
+  const one = buildCourseIcs(course, { tutorialSlotIds: [options[0].id] })
+  assert.ok(one)
+  assert.equal((one.match(/BEGIN:VEVENT/g) ?? []).length, 2)
+  assert.match(one, /LOCATION:Lecture/)
+  assert.match(one, /LOCATION:Tutorial A/)
+  assert.doesNotMatch(one, /Tutorial B/)
+  assert.match(one, /EXDATE;TZID=Europe\/Berlin:20260526T080000/)
+  const all = buildCourseIcs(course, { tutorialSlotIds: 'all' })
+  assert.equal((all?.match(/BEGIN:VEVENT/g) ?? []).length, 3)
+  assert.equal((buildCourseIcs(course, { tutorialSlotIds: [] })?.match(/BEGIN:VEVENT/g) ?? []).length, 1)
+})
+
+test('exam and resit choices filter both timed appointments and metadata', () => {
+  const course = buildCourse({ schedule: [
+    { day: '28.07.2026', time: '10:00 - 12:00', room: 'Main exam', type: 'Klausur' },
+    { day: '15.09.2026', time: '10:00 - 12:00', room: 'Resit', type: 'Nachklausur' },
+  ], exams: [
+    { date: '2026-07-28', type: 'Klausur', duration: '' },
+    { date: '2026-09-15', type: 'Nachklausur', duration: '' },
+  ] })
+  const mainOnly = buildCourseIcs(course, { includeExams: true, includeResits: false })
+  assert.ok(mainOnly)
+  assert.match(mainOnly, /20260728/)
+  assert.doesNotMatch(mainOnly, /20260915/)
+  const resitOnly = buildCourseIcs(course, { includeExams: false, includeResits: true })
+  assert.ok(resitOnly)
+  assert.match(resitOnly, /20260915/)
+  assert.doesNotMatch(resitOnly, /20260728/)
+  assert.equal(buildCourseIcs(course, { includeExams: false, includeResits: false }), null)
+})
+
+test('tutorial-only courses can export a selection and ignore non-calendar slots', () => {
+  const course = buildCourse({ schedule: [
+    { id: 'a', day: 'Mo.', time: '10:00 - 12:00', room: 'A', type: 'Tutorial' },
+    { id: 'b', day: 'Mo.', time: '10:00 - 12:00', room: 'B', type: 'Tutorial', calendarRelevant: false },
+  ], exams: [] })
+  assert.equal(getCourseExportTutorialOptions(course).length, 1)
+  assert.equal(buildCourseIcs(course), null)
+  assert.ok(buildCourseIcs(course, { tutorialSlotIds: 'all' }))
+  assert.doesNotMatch(buildCourseIcs(course, { tutorialSlotIds: 'all' }) ?? '', /LOCATION:B/)
+})
+
 test('calendar download preserves the filename and content and releases the object URL', async (context) => {
   let downloadedBlob: Blob | null = null
   let clicked = false
@@ -242,4 +292,105 @@ test('calendar download preserves the filename and content and releases the obje
   assert.equal((downloadedBlob as Blob | null)?.type, 'text/calendar;charset=utf-8')
   assert.equal(await (downloadedBlob as Blob | null)?.text(), 'BEGIN:VCALENDAR\r\nEND:VCALENDAR')
   assert.deepEqual(revoked, ['blob:calendar'])
+})
+
+test('calendar export expands September and weekend blocks with cancellations instead of weekly recurrence', () => {
+  for (const [rhythm, startsOn, endsOn, expected] of [
+    ['Blockveranstaltung', '2026-09-28', '2026-09-30', ['20260928', '20260930']],
+    ['Blockveranstaltung + Sa und So', '2027-02-19', '2027-02-21', ['20270219', '20270220', '20270221']],
+  ] as const) {
+    const ics = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [{
+      day: 'Mo.', time: '09:00 - 15:00', room: 'Block hall', type: 'Seminar', rhythm, startsOn, endsOn,
+      cancellationDates: ['2026-09-29'],
+    }] })] })
+    assert.ok(ics)
+    assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, expected.length)
+    for (const date of expected) assert.ok(ics.includes(`DTSTART;TZID=Europe/Berlin:${date}T090000`))
+    assert.doesNotMatch(ics, /RRULE|20260929|20261005/)
+  }
+})
+
+test('fortnightly export keeps its actual first occurrence across New Year with interval two and cancellations', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'WS 2026/27', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [{
+    day: 'Fr.', time: '10:00 - 12:00', room: '', type: 'Seminar', rhythm: '14-täglich',
+    startsOn: '2026-12-24', endsOn: '2027-01-22', cancellationDates: ['2027-01-08'],
+  }] })] })
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20261225T100000/)
+  assert.match(ics, /RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=FR;UNTIL=20270122T225959Z/)
+  assert.match(ics, /EXDATE;TZID=Europe\/Berlin:20270108T100000/)
+})
+
+test('export honors structured single dates and rejects unknown rhythms or invalid bounds', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [
+    { day: 'Mo.', time: '21:00 - 23:00', room: '', type: 'Seminar', startsOn: '2026-10-03', endsOn: '2026-10-03' },
+    { day: 'Mo.', time: '10:00 - 12:00', room: '', type: 'Unknown', rhythm: 'wird noch bekanntgegeben' },
+    { day: '31.04.2026', time: '10:00 - 12:00', room: '', type: 'Invalid date' },
+    { day: 'Mo.', time: '10:00 - 12:00', room: '', type: 'Reversed bounds', startsOn: '2026-09-30', endsOn: '2026-09-28' },
+  ] })] })
+  assert.ok(ics)
+  assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 1)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20261003T210000/)
+  assert.doesNotMatch(ics, /RRULE|Unknown|Invalid|Reversed/)
+})
+
+test('export does not fabricate midnight times and keeps distinct same-day exam metadata', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [buildCourse({ schedule: [
+    { day: '28.09.2026', time: '10:00 - 12:00', room: '', type: 'Klausur' },
+    { day: '03.10.2026', time: 'TBA', room: '', type: 'Seminar' },
+  ], exams: [
+    { type: 'Exam', date: '2026-09-28', duration: '' },
+    { type: 'Oral exam', date: '2026-09-28', duration: '' },
+    { type: 'Oral exam', date: '2026-09-28', duration: '' },
+    { type: 'Invalid', date: '2026-04-31', duration: '' },
+  ] })] })
+  assert.ok(ics)
+  assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 3)
+  assert.match(ics, /DTSTART;VALUE=DATE:20261003/)
+  assert.match(ics, /Oral exam/)
+  assert.doesNotMatch(ics, /T000000|Invalid/)
+})
+
+test('academic time qualifiers export timed events and retain the published time', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [{
+    day: 'Mo.', time: '10:00 - 12:00 c.t.', room: '', type: 'Vorlesung', rhythm: 'wöchentlich',
+  }] })] })
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20260413T100000/)
+  assert.match(ics, /DTEND;TZID=Europe\/Berlin:20260413T120000/)
+  assert.match(ics, /DESCRIPTION:Time as published: 10:00 - 12:00 c\.t\./)
+  assert.doesNotMatch(ics, /VALUE=DATE/)
+})
+
+test('midnight end times use the next civil date instead of an invalid 24-hour clock value', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [{
+    day: '28.09.2026', time: '23:00 - 24:00', room: '', type: 'Seminar',
+  }] })] })
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20260928T230000/)
+  assert.match(ics, /DTEND;TZID=Europe\/Berlin:20260929T000000/)
+  assert.doesNotMatch(ics, /T240000/)
+})
+
+test('dated block event identities stay stable when other block dates are cancelled', () => {
+  const planned = buildCourse({ exams: [], schedule: [{
+    id: 'block', day: 'Mo.', time: '09:00 - 15:00', room: '', type: 'Seminar',
+    rhythm: 'Blockveranstaltung', startsOn: '2026-09-28', endsOn: '2026-09-30',
+  }] })
+  const initial = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [planned] })
+  planned.schedule[0].cancellationDates = ['2026-09-29', '2026-09-30']
+  const updated = buildSemesterPlanIcs({ semesterLabel: 'SS 2026', hiddenSlotIds: [], courses: [planned] })
+  assert.ok(initial)
+  assert.ok(updated)
+  assert.equal(initial.match(/UID:([^\r\n]+)/)?.[1], updated.match(/UID:([^\r\n]+)/)?.[1])
+})
+
+test('late winter recurrences include the inclusive final Berlin day without leaking into the next day', () => {
+  const ics = buildSemesterPlanIcs({ semesterLabel: 'WS 2026/27', hiddenSlotIds: [], courses: [buildCourse({ exams: [], schedule: [{
+    day: 'Mo.', time: '23:00 - 23:30', room: '', type: 'Seminar', rhythm: 'wöchentlich',
+    startsOn: '2027-02-15', endsOn: '2027-02-22',
+  }] })] })
+  assert.ok(ics)
+  assert.match(ics, /DTSTART;TZID=Europe\/Berlin:20270215T230000/)
+  assert.match(ics, /UNTIL=20270222T225959Z/)
 })

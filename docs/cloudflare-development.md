@@ -64,6 +64,70 @@ Production catalog refresh uses the separate [runtime workflow](cloudflare-runti
 
 ## Daily startup
 
+### Local production snapshot for schedule validation (12 October 2026)
+
+The calendar audit uses an isolated local D1 copy of production, stored under
+`backend/.tmp/calendar-local-ready`. The previous default local database remains
+intact. The ignored SQL snapshot and SQLite backup contain production data and
+must never be committed. The initial production copy had 1,524 courses and 5,254
+appointments. After the full local WS 2026/27 refresh it has 1,525 courses and
+5,257 appointments.
+
+Start the backend against this copy with:
+
+```powershell
+cd backend
+npx wrangler dev --local --persist-to .tmp/calendar-local-ready --port 8787
+```
+
+In another terminal, start the frontend with an explicit local API:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL = 'http://localhost:8787'
+npm run dev
+```
+
+Open `http://localhost:5173/catalog/1210` for Mathematics for Machine Learning.
+The initial pilot restored weekdays on its seven appointments and eleven ALMA
+cancellation dates. The subsequent complete scrape is stored in ignored
+`data_collection/output/calendar-local-2026-10-12/courses_multi_semester.json`.
+It refreshed only WS 2026/27: 148 courses, 471 appointments and 641 exclusions.
+All 147 existing course IDs and 22 saved tutorial references were preserved;
+other semesters and user data were compared row by row and remained intact.
+One course was added and none removed. A pre-refresh backup is stored in ignored
+`backend/.tmp/calendar-before-full-refresh.sqlite`.
+No production import or deployment is part of this validation. The individual export now offers no,
+one, or all tutorials, with exams selected and resits unselected by default.
+
+For a future snapshot, `wrangler d1 export studyplanner-db --remote` reads
+production into an ignored SQL file. Import that dump only into an isolated
+local state, with all local Worker processes for that state stopped. The SQL
+export has no transaction wrapper; wrap the local SQLite restore in a transaction
+to avoid a slow autocommit per INSERT. Keep a backup before applying local tests.
+
+The importer now reads `Wochentag` and `Ausfalltermin`, accepts legacy headers,
+validates cancellation dates, and writes exclusions for both single-file and
+chunked seeds. Cancellation text participates in change detection. Incremental
+cleanup replaces cancellations only for the selected periods. One-off dates
+retain their date label even when their weekday is available.
+
+The full scrape exposed eight cancellations outside their appointment ranges.
+These are reported and ignored because they cannot exclude an occurrence of
+that series; malformed dates still stop the import. Unchanged meetings now
+reserve their existing IDs using dates, times and room before positional fallback
+for edited meetings. This preserved ten saved selections that would otherwise
+have shifted after ALMA inserted a schedule row.
+
+Validation passed with Wrangler 4.149.0: local D1 health and course-detail
+requests, a generated ICS containing two recurring lectures with exclusions
+and two one-off exams, 254 backend tests, five ALMA scraper tests, 389 frontend
+tests (five skipped), frontend lint/build, and the Cloudflare config guard.
+Browser rendering was not inspected because no automation browser was available.
+The separate stale `assessment_dates` issue is not repaired by this pilot.
+
+### Standard local state
+
 Open **two terminals, each at the repository root**.
 
 ```powershell

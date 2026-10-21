@@ -6,7 +6,19 @@ This guide deploys the existing production resources listed in
 
 ## Before deployment
 
-From the repository root:
+Before a production build, fetch the current remote state and verify that the
+release contains it. A local branch named `main` is not proof that it is current:
+
+```powershell
+git fetch origin
+git merge-base --is-ancestor origin/main HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Stop: integrate current origin/main before deploying.' }
+```
+
+Do not deploy a build that omits already-released features. Integrate upstream on
+a dedicated branch and resolve conflicts before merging that branch into main.
+
+Then run these checks from the repository root:
 
 ```powershell
 npm run db:verify-config

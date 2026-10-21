@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
 from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
+from services.course_catalog import _extract_ects_from_text, _fetch_catalog_courses_by_ids, _normalize_master_cats
+from services.catalog_tree_credits import get_tree_credit_options, get_unambiguous_tree_credits
 from services.regulation_assignment_options import (
     load_regulation_course_options,
+    compulsory_course_options,
+    is_flexible_rule_group,
+    study_area_code_to_master_cat,
+    has_unresolved_assignment_evidence,
+    canonicalize_completed_courses,
     load_regulation_rule_groups,
     normalize_optional_float as _normalize_float,
     normalize_study_area_code as _normalize_study_area_code,
@@ -73,6 +81,29 @@ async def load_rule_groups_for_regulation(
     return rule_groups
 
 
+async def _load_catalog_categories(env: Any, course_ids: list[int]) -> dict[int, set[str]]:
+    rows = await fetch_all(
+        env,
+        """
+        SELECT m.course_id AS courseId, sa.code AS studyAreaCode
+        FROM course_curriculum_matches AS m
+        LEFT JOIN module_study_area_options AS opt ON opt.module_id = m.module_id
+        LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
+        WHERE m.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+        UNION ALL
+        SELECT l.course_id, sa.code
+        FROM course_study_area_links AS l
+        JOIN study_areas AS sa ON sa.id = l.study_area_id
+        WHERE l.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+        """,
+        [json.dumps(course_ids), json.dumps(course_ids)],
+    )
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(int(row['courseId']), []).append(row)
+    return {course_id: set(_normalize_master_cats(options)) for course_id, options in grouped.items()}
+
+
 async def load_course_options_for_regulation(
     env: Any,
     regulation_version_id: int | None,
@@ -87,8 +118,38 @@ async def load_course_options_for_regulation(
         course_ids,
         allowed_only=True,
     )
+    rule_groups = await load_regulation_rule_groups(env, regulation_version_id)
+    catalog_categories = await _load_catalog_categories(env, course_ids)
     options_by_course_id: dict[int, list[CourseOption]] = {}
-    for course_id, options in rows.items():
+    for course_id in dict.fromkeys(course_ids):
+        options = rows.get(course_id, [])
+        if has_unresolved_assignment_evidence(options):
+            continue
+        if not compulsory_course_options(options):
+            if course_id not in catalog_categories:
+                continue
+            # Match the UI's active-PO elective expansion before autosave. Manual
+            # capacity is intentionally not checked: users can move a second
+            # course out after moving the first into an already-full area.
+            mapped_codes = {option['studyAreaCode'] for option in options}
+            mapped_categories = {
+                category for option in options
+                if (category := study_area_code_to_master_cat(option['studyAreaCode'])) is not None
+            }
+            if options and not mapped_categories:
+                mapped_categories = catalog_categories[course_id]
+            options = [*options, *[
+                {
+                    'studyAreaCode': code, 'studyAreaName': group.get('name'),
+                    'groupType': group.get('groupType'), 'sortOrder': group.get('sortOrder'),
+                    'ectsCounted': None,
+                }
+                for code, group in rule_groups.items()
+                if code not in mapped_codes
+                and is_flexible_rule_group(code, group.get('name'), group.get('groupType'))
+                and (code == 'UEBK' or not mapped_categories
+                     or study_area_code_to_master_cat(code) in mapped_categories)
+            ]]
         options_by_course_id[course_id] = [
             CourseOption(
                 course_id=course_id,
@@ -188,33 +249,29 @@ def _normalize_balance_assignments(payload: dict[str, Any]) -> dict[str, str]:
     return assignments
 
 
-async def _load_planned_courses(env: Any, course_ids: list[int]) -> dict[int, PlannedCourse]:
-    if not course_ids:
-        return {}
-
-    placeholders = ', '.join('?' for _ in course_ids)
-    rows = await fetch_all(
-        env,
-        f"""
-        SELECT
-            c.id,
-            c.title,
-            MAX(rcm.ects_counted) AS mappedEcts
-        FROM courses AS c
-        LEFT JOIN regulation_course_mappings AS rcm ON rcm.course_id = c.id
-        WHERE c.id IN ({placeholders})
-        GROUP BY c.id, c.title
-        """,
-        course_ids,
-    )
-    return {
-        int(row['id']): PlannedCourse(
-            course_id=int(row['id']),
-            title=_safe_text(row.get('title')) or 'Untitled course',
-            ects=_normalize_float(row.get('mappedEcts')) or 0.0,
-        )
-        for row in rows
-    }
+async def _load_planned_courses(
+    env: Any,
+    course_ids: list[int],
+    course_options: dict[int, list[CourseOption]],
+    study_program_code: str | None,
+) -> dict[int, PlannedCourse]:
+    rows = await _fetch_catalog_courses_by_ids(env, course_ids)
+    courses: dict[int, PlannedCourse] = {}
+    for row in rows:
+        course_id = int(row['id'])
+        mapped_credits = {option.ects_counted for option in course_options.get(course_id, [])
+                          if option.ects_counted > 0}
+        tree_options = [option for option in get_tree_credit_options([row])
+                        if not study_program_code or option['programCode'] == study_program_code]
+        # Use the same published sources as the catalog, never an unrelated PO's
+        # MAX or zero as an invented credit value for newly flexible targets.
+        ects = (next(iter(mapped_credits)) if len(mapped_credits) == 1 else None)
+        if ects is None:
+            ects = _extract_ects_from_text(_safe_text(row.get('shortComment')))
+        if ects is None:
+            ects = get_unambiguous_tree_credits(tree_options)
+        courses[course_id] = PlannedCourse(course_id, _safe_text(row.get('title')) or 'Untitled course', ects or 0.0)
+    return courses
 
 
 def _coerce_completed_course_record(raw_course: Any) -> tuple[int | None, str | None, float] | None:
@@ -240,19 +297,24 @@ async def _load_completed_ects_by_area(
     env: Any,
     username: str,
     rule_groups: dict[str, RuleGroup],
+    regulation_version_id: int | None = None,
 ) -> tuple[dict[str, float], set[int]]:
     stored_value = await load_user_progress_json(env, username, 'completed_courses_json')
     completed_ects_by_area: dict[str, float] = {code: 0.0 for code in rule_groups}
     completed_course_ids: set[int] = set()
 
-    for raw_course in parse_json_array(stored_value):
+    completed_courses = await canonicalize_completed_courses(
+        env, regulation_version_id,
+        [course for course in parse_json_array(stored_value) if isinstance(course, dict)],
+    )
+    for raw_course in completed_courses:
         completed_course = _coerce_completed_course_record(raw_course)
         if completed_course is None:
             continue
         course_id, area_code, ects = completed_course
         if course_id is not None:
             completed_course_ids.add(course_id)
-        if area_code not in rule_groups:
+        if raw_course.get('assignmentNeedsReview') or area_code not in rule_groups:
             continue
         completed_ects_by_area[area_code] = completed_ects_by_area.get(area_code, 0.0) + ects
 
@@ -397,6 +459,8 @@ def _balance_assignments(
             if rule_group is None:
                 continue
             ects = option.ects_counted or course.ects
+            if ects <= 0:
+                continue
             current_total = current_totals.get(option.area_code, 0.0)
             if not _area_has_capacity(rule_group, current_total, ects):
                 continue
@@ -412,12 +476,17 @@ def _balance_assignments(
     for course_id in searchable_course_ids:
         if course_id not in best_assignments:
             unassigned_course_ids.append(str(course_id))
+            unknown_credits = planned_courses[course_id].ects <= 0 and all(
+                option.ects_counted <= 0 for option in options_by_course_id.get(course_id, [])
+            )
             warnings.append(
                 {
-                    'type': 'capacity_unassigned',
+                    'type': 'unknown_credits' if unknown_credits else 'capacity_unassigned',
                     'courseId': str(course_id),
                     'courseTitle': planned_courses[course_id].title,
-                    'message': 'No compatible regulation area has enough remaining ECTS capacity.',
+                    'message': ('Published ECTS are missing or ambiguous; choose an area manually.'
+                                if unknown_credits else
+                                'No compatible regulation area has enough remaining ECTS capacity.'),
                 }
             )
 
@@ -474,16 +543,19 @@ async def balance_current_user_semester_plan(
         }
 
     rule_groups = await load_rule_groups_for_regulation(env, regulation_version_id)
-    planned_courses = await _load_planned_courses(env, course_ids)
     options_by_course_id = await load_course_options_for_regulation(
         env,
         regulation_version_id,
         course_ids,
     )
+    planned_courses = await _load_planned_courses(
+        env, course_ids, options_by_course_id, _safe_text(user['profile'].get('studyProgramCode')),
+    )
     completed_ects_by_area, completed_course_ids = await _load_completed_ects_by_area(
         env,
         username,
         rule_groups,
+        regulation_version_id,
     )
     assignments, warnings, unassigned_course_ids, summary, strict_solution_found = _balance_assignments(
         course_ids,

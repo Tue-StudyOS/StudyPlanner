@@ -48,6 +48,22 @@ class OptimizeAnrechnungTest(unittest.TestCase):
         result = optimize_anrechnung(courses, RULE_GROUPS)
         self.assertEqual(result["baseline"]["a"], "THEO")
 
+    def test_reviewed_assignment_has_no_credit_until_an_explicit_proposal(self) -> None:
+        for candidates in (["TECH"], ["TECH", "THEO"]):
+            with self.subTest(candidates=candidates):
+                result = optimize_anrechnung([{
+                    "id": "review", "ects": 6.0, "grade": 2.0,
+                    "currentAreaCode": "TECH", "candidateAreaCodes": candidates,
+                    "assignmentNeedsReview": True,
+                }], RULE_GROUPS)
+                self.assertEqual(result["baseline"], {})
+                self.assertEqual(result["before"]["creditedEcts"], 0)
+                self.assertEqual(result["after"]["creditedEcts"], 6)
+                self.assertTrue(result["hasImprovement"])
+                self.assertEqual(result["changes"], [{
+                    "completedCourseId": "review", "fromAreaCode": None, "toAreaCode": "TECH",
+                }])
+
     def test_does_not_regress_already_optimal_assignment(self) -> None:
         courses = [
             {"id": "a", "ects": 6.0, "grade": 2.0, "currentAreaCode": "TECH", "candidateAreaCodes": ["TECH", "THEO"]},
