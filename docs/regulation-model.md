@@ -2,6 +2,10 @@
 
 This note defines the minimum backend model needed to match study programs and students to the correct examination regulations.
 
+The [official-source audit](official-po-audit-2026-10.md) identifies confirmed
+curriculum and validation gaps. This schema description is not evidence that the
+seeded rule values fully implement the official POs.
+
 ## Goals
 
 - store one regulation independently from a concrete study-program row
@@ -99,7 +103,8 @@ Fields:
 
 ## Initial strategy
 
-- use the official PO 2021 JSON files in `einzupflegene_po/` as the source of truth for the supported study programs and default regulation versions
+- the initial seed used the PO-2021 JSON files in `einzupflegene_po/`; these are derived transcriptions with confirmed errors, not authoritative legal sources
+- use the official statutes, amendments and handbooks in the [source register](official-po-sources.json) to validate corrections; retain the original JSON for traceability rather than silently treating it as verified
 - seed these six study programs / regulation versions:
   - `BSC_BIOINFO_2021`
   - `BSC_INFO_2021`
@@ -117,7 +122,7 @@ For the current backend model, the matching rule is intentionally simple:
 1. each `study_programs` row is linked to one default `regulation_versions` row through `study_program_regulation_versions`
 2. the `enrollment_match` field records how that link should be interpreted later for a user profile
 3. the current seed uses `program_code`, which means a student profile can be matched by the selected study-program code alone
-4. because only PO 2021 is active right now, the frontend only needs one study-program selection that already includes the PO; the backend resolves the default regulation version internally
+4. the frontend currently exposes one default PO-2021 selection per program; this does not establish that later amendments (notably ML in 2026) or individual admission requirements are fully represented
 5. if the product later needs multiple active regulation versions for one program, the same bridge table can hold multiple rows and still keep one `is_default = 1` mapping
 
 This rule is now exposed through the study-program API so the frontend can load the study program, show the embedded PO label, and let the backend resolve the default regulation automatically.

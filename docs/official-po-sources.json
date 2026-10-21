@@ -1,0 +1,232 @@
+{
+  "purpose": "Audit reference only; not runtime regulation configuration",
+  "checkedAt": "2026-10-21T21:35:45.691Z",
+  "inspectedRevision": "cd738e2465d9573585000a6d0f5cccbb7b9f1d58",
+  "scope": [
+    "BSC_INFO_2021",
+    "BSC_BIOINFO_2021",
+    "BSC_MEDIENINFO_2021",
+    "BSC_MEDIZININFO_2021",
+    "MSC_INFO_2021",
+    "MSC_ML_2021"
+  ],
+  "authorityNote": "University statutes and amendments control. Reading copies are convenience versions; module handbooks supplement the statutes. Current ALMA offerings and examination-board decisions are needed for individual recognition. Local JSON files are derived, not authoritative.",
+  "documents": [
+    {
+      "id": "B-INF",
+      "fileName": "PO_Informatik_BSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "BSC_INFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_BSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatik-bsc-hauptfach/",
+      "pdfPages": 6,
+      "sha256": "85a4a304b5e14b6311735c12dc43446f3a57dc48710d2d7a8c5dc405cb4f004e"
+    },
+    {
+      "id": "B-BIO",
+      "fileName": "PO_Bioinformatik_BSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "BSC_BIOINFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Bioinformatik_BSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/bioinformatik-bsc/",
+      "pdfPages": 6,
+      "sha256": "71c138645be7d6b366d75d9af88bf5324ae18b5ae25f36d0003c0eb0986e0036"
+    },
+    {
+      "id": "B-MEDIA",
+      "fileName": "PO_Medieninformatik_BSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "BSC_MEDIENINFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medieninformatik_BSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/medieninformatik-bsc/",
+      "pdfPages": 6,
+      "sha256": "59c031b296b96319e38fdc93fec85b90d9150ab7ddf3ad8f115f3bd327b53e19"
+    },
+    {
+      "id": "B-MED",
+      "fileName": "PO_Medizininformatik_BSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "BSC_MEDIZININFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medizininformatik_BSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/medizininformatik-bsc/",
+      "pdfPages": 6,
+      "sha256": "f30fa85125cb895c3d6c84d9a01cce23ee4d7f31302994174846af53df8bf2d6"
+    },
+    {
+      "id": "M-INF",
+      "fileName": "PO_Informatik_MSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "MSC_INFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_MSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatikcomputer-science-msc/",
+      "pdfPages": 7,
+      "sha256": "11739cf198548ab4ce3711cd6603025b60542e66ee2b171f5fc2894d722e7aa6"
+    },
+    {
+      "id": "M-ML",
+      "fileName": "PO_MachLearn_MSc_BT_2021_10.pdf",
+      "kind": "special_provisions",
+      "version": "PO 2021",
+      "programs": [
+        "MSC_ML_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_MachLearn_MSc_BT_2021_10.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/machine-learning-msc/",
+      "pdfPages": 7,
+      "sha256": "209a52a84289585ab6dec0a87f0a257da9298b50686c14cda77269505c30ca87"
+    },
+    {
+      "id": "M-ML-READ-2026",
+      "fileName": "LF_PO_MachLearn_MSc_BT_2026_01.pdf",
+      "kind": "consolidated_reading_copy",
+      "version": "PO 2021 with first amendment published in 2026",
+      "programs": [
+        "MSC_ML_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Lesefassungen/LF_PO_MachLearn_MSc_BT_2026_01.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/machine-learning-msc/",
+      "pdfPages": 9,
+      "sha256": "f6b7a42ce624f0824367eef6a5c53d901b90c7edcd3aa29eea3ff3c6f30496a9"
+    },
+    {
+      "id": "M-ML-AM1",
+      "fileName": "AendS_PO_ML_MSc_BT_1AendS_2026_01.pdf",
+      "kind": "amendment",
+      "version": "First amendment, signed 2025-12-16, published 2026 Nr. 1",
+      "programs": [
+        "MSC_ML_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Aenderungssatzungen/AendS_PO_ML_MSc_BT_1AendS_2026_01.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/machine-learning-msc/",
+      "pdfPages": 2,
+      "sha256": "7bc7247188e99b2c37bfa0e3459defc6d4c230d64b660a82518974e1edd54159"
+    },
+    {
+      "id": "AT-BSC",
+      "fileName": "Rahmen-PO_Mono-Bachelorstudiengänge_AT_2021-04.pdf",
+      "kind": "general_provisions",
+      "version": "2021 framework",
+      "programs": [
+        "BSC_INFO_2021",
+        "BSC_BIOINFO_2021",
+        "BSC_MEDIENINFO_2021",
+        "BSC_MEDIZININFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/Rahmen-PO_Mono-Bachelorstudieng%C3%A4nge_AT_2021-04.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatik-bsc-hauptfach/",
+      "pdfPages": 22,
+      "sha256": "6a2d7377e64aff6e2e483385531cfbbe065820a35b0bb223d535eec2f65f1ecb"
+    },
+    {
+      "id": "AT-BSC-AM1",
+      "fileName": "AendS_Rahmen-PO_Mono_Bachelorstudiengänge_AT_2021-04_AT_1AendS_2021_21.pdf",
+      "kind": "amendment",
+      "version": "First amendment, signed 2021-07-22",
+      "programs": [
+        "BSC_INFO_2021",
+        "BSC_BIOINFO_2021",
+        "BSC_MEDIENINFO_2021",
+        "BSC_MEDIZININFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Aenderungssatzungen/AendS_Rahmen-PO_Mono_Bachelorstudieng%C3%A4nge_AT_2021-04_AT_1AendS_2021_21.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatik-bsc-hauptfach/",
+      "pdfPages": 1,
+      "sha256": "61a5f2ac04eb952a8f5faa22450ea610a8d9ff57fb402ece6f0df885a3393f52"
+    },
+    {
+      "id": "AT-BSC-READ",
+      "fileName": "LF_Rahmen-PO_Mono_Bachelorstudiengänge_AT_2021-21.pdf",
+      "kind": "consolidated_reading_copy",
+      "version": "2021 framework including first amendment",
+      "programs": [
+        "BSC_INFO_2021",
+        "BSC_BIOINFO_2021",
+        "BSC_MEDIENINFO_2021",
+        "BSC_MEDIZININFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Lesefassungen/LF_Rahmen-PO_Mono_Bachelorstudieng%C3%A4nge_AT_2021-21.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatik-bsc-hauptfach/",
+      "pdfPages": 22,
+      "sha256": "365e532fd8242008f990512a12cdf7a9f5e88bde22597deb8febc10e853a88e5"
+    },
+    {
+      "id": "AT-MSC",
+      "fileName": "Rahmen-PO_Mono_Masterstudiengänge_AT_2021-04.pdf",
+      "kind": "general_provisions",
+      "version": "2021 framework",
+      "programs": [
+        "MSC_INFO_2021",
+        "MSC_ML_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/Rahmen-PO_Mono_Masterstudieng%C3%A4nge_AT_2021-04.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/studium/satzungen/informatikcomputer-science-msc/",
+      "pdfPages": 22,
+      "sha256": "818fd36c27040012cf038ed0508d421c8d789fab50bc6550ec1ae61c8fc920ad"
+    },
+    {
+      "id": "HB-BSC",
+      "fileName": "MHB_BSc_PO2021_20240502.pdf",
+      "kind": "module_handbook",
+      "version": "Version listed as 2024-03-29",
+      "programs": [
+        "BSC_INFO_2021",
+        "BSC_BIOINFO_2021",
+        "BSC_MEDIENINFO_2021",
+        "BSC_MEDIZININFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/InfoKogni/WSI/Dokumente/Studium/Download/Modulhandbuecher/MHB_BSc_PO2021_20240502.pdf",
+      "indexUrl": "https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/informatik/studium/studierende/downloads/modulhandbuecher-und-veranstaltungsverzeichnisse/bachelor-po-2021/",
+      "pdfPages": 147,
+      "sha256": "773e7cba89887a35d4f9c94b126bb89b3adb4a909340b9c288429d30fa7cbf76"
+    },
+    {
+      "id": "HB-MSC",
+      "fileName": "InfoX4MasterModulhandbuch_13102023.pdf",
+      "kind": "module_handbook",
+      "version": "Version listed as 2023-10-13",
+      "programs": [
+        "MSC_INFO_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/InfoKogni/WSI/Dokumente/Studium/Download/Modulhandbuecher/InfoX4MasterModulhandbuch_13102023.pdf",
+      "indexUrl": "https://uni-tuebingen.de/en/faculties/faculty-of-science/departments/computer-science/studies/students/downloads/module-handbooks-and-module-lists/master-po-2021/",
+      "pdfPages": 51,
+      "sha256": "6bb8fff517e9edff827f0a2547f05527c44f8959d24c9a21e878a58f2df14577"
+    },
+    {
+      "id": "HB-ML",
+      "fileName": "MasterMachineLearning-Modulhandbuch_16012021.pdf",
+      "kind": "module_handbook",
+      "version": "Version listed as 2021-01-16",
+      "programs": [
+        "MSC_ML_2021"
+      ],
+      "url": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/InfoKogni/WSI/Dokumente/Studium/Download/Modulhandbuecher/MasterMachineLearning-Modulhandbuch_16012021.pdf",
+      "indexUrl": "https://uni-tuebingen.de/en/faculties/faculty-of-science/departments/computer-science/studies/students/downloads/module-handbooks-and-module-lists/master-po-2021/",
+      "pdfPages": 65,
+      "sha256": "00b5ea7cf399ced27c5822b52fcc15f19d10d63b8ea4edbf0955080ed32aadf4"
+    }
+  ],
+  "supplementaryPages": [
+    {
+      "id": "FAQ-ML",
+      "kind": "department_guidance",
+      "url": "https://uni-tuebingen.de/en/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/informatik/studium/studierende/lehre-studienorganisation/studiengaenge/machine-learning/faq/",
+      "use": "Current module credits/recognition and graded Expanded Perspectives excluded from degree grade"
+    }
+  ]
+}

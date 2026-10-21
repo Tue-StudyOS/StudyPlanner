@@ -17,7 +17,7 @@ and the two daily startup commands.
 
 - [Authentication and request security](authentication.md).
 - [Semester planner](semester-planner.md).
-- [Examination regulations](regulation-model.md).
+- [Examination regulations](regulation-model.md) and the [official-source audit](official-po-audit-2026-10.md) with confirmed model discrepancies.
 - [Catalog API fields](catalog-api-field-audit.md).
 - [Progress visualization categories](progress-visualization-categories.md).
 - [Transcript import scope](transcript-import-scope.md).
