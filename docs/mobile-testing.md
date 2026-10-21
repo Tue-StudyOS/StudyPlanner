@@ -35,11 +35,12 @@ On real devices, prefer iOS Safari and Android Chrome.
   expanded; the semester/grade/area fields stack on narrow widths.
 - **Planner**: the Monday–Friday calendar grid must remain visible at every
   window width, including a narrow desktop browser. It must never switch to a
-  day-by-day agenda. On narrow screens, scroll sideways inside the calendar to
-  reach every weekday; the page itself must not overflow horizontally. The time
-  labels stay pinned while scrolling. Overlapping sessions get enough column
-  width to remain readable. Hidden tutorial alternatives must not appear or
-  create false conflicts. Select a course for details/tutorial choices; test
+  day-by-day agenda. All five weekdays and the hour labels must fit without
+  horizontal scrolling, including at 320 px. Columns, gaps and text scale with
+  the calendar container's width. Compact cards prioritize course titles; session
+  types, full titles, tutorial choices and removal remain in course details.
+  Overlapping sessions stay directly selectable. Hidden tutorial alternatives
+  must not appear or create false conflicts. Select a course for details; test
   removal, adding courses, Add slot, Export, unscheduled courses and Complete semester. Past semesters
   must not expose removal, export or completion; adding a slot remains available.
   The favorites drawer and tutorial choices must remain usable on touch widths.
