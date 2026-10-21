@@ -4,6 +4,7 @@ import type { CompletedCourse, Course } from '../../src/features/courses/index.t
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../src/shared/utils/regulation.ts'
 import {
   getCurrentPlannerAssignment,
+  getPlannerCourseEctsForArea,
   getPlannerCourseAreaOptions,
   getSuggestedPlannerAssignment,
   resolveAutomaticPlannerAssignments,
@@ -120,6 +121,37 @@ test('getCurrentPlannerAssignment keeps a valid manual choice and rejects an inv
     planAssignments: { 'two-areas': 'UNKNOWN' },
   })
   assert.equal(invalidManual, null)
+})
+
+test('manual selections remain valid above capacity while another course is moved out', () => {
+  const course = createCourse({
+    id: 'moving-course',
+    masterCats: ['PRAK', 'THEO'],
+    studyAreaOptions: [createStudyAreaOption('A-PRAK'), createStudyAreaOption('B-THEO')],
+  })
+  const context = {
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: RULE_GROUPS,
+    planAssignments: { [course.id]: 'B-THEO' },
+    plannedCourses: [course],
+    completedCourses: [createCompletedCourse({ id: 'full', ects: 9, studyAreaCode: 'B-THEO' })],
+  }
+  assert.equal(getCurrentPlannerAssignment(course, context), 'B-THEO')
+  assert.equal(getSuggestedPlannerAssignment(course, context), 'B-THEO')
+})
+
+test('tags from another program do not widen the selected PO assignment targets', () => {
+  const course = createCourse({
+    id: 'cross-listed',
+    masterCats: ['PRAK', 'THEO'],
+    studyAreaOptions: [createStudyAreaOption('A-PRAK'), {
+      ...createStudyAreaOption('B-THEO'), programCode: 'OTHER-PROGRAM',
+    }],
+  })
+  assert.deepEqual(
+    getPlannerCourseAreaOptions(course, STUDY_PROGRAM_CODE, RULE_GROUPS).map((option) => option.code),
+    ['A-PRAK'],
+  )
 })
 
 test('getSuggestedPlannerAssignment prefers the area with the most remaining capacity', () => {
@@ -371,5 +403,95 @@ test('resolveAutomaticPlannerAssignments handles many flexible courses', () => {
   }
   for (const [areaCode, total] of totals) {
     assert.ok(total <= 9, `area ${areaCode} exceeds its capacity: ${total}`)
+  }
+})
+
+const BSC_RULE_GROUPS: RegulationRuleGroup[] = [
+  { code: 'INF', name: 'Mandatory', groupType: 'pflicht' },
+  { code: 'INFO', name: 'Elective', groupType: 'wahlpflicht' },
+  { code: 'UEBK', name: 'Professional skills', groupType: 'free_choice' },
+]
+
+test('selected-program Pflicht metadata restricts Math3 and Theory1 without a title blacklist', () => {
+  const option = { ...createStudyAreaOption('MATH'), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: 'allowed' }
+  const math = createCourse({ id: '1194', title: 'Mathematik 3', masterCats: ['INFO'], studyAreaOptions: [
+    option, { ...option, studyAreaCode: 'INFO', areaType: 'wahlpflicht' },
+    { ...option, programCode: 'OTHER_PO', studyAreaCode: 'INFO', areaType: 'elective_area' },
+  ] })
+  assert.deepEqual(getPlannerCourseAreaOptions(math, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['INF'])
+  assert.equal(getCurrentPlannerAssignment(math, {
+    studyProgramCode: 'BSC_INFO_2021', regulationRuleGroups: BSC_RULE_GROUPS, planAssignments: { '1194': 'INFO' },
+  }), 'INF')
+  const theory = { ...math, id: '1197', studyAreaOptions: [{ ...option, studyAreaCode: 'INF' }] }
+  assert.deepEqual(getPlannerCourseAreaOptions(theory, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['INF'])
+  assert.deepEqual(getPlannerCourseAreaOptions(math, 'OTHER_PO', BSC_RULE_GROUPS).map((area) => area.code), ['INFO', 'UEBK'])
+  assert.deepEqual(getPlannerCourseAreaOptions({ ...math, studyAreaOptions: [] }, 'BSC_INFO_2021', BSC_RULE_GROUPS)
+    .map((area) => area.code), ['INFO', 'UEBK'])
+  assert.deepEqual(getPlannerCourseAreaOptions(math, 'BSC_INFO_2021', [
+    ...BSC_RULE_GROUPS, { code: 'MATH', name: 'Math', groupType: 'pflicht' },
+  ]).map((area) => area.code), ['MATH'])
+})
+
+test('required elective buckets stay flexible while individually required ÜBK components stay in ÜBK', () => {
+  const skills = createCourse({ id: 'skills', studyAreaOptions: [{
+    ...createStudyAreaOption('UEBK'), programCode: 'BSC_INFO_2021', areaType: 'free_choice', optionStatus: 'required',
+  }] })
+  assert.deepEqual(getPlannerCourseAreaOptions(skills, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['UEBK'])
+  const foundations = createCourse({ id: 'foundations', masterCats: ['BASIS'], studyAreaOptions: [{
+    ...createStudyAreaOption('ML-FOUND'), areaType: 'structured_elective', optionStatus: 'required',
+  }] })
+  assert.deepEqual(getPlannerCourseAreaOptions(foundations, STUDY_PROGRAM_CODE, [
+    { code: 'ML-FOUND', name: 'Foundations', groupType: 'structured_elective', requiredEcts: 24 },
+    { code: 'ML-DIVERSE', name: 'Diverse', groupType: 'elective_area' },
+    { code: 'UEBK', name: 'Skills', groupType: 'free_choice' },
+  ]).map((area) => area.code), ['ML-FOUND', 'ML-DIVERSE', 'UEBK'])
+})
+
+test('ambiguous compulsory planner candidates require an explicit choice rather than a silent suggestion', () => {
+  const course = createCourse({ id: 'ambiguous', studyAreaOptions: ['INF', 'UEBK'].map((studyAreaCode) => ({
+    ...createStudyAreaOption(studyAreaCode), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: 'required',
+  })) })
+  const context = {
+    studyProgramCode: 'BSC_INFO_2021', regulationRuleGroups: BSC_RULE_GROUPS, planAssignments: {},
+    plannedCourses: [course], completedCourses: [],
+  }
+  assert.equal(getSuggestedPlannerAssignment(course, context), null)
+  assert.equal(getCurrentPlannerAssignment(course, { ...context, planAssignments: { ambiguous: 'UEBK' } }), 'UEBK')
+})
+
+test('excluded Pflicht metadata is ignored by option selection and per-area ECTS', () => {
+  for (const status of ['blocked', 'excluded', 'forbidden', ' BLOCKED ']) {
+    const course = createCourse({ id: status, masterCats: ['INFO'], studyAreaOptions: [
+      { ...createStudyAreaOption('INF'), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: status },
+      { ...createStudyAreaOption('INFO'), programCode: 'BSC_INFO_2021', ectsCounted: 99, optionStatus: status },
+      { ...createStudyAreaOption('INFO'), programCode: 'BSC_INFO_2021', areaType: 'wahlpflicht', ectsCounted: 6, optionStatus: 'allowed' },
+    ] })
+    assert.deepEqual(getPlannerCourseAreaOptions(course, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['INFO', 'UEBK'])
+    assert.equal(getPlannerCourseEctsForArea(course, 'INFO', 'BSC_INFO_2021'), 6)
+  }
+})
+
+test('generic UEBK Pflicht buckets allow elective placement; individually required components do not', () => {
+  const course = createCourse({ id: 'skills', masterCats: ['INFO'], studyAreaOptions: [
+    { ...createStudyAreaOption('UEBK'), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: 'allowed' },
+    { ...createStudyAreaOption('INFO'), programCode: 'BSC_INFO_2021', areaType: 'wahlpflicht', optionStatus: 'allowed' },
+  ] })
+  assert.deepEqual(getPlannerCourseAreaOptions(course, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['UEBK', 'INFO'])
+  const required = { ...course, studyAreaOptions: course.studyAreaOptions?.map((option) => (
+    option.studyAreaCode === 'UEBK' ? { ...option, optionStatus: 'required' } : option
+  )) }
+  assert.deepEqual(getPlannerCourseAreaOptions(required, 'BSC_INFO_2021', BSC_RULE_GROUPS).map((area) => area.code), ['UEBK'])
+})
+
+test('unresolved compulsory destinations never unlock elective or partial known destinations', () => {
+  const course = createCourse({ id: 'unknown', masterCats: ['INFO'], studyAreaOptions: [
+    { ...createStudyAreaOption('UNKNOWN'), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: 'allowed' },
+    { ...createStudyAreaOption('INFO'), programCode: 'BSC_INFO_2021', areaType: 'wahlpflicht', optionStatus: 'allowed' },
+  ] })
+  for (const studyAreaOptions of [course.studyAreaOptions, [
+    ...course.studyAreaOptions!,
+    { ...createStudyAreaOption('INF'), programCode: 'BSC_INFO_2021', areaType: 'pflicht', optionStatus: 'allowed' },
+  ]]) {
+    assert.deepEqual(getPlannerCourseAreaOptions({ ...course, studyAreaOptions }, 'BSC_INFO_2021', BSC_RULE_GROUPS), [])
   }
 })

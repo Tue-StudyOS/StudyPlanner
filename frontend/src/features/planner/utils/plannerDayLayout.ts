@@ -7,14 +7,16 @@ const PLANNER_START_MINUTES = START_HOUR * MINUTES_PER_HOUR
 const PLANNER_END_MINUTES = END_HOUR * MINUTES_PER_HOUR
 export const PIXELS_PER_HOUR = 64
 
-interface PositionedPlannerBlock extends PlannerBlock {
+type LayoutBlock = Omit<PlannerBlock, 'day'> & { day: string }
+
+type PositionedPlannerBlock<T extends LayoutBlock> = T & {
   columnIndex: number
   visibleColumnCount: number
   overlapGroupKey: string
 }
 
-interface PlannerDayLayout {
-  visibleBlocks: PositionedPlannerBlock[]
+interface PlannerDayLayout<T extends LayoutBlock> {
+  visibleBlocks: PositionedPlannerBlock<T>[]
 }
 
 export function clampPlannerTimeRange(
@@ -32,7 +34,7 @@ export function clampPlannerTimeRange(
 // Greedy interval-graph coloring per overlap cluster: every overlapping block
 // remains directly visible in its own column instead of being hidden behind a
 // disruptive "+n" badge.
-export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
+export function buildDayLayout<T extends LayoutBlock = PlannerBlock>(dayBlocks: T[]): PlannerDayLayout<T> {
   if (dayBlocks.length === 0) {
     return { visibleBlocks: [] }
   }
@@ -40,7 +42,7 @@ export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
   const sortedBlocks = [...dayBlocks].sort(
     (left, right) => left.startMinutes - right.startMinutes || left.endMinutes - right.endMinutes,
   )
-  const clusters: PlannerBlock[][] = []
+  const clusters: T[][] = []
 
   sortedBlocks.forEach((block) => {
     const currentCluster = clusters.at(-1)
@@ -58,11 +60,11 @@ export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
     clusters.push([block])
   })
 
-  const visibleBlocks: PositionedPlannerBlock[] = []
+  const visibleBlocks: PositionedPlannerBlock<T>[] = []
 
   clusters.forEach((cluster, clusterIndex) => {
     const columnEndMinutes: number[] = []
-    const positionedClusterBlocks: Array<PlannerBlock & { columnIndex: number }> = []
+    const positionedClusterBlocks: Array<T & { columnIndex: number }> = []
 
     cluster.forEach((block) => {
       let columnIndex = columnEndMinutes.findIndex((endMinutes) => endMinutes <= block.startMinutes)

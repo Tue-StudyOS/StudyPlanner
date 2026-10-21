@@ -49,3 +49,12 @@ test('progress is zero when required ECTS is zero', () => {
   const stats = computeStudyStats([course(6, 2.0)], 0)
   assert.equal(stats.progress, 0)
 })
+
+test('assignments awaiting compulsory-area review do not silently affect the grade average', () => {
+  const stats = computeStudyStats([
+    { ects: 9, grade: 1, studyAreaCode: 'INFO', assignmentNeedsReview: true },
+    { ects: 6, grade: 2, studyAreaCode: 'INF' },
+  ], 180)
+  assert.equal(stats.totalEcts, 15)
+  assert.equal(stats.averageGrade, 2)
+})

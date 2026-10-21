@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { SeasonSymbol } from '../../../shared/components/SeasonSymbol'
 import { SEASON_HEADER_ICON_CLASS } from '../../../shared/components/seasonSymbolStyles.ts'
 import { useTranslation } from '../../i18n'
-import { buildCourseIcs, downloadCalendarIcs } from '../../planner/utils/icsExport.ts'
+import { CourseCalendarExport } from './CourseCalendarExport.tsx'
+import { getCourseEctsLabel } from '../utils/courseEcts.ts'
 import type { Course, CourseParticipantLimit } from '../types'
 import { buildAlmaCourseUrl } from '../utils/almaUrl.ts'
 import { getDetailSeasonTermType } from '../utils/catalogOffering.ts'
@@ -21,11 +22,6 @@ const EMPTY_VALUES = new Set(['', '–', '-', 'tba', 'unknown', 'no registration
 
 function hasValue(value: string | null | undefined): value is string {
   return Boolean(value) && !EMPTY_VALUES.has(value!.trim().toLowerCase())
-}
-
-function formatEcts(ects: number | null): string | null {
-  if (ects === null) return null
-  return Number.isInteger(ects) ? String(ects) : ects.toFixed(1)
 }
 
 function formatParticipantLimit(limit: CourseParticipantLimit): string | null {
@@ -130,7 +126,6 @@ export function CourseDetailBody({
 }: CourseDetailBodyProps) {
   const { t } = useTranslation()
   const title = cleanCourseTitle(course.title, course.number)
-  const calendarContent = calendarExportReady ? buildCourseIcs(course) : null
   const learningPlatformLinks = buildLearningPlatformLinks(course.externalLinks, course.illias)
   const almaUrl = buildAlmaCourseUrl(course.detailUrl)
   const seasonTermType = getDetailSeasonTermType(course)
@@ -156,8 +151,11 @@ export function CourseDetailBody({
   if (hasValue(course.lecturer) || (course.lecturers?.length ?? 0) > 0) {
     factRows.push([t('courseDetail.lecturer'), formatCourseLecturerName(course)])
   }
-  const ectsText = formatEcts(course.ects)
-  if (ectsText) factRows.push(['ECTS', ectsText])
+  const ectsText = getCourseEctsLabel(course)
+  if (ectsText) factRows.push([
+    course.ectsSource === 'catalog_tree' ? t('courseDetail.treeEcts') : 'ECTS',
+    course.ects === null ? `${ectsText} · ${t(course.ectsProgramMatched === false ? 'courseDetail.ectsNotConfirmedForProgram' : 'courseDetail.programDependentEcts')}` : ectsText,
+  ])
   if (course.sws !== null) factRows.push(['SWS', `${course.sws} SWS`])
   const participantLimitText = formatParticipantLimits(course.participantLimits)
   if (participantLimitText) factRows.push([t('courseDetail.participants'), participantLimitText])
@@ -210,27 +208,7 @@ export function CourseDetailBody({
 
       <Section title={t('courseDetail.weeklySchedule')}>
         <CourseScheduleDetails course={course} tutorialSelection={tutorialSelection} />
-        <div className="mt-4 grid min-w-0 gap-1.5">
-          <button
-            type="button"
-            disabled={!calendarContent}
-            aria-describedby={`calendar-export-hint-${course.id}`}
-            onClick={() => {
-              if (!calendarContent) return
-              const filename = `studyplanner-${course.number || course.id}-${course.periodLabel}`
-                .replace(/[<>:"/\\|?*\s]+/g, '-')
-              downloadCalendarIcs(calendarContent, `${filename}.ics`)
-            }}
-            className="w-full max-w-full rounded-md border border-border px-3 py-2.5 text-[13px] font-medium text-fg transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t('planner.exportCalendar')}
-          </button>
-          <p id={`calendar-export-hint-${course.id}`} className="break-words text-[11px] leading-relaxed text-fg-muted">
-            {t(calendarContent ? 'courseDetail.calendarExportHint' : 'courseDetail.calendarExportUnavailable', {
-              period: course.periodLabel ?? '',
-            })}
-          </p>
-        </div>
+        <CourseCalendarExport key={course.id} course={course} ready={calendarExportReady} />
       </Section>
 
       {hasValue(course.description) ? (

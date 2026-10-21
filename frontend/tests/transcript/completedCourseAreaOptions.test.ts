@@ -95,3 +95,18 @@ test('completedCourseAreaLabel prefers the regulation label for the stored area'
     null,
   )
 })
+
+test('compulsory server restrictions do not reintroduce electives or an invalid stored area', () => {
+  const course = {
+    courseId: '1197', studyAreaCode: 'UEBK', assignmentRestricted: true,
+    availableStudyAreaOptions: [{ studyAreaCode: 'INF', studyAreaName: 'Mandatory', groupType: 'pflicht' }],
+  }
+  assert.deepEqual(buildCompletedCourseAreaOptions(course, RULE_GROUPS).map((option) => option.code), ['INF'])
+  assert.deepEqual(buildCompletedCourseAreaOptions({ ...course, assignmentRestricted: false, categoryLocked: true }, RULE_GROUPS)
+    .map((option) => option.code), ['INF'])
+  const ambiguous = { ...course, availableStudyAreaOptions: [
+    ...course.availableStudyAreaOptions,
+    { studyAreaCode: 'MATH', studyAreaName: 'Mathematics', groupType: 'pflicht' },
+  ] }
+  assert.deepEqual(buildCompletedCourseAreaOptions(ambiguous, RULE_GROUPS).map((option) => option.code), ['INF', 'MATH'])
+})

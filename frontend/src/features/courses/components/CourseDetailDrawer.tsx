@@ -12,6 +12,7 @@ import { CourseDetailBody } from './CourseDetailBody'
 
 interface CourseDetailDrawerProps {
   courseId: string
+  studyProgramCode?: string | null
   // Summary row from the already-loaded catalog list; paints instantly while
   // the full record loads and stays as fallback if that request fails. Deep
   // links open the drawer before the list row exists, so it may be null.
@@ -26,6 +27,7 @@ interface CourseDetailDrawerProps {
 
 export function CourseDetailDrawer({
   courseId,
+  studyProgramCode,
   listCourse = null,
   isFavorite,
   favoriteDisabled = false,
@@ -41,7 +43,7 @@ export function CourseDetailDrawer({
   useBodyScrollLock()
   // The catalog list only carries summary data; the full record adds the
   // description, exam dates, prerequisites, and learning platform links.
-  const { course: detailCourse, isLoading, error } = useCatalogCourseDetail(courseId)
+  const { course: detailCourse, isLoading, error } = useCatalogCourseDetail(courseId, studyProgramCode)
   const displayCourse = detailCourse && listCourse
     ? mergeCourseDetails(listCourse, detailCourse)
     : detailCourse ?? listCourse

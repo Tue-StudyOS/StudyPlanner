@@ -46,3 +46,51 @@ to guess the masterCat. Matched courses always use the catalog-derived masterCat
 | "Mathematics"                                            | BASIS     |
 | "Professional Skills", "Compulsory" (BSc mandatory area) | BASIS     |
 | anything else                                            | INFO      |
+
+## Compulsory assignment restrictions
+
+Assignment eligibility is scoped to the selected degree and examination regulation,
+not to a course title or its broad `masterCat`. Current catalog module options and
+direct study-area links supplement the legacy regulation-mapping snapshot.
+An individually compulsory mapping (`pflicht`/`mandatory`/`required` area metadata
+or option status) excludes permissive cross-listings for that same program. Required
+elective buckets, including ML foundations, do not make every eligible course
+compulsory. A generic Pflicht ÜBK bucket also does not make its courses compulsory;
+only explicit required course/module status restricts a ÜBK component. Blocked,
+excluded and forbidden mappings never create assignment options or restrictions.
+
+Only BSC_INFO_2021 maps the legacy compulsory MATH area to active INF (displayed
+as MAIN), and only when MATH is absent and INF exists. Reference JSON ECTS remain
+unchanged: legacy source codes and credits are not rewritten by this resolution.
+
+Completed-course reads, progress and optimization canonicalize a single certain
+compulsory destination without writing. Existing rows need a matching stored/catalog
+title and every available stored code must agree with the catalog. A numeric ID or
+generic/nonunique code alone is not evidence because reseeds reuse IDs. Uncertain
+identities, unresolved compulsory destination codes and ambiguous invalid placements
+are flagged and excluded from regulation-area credit until explicitly resolved;
+no nonexistent destination is inferred. An existing confirmed destination is preserved.
+Unchanged unresolved rows can be retained in bulk saves without preventing unrelated
+edits; new invalid placements are rejected. Optimization starts those rows at zero
+credit and reports any resolvable assignment as an explicit proposal.
+No courses, grades, semesters or user-facing titles are removed or replaced.
+Repairs persist on completed-course PUT (for an unchanged prior assignment) or
+import writes. New incompatible compulsory selections are rejected. Unclassified
+catalog-picked transcript courses can still use their official compulsory area;
+anonymous external rows remain limited to flexible areas.
+
+## Manual planner moves and capacity
+
+Planner save validation uses the same active-PO elective categories as the UI,
+including ÜBK for non-compulsory courses. Tags from another program do not widen
+these targets. Compulsory or unresolved mappings remain restricted.
+
+An eligible manual choice remains saved even when its area exceeds the ECTS target.
+The progress card shows the excess; users can move another course out afterwards
+without a timed rollback. Explicit auto-assignment still respects area capacities,
+using current selected-PO module credits, published course credits or unambiguous
+program-specific tree credits. Unknown credits are not treated as zero-credit
+successes. Courses without any catalog classification stay unassigned; cross-listed
+courses with other-program classification retain the UI's flexible fallback.
+Assignments to removed or incompatible areas remain stale metadata and are dropped
+without removing courses from the semester plan.

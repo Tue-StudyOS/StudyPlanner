@@ -3,6 +3,8 @@ import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/
 import {
   buildAssignableRegulationAreaOptions,
   buildRelevantCourseAreaOptions,
+  hasCompulsoryCourseMapping,
+  isEligibleStudyAreaOption,
   getEffectiveRuleGroupCapacity,
 } from '../../../shared/utils/regulation.ts'
 
@@ -56,7 +58,7 @@ function buildCreditedEctsByArea(
   const creditedEctsByArea = new Map<string, number>()
 
   completedCourses.forEach((course) => {
-    if (!course.studyAreaCode) {
+    if (!course.studyAreaCode || course.assignmentNeedsReview) {
       return
     }
     creditedEctsByArea.set(
@@ -189,7 +191,8 @@ export function getPlannerCourseEctsForArea(
   studyProgramCode: string | null,
 ): number {
   const matchingOptions = course.studyAreaOptions?.filter((option) =>
-    option.studyAreaCode === areaCode
+    isEligibleStudyAreaOption(option)
+    && option.studyAreaCode === areaCode
     && (!studyProgramCode || option.programCode === studyProgramCode),
   ) ?? []
   const matchingOption = matchingOptions.find((option) => typeof option.ectsCounted === 'number')
@@ -238,6 +241,10 @@ export function getSuggestedPlannerAssignment(
   const manualAssignment = context.planAssignments[course.id]
   if (manualAssignment && options.some((option) => option.code === manualAssignment)) {
     return manualAssignment
+  }
+
+  if (options.length > 1 && hasCompulsoryCourseMapping(course.studyAreaOptions, context.studyProgramCode)) {
+    return null
   }
 
   const capacityEctsByArea = getCapacityEctsByArea(context.regulationRuleGroups)

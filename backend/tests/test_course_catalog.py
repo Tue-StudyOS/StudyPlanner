@@ -827,5 +827,24 @@ class GroupCatalogLecturerRowsTest(unittest.TestCase):
         )
 
 
+class ImportedWeekdayCompatibilityTest(unittest.TestCase):
+    def test_one_off_exam_keeps_date_when_weekday_is_available(self) -> None:
+        slot = _build_schedule([{
+            "weekday": "Mi.", "rhythm": "Einzeltermin", "dateText": "10.02.2027",
+            "startsOn": "2027-02-10", "endsOn": "2027-02-10", "note": "Klausur",
+        }])[0]
+        self.assertEqual(slot["day"], "10.02.2027")
+        self.assertEqual(slot["type"], "Klausur")
+
+    def test_weekly_lecture_uses_imported_weekday(self) -> None:
+        slot = _build_schedule([{
+            "weekday": "Di.", "rhythm": "w\u00f6chentlich", "dateText": "13.10.2026 - 02.02.2027",
+            "startsOn": "2026-10-13", "endsOn": "2027-02-02", "note": "Vorlesung",
+            "cancellationDatesJson": '["2026-12-29", "2027-01-05"]',
+        }])[0]
+        self.assertEqual(slot["day"], "Di.")
+        self.assertEqual(slot["cancellationDates"], ["2026-12-29", "2027-01-05"])
+
+
 if __name__ == "__main__":
     unittest.main()

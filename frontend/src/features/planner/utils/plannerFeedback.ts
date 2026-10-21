@@ -242,7 +242,7 @@ function buildManualBlocks(
   return blocks
 }
 
-export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[] {
+export function markPlannerBlockOverlaps<T extends Omit<PlannerBlock, 'day'> & { day: string }>(blocks: T[]): T[] {
   return blocks.map((block) => {
     const hasOverlap = blocks.some((candidate) => {
       if (candidate.blockId === block.blockId || candidate.day !== block.day) {
@@ -259,20 +259,6 @@ export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[]
     })
     return { ...block, hasOverlap }
   })
-}
-
-// Hidden tutorial alternatives must not create conflicts in the visible calendar.
-export function buildVisiblePlannerBlocks(
-  courses: Course[],
-  hiddenSlotIds: readonly string[],
-  manualSlots: readonly ManualPlannerSlot[] = [],
-): PlannerBlock[] {
-  return markPlannerBlockOverlaps(
-    buildPlannerBlocks(courses, manualSlots).filter(
-      (block) => !hiddenSlotIds.includes(block.slotId)
-        && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
-    ),
-  )
 }
 
 export function buildPlannerBlocks(

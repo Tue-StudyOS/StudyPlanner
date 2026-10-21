@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../../auth'
+import { resolveCourseEcts } from '../utils/courseEcts.ts'
 import { readSessionCache, writeSessionCache } from '../../../shared/utils/sessionCache.ts'
 import { fetchCatalogCourseDetail } from '../api'
 import type { Course } from '../types'
 
 function buildCacheKey(courseId: string): string {
-  return `catalog:course-detail:${courseId}`
+  return `catalog:course-detail:v3:${courseId}`
 }
 
-export function useCatalogCourseDetail(courseId: string | undefined): {
+export function useCatalogCourseDetail(courseId: string | undefined, studyProgramCode?: string | null): {
   course: Course | null
   isLoading: boolean
   error: string | null
 } {
+  const { user } = useAuth()
+  const programCode = studyProgramCode === undefined ? user?.profile.studyProgramCode : studyProgramCode
   const cacheKey = courseId ? buildCacheKey(courseId) : null
   const cachedCourse = cacheKey ? readSessionCache<Course>(cacheKey) : null
   const [course, setCourse] = useState<Course | null>(cachedCourse)
@@ -66,5 +70,6 @@ export function useCatalogCourseDetail(courseId: string | undefined): {
     }
   }, [cacheKey, courseId])
 
-  return { course, isLoading, error }
+  const resolvedCourse = useMemo(() => course ? resolveCourseEcts(course, programCode) : null, [course, programCode])
+  return { course: resolvedCourse, isLoading, error }
 }

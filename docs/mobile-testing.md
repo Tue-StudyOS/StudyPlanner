@@ -33,9 +33,12 @@ On real devices, prefer iOS Safari and Android Chrome.
 - **Transcript**: upload card, stats, and manual form stack vertically; import
   review rows with long extracted titles truncate in the header and wrap when
   expanded; the semester/grade/area fields stack on narrow widths.
-- **Planner**: the Monday–Friday calendar grid must remain visible at every
-  window width, including a narrow desktop browser. It must never switch to a
-  day-by-day agenda. All five weekdays and the hour labels must fit without
+- **Planner**: the dated weekly calendar grid must remain visible at every
+  window width, including a narrow desktop browser. Previous/next week and date
+  jump must stay available. Check actual weekly, fortnightly, block and one-off
+  dates, cancellations, date-only exams and weekend columns. See
+  [the calendar contract](planner-calendar.md). It must never switch to a
+  day-by-day agenda. All visible weekdays and the hour labels must fit without
   horizontal scrolling, including at 320 px. Columns, gaps and text scale with
   the calendar container's width. Compact cards prioritize course titles; session
   types, full titles, tutorial choices and removal remain in course details.
