@@ -261,7 +261,7 @@ export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[]
   })
 }
 
-// Both planner views must use the same slot selection and conflict state.
+// Hidden tutorial alternatives must not create conflicts in the visible calendar.
 export function buildVisiblePlannerBlocks(
   courses: Course[],
   hiddenSlotIds: readonly string[],

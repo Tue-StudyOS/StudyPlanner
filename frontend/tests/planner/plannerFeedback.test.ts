@@ -155,7 +155,7 @@ test('markPlannerBlockOverlaps ignores hidden tutorial alternatives', () => {
   assert.ok(markPlannerBlockOverlaps(visibleBlocks).every((block) => !block.hasOverlap))
 })
 
-test('both planner views keep manual slots, tutorial selection and visible conflicts', () => {
+test('visible calendar keeps manual slots, tutorial selection and visible conflicts', () => {
   const courses = [
     createCourse('lecture', [
       { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
