@@ -13,11 +13,11 @@ import {
   buildBlockLeft,
   buildBlockWidth,
   buildDayLayout,
-  getPlannerCalendarMinWidth,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
 
 const DESKTOP_BLOCK_GAP_REM = 0.5
+const MOBILE_BLOCK_GAP_REM = 0.125
 
 function AddSlotIcon() {
   return (
@@ -109,7 +109,7 @@ export function PlannerGrid({
     return plannedCourses.filter((course) => !scheduledCourseIds.has(course.id))
   }, [blocks, plannedCourses])
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
-  const blockGapRem = DESKTOP_BLOCK_GAP_REM
+  const blockGapRem = isMobilePlanner ? MOBILE_BLOCK_GAP_REM : DESKTOP_BLOCK_GAP_REM
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
@@ -124,7 +124,7 @@ export function PlannerGrid({
   return (
     <>
       <div
-        className="min-w-0 max-w-full rounded-[10px] border border-border bg-surface p-3 sm:p-4"
+        className="min-w-0 max-w-full rounded-[10px] border border-border bg-surface p-2 sm:p-4"
         onDragOver={isPastSemester ? undefined : (event) => event.preventDefault()}
         onDrop={isPastSemester ? undefined : (event) => {
           event.preventDefault()
@@ -139,7 +139,7 @@ export function PlannerGrid({
           <div className="min-w-0">
             <h2 className="text-[14px] font-semibold text-fg">Weekly schedule</h2>
             {isMobilePlanner ? (
-              <p className="mt-1 text-[12px] leading-5 text-fg-mid">Swipe sideways for more days. Tap a course for details.</p>
+              <p className="mt-1 text-[12px] leading-5 text-fg-mid">Tap a course for its full title, details and tutorial choices.</p>
             ) : null}
           </div>
           <div className="flex min-w-0 flex-wrap gap-2">
@@ -173,37 +173,35 @@ export function PlannerGrid({
         <div
           data-tour="planner-grid"
           role="region"
-          aria-label="Weekly calendar. Scroll horizontally to view all weekdays."
-          tabIndex={0}
-          className="min-w-0 max-w-full overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-primary"
+          aria-label="Weekly calendar, Monday to Friday"
+          className="min-w-0 max-w-full [container-type:inline-size]"
         >
           <div
-            className="grid w-full grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2 py-2"
-            style={{ minWidth: `${getPlannerCalendarMinWidth(Object.values(dayLayouts))}px` }}
+            className="grid w-full min-w-0 grid-cols-[clamp(20px,6cqw,42px)_repeat(5,minmax(0,1fr))] gap-[clamp(2px,0.8cqw,8px)] py-2"
           >
-            <div className="sticky left-0 z-20 bg-surface" />
+            <div />
             {DAY_ORDER.map((day) => (
               <div
                 key={day}
-                className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
+                className="min-w-0 text-center text-[clamp(9px,3cqw,13px)] font-semibold uppercase text-fg-mid"
               >
                 {DAY_LABELS[day]}
               </div>
             ))}
 
-            <div className="sticky left-0 z-20 h-full bg-surface">
+            <div className="relative h-full">
               {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
                 <div
                   key={index}
-                  className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
+                  className="absolute right-0 -translate-y-1/2 text-right text-[clamp(8px,2.25cqw,12px)] tabular-nums leading-none text-fg-mid"
                   style={{ top: `${index * PIXELS_PER_HOUR}px` }}
                 >
-                  {`${String(START_HOUR + index).padStart(2, '0')}:00`}
+                  {String(START_HOUR + index).padStart(2, '0')}<span className="hidden min-[769px]:inline">:00</span>
                 </div>
               ))}
             </div>
 
-            <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
+            <div className="col-span-5 grid min-w-0 grid-cols-5 gap-[clamp(2px,0.8cqw,8px)]">
               {DAY_ORDER.map((day) => (
                 <div
                   key={day}
@@ -232,8 +230,8 @@ export function PlannerGrid({
                     )
                     const titleLineClamp = getBlockTitleLineClamp(
                       height,
-                      false,
-                      Boolean(block.slotType),
+                      isMobilePlanner,
+                      !isMobilePlanner && Boolean(block.slotType),
                     )
                     return (
                       <div
@@ -251,10 +249,10 @@ export function PlannerGrid({
                           onClick={() => onOpenCourse(block.courseId)}
                           aria-label={`Show details for ${block.courseTitle}`}
                           title={block.courseTitle}
-                          className={`flex h-full w-full flex-col items-stretch overflow-hidden rounded-[7px] border px-2 py-1 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
+                          className={`flex h-full w-full flex-col items-stretch overflow-hidden rounded-[5px] border px-0.5 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 min-[769px]:rounded-[7px] min-[769px]:px-2 min-[769px]:py-1 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
                         >
                           <div
-                            className={`text-[12px] font-semibold leading-[15px] [overflow-wrap:anywhere] ${onRemoveCourse && !isPastSemester ? 'pr-6' : ''}`}
+                            className={`text-[clamp(9px,2.8cqw,10px)] font-semibold leading-[12px] [overflow-wrap:anywhere] min-[769px]:text-[12px] min-[769px]:leading-[15px] ${onRemoveCourse && !isPastSemester && !isMobilePlanner ? 'pr-6' : ''}`}
                             style={{
                               display: '-webkit-box',
                               WebkitBoxOrient: 'vertical',
@@ -264,13 +262,13 @@ export function PlannerGrid({
                           >
                             {block.courseTitle}
                           </div>
-                          {block.slotType ? (
+                          {block.slotType && !isMobilePlanner ? (
                             <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
                               {block.slotType}
                             </div>
                           ) : null}
                         </button>
-                        {onRemoveCourse && !isPastSemester ? (
+                        {onRemoveCourse && !isPastSemester && !isMobilePlanner ? (
                           <button
                             type="button"
                             onClick={(event) => {

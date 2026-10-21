@@ -91,15 +91,6 @@ export function buildDayLayout(dayBlocks: PlannerBlock[]): PlannerDayLayout {
   return { visibleBlocks }
 }
 
-export function getPlannerCalendarMinWidth(dayLayouts: PlannerDayLayout[]): number {
-  // Keep overlapping sessions readable instead of squeezing five days into a phone.
-  const overlapColumns = Math.max(1, ...dayLayouts.flatMap(
-    (layout) => layout.visibleBlocks.map((block) => block.visibleColumnCount),
-  ))
-  const dayWidth = Math.max(144, overlapColumns * 112)
-  return 42 + dayLayouts.length * (dayWidth + 8)
-}
-
 export function buildBlockWidth(visibleColumnCount: number, gapRem: number = 0.5): string {
   return `calc(${100 / visibleColumnCount}% - ${gapRem}rem)`
 }

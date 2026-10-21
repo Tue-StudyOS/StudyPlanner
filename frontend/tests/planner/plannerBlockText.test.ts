@@ -7,10 +7,9 @@ test('short blocks always keep at least one line', () => {
   assert.equal(getBlockTitleLineClamp(10, false), 1)
 })
 
-test('a 90-minute mobile block fits several lines', () => {
-  // 90 minutes at 64px/h = 96px.
-  const lines = getBlockTitleLineClamp(96, true)
-  assert.ok(lines >= 6, `expected >= 6 lines, got ${lines}`)
+test('a 90-minute compact block fits seven 12px title lines', () => {
+  // 90 minutes at 64px/h = 96px; compact cards reserve 4px of padding.
+  assert.equal(getBlockTitleLineClamp(96, true), 7)
 })
 
 test('the minimum 44px block stays within bounds', () => {
