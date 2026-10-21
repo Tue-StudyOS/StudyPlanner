@@ -3,6 +3,7 @@ import test from 'node:test'
 import type { Course, ScheduleSlot } from '../../src/features/courses/index.ts'
 import {
   buildPlannerBlocks,
+  buildVisiblePlannerBlocks,
   markPlannerBlockOverlaps,
 } from '../../src/features/planner/utils/plannerFeedback.ts'
 
@@ -152,6 +153,39 @@ test('markPlannerBlockOverlaps ignores hidden tutorial alternatives', () => {
 
   assert.ok(allBlocks.find((block) => block.blockId === 'visible-0')?.hasOverlap)
   assert.ok(markPlannerBlockOverlaps(visibleBlocks).every((block) => !block.hasOverlap))
+})
+
+test('both planner views keep manual slots, tutorial selection and visible conflicts', () => {
+  const courses = [
+    createCourse('lecture', [
+      { day: 'Mo', time: '10:00 - 12:00', room: 'A104', type: 'lecture' },
+    ]),
+    createCourse('tutorials', [
+      { day: 'Mo', time: '11:00 - 13:00', room: 'B1', type: 'exercise' },
+      { day: 'Tue', time: '14:00 - 16:00', room: 'B2', type: 'exercise' },
+    ]),
+  ]
+  const hiddenTutorial = buildPlannerBlocks(courses).find((block) => block.room === 'B1')!
+  const manualSlots = [{
+    id: 'study-group', courseId: 'lecture', day: 'Tuesday' as const,
+    time: '15:00 - 16:00', room: 'Library', label: 'Study group',
+  }]
+
+  // Old saved selections and current stable slot IDs must behave identically.
+  for (const hiddenId of [hiddenTutorial.slotId, ...hiddenTutorial.legacySlotIds]) {
+    const blocks = buildVisiblePlannerBlocks(courses, [hiddenId], manualSlots)
+    assert.deepEqual(blocks.map((block) => block.blockId), [
+      'lecture-0', 'tutorials-1', 'manual-study-group',
+    ])
+    assert.equal(blocks[0].hasOverlap, false)
+    assert.equal(blocks[1].sessionRole, 'tutorial')
+    assert.equal(blocks[1].hasOverlap, true)
+    assert.equal(blocks[2].isManual, true)
+    assert.equal(blocks[2].room, 'Library')
+    assert.equal(blocks[2].hasOverlap, true)
+    assert.equal(buildVisiblePlannerBlocks(courses, [hiddenId, 'manual:study-group'], manualSlots).length, 2)
+  }
+  assert.deepEqual(buildVisiblePlannerBlocks([], []), [])
 })
 
 test('buildPlannerBlocks does not flag the same course in parallel rooms as a conflict', () => {

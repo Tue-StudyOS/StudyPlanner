@@ -3,7 +3,7 @@ import { RemoveIcon } from '../../../shared/components/icons'
 import type { Course } from '../../courses'
 import { cleanCourseTitle } from '../../courses'
 import { scheduleSlotBlockClasses, scheduleSlotListLabelClasses } from '../../courses/utils/scheduleSlotKind.ts'
-import { DAY_LABELS, DAY_ORDER, buildPlannerBlocks, markPlannerBlockOverlaps } from '../utils/plannerFeedback'
+import { DAY_LABELS, DAY_ORDER, buildVisiblePlannerBlocks } from '../utils/plannerFeedback.ts'
 import type { ManualPlannerSlot } from '../types.ts'
 import {
   END_HOUR,
@@ -15,8 +15,8 @@ import {
   buildDayLayout,
 } from '../utils/plannerDayLayout'
 import { getBlockTitleLineClamp } from '../utils/plannerBlockText.ts'
+import { PlannerWeeklyListView } from './PlannerWeeklyListView'
 
-const MOBILE_BLOCK_GAP_REM = 0.25
 const DESKTOP_BLOCK_GAP_REM = 0.5
 
 function AddSlotIcon() {
@@ -55,11 +55,11 @@ function ExportCalendarIcon() {
   )
 }
 
-function EmptyDayHint({ isMobilePlanner }: { isMobilePlanner: boolean }) {
+function EmptyDayHint() {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-2 text-center">
       <div className="text-[10px] leading-relaxed text-fg-muted sm:text-[11px]">
-        {isMobilePlanner ? 'Tap to add courses.' : 'Drag interested courses here.'}
+        Drag interested courses here.
       </div>
     </div>
   )
@@ -101,13 +101,7 @@ export function PlannerGrid({
   exportCalendarTitle?: string
 }) {
   const blocks = useMemo(
-    () => markPlannerBlockOverlaps(
-      buildPlannerBlocks(plannedCourses, manualSlots).filter(
-        (block) =>
-          !hiddenSlotIds.includes(block.slotId)
-          && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
-      ),
-    ),
+    () => buildVisiblePlannerBlocks(plannedCourses, hiddenSlotIds, manualSlots),
     [hiddenSlotIds, manualSlots, plannedCourses],
   )
   const unscheduledPlannedCourses = useMemo(() => {
@@ -115,7 +109,7 @@ export function PlannerGrid({
     return plannedCourses.filter((course) => !scheduledCourseIds.has(course.id))
   }, [blocks, plannedCourses])
   const totalHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR
-  const blockGapRem = isMobilePlanner ? MOBILE_BLOCK_GAP_REM : DESKTOP_BLOCK_GAP_REM
+  const blockGapRem = DESKTOP_BLOCK_GAP_REM
   const dayLayouts = useMemo(
     () =>
       Object.fromEntries(
@@ -127,18 +121,10 @@ export function PlannerGrid({
     [blocks],
   )
 
-  function handleEmptyAreaClick(event: React.MouseEvent<HTMLDivElement>): void {
-    // Only direct taps on the empty column background open the add flow;
-    // taps on course blocks are handled by the blocks themselves.
-    if (event.target === event.currentTarget) {
-      onRequestAdd()
-    }
-  }
-
   return (
     <>
       <div
-        className="rounded-[10px] border border-border bg-surface px-2 py-3 sm:px-4 sm:py-5.5"
+        className="min-w-0 max-w-full rounded-[10px] border border-border bg-surface p-3 sm:p-4"
         onDragOver={isPastSemester ? undefined : (event) => event.preventDefault()}
         onDrop={isPastSemester ? undefined : (event) => {
           event.preventDefault()
@@ -149,18 +135,26 @@ export function PlannerGrid({
           }
         }}
       >
-        <div className="mb-2 flex justify-end gap-1 px-0.5 sm:px-0">
-          <button
-            type="button"
-            data-tour="planner-manual-slot"
-            onClick={onRequestManualSlot}
-            title="Add manual time slot"
-            aria-label="Add manual time slot"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg"
-          >
-            <AddSlotIcon />
-          </button>
-          {!isPastSemester && onExportCalendar ? (
+        <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-semibold text-fg">Weekly schedule</h2>
+            {isMobilePlanner ? (
+              <p className="mt-1 text-[12px] text-fg-mid">Tap a session for details and tutorial choices.</p>
+            ) : null}
+          </div>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <button
+              type="button"
+              data-tour="planner-manual-slot"
+              onClick={onRequestManualSlot}
+              title="Add manual time slot"
+              aria-label="Add manual time slot"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-3 text-[12px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <AddSlotIcon />
+              Add slot
+            </button>
+            {!isPastSemester && onExportCalendar ? (
               <button
                 type="button"
                 data-tour="planner-export"
@@ -168,134 +162,145 @@ export function PlannerGrid({
                 disabled={plannedCourses.length === 0}
                 title={exportCalendarTitle}
                 aria-label={exportCalendarTitle}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors hover:border-border hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-3 text-[12px] font-medium text-fg-mid transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ExportCalendarIcon />
+                Export
               </button>
-          ) : null}
-        </div>
-        <div
-          data-tour="planner-grid"
-          className={`grid ${isMobilePlanner ? 'grid-cols-[1.25rem_repeat(5,minmax(0,1fr))] gap-1' : 'grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2'}`}
-        >
-          <div />
-          {DAY_ORDER.map((day) => (
-            <div
-              key={day}
-              className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
-            >
-              {DAY_LABELS[day]}
-            </div>
-          ))}
-
-          <div className="relative h-full">
-            {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
-              <div
-                key={index}
-                className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
-                style={{ top: `${index * PIXELS_PER_HOUR}px` }}
-              >
-                {`${String(START_HOUR + index).padStart(2, '0')}:00`}
-              </div>
-            ))}
+            ) : null}
           </div>
+        </div>
+        <div data-tour="planner-grid" className="min-w-0">
+          {isMobilePlanner ? (
+            <PlannerWeeklyListView
+              blocks={blocks}
+              isLoading={isLoadingSemesterPlan}
+              isPastSemester={isPastSemester}
+              onOpenCourse={onOpenCourse}
+              onRemoveCourse={onRemoveCourse}
+              onRequestAdd={isPastSemester ? onRequestManualSlot : onRequestAdd}
+            />
+          ) : (
+            <div className="grid min-w-0 grid-cols-[42px_repeat(5,minmax(0,1fr))] gap-2">
+              <div />
+              {DAY_ORDER.map((day) => (
+                <div
+                  key={day}
+                  className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted sm:text-[13px]"
+                >
+                  {DAY_LABELS[day]}
+                </div>
+              ))}
 
-          <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
-            {DAY_ORDER.map((day) => (
-              <div
-                key={day}
-                onClick={isMobilePlanner ? handleEmptyAreaClick : undefined}
-                className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
-                style={{ height: `${totalHeight}px` }}
-              >
+              <div className="relative h-full">
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
                   <div
-                    key={`${day}-${index}`}
-                    className="pointer-events-none absolute inset-x-0 border-t border-border-light/70"
+                    key={index}
+                    className="absolute right-0 -translate-y-1/2 text-right text-[10px] tabular-nums leading-none text-fg-muted sm:right-0.5 sm:text-[12px]"
                     style={{ top: `${index * PIXELS_PER_HOUR}px` }}
-                  />
+                  >
+                    {`${String(START_HOUR + index).padStart(2, '0')}:00`}
+                  </div>
                 ))}
-
-                {dayLayouts[day].visibleBlocks.map((block) => {
-                  const top =
-                    ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR)
-                    * PIXELS_PER_HOUR
-                  const height = Math.max(
-                    ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
-                    * PIXELS_PER_HOUR,
-                    44,
-                  )
-                  const titleLineClamp = getBlockTitleLineClamp(
-                    height,
-                    isMobilePlanner,
-                    Boolean(block.slotType),
-                  )
-                  return (
-                    <div
-                      key={block.blockId}
-                      className="absolute"
-                      style={{
-                        top: `${top}px`,
-                        left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
-                        width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
-                        height: `${height}px`,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onOpenCourse(block.courseId)}
-                        aria-label={`Show details for ${block.courseTitle}`}
-                        title={block.courseTitle}
-                        className={`h-full w-full overflow-hidden rounded-[7px] border px-1 py-0.5 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 sm:px-2 sm:py-1 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
-                      >
-                        <div
-                          className="text-[10px] font-semibold leading-[13px] [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-[12px] sm:leading-[15px]"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: titleLineClamp,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {block.courseTitle}
-                        </div>
-                        {block.slotType ? (
-                          <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
-                            {block.slotType}
-                          </div>
-                        ) : null}
-                      </button>
-                      {onRemoveCourse && !isPastSemester ? (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            onRemoveCourse(block.courseId)
-                          }}
-                          aria-label={`Remove ${block.courseTitle} from semester plan`}
-                          title="Remove from plan"
-                          className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center text-fg-muted opacity-75 transition-opacity hover:opacity-100 hover:text-primary sm:h-5 sm:w-5"
-                        >
-                          <RemoveIcon size={10} />
-                        </button>
-                      ) : null}
-                    </div>
-                  )
-                })}
-
-                {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
-                  <EmptyDayHint isMobilePlanner={isMobilePlanner} />
-                ) : null}
               </div>
-            ))}
-          </div>
+
+              <div className="col-span-5 grid grid-cols-5 gap-1.5 sm:gap-2">
+                {DAY_ORDER.map((day) => (
+                  <div
+                    key={day}
+                    className="relative overflow-hidden rounded-lg border border-border-light bg-surface-hover/25"
+                    style={{ height: `${totalHeight}px` }}
+                  >
+                    {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => (
+                      <div
+                        key={`${day}-${index}`}
+                        className="pointer-events-none absolute inset-x-0 border-t border-border-light/70"
+                        style={{ top: `${index * PIXELS_PER_HOUR}px` }}
+                      />
+                    ))}
+
+                    {dayLayouts[day].visibleBlocks.map((block) => {
+                      const top =
+                        ((block.startMinutes - START_HOUR * MINUTES_PER_HOUR) / MINUTES_PER_HOUR)
+                        * PIXELS_PER_HOUR
+                      const height = Math.max(
+                        ((block.endMinutes - block.startMinutes) / MINUTES_PER_HOUR)
+                        * PIXELS_PER_HOUR,
+                        44,
+                      )
+                      const titleLineClamp = getBlockTitleLineClamp(
+                        height,
+                        false,
+                        Boolean(block.slotType),
+                      )
+                      return (
+                        <div
+                          key={block.blockId}
+                          className="absolute"
+                          style={{
+                            top: `${top}px`,
+                            left: buildBlockLeft(block.columnIndex, block.visibleColumnCount, blockGapRem),
+                            width: buildBlockWidth(block.visibleColumnCount, blockGapRem),
+                            height: `${height}px`,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onOpenCourse(block.courseId)}
+                            aria-label={`Show details for ${block.courseTitle}`}
+                            title={block.courseTitle}
+                            className={`flex h-full w-full flex-col items-stretch overflow-hidden rounded-[7px] border px-2 py-1 text-left shadow-sm transition-[filter] hover:brightness-105 focus:outline-none focus:ring-1 focus:ring-fg-muted/40 ${scheduleSlotBlockClasses(block.slotKind, block.hasOverlap, block.sessionRole)}`}
+                          >
+                            <div
+                              className={`text-[12px] font-semibold leading-[15px] [overflow-wrap:anywhere] ${onRemoveCourse && !isPastSemester ? 'pr-4' : ''}`}
+                              style={{
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: titleLineClamp,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {block.courseTitle}
+                            </div>
+                            {block.slotType ? (
+                              <div className={`truncate text-[9px] leading-[11px] sm:text-[10px] ${scheduleSlotListLabelClasses(block.slotKind, block.sessionRole)}`}>
+                                {block.slotType}
+                              </div>
+                            ) : null}
+                          </button>
+                          {onRemoveCourse && !isPastSemester ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                onRemoveCourse(block.courseId)
+                              }}
+                              aria-label={`Remove ${block.courseTitle} from semester plan`}
+                              title="Remove from plan"
+                              className="absolute right-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center text-fg-muted opacity-75 transition-opacity hover:opacity-100 hover:text-primary sm:h-5 sm:w-5"
+                            >
+                              <RemoveIcon size={10} />
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+
+                    {plannedCourses.length === 0 && !isLoadingSemesterPlan && !isPastSemester ? (
+                      <EmptyDayHint />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {unscheduledPlannedCourses.length > 0 ? (
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/25 px-4 py-3">
-            <div className="text-[12.5px] font-semibold text-fg">Without weekly time</div>
-            <p className="mt-1 text-[11.5px] text-fg-muted">
-              These planned courses have no concrete weekday yet — use + to add a manual slot.
+            <div className="text-[13px] font-semibold text-fg">Without weekly time</div>
+            <p className="mt-1 text-[12px] leading-5 text-fg-mid">
+              No weekly time yet. Use Add slot to place these courses in your week.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {unscheduledPlannedCourses.map((course) => (
@@ -303,9 +308,9 @@ export function PlannerGrid({
                   key={course.id}
                   type="button"
                   onClick={() => onOpenCourse(course.id)}
-                  className="min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-primary/30"
+                  className="min-h-11 min-w-0 max-w-full rounded-md border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-primary/30"
                 >
-                  <div className="break-words text-[12px] font-semibold text-fg">
+                  <div className="text-[13px] font-semibold text-fg [overflow-wrap:anywhere]">
                     {cleanCourseTitle(course.title, course.number)}
                   </div>
                 </button>
@@ -325,8 +330,8 @@ export function PlannerGrid({
           <div className="mt-4 rounded-[10px] border border-border-light bg-surface-hover/20 px-4 py-3.5">
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[12.5px] font-semibold text-fg">Finish this semester</div>
-                <p className="mt-1 max-w-[34rem] text-[11.5px] text-fg-muted">
+                <div className="text-[13px] font-semibold text-fg">Finish this semester</div>
+                <p className="mt-1 max-w-[34rem] text-[12px] leading-5 text-fg-mid">
                   Move the planned courses from {activeSemesterLabel} into your completed-course history.
                 </p>
               </div>

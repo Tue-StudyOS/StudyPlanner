@@ -261,6 +261,20 @@ export function markPlannerBlockOverlaps(blocks: PlannerBlock[]): PlannerBlock[]
   })
 }
 
+// Both planner views must use the same slot selection and conflict state.
+export function buildVisiblePlannerBlocks(
+  courses: Course[],
+  hiddenSlotIds: readonly string[],
+  manualSlots: readonly ManualPlannerSlot[] = [],
+): PlannerBlock[] {
+  return markPlannerBlockOverlaps(
+    buildPlannerBlocks(courses, manualSlots).filter(
+      (block) => !hiddenSlotIds.includes(block.slotId)
+        && !block.legacySlotIds.some((legacyId) => hiddenSlotIds.includes(legacyId)),
+    ),
+  )
+}
+
 export function buildPlannerBlocks(
   courses: Course[],
   manualSlots: readonly ManualPlannerSlot[] = [],
