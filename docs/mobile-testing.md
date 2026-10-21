@@ -33,8 +33,15 @@ On real devices, prefer iOS Safari and Android Chrome.
 - **Transcript**: upload card, stats, and manual form stack vertically; import
   review rows with long extracted titles truncate in the header and wrap when
   expanded; the semester/grade/area fields stack on narrow widths.
-- **Planner**: weekly grid switches to the mobile layout; favorites panel wraps;
-  drag–and–drop is replaced by usable controls on touch widths.
+- **Planner**: at 768 px and below, the week uses Monday–Friday sections with
+  full-width session rows; larger screens retain the timetable. Long titles,
+  room names and manual-slot labels wrap without clipping. Check overlapping
+  sessions stay readable and show a time-conflict label; hidden tutorial
+  alternatives must not appear or create false conflicts. Tap a row to open
+  course details/tutorial choices; test removal, Add courses on empty days,
+  Add slot, Export, unscheduled courses and Complete semester. Past semesters
+  must not expose removal, export or completion; adding a slot remains available.
+  The favorites drawer and tutorial choices must remain usable on touch widths.
 - **Account**: long emails (`break-all`) and long study-program names
   (`break-words`) wrap inside their cards.
 
