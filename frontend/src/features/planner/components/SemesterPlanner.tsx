@@ -626,15 +626,15 @@ export function SemesterPlanner({
         </div>
       ) : null}
 
-      <div className="grid min-w-0 gap-4.5">
+      <div className="grid min-w-0 grid-cols-1 gap-4.5">
         <div
-          className={`grid min-w-0 items-start gap-4.5 ${
+          className={`grid min-w-0 grid-cols-1 items-start gap-4.5 ${
             favoritesLayout === 'sidebar' && showFavoritesPanel
               ? 'min-[1180px]:grid-cols-[minmax(0,1fr)_22rem] min-[1180px]:items-stretch'
               : ''
           }`}
         >
-          <div className="grid min-w-0 gap-4.5">
+          <div className="grid min-w-0 grid-cols-1 gap-4.5">
             {showPastSemesterCourses ? (
               <PastSemesterCourseList
                 courses={displayPlannedCourses}

@@ -42,6 +42,9 @@ On real devices, prefer iOS Safari and Android Chrome.
   Add slot, Export, unscheduled courses and Complete semester. Past semesters
   must not expose removal, export or completion; adding a slot remains available.
   The favorites drawer and tutorial choices must remain usable on touch widths.
+  Check the entire signed-in semester page, not only the timetable component:
+  populated progress cards and area selectors must not widen the page's grid
+  tracks or push session rows beyond the viewport at 320 px and 375 px.
 - **Account**: long emails (`break-all`) and long study-program names
   (`break-words`) wrap inside their cards.
 

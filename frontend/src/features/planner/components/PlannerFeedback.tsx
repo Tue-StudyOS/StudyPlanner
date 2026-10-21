@@ -136,7 +136,7 @@ export function PlannerFeedback({
   }
 
   return (
-    <div className="rounded-[10px] border border-border bg-surface px-5 py-4.5" data-tour="planner-progress">
+    <div className="min-w-0 max-w-full rounded-[10px] border border-border bg-surface px-3 py-4.5 sm:px-5" data-tour="planner-progress">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-[14px] font-semibold text-fg">Study progress for this semester</div>
@@ -194,7 +194,7 @@ export function PlannerFeedback({
               : 'Set your study program in Account for the official PO outlook, or add mapped courses here to preview their selected areas.'}
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3">
             {progressAreas.map((area) => {
               const afterPlanningEcts = roundEcts(area.creditedEcts + area.plannedEcts)
               const { creditedWidth, plannedWidth } = buildProgressWidths(area)
@@ -215,7 +215,7 @@ export function PlannerFeedback({
                     }
                     toggleAreaExpansion(area.code)
                   }}
-                  className={`cursor-pointer rounded-[10px] border px-4 py-3 transition-colors ${
+                  className={`min-w-0 max-w-full cursor-pointer rounded-[10px] border px-3 py-3 transition-colors sm:px-4 ${
                     overCapacityEcts > 0
                       ? 'border-primary/40 bg-primary/5'
                       : area.plannedEcts > 0
