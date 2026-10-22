@@ -1,4 +1,5 @@
-import { fetchJson } from '../../shared/utils/api'
+import { fetchJson } from '../../shared/utils/api.ts'
+import { SESSION_CACHE_SCHEMA_VERSION } from '../../shared/utils/browserStorageRegistry.ts'
 import type { CatalogLecturerEntry } from './utils/completedCourseLecturer.ts'
 import type { CatalogPeriod, Course } from './types'
 
@@ -20,7 +21,8 @@ export async function fetchCatalogCourses(
   limit: number = 200,
   periodId?: string,
 ): Promise<Course[]> {
-  const query = new URLSearchParams({ limit: String(limit) })
+  // A new session schema must also bypass old HTTP-cached catalog payloads.
+  const query = new URLSearchParams({ limit: String(limit), schema: String(SESSION_CACHE_SCHEMA_VERSION) })
   if (search?.trim()) {
     query.set('q', search.trim())
   }
@@ -43,5 +45,5 @@ export async function fetchCatalogPeriods(): Promise<CatalogPeriod[]> {
 }
 
 export async function fetchCatalogCourseDetail(courseId: string): Promise<Course> {
-  return await fetchJson<Course>(`/api/catalog/courses/${courseId}`)
+  return await fetchJson<Course>(`/api/catalog/courses/${courseId}?schema=${SESSION_CACHE_SCHEMA_VERSION}`)
 }
