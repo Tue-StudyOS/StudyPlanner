@@ -140,9 +140,10 @@ The existing `user_state.settings_json` stores the optional preference `regulati
 - Backend: 325 tests, including complete 180/120-CP fixtures for all six profiles,
   module/assessment aliases, component budgets, explicit overflow decisions and
   exact grade weighting. ML-EXP contributes credits but not degree-grade weight.
-- Frontend: 461 passing Node tests; five transcript-PDF reference cases require
+- Frontend: 462 passing Node tests; five transcript-PDF reference cases require
   absent local reference PDFs and are explicitly skipped. Lint and production
-  build pass.
+  build pass. Catalog request URLs share the session-cache schema version so an
+  old browser HTTP cache cannot restore a pre-correction metadata payload.
 - Public-catalog migration check: all 1,525 course rows and synthetic user
   auth/state/progress evidence remain unchanged; no additional foreign-key errors.
   Actual API serialization covers six profiles and 481 catalog entries.
