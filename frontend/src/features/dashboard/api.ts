@@ -20,6 +20,12 @@ function normalizeProgressSnapshot(snapshot: ProgressSnapshotResponse): Progress
         typeof summary.averageGrade === 'number' && Number.isFinite(summary.averageGrade)
           ? summary.averageGrade
           : null,
+      recordedEcts: typeof summary.recordedEcts === 'number' ? summary.recordedEcts : null,
+      uniqueEarnedEcts: typeof summary.uniqueEarnedEcts === 'number' ? summary.uniqueEarnedEcts : null,
+      degreeCountedEcts: typeof summary.degreeCountedEcts === 'number' ? summary.degreeCountedEcts : null,
+      gradeCountedEcts: typeof summary.gradeCountedEcts === 'number' ? summary.gradeCountedEcts : null,
+      creditReviewReasons: Array.isArray(summary.creditReviewReasons) ? summary.creditReviewReasons : [],
+      moduleProgress: Array.isArray(summary.moduleProgress) ? summary.moduleProgress : [],
     },
     masterCategoryProgress: Array.isArray(snapshot.masterCategoryProgress)
       ? snapshot.masterCategoryProgress

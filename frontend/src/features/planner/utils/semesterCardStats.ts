@@ -11,6 +11,7 @@ export interface SemesterAreaStat {
 
 export interface SemesterCardStats {
   totalEcts: number
+  degreeCountedEcts?: number | null
   courseCount: number
   areaStats: SemesterAreaStat[]
 }
@@ -41,15 +42,19 @@ function buildAreaStats(areaEcts: Map<string, number>): SemesterAreaStat[] {
 function buildCompletedCourseStats(completedCourses: CompletedCourse[]): SemesterCardStats {
   const areaEcts = new Map<string, number>()
   let totalEcts = 0
+  let degreeCountedEcts = 0
+  const hasDegreeAccounting = completedCourses.some((course) => typeof course.degreeCountedEcts === 'number')
 
   for (const completedCourse of completedCourses) {
     const ects = completedCourse.ects ?? 0
     totalEcts += ects
+    degreeCountedEcts += completedCourse.degreeCountedEcts ?? 0
     addAreaEcts(areaEcts, completedCourse.studyAreaCode, ects)
   }
 
   return {
     totalEcts: roundEcts(totalEcts),
+    degreeCountedEcts: hasDegreeAccounting ? roundEcts(degreeCountedEcts) : null,
     courseCount: completedCourses.length,
     areaStats: buildAreaStats(areaEcts),
   }

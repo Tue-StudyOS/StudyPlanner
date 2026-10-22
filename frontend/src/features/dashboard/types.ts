@@ -28,6 +28,7 @@ export interface RegulationAreaProgress {
   courseCount?: number
   isFulfilled?: boolean
   courses?: RegulationAreaCourse[]
+  moduleProgress?: Array<{ code: string; name: string; areaCode: string; requiredEcts: number; earnedEcts: number; plannedEcts?: number; isFulfilled: boolean }>
 }
 
 export interface ThesisProgress {
@@ -64,6 +65,12 @@ export interface ProgressSummary {
   requiredEcts: number
   progressPercentage: number
   averageGrade: number | null
+  recordedEcts?: number | null
+  uniqueEarnedEcts?: number | null
+  degreeCountedEcts?: number | null
+  gradeCountedEcts?: number | null
+  creditReviewReasons?: Array<{ achievementId: string; reasons: string[] }>
+  moduleProgress?: Array<{ code: string; name: string; areaCode: string; requiredEcts: number; earnedEcts: number; plannedEcts?: number; isFulfilled: boolean }>
 }
 
 interface IntermediateExamQualifyingGroup {

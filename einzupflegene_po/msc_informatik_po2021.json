@@ -2,87 +2,177 @@
   "studiengang": "Master of Science Informatik / Computer Science",
   "abschluss": "M.Sc.",
   "universitaet": "Eberhard Karls Universität Tübingen",
-  "pruefungsordnung": "PO2021",
-  "po_datum": "22.07.2022",
+  "pruefungsordnung": "PO 2021",
+  "po_datum": "25.03.2021 (Rektor-Zustimmung; erstmals WS 2021/22)",
   "regelstudienzeit_semester": 4,
   "gesamt_ects": 120,
-  "quelle": "https://uni-tuebingen.de/de/74487",
+  "quelle": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_MSc_BT_2021_10.pdf",
   "zulassung_hinweis": "Zulassungsbeschränkt ab WS 2021/22; Bachelornote 2,5 oder besser erforderlich",
-
   "module": [
-
     {
-      "bereich": "Pflichtbereich",
-      "hinweis": "Pflichtmodule im MSc variieren je nach gewähltem Schwerpunkt; folgende sind typisch verpflichtend",
-      "module": [
-        {
-          "id": "MINF-MSC-PRO",
-          "name": "Seminar / Oberseminar",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        }
-      ]
-    },
-
-    {
-      "bereich": "Wahlpflicht Informatik",
-      "gesamt_ects_bereich": 72,
-      "hinweis": "Mindestens je ein Modul aus drei verschiedenen Bereichen (PI, TI, ThI); Gesamt 72 ECTS aus Wahlpflichtmodulen des Fachbereichs",
-      "module": [
-        {
-          "id": "MINF-MSC-WP-PI",
-          "name": "Wahlpflichtfach Praktische Informatik (mindestens 1 Modul)",
-          "ects_min": 6,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MINF-MSC-WP-TI",
-          "name": "Wahlpflichtfach Technische Informatik (mindestens 1 Modul)",
-          "ects_min": 6,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MINF-MSC-WP-THI",
-          "name": "Wahlpflichtfach Theoretische Informatik (mindestens 1 Modul)",
-          "ects_min": 6,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MINF-MSC-WP-FREE",
-          "name": "Weitere Wahlpflichtmodule Informatik (frei aus Gesamtkatalog)",
-          "ects": 54,
-          "typ": "Wahlpflicht"
-        }
-      ]
-    },
-
-    {
-      "bereich": "Schwerpunkt / Anwendungsfach",
+      "bereich": "Praktische Informatik",
+      "code": "INFO-PRAK",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 18,
-      "hinweis": "Frei wählbares Anwendungsfach oder allgemeiner Wahlbereich (wie im Bachelor)",
-      "module": [
-        {
-          "id": "MINF-MSC-SP",
-          "name": "Schwerpunktfach / Anwendungsbereich",
-          "ects": 18,
-          "typ": "Wahlpflicht"
-        }
-      ]
+      "hinweis": "",
+      "module": []
     },
-
     {
-      "bereich": "Abschluss",
-      "module": [
-        {
-          "id": "MINF-MSC-MA",
-          "name": "Masterarbeit inkl. Vortrag",
-          "ects": 30,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4,
-          "bearbeitungszeit_monate": 6
-        }
-      ]
+      "bereich": "Technische Informatik",
+      "code": "INFO-TECH",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 18,
+      "hinweis": "",
+      "module": []
+    },
+    {
+      "bereich": "Theoretische Informatik",
+      "code": "INFO-THEO",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 18,
+      "hinweis": "",
+      "module": []
+    },
+    {
+      "bereich": "Informatik",
+      "code": "INFO-INFO",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 18,
+      "hinweis": "",
+      "module": []
+    },
+    {
+      "bereich": "Fokus Informatik (Alternative zu BASIS)",
+      "code": "INFO-FOKUS",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 18,
+      "hinweis": "",
+      "module": []
+    },
+    {
+      "bereich": "Basis Informatik (nur gemäß Zulassungsbescheid)",
+      "code": "INFO-BASIS",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 18,
+      "hinweis": "",
+      "module": []
+    },
+    {
+      "bereich": "Abschlussmodul",
+      "code": "THESIS",
+      "typ": "abschluss",
+      "gesamt_ects_bereich": 30,
+      "hinweis": "",
+      "module": []
     }
-  ]
+  ],
+  "quelle_hinweis": "Official statute §5, amendments, and handbook; derived JSON is not an authoritative legal source.",
+  "credit_policy": {
+    "programCode": "MSC_INFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 120,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "INFO-PRAK",
+        "name": "Praktische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 10,
+        "modules": []
+      },
+      {
+        "code": "INFO-TECH",
+        "name": "Technische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 20,
+        "modules": []
+      },
+      {
+        "code": "INFO-THEO",
+        "name": "Theoretische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 30,
+        "modules": []
+      },
+      {
+        "code": "INFO-INFO",
+        "name": "Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 40,
+        "modules": []
+      },
+      {
+        "code": "INFO-FOKUS",
+        "name": "Fokus Informatik (Alternative zu BASIS)",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 50,
+        "modules": []
+      },
+      {
+        "code": "INFO-BASIS",
+        "name": "Basis Informatik (nur gemäß Zulassungsbescheid)",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 60,
+        "modules": []
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 30,
+        "sortOrder": 70,
+        "modules": []
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [
+      [
+        "INFO-FOKUS",
+        "INFO-BASIS"
+      ]
+    ],
+    "conditionalAreas": [
+      "INFO-BASIS"
+    ],
+    "masterOnlyAreas": [
+      "INFO-FOKUS"
+    ],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {
+      "INFO-FOKUS": {
+        "moduleLevel": "master"
+      },
+      "INFO-BASIS": {
+        "preferenceKey": "mscInfoBasisAdmissionConfirmed",
+        "requiredValue": true
+      }
+    },
+    "areaLimits": {
+      "INFO-INFO": {
+        "maxResearchProjects": 1
+      }
+    },
+    "gradeRequirement": null,
+    "modules": [],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_MSc_BT_2021_10.pdf",
+    "maxSeminars": 3,
+    "additionalEctsLimit": 30,
+    "writtenThesisEcts": 27,
+    "oralThesisEcts": 3,
+    "admissionDecisionRequired": true,
+    "conditionalAreaDeclaration": {
+      "preferenceKey": "mscInfoBasisAdmissionConfirmed",
+      "trueArea": "INFO-BASIS",
+      "falseArea": "INFO-FOKUS"
+    }
+  }
 }

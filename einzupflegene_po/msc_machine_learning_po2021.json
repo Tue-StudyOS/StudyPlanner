@@ -2,212 +2,142 @@
   "studiengang": "Master of Science Maschinelles Lernen / Machine Learning",
   "abschluss": "M.Sc.",
   "universitaet": "Eberhard Karls Universität Tübingen",
-  "pruefungsordnung": "PO2021",
-  "po_datum": "2021",
+  "pruefungsordnung": "PO 2021",
+  "po_datum": "25.03.2021 (Rektor-Zustimmung; erstmals WS 2021/22)",
   "regelstudienzeit_semester": 4,
   "gesamt_ects": 120,
   "studiensprache": "Englisch",
-  "quelle": "https://uni-tuebingen.de/studium/studienangebot/verzeichnis-der-studiengaenge/detail/course/machine-learning-master/",
+  "quelle": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_MachLearn_MSc_BT_2021_10.pdf",
   "zulassung_hinweis": "Zulassungsbeschränkt; Bachelornote mind. 2.3 (dt. Skala) oder besser erforderlich; Bachelor in Informatik, Mathematik, Physik oder verwandtem Fach",
   "hinweis": "Englischsprachiger internationaler Studiengang; Kooperation mit MPI für Intelligente Systeme und MPI für Biologische Kybernetik (Cyber Valley / ELLIS Institute)",
-
   "module": [
-
     {
-      "bereich": "Foundations of Machine Learning – ML-FOUND (Pflicht)",
-      "gesamt_ects_bereich": 27,
-      "hinweis": "Die drei Kernvorlesungen sind verpflichtend. Sie bilden das theoretische Fundament des Studiengangs.",
-      "module": [
-        {
-          "id": "ML-DL",
-          "name": "Deep Learning",
-          "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1,
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-SML",
-          "name": "Statistical Machine Learning",
-          "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2,
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-PML",
-          "name": "Probabilistic Machine Learning",
-          "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2,
-          "sprache": "Englisch"
-        }
-      ]
+      "bereich": "Foundations of Machine Learning",
+      "code": "ML-FOUND",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 24,
+      "hinweis": "",
+      "module": []
     },
-
     {
-      "bereich": "Foundations of Machine Learning – Empfohlene Ergänzung (kein Pflicht, aber stark empfohlen)",
-      "hinweis": "Nicht formal Pflicht, aber im Studienverlaufsplan für Semester 1 vorgesehen",
-      "module": [
-        {
-          "id": "ML-MATH",
-          "name": "Mathematics for Machine Learning",
-          "ects": 9,
-          "typ": "Wahlpflicht (ML-FOUND)",
-          "semester_empfohlen": 1,
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-DLIT",
-          "name": "Data Literacy",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-FOUND)",
-          "semester_empfohlen": 1,
-          "sprache": "Englisch"
-        }
-      ]
+      "bereich": "Diverse Topics in Machine Learning",
+      "code": "ML-DIVERSE",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 36,
+      "hinweis": "",
+      "module": []
     },
-
     {
-      "bereich": "Diverse Topics in Machine Learning – ML-TOPICS (Wahlpflicht)",
-      "gesamt_ects_bereich": 30,
-      "hinweis": "Vorlesungen aus dem ML-Wahlkatalog; Themen u.a.: Reinforcement Learning, Computer Vision, NLP, Causality, Robotics, Neural Data Analysis, Time Series, Self-Driving Cars, Efficient ML, Fairness & Ethics in AI, ML in Medicine, etc.",
-      "module": [
-        {
-          "id": "ML-RL",
-          "name": "Reinforcement Learning",
-          "ects": 9,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-CV",
-          "name": "Computer Vision",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-CAUS",
-          "name": "Causality",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-NLP",
-          "name": "Natural Language Processing",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-TS",
-          "name": "Time Series Analysis",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-NDA",
-          "name": "Neural Data Analysis",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-ROB",
-          "name": "Robot Learning",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-EML",
-          "name": "Efficient Machine Learning in Hardware",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-ETHICS",
-          "name": "Ethics and Machine Learning",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        },
-        {
-          "id": "ML-ADC",
-          "name": "Autonomous Driving / Self-Driving Cars",
-          "ects": 6,
-          "typ": "Wahlpflicht (ML-TOPICS)",
-          "sprache": "Englisch"
-        }
-      ]
-    },
-
-    {
-      "bereich": "General Computer Science – ML-CS (Wahlpflicht)",
+      "bereich": "General Computer Science",
+      "code": "ML-CS",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 18,
-      "hinweis": "Allgemeine Informatik-Vorlesungen aus dem gesamten Informatik-Katalog der Universität Tübingen (ca. 50 verschiedene Kurse wählbar)",
-      "module": [
-        {
-          "id": "ML-CS-WP",
-          "name": "Wahlpflichtmodule Allgemeine Informatik (frei aus Gesamtkatalog Informatik)",
-          "ects": 18,
-          "typ": "Wahlpflicht (ML-CS)"
-        }
-      ]
+      "hinweis": "",
+      "module": []
     },
-
     {
-      "bereich": "Praktikum und Seminar (Pflicht)",
-      "hinweis": "Mindestens ein benotetes Praktikum und ein Seminar müssen absolviert werden",
-      "module": [
-        {
-          "id": "ML-PRAK",
-          "name": "Praktikum Maschinelles Lernen (mind. 1)",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        },
-        {
-          "id": "ML-SEM",
-          "name": "Seminar Maschinelles Lernen (mind. 1)",
-          "ects": 3,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        }
-      ]
-    },
-
-    {
-      "bereich": "Expanded Perspectives – ML-EXP (Wahlpflicht)",
+      "bereich": "Expanded Perspectives",
+      "code": "ML-EXP",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 12,
-      "hinweis": "Frei wählbare benotete Lehrveranstaltungen an der gesamten Universität Tübingen (außer Sport). Ziel: Horizont erweitern – z.B. Anwendungsfelder (Geowissenschaften, Linguistik), Sprachkurse Deutsch/Englisch, Philosophie und Ethik der KI, Medizin, etc.",
-      "module": [
-        {
-          "id": "ML-EXP-WP",
-          "name": "Expanded Perspectives – freie Veranstaltungen (außer Sport)",
-          "ects": 12,
-          "typ": "Wahlpflicht (ML-EXP)"
-        }
-      ]
+      "hinweis": "",
+      "module": []
     },
-
     {
-      "bereich": "Abschluss",
-      "module": [
-        {
-          "id": "ML-MA",
-          "name": "Masterarbeit inkl. Vortrag",
-          "ects": 30,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4,
-          "bearbeitungszeit_monate": 6,
-          "sprache": "Englisch"
-        }
-      ]
+      "bereich": "Abschlussmodul",
+      "code": "THESIS",
+      "typ": "abschluss",
+      "gesamt_ects_bereich": 30,
+      "hinweis": "",
+      "module": []
     }
-  ]
+  ],
+  "quelle_hinweis": "Official statute §5, amendments, and handbook; derived JSON is not an authoritative legal source.",
+  "credit_policy": {
+    "programCode": "MSC_ML_2021",
+    "revision": "2026-10",
+    "totalEcts": 120,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [
+      "ML-EXP"
+    ],
+    "ruleGroups": [
+      {
+        "code": "ML-FOUND",
+        "name": "Foundations of Machine Learning",
+        "groupType": "elective_area",
+        "requiredEcts": 24,
+        "sortOrder": 10,
+        "modules": []
+      },
+      {
+        "code": "ML-DIVERSE",
+        "name": "Diverse Topics in Machine Learning",
+        "groupType": "elective_area",
+        "requiredEcts": 36,
+        "sortOrder": 20,
+        "modules": []
+      },
+      {
+        "code": "ML-CS",
+        "name": "General Computer Science",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 30,
+        "modules": []
+      },
+      {
+        "code": "ML-EXP",
+        "name": "Expanded Perspectives",
+        "groupType": "elective_area",
+        "requiredEcts": 12,
+        "sortOrder": 40,
+        "modules": []
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 30,
+        "sortOrder": 50,
+        "modules": []
+      }
+    ],
+    "sourceSection": "§5; §15; 2026 amendment §5(4), §7",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [
+      "ML-CS"
+    ],
+    "areaEligibilityRules": {
+      "ML-CS": {
+        "acceptedPrograms": [
+          "BSC_INFO_2021",
+          "MSC_INFO_2021"
+        ],
+        "bachelorAreaTypes": [
+          "elective_area"
+        ],
+        "masterLevel": true
+      }
+    },
+    "areaLimits": {
+      "ML-DIVERSE": {
+        "maxSeminarEcts": 6,
+        "maxPracticalEcts": 6
+      }
+    },
+    "gradeRequirement": "graded_modules_only",
+    "modules": [],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_MachLearn_MSc_BT_2021_10.pdf",
+    "maxSeminars": 3,
+    "additionalEctsLimit": 30,
+    "writtenThesisEcts": 27,
+    "oralThesisEcts": 3,
+    "gradedModulesOnly": true,
+    "amendmentUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Aenderungssatzungen/AendS_PO_ML_MSc_BT_1AendS_2026_01.pdf"
+  }
 }

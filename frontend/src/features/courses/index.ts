@@ -27,6 +27,8 @@ export type {
   CourseTermType,
   MasterCat,
   MasterCategoryMeta,
+  RecognitionEvidence,
+  CourseCreditMetadata,
   ScheduleSlot,
   StudyAreaOption,
 } from './types'

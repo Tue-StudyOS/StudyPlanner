@@ -64,9 +64,13 @@ export function SemesterCard({ semesterLabel, to, stats, tourAnchorId }: Semeste
       {stats ? (
         <div className="relative z-10 mt-2 space-y-1">
           <div className="text-[12px] text-fg-muted">
-            <span className="font-semibold text-fg">{stats.totalEcts}</span> ECTS
+            <span className="font-semibold text-fg">{stats.totalEcts}</span>{' '}
+            {stats.degreeCountedEcts === null ? 'workload ECTS' : 'ECTS workload'}
             {' · '}
             {stats.courseCount} course{stats.courseCount !== 1 ? 's' : ''}
+            {typeof stats.degreeCountedEcts === 'number' ? (
+              <div className="mt-0.5">{stats.degreeCountedEcts} ECTS counted toward degree</div>
+            ) : null}
           </div>
           {stats.areaStats.length > 0 ? (
             <div className="flex flex-wrap gap-1">

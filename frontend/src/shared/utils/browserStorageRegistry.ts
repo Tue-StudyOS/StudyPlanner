@@ -13,7 +13,7 @@ export const BROWSER_STORAGE_KEYS = {
 } as const
 
 export const SESSION_CACHE_STORAGE_PREFIX = 'studyplanner.sessionCache'
-export const SESSION_CACHE_SCHEMA_VERSION = 1
+export const SESSION_CACHE_SCHEMA_VERSION = 2
 export const TRANSCRIPT_IMPORT_STORAGE_PREFIX = 'transcript-import-candidates.v2'
 
 export function buildTranscriptImportStorageKey(username: string | null | undefined): string {

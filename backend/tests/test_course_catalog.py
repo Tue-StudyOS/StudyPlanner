@@ -22,6 +22,7 @@ from db.d1 import D1ExecutionError  # noqa: E402
 from services import course_catalog  # noqa: E402
 from services.course_catalog import (  # noqa: E402
     _build_content_sections,
+    _build_catalog_summary,
     _build_participant_limits,
     _build_schedule,
     _collect_offering_groups,
@@ -36,6 +37,75 @@ from services.course_catalog import (  # noqa: E402
     _period_sort_key,
     _build_search_where,
 )
+
+
+class CatalogCreditMetadataTest(unittest.TestCase):
+    def test_pool_parent_quota_never_overrides_nearest_child_course_credits(self) -> None:
+        course = {
+            'id': 1, 'number': 'BIOINF4331', 'title': 'Bioinformatics course',
+            'course_type': 'Vorlesung', 'courseType': 'Vorlesung',
+            'catalogTreePathsJson': '[ ["BSc-BIOINFM-21-VG1 Gesamtbereich (39 CP)", '
+                                    '"BSc-BIOINFM-21-VG12 child course (6 CP)", "BIOINF4331"] ]',
+        }
+        options = [{
+            'programCode': 'BSC_BIOINFO_2021', 'programName': 'Bioinformatics',
+            'studyAreaCode': 'ELECTIVE-INF', 'studyAreaName': 'Informatik-Wahlpflicht',
+            'areaType': 'elective_area', 'optionStatus': 'allowed',
+            'moduleCode': 'BIOINFM2510', 'moduleTitle': 'Wahlpflicht Informatik',
+            'moduleEcts': 15, 'moduleKind': 'pool', 'moduleLevel': 'bachelor',
+            'ectsCounted': 15,
+        }]
+        summary = _build_catalog_summary(course, [], [], [], options)
+        self.assertEqual(summary['ects'], 6)
+        metadata = summary['creditMetadata']
+        self.assertEqual(metadata['moduleContext'][0]['moduleEcts'], None)
+        self.assertIsNone(metadata['moduleContext'][0]['moduleBudgetEcts'])
+        self.assertEqual(metadata['moduleContext'][0]['moduleQuotaEcts'], 6)
+        self.assertEqual(metadata['moduleContext'][0]['areaQuotaEcts'], 6)
+        bio = next(item for item in metadata['programs'] if item['programCode'] == 'BSC_BIOINFO_2021')
+        self.assertEqual(bio['allowedAreaCodes'], ['ELECTIVE-INF'])
+        self.assertEqual(bio['modules'][0]['moduleKind'], 'pool')
+        self.assertTrue(metadata['achievementKeysByProgram']['BSC_BIOINFO_2021'])
+
+    def test_component_course_uses_child_credit_not_parent_module_budget(self) -> None:
+        course = {
+            'id': 2, 'number': 'BIOINF1240-A', 'title': 'Zellbiologie Teil A',
+            'course_type': 'Klausur', 'courseType': 'Klausur',
+            'catalogTreePathsJson': '[ ["BSc-BIOINFM-21-VG1 area (39 CP)", '
+                                    '"BSc-BIOINFM-21-VG2 component (4 CP)", "BIOINF1240-A"] ]',
+        }
+        options = [{
+            'programCode': 'BSC_BIOINFO_2021', 'programName': 'Bioinformatics',
+            'studyAreaCode': 'LIFE', 'studyAreaName': 'Life Sciences',
+            'areaType': 'pflicht', 'optionStatus': 'required',
+            'moduleCode': 'BIOINFM1240', 'moduleTitle': 'Zellbiologie, Mikrobiologie und Genetik',
+            'moduleEcts': 12, 'moduleKind': 'module', 'moduleLevel': 'bachelor',
+            'ectsCounted': 12,
+        }]
+        summary = _build_catalog_summary(course, [], [], [], options)
+        self.assertEqual(summary['ects'], 4)
+        metadata = summary['creditMetadata']
+        module = next(item for item in metadata['moduleContext'] if item['moduleCode'] == 'BIOINFM1240')
+        self.assertEqual(module['parentBudgetEcts'], 12)
+        self.assertEqual(module['moduleBudgetEcts'], 12)
+        self.assertIsNone(module['moduleEcts'])
+
+    def test_dynamic_nonpool_module_exposes_source_budget_without_using_pool_quota(self) -> None:
+        course = {'id': 3, 'number': 'M_INF_12345-VL', 'title': 'Dynamic module lecture',
+                  'course_type': 'Vorlesung', 'courseType': 'Vorlesung'}
+        options = [{
+            'programCode': 'MSC_INFO_2021', 'programName': 'Computer Science',
+            'studyAreaCode': 'INFO-INFO', 'studyAreaName': 'Informatik',
+            'areaType': 'elective_area', 'optionStatus': 'allowed',
+            'moduleCode': 'M_INF_12345', 'moduleTitle': 'Dynamic module',
+            'moduleEcts': 6, 'moduleKind': 'module', 'moduleLevel': 'master', 'ectsCounted': 6,
+        }]
+        metadata = _build_catalog_summary(course, [], [], [], options)['creditMetadata']
+        module = next(item for item in metadata['moduleContext'] if item['moduleCode'] == 'M_INF_12345')
+        self.assertEqual(module['moduleBudgetEcts'], 6)
+        self.assertEqual(module['moduleKind'], 'module')
+        self.assertEqual(metadata['achievementKeysByProgram']['MSC_INFO_2021'],
+                         'module:M_INF_12345:whole')
 
 
 class BuildContentSectionsTest(unittest.TestCase):

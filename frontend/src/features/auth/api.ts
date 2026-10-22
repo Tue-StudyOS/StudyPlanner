@@ -33,6 +33,7 @@ interface SaveProfileInput {
   plannerMobileLayout?: 'compact-grid' | 'weekly-list'
   appLanguage?: SupportedLanguage | null
   onboardingTourCompleted?: boolean
+  regulationPreferences?: { mscInfoBasisAdmissionConfirmed?: boolean }
 }
 
 interface UpdateCredentialsInput {

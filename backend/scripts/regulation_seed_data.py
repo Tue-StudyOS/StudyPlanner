@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from services.official_regulations import get_official_regulation
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE_DIR = REPO_ROOT / 'einzupflegene_po'
 OFFICIAL_SOURCE_STATUS = 'official'
@@ -262,9 +264,12 @@ def load_program_seeds(source_dir: Path = DEFAULT_SOURCE_DIR) -> list[ProgramSee
         with source_path.open('r', encoding='utf-8') as handle:
             payload = json.load(handle)
 
-        po_version = _parse_po_version(payload)
+        official = get_official_regulation(program_spec.code)
+        if official is None:
+            raise ValueError(f'No verified PO data for {program_spec.code}')
+        po_version = '2021'
         degree = _safe_text(payload.get('abschluss')) or 'Unknown degree'
-        total_ects = _normalize_float(payload.get('gesamt_ects')) or 0.0
+        total_ects = float(official['totalEcts'])
         regulation_name = f'{degree} {program_spec.subject}'
         program_seeds.append(
             ProgramSeed(
@@ -279,10 +284,14 @@ def load_program_seeds(source_dir: Path = DEFAULT_SOURCE_DIR) -> list[ProgramSee
                 total_ects=total_ects,
                 language=program_spec.language,
                 source_status=OFFICIAL_SOURCE_STATUS,
-                notes=_build_program_notes(payload),
+                notes=(f"Official special part PO 2021, §5; source: {official['sourceUrl']}"),
                 version_label=po_version,
-                uses_sqlite_rule_groups=program_spec.uses_sqlite_rule_groups,
-                rule_groups=_build_rule_groups(payload),
+                uses_sqlite_rule_groups=False,
+                rule_groups=tuple(
+                    RuleGroupSeed(group['code'], group['name'], group['requiredEcts'],
+                                  group['sortOrder'], group.get('sourceSection'))
+                    for group in official['ruleGroups']
+                ),
             )
         )
 

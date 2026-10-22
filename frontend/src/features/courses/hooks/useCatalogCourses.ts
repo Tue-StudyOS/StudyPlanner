@@ -18,7 +18,7 @@ interface CatalogQueryState {
 }
 
 function buildCacheKey(search: string, limit: number, periodId?: string): string {
-  return `catalog:courses:v3:${search}::${limit}::${periodId ?? ''}`
+  return `catalog:courses:v4:${search}::${limit}::${periodId ?? ''}`
 }
 
 export function useCatalogCourses(

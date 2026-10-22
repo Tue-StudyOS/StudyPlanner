@@ -15,6 +15,9 @@ export function toImportedCompletedCourse(candidate: TranscriptImportCandidate):
     grade: candidate.grade,
     semester: candidate.semester,
     source: 'transcript_import',
+    isAdditionalAchievement: candidate.isAdditionalAchievement,
+    recognitionEvidence: candidate.recognitionEvidence,
+    assessmentType: candidate.assessmentType,
   }
 }
 
@@ -91,7 +94,7 @@ export function buildReviewCandidateKey(candidate: TranscriptImportCandidate): s
     candidate.extractedTitle,
     candidate.title,
     candidate.semester,
-    candidate.grade === null ? 'no-grade' : candidate.grade.toFixed(1),
+    candidate.grade === null ? 'no-grade' : String(candidate.grade),
     candidate.ects,
     candidate.rawText,
   ]

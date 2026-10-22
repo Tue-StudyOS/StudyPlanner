@@ -44,6 +44,7 @@ function shouldFallbackTranscriptImport(error: unknown): boolean {
 export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.Element {
   const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
+  const regulationPreferenceKey = JSON.stringify(user?.profile.regulationPreferences ?? {})
   const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>(() =>
     readSessionCache<CompletedCourse[]>('private:completed-courses', userCacheKey) ?? [],
   )
@@ -95,7 +96,7 @@ export function TranscriptProvider({ children }: TranscriptProviderProps): JSX.E
     return () => {
       isActive = false
     }
-  }, [csrfToken, userCacheKey])
+  }, [csrfToken, regulationPreferenceKey, userCacheKey])
 
   async function persistCompletedCourses(nextCompletedCourses: CompletedCourse[]): Promise<{
     saved: boolean

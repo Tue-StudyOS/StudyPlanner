@@ -38,6 +38,9 @@ export interface StudyAreaOption {
   ectsCounted: number | null
   moduleCode: string | null
   moduleTitle: string | null
+  moduleKind?: string | null
+  moduleLevel?: string | null
+  moduleEcts?: number | null
 }
 
 export interface CompletedCourse {
@@ -58,10 +61,56 @@ export interface CompletedCourse {
   categoryLocked?: boolean
   assignmentRestricted?: boolean
   assignmentNeedsReview?: boolean
+  storedAssignmentNeedsReview?: boolean
+  earnedEcts?: number
+  uniqueEarnedEcts?: number
+  degreeCountedEcts?: number
+  gradeCountedEcts?: number
+  gradeUsedForAverage?: number | null
+  creditReviewReasons?: string[]
+  creditMetadata?: CourseCreditMetadata | null
+  recognitionEvidence?: RecognitionEvidence | null
+  assessmentType?: string | null
+  achievementKey?: string | null
+  canonicalModuleCode?: string | null
+  isAdditionalAchievement?: boolean
   isGradeCounted?: boolean
   grade: number | null
   semester: string
   source?: string
+}
+
+export interface RecognitionEvidence {
+  confirmed: true
+  moduleCode?: string
+  areaCode?: string
+  componentKey?: string
+  componentKind?: 'whole' | 'component' | 'written' | 'oral'
+  assessmentType?: 'lecture' | 'seminar' | 'practical' | 'research_project' | 'exam' | 'other'
+  countedEcts?: number
+}
+
+export interface CourseCreditMetadata {
+  sourceCourseType?: string | null
+  achievementKeysByProgram?: Record<string, string>
+  assessmentTypes?: string[]
+  componentKey?: string | null
+  componentEcts?: number | null
+  moduleLevel?: string | null
+  moduleContext?: Array<{
+    moduleCode: string
+    moduleTitle?: string | null
+    moduleKind?: string | null
+    moduleBudgetEcts?: number | null
+    moduleLevel?: string | null
+    areaCode?: string | null
+  }> | null
+  programs?: Array<{
+    programCode: string
+    allowedAreaCodes?: string[]
+    areaEligibility?: Record<string, unknown>
+    modules?: Array<{ moduleCode: string; moduleTitle?: string | null; moduleKind?: string | null; moduleEcts?: number | null; moduleBudgetEcts?: number | null; parentBudgetEcts?: number | null; moduleQuotaEcts?: number | null; areaCode: string; moduleLevel?: string | null; componentKey?: string | null; componentEcts?: number | null }>
+  }>
 }
 
 export interface CatalogPeriod {
@@ -175,7 +224,14 @@ export interface Course {
   shortComment?: string
   moduleCode?: string | null
   moduleTitle?: string | null
+  canonicalModuleCode?: string | null
+  achievementKey?: string | null
+  recognitionEvidence?: RecognitionEvidence | null
+  assessmentType?: string | null
+  isAdditionalAchievement?: boolean
+  grade?: number | null
   hasRegulationMapping?: boolean
+  creditMetadata?: CourseCreditMetadata | null
   offeredPeriods?: string[]
   termType?: CourseTermType
   externalLinks?: CourseExternalLink[]

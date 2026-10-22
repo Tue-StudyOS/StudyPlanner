@@ -23,6 +23,7 @@ from services.user_completed_courses import (  # noqa: E402
     CompletedCoursePayload,
     CompletedCourseUpdateError,
     _normalize_course_source,
+    _normalize_completed_course,
     _resolve_assignment,
 )
 
@@ -100,6 +101,22 @@ class TranscriptReimportTest(unittest.IsolatedAsyncioTestCase):
 
 
 class ResolveAssignmentTest(unittest.TestCase):
+    def test_external_recognition_evidence_is_explicit_and_po_validated(self) -> None:
+        payload = {
+            'title': 'Recognized external course', 'semester': 'WS 2025/26', 'masterCat': 'BASIS',
+            'studyAreaCode': 'INF', 'ects': 6,
+            'recognitionEvidence': {'confirmed': True, 'moduleCode': 'INFM1010', 'areaCode': 'INF'},
+        }
+        normalized = _normalize_completed_course(payload, 'BSC_INFO_2021')
+        self.assertEqual(normalized['recognitionEvidence'], payload['recognitionEvidence'])
+        for evidence in (
+            {'confirmed': False, 'areaCode': 'INF'},
+            {'confirmed': True, 'moduleCode': 'UNKNOWN', 'areaCode': 'INF'},
+            {'confirmed': True, 'areaCode': 'NOT_A_PO_AREA'},
+        ):
+            with self.assertRaises(CompletedCourseUpdateError):
+                _normalize_completed_course({**payload, 'recognitionEvidence': evidence}, 'BSC_INFO_2021')
+
     def test_catalog_matched_course_may_use_unmapped_compulsory_area(self) -> None:
         course = CompletedCoursePayload(masterCat="BASIS", studyAreaCode="INF", courseId=123)
 

@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Any
 
 from db.d1 import fetch_all
 from services.regulation_assignment_options import canonicalize_completed_courses
 from services.authentication import require_authenticated_user
 from services.user_data import load_user_progress_json, parse_json_array
+from services.user_completed_courses import _serialize_completed_courses
+from services.official_regulations import (
+    achievement_identity,
+    compute_credit_accounting,
+    grade_is_counted,
+    truncate_official_grade,
+)
 
 MASTER_CATEGORY_ORDER = ['TECH', 'THEO', 'PRAK', 'INFO', 'BASIS']
 
@@ -298,6 +306,7 @@ async def _build_regulation_progress(
     active_regulation_version_id: int | None,
     study_program_code: str | None,
     completed_courses: list[dict[str, Any]],
+    credit_accounting: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     if active_regulation_version_id is None:
         return []
@@ -399,9 +408,29 @@ async def _build_regulation_progress(
         _append_progress_course(area_entry, completed_course)
 
     ordered_raw_areas = [raw_progress_by_group_id[int(rule_group['id'])] for rule_group in rule_groups]
-    if study_program_code and study_program_code.startswith('BSC_'):
-        return _group_bachelor_dashboard_areas(ordered_raw_areas)
-    return [_finalize_regulation_area(area) for area in ordered_raw_areas]
+    accounting = credit_accounting or {}
+    area_credits = accounting.get('areaCredits') or {}
+    module_progress = accounting.get('moduleProgress') or []
+    incomplete_by_area = {
+        area for area in {item.get('areaCode') for item in module_progress}
+        if any(item.get('areaCode') == area and not item.get('isFulfilled') for item in module_progress)
+    }
+    for area in ordered_raw_areas:
+        code = area['code']
+        if code in area_credits:
+            area['earnedEcts'] = area_credits[code]
+    finalized = [_finalize_regulation_area(area) for area in ordered_raw_areas]
+    for area in finalized:
+        if area['code'] in incomplete_by_area:
+            area['isFulfilled'] = False
+    if study_program_code == 'BSC_INFO_2021':
+        finalized = _group_bachelor_dashboard_areas(ordered_raw_areas)
+    for area in finalized:
+        area_codes = set(area.get('rawAreaCodes') or [area['code']])
+        area['moduleProgress'] = [item for item in module_progress if item.get('areaCode') in area_codes]
+        if any(item.get('areaCode') in area_codes and not item.get('isFulfilled') for item in module_progress):
+            area['isFulfilled'] = False
+    return finalized
 
 
 async def _evaluate_intermediate_exam(
@@ -490,23 +519,45 @@ async def _evaluate_intermediate_exam(
     }
 
 
-def _compute_average_grade(completed_courses: list[dict[str, Any]]) -> float | None:
-    """Overall grade using the German convention: the ECTS-weighted mean of graded
-    modules. Ungraded overarching-competence (UEBK) modules are excluded. Falls back
-    to an unweighted mean when the graded modules carry no ECTS value."""
-    graded_pairs = [
-        (grade, _normalize_float(course.get('ects')) or 0.0)
-        for course in completed_courses
-        if (grade := _normalize_float(course.get('grade'))) is not None
-        and not course.get('assignmentNeedsReview')
-        and _normalize_study_area_code(course.get('studyAreaCode')) != 'UEBK'
-    ]
-    graded_weight = sum(weight for _, weight in graded_pairs)
-    if graded_weight > 0:
-        return sum(grade * weight for grade, weight in graded_pairs) / graded_weight
-    if graded_pairs:
-        return sum(grade for grade, _ in graded_pairs) / len(graded_pairs)
-    return None
+def _compute_average_grade(
+    completed_courses: list[dict[str, Any]],
+    study_program_code: str | None = None,
+    regulation_preferences: dict[str, Any] | None = None,
+) -> float | None:
+    """Return the PO-weighted mean, truncated to the special part's one decimal."""
+    grade_candidates = completed_courses
+    if study_program_code:
+        by_identity: dict[str, list[dict[str, Any]]] = {}
+        for course in completed_courses:
+            by_identity.setdefault(achievement_identity(course, study_program_code), []).append(course)
+        grade_candidates = []
+        for achievements in by_identity.values():
+            grades = {course.get('grade') for course in achievements}
+            if len(grades) == 1:
+                grade_candidates.append(achievements[0])
+    graded_pairs: list[tuple[Decimal, Decimal]] = []
+    for course in grade_candidates:
+        grade = _normalize_float(course.get('grade'))
+        if grade is None or course.get('assignmentNeedsReview'):
+            continue
+        if study_program_code == 'MSC_INFO_2021':
+            basis_confirmed = bool((regulation_preferences or {}).get('mscInfoBasisAdmissionConfirmed'))
+            unavailable_area = 'INFO-FOKUS' if basis_confirmed else 'INFO-BASIS'
+            if course.get('studyAreaCode') == unavailable_area:
+                continue
+        if study_program_code and not grade_is_counted(
+            study_program_code, course.get('studyAreaCode'),
+            assignment_needs_review=bool(course.get('assignmentNeedsReview')),
+        ):
+            continue
+        ects = _normalize_float(course.get('ects')) or 0.0
+        if ects > 0:
+            graded_pairs.append((Decimal(str(grade)), Decimal(str(ects))))
+    graded_weight = sum((weight for _, weight in graded_pairs), Decimal(0))
+    if graded_weight <= 0:
+        return None
+    weighted_grade = sum((grade * weight for grade, weight in graded_pairs), Decimal(0)) / graded_weight
+    return truncate_official_grade(weighted_grade)
 
 
 async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
@@ -518,7 +569,10 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     if required_ects is None:
         required_ects = 120.0
 
-    completed_courses = await _load_completed_courses_for_progress(env, username, active_regulation_version_id)
+    completed_courses = await _serialize_completed_courses(
+        env, username, active_regulation_version_id, study_program_code,
+        user['profile'].get('regulationPreferences'),
+    )
 
     progress_categories = await fetch_all(
         env,
@@ -554,14 +608,37 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
     for completed_course in completed_courses:
         completed_course['masterCat'] = _normalize_master_cat(completed_course.get('masterCat'))
 
-    total_ects = sum(_normalize_float(course.get('ects')) or 0 for course in completed_courses)
-    average_grade = _compute_average_grade(completed_courses)
-    progress_percentage = round((total_ects / required_ects) * 100) if required_ects > 0 else 0
+    regulation_preferences = user['profile'].get('regulationPreferences') or {}
+    accounting_courses = [
+        {
+            'id': course.get('id'), 'moduleCode': course.get('canonicalModuleCode'),
+            'courseNumber': course.get('courseNumber'),
+            'externalCourseCode': course.get('externalCourseCode'),
+            'title': course.get('title'), 'ects': course.get('ects'), 'grade': course.get('grade'),
+            'courseType': (course.get('creditMetadata') or {}).get('sourceCourseType'),
+            'allowedAreaCodes': (course.get('creditMetadata') or {}).get('allowedAreaCodes'),
+            'recognitionEvidence': course.get('recognitionEvidence'),
+            'isAdditionalAchievement': course.get('isAdditionalAchievement') is True,
+            'creditMetadata': course.get('creditMetadata'),
+            'semester': course.get('semester'), 'createdAtUnix': course.get('createdAtUnix'),
+            'studyAreaCode': course.get('studyAreaCode'),
+            'assignmentNeedsReview': course.get('storedAssignmentNeedsReview'),
+        }
+        for course in completed_courses
+    ]
+    credit_accounting = compute_credit_accounting(
+        study_program_code or '', accounting_courses, regulation_preferences,
+    )
+    total_ects = credit_accounting.get('degreeCountedEcts')
+    if total_ects is None:
+        total_ects = credit_accounting.get('uniqueEarnedEcts') or 0.0
+    average_grade = credit_accounting.get('degreeGrade')
+    progress_percentage = min(100, round((total_ects / required_ects) * 100)) if required_ects > 0 else 0
 
     master_category_progress = []
     for master_category in MASTER_CATEGORY_ORDER:
         earned_ects = sum(
-            (_normalize_float(course.get('ects')) or 0)
+            (_normalize_float(course.get('uniqueEarnedEcts')) or 0)
             for course in completed_courses
             if course.get('masterCat') == master_category
         )
@@ -684,6 +761,7 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
         active_regulation_version_id,
         study_program_code,
         completed_courses,
+        credit_accounting,
     )
     intermediate_exam = await _evaluate_intermediate_exam(
         env,
@@ -698,6 +776,12 @@ async def get_current_user_progress(env: Any, request: Any) -> dict[str, Any]:
             'requiredEcts': required_ects,
             'progressPercentage': progress_percentage,
             'averageGrade': average_grade,
+            'recordedEcts': credit_accounting.get('recordedEcts'),
+            'uniqueEarnedEcts': credit_accounting.get('uniqueEarnedEcts'),
+            'degreeCountedEcts': credit_accounting.get('degreeCountedEcts'),
+            'gradeCountedEcts': credit_accounting.get('gradeCountedEcts'),
+            'creditReviewReasons': credit_accounting.get('reviewReasons', []),
+            'moduleProgress': credit_accounting.get('moduleProgress', []),
         },
         'masterCategoryProgress': master_category_progress,
         'regulationProgress': regulation_progress,

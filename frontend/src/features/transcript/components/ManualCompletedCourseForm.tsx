@@ -3,6 +3,7 @@ import type { CompletedCourse, MasterCat } from '../../courses'
 import type { TranscriptCoursePreview } from '../types'
 import { normalizeText } from '../utils/buildTranscriptImportCandidates'
 import { buildCustomCompletedCourse, parsePositiveEcts } from '../utils/customCompletedCourse.ts'
+import { buildRecognitionEvidence } from '../utils/completedCoursePayload.ts'
 import { CatalogCoursePicker } from './CatalogCoursePicker'
 import { CategoryToggle } from './CategoryToggle'
 import { StudyAreaAssignmentField } from './StudyAreaAssignmentField'
@@ -85,6 +86,13 @@ export function ManualCompletedCourseForm({
   const [grade, setGrade] = useState<number | null>(null)
   const [masterCat, setMasterCat] = useState<MasterCat>('INFO')
   const [studyAreaCode, setStudyAreaCode] = useState<string | null>(null)
+  const [isAdditionalAchievement, setIsAdditionalAchievement] = useState<boolean>(false)
+  const [recognitionConfirmed, setRecognitionConfirmed] = useState<boolean>(false)
+  const [recognitionModuleCode, setRecognitionModuleCode] = useState<string>('')
+  const [recognitionAssessmentType, setRecognitionAssessmentType] = useState<'lecture' | 'seminar' | 'practical' | 'research_project' | 'exam' | 'other'>('other')
+  const [approvedCountedEcts, setApprovedCountedEcts] = useState<string>('')
+  const [recognitionComponentKind, setRecognitionComponentKind] = useState<'whole' | 'component' | 'written' | 'oral'>('whole')
+  const [recognitionComponentKey, setRecognitionComponentKey] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
   const flexibleAreaOptions = useMemo(
@@ -102,17 +110,23 @@ export function ManualCompletedCourseForm({
     [masterCat, regulationRuleGroups, selectedCourse?.masterCats, selectedCourse?.studyAreaOptions, studyProgramCode],
   )
   const hasActiveRegulation = Boolean(regulationVersionCode && regulationRuleGroups.length > 0)
+  const recognitionModules = regulationRuleGroups.flatMap((group) =>
+    (group.modules ?? []).map((module) => ({ ...module, areaCode: group.code })),
+  )
+  const selectedRecognitionModule = recognitionConfirmed
+    ? recognitionModules.find((module) => module.code === recognitionModuleCode)
+    : undefined
   const catalogAreaOptions = mappedAreaOptions.length > 0 ? mappedAreaOptions : flexibleAreaOptions
   const isCatalogAreaLocked = mappedAreaOptions.length === 1
   const isCustomAreaLocked = flexibleAreaOptions.length === 1
-  const resolvedCatalogStudyAreaCode = isCatalogAreaLocked
+  const resolvedCatalogStudyAreaCode = selectedRecognitionModule?.areaCode ?? (isCatalogAreaLocked
     ? mappedAreaOptions[0].code
     : mappedAreaOptions.length > 1
       ? (mappedAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
-      : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
-  const resolvedCustomStudyAreaCode = isCustomAreaLocked
+      : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null))
+  const resolvedCustomStudyAreaCode = selectedRecognitionModule?.areaCode ?? (isCustomAreaLocked
     ? flexibleAreaOptions[0].code
-    : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null)
+    : (studyAreaCode && flexibleAreaOptions.some((option) => option.code === studyAreaCode) ? studyAreaCode : null))
   const resolvedStudyAreaCode = entryMode === 'custom' ? resolvedCustomStudyAreaCode : resolvedCatalogStudyAreaCode
   const resolvedMasterCat = resolvedStudyAreaCode
     ? studyAreaCodeToMasterCat(resolvedStudyAreaCode) ?? masterCat
@@ -133,6 +147,13 @@ export function ManualCompletedCourseForm({
     setGrade(null)
     setMasterCat('INFO')
     setStudyAreaCode(null)
+    setIsAdditionalAchievement(false)
+    setRecognitionConfirmed(false)
+    setRecognitionModuleCode('')
+    setRecognitionAssessmentType('other')
+    setApprovedCountedEcts('')
+    setRecognitionComponentKind('whole')
+    setRecognitionComponentKey('')
     setError(null)
   }
 
@@ -154,6 +175,16 @@ export function ManualCompletedCourseForm({
       return
     }
 
+    const recognitionEvidence = buildRecognitionEvidence({
+      confirmed: recognitionConfirmed,
+      module: selectedRecognitionModule,
+      areaCode: resolvedStudyAreaCode,
+      assessmentType: recognitionAssessmentType,
+      componentKind: recognitionComponentKind,
+      componentKey: recognitionComponentKey,
+      countedEcts: approvedCountedEcts,
+    })
+
     if (entryMode === 'custom') {
       const title = customTitle.trim()
       const ects = parsePositiveEcts(customEcts)
@@ -170,17 +201,21 @@ export function ManualCompletedCourseForm({
         return
       }
 
-      const saved = await onSave(
-        buildCustomCompletedCourse({
-          title,
-          ects,
-          externalCourseCode: customCode,
-          semester,
-          grade,
-          studyAreaCode: resolvedCustomStudyAreaCode,
-          masterCat: resolvedMasterCat,
-        }),
-      )
+      const customCourse = buildCustomCompletedCourse({
+        title,
+        ects,
+        externalCourseCode: customCode,
+        semester,
+        grade,
+        studyAreaCode: resolvedCustomStudyAreaCode,
+        masterCat: resolvedMasterCat,
+      })
+      const saved = await onSave({
+        ...customCourse,
+        isAdditionalAchievement,
+        assessmentType: recognitionAssessmentType,
+        ...(recognitionEvidence ? { recognitionEvidence } : {}),
+      })
       if (saved) {
         resetForm()
       }
@@ -203,13 +238,18 @@ export function ManualCompletedCourseForm({
     }
 
     const saved = await onSave(
-      buildManualCompletedCoursePayload({
-        selectedCourse,
-        semester,
-        grade,
-        studyAreaCode: resolvedCatalogStudyAreaCode,
-        masterCat: resolvedMasterCat,
-      }),
+      {
+        ...buildManualCompletedCoursePayload({
+          selectedCourse,
+          semester,
+          grade,
+          studyAreaCode: resolvedCatalogStudyAreaCode,
+          masterCat: resolvedMasterCat,
+        }),
+        isAdditionalAchievement,
+        assessmentType: recognitionAssessmentType,
+        ...(recognitionEvidence ? { recognitionEvidence } : {}),
+      },
     )
     if (!saved) {
       return
@@ -218,7 +258,11 @@ export function ManualCompletedCourseForm({
     resetForm()
   }
 
-  const areaField = isLoadingRegulationVersion ? (
+  const areaField = selectedRecognitionModule ? (
+    <div className="min-w-0 rounded-md border border-border-light px-2.5 py-1.5 text-[12px] text-fg-muted break-words">
+      {t('transcript.manual.area')}: {regulationRuleGroups.find((group) => group.code === selectedRecognitionModule.areaCode)?.name ?? selectedRecognitionModule.areaCode}
+    </div>
+  ) : isLoadingRegulationVersion ? (
     <div className="rounded-md border border-border-light bg-surface-hover/25 px-2.5 py-1.5 text-[12px] text-fg-muted lg:self-end">
       Loading regulation...
     </div>
@@ -236,7 +280,7 @@ export function ManualCompletedCourseForm({
   ) : null
 
   return (
-    <div className={`flex flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 ${entryMode === 'catalog' ? 'lg:h-[24rem] lg:min-h-0 lg:overflow-hidden' : 'lg:min-h-[24rem]'}`}>
+    <div className="flex min-w-0 flex-col rounded-[10px] border border-border bg-surface px-4 py-4.5 sm:px-6 sm:py-5.5 lg:min-h-[24rem]">
       <div className="shrink-0 text-[14px] font-semibold text-fg">Add Completed Courses Manually</div>
 
       <div className="mt-3 flex flex-wrap gap-1" role="group" aria-label={t('transcript.manual.mode')}>
@@ -361,6 +405,43 @@ export function ManualCompletedCourseForm({
           </div>
         ) : null}
 
+        {hasActiveRegulation ? (
+          <div className="grid min-w-0 gap-2 rounded-md border border-border-light p-2.5">
+            <label className="flex items-start gap-2 text-[11.5px] text-fg">
+              <input type="checkbox" checked={isAdditionalAchievement} onChange={(event) => setIsAdditionalAchievement(event.target.checked)} className="mt-0.5 shrink-0 accent-primary" />
+              <span>Additional achievement (visible in history, not counted toward degree)</span>
+            </label>
+            <label className="flex items-start gap-2 text-[11.5px] text-fg">
+              <input type="checkbox" checked={recognitionConfirmed} onChange={(event) => setRecognitionConfirmed(event.target.checked)} className="mt-0.5 shrink-0 accent-primary" />
+              <span>Explicitly confirm PO recognition for an external or mismatched achievement</span>
+            </label>
+            {recognitionConfirmed ? (
+              <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                <select aria-label="Recognized PO module" value={recognitionModuleCode} onChange={(event) => setRecognitionModuleCode(event.target.value)} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg">
+                  <option value="">Area only / no known module</option>
+                  {recognitionModules.map((module) => <option key={module.code} value={module.code}>{module.code} · {module.name}</option>)}
+                </select>
+                {entryMode === 'custom' ? (
+                  <select aria-label="External achievement type" value={recognitionAssessmentType} onChange={(event) => setRecognitionAssessmentType(event.target.value as typeof recognitionAssessmentType)} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg">
+                    {['lecture', 'seminar', 'practical', 'research_project', 'exam', 'other'].map((type) => <option key={type} value={type}>{type.replace('_', ' ')}</option>)}
+                  </select>
+                ) : null}
+                {entryMode === 'custom' ? (
+                  <>
+                    <select aria-label="Recognized component kind" value={recognitionComponentKind} onChange={(event) => setRecognitionComponentKind(event.target.value as typeof recognitionComponentKind)} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg">
+                      {['whole', 'component', 'written', 'oral'].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+                    </select>
+                    {recognitionComponentKind === 'component' ? <input aria-label="Component key" value={recognitionComponentKey} onChange={(event) => setRecognitionComponentKey(event.target.value)} placeholder="Component key" className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg" /> : null}
+                  </>
+                ) : null}
+                <label className="grid min-w-0 gap-1 text-[11px] text-fg-muted sm:col-span-2">
+                  <span>Angerechnete CP laut Bescheid (optional; maximum {entryMode === 'custom' ? customEcts || 0 : selectedCourse?.ects ?? 0})</span>
+                  <input type="number" min="0" max={entryMode === 'custom' ? customEcts || undefined : selectedCourse?.ects ?? undefined} step="0.01" value={approvedCountedEcts} onChange={(event) => setApprovedCountedEcts(event.target.value)} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg" />
+                </label>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {error ? (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-[12.5px] text-primary">
             {error}

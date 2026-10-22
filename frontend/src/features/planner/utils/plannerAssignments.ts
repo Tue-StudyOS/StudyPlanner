@@ -1,8 +1,8 @@
-import type { CompletedCourse, Course, StudyAreaOption } from '../../courses'
+import type { CompletedCourse, Course } from '../../courses'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { getProjectedDegreeEcts } from '../../../shared/utils/creditProjection.ts'
 import {
   buildAssignableRegulationAreaOptions,
-  buildRelevantCourseAreaOptions,
   hasCompulsoryCourseMapping,
   isEligibleStudyAreaOption,
   getEffectiveRuleGroupCapacity,
@@ -58,12 +58,13 @@ function buildCreditedEctsByArea(
   const creditedEctsByArea = new Map<string, number>()
 
   completedCourses.forEach((course) => {
-    if (!course.studyAreaCode || course.assignmentNeedsReview) {
+    if (!course.studyAreaCode || course.assignmentNeedsReview || course.isAdditionalAchievement) {
       return
     }
+    const ects = getProjectedDegreeEcts(course)
     creditedEctsByArea.set(
       course.studyAreaCode,
-      (creditedEctsByArea.get(course.studyAreaCode) ?? 0) + course.ects,
+      (creditedEctsByArea.get(course.studyAreaCode) ?? 0) + ects,
     )
   })
 
@@ -125,41 +126,19 @@ function dropDeselectedInfoAlternative(
   return options.filter((option) => option.code.trim().toUpperCase() !== deselectedCode)
 }
 
-// Whether a course can be credited to the two alternatives, based on its explicit
-// study-area mapping only. The flexible masterCat expansion would add both to every
-// BASIS-category course, so it cannot be used to detect BASIS-only courses.
-function getStudyAreaCodeSet(
-  studyAreaOptions: StudyAreaOption[] | undefined,
-  studyProgramCode: string | null,
-): Set<string> {
-  return new Set(
-    buildRelevantCourseAreaOptions(studyAreaOptions, studyProgramCode).map((option) =>
-      option.code.trim().toUpperCase(),
-    ),
-  )
-}
-
-function isBasisOnlyCodeSet(codes: Set<string>): boolean {
-  return codes.has(INFO_BASIS_AREA_CODE) && !codes.has(INFO_FOKUS_AREA_CODE)
-}
-
 /**
  * Picks the single INFO alternative (FOKUS or BASIS) that the planner should use.
  * Returns null when the regulation does not offer both, so callers leave the plan
- * untouched. BASIS wins only when a planned or completed course can be credited
- * there but not to FOKUS; otherwise FOKUS is preferred.
+ * untouched. BASIS is selected only when the profile confirms admission eligibility.
  */
-export function resolveChosenInfoAlternativeAreaCode({
-  plannedCourses,
-  completedCourses,
-  studyProgramCode,
-  regulationRuleGroups,
-}: {
+export function resolveChosenInfoAlternativeAreaCode(params: {
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
   studyProgramCode: string | null
   regulationRuleGroups: RegulationRuleGroup[]
+  mscInfoBasisAdmissionConfirmed?: boolean
 }): string | null {
+  const { regulationRuleGroups, mscInfoBasisAdmissionConfirmed = false } = params
   const ruleGroupCodes = new Set(
     regulationRuleGroups.map((ruleGroup) => ruleGroup.code.trim().toUpperCase()),
   )
@@ -167,22 +146,7 @@ export function resolveChosenInfoAlternativeAreaCode({
     return null
   }
 
-  const plannedForcesBasis = plannedCourses.some((course) =>
-    isBasisOnlyCodeSet(getStudyAreaCodeSet(course.studyAreaOptions, studyProgramCode)),
-  )
-  const completedForcesBasis = completedCourses.some((course) => {
-    const codes = new Set(
-      (course.availableStudyAreaOptions ?? []).map((option) =>
-        option.studyAreaCode.trim().toUpperCase(),
-      ),
-    )
-    if (course.studyAreaCode) {
-      codes.add(course.studyAreaCode.trim().toUpperCase())
-    }
-    return isBasisOnlyCodeSet(codes)
-  })
-
-  return plannedForcesBasis || completedForcesBasis ? INFO_BASIS_AREA_CODE : INFO_FOKUS_AREA_CODE
+  return mscInfoBasisAdmissionConfirmed ? INFO_BASIS_AREA_CODE : INFO_FOKUS_AREA_CODE
 }
 
 export function getPlannerCourseEctsForArea(
@@ -378,11 +342,13 @@ export function resolveAutomaticPlannerAssignments({
   areas,
   regulationRuleGroups,
   studyProgramCode,
+  isCreditAssignmentValid,
 }: {
   candidates: PlannerAutomaticAssignmentCandidate[]
   areas: PlannerAssignmentAreaState[]
   regulationRuleGroups: RegulationRuleGroup[]
   studyProgramCode: string | null
+  isCreditAssignmentValid?: (assignments: ReadonlyMap<string, PlannerAutomaticAssignment>, candidateId: string) => boolean
 }): Map<string, PlannerAutomaticAssignment> {
   const areaByCode = new Map(areas.map((area) => [area.code, area]))
   const areaSortOrder = buildAreaSortOrder(regulationRuleGroups)
@@ -455,7 +421,9 @@ export function resolveAutomaticPlannerAssignments({
         ects: option.ects,
       })
       currentTotals.set(option.areaCode, currentAreaTotal + option.ects)
-      visit(index + 1)
+      if (!isCreditAssignmentValid || isCreditAssignmentValid(currentAssignments, candidate.courseId)) {
+        visit(index + 1)
+      }
       currentTotals.set(option.areaCode, currentAreaTotal)
       currentAssignments.delete(candidate.courseId)
     }

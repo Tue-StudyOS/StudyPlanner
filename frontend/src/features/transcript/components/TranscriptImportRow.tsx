@@ -58,7 +58,7 @@ export function TranscriptImportRow({
   const displayTitle = candidate.matchedCourse?.title ?? candidate.title
   const gradeText = candidate.grade === null
     ? t('transcript.row.noGrade')
-    : `${t('transcript.row.grade')} ${candidate.grade.toFixed(1)}`
+    : `${t('transcript.row.grade')} ${String(candidate.grade)}`
   const semesterText = candidate.semester.trim() || t('transcript.row.semesterMissing')
   const hasActiveRegulation = regulationRuleGroups.length > 0
   const mappedAreaOptions = useMemo(
@@ -308,6 +308,52 @@ export function TranscriptImportRow({
             ) : null}
           </div>
 
+          {hasActiveRegulation ? (
+            <div className="grid min-w-0 gap-2 rounded-md border border-border-light p-2.5">
+              <label className="flex items-start gap-2 text-[11.5px] text-fg">
+                <input type="checkbox" checked={candidate.isAdditionalAchievement ?? false} onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, { isAdditionalAchievement: event.target.checked }))} className="mt-0.5 shrink-0 accent-primary" />
+                <span>Additional achievement (kept in history, not counted toward degree)</span>
+              </label>
+              <label className="flex items-start gap-2 text-[11.5px] text-fg">
+                <input
+                  type="checkbox"
+                  checked={candidate.recognitionEvidence?.confirmed === true}
+                  onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, {
+                    recognitionEvidence: event.target.checked && candidate.studyAreaCode
+                      ? { confirmed: true, areaCode: candidate.studyAreaCode, componentKind: 'whole' }
+                      : null,
+                  }))}
+                  className="mt-0.5 shrink-0 accent-primary"
+                />
+                <span>Explicitly confirm PO recognition (requires a selected area)</span>
+              </label>
+              {!candidate.matchedCourse ? (
+                <select
+                  aria-label="External achievement type"
+                  value={candidate.assessmentType ?? ''}
+                  onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, { assessmentType: event.target.value as TranscriptImportCandidate['assessmentType'] }))}
+                  className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg"
+                >
+                  <option value="">Select external achievement type</option>
+                  {['lecture', 'seminar', 'practical', 'research_project', 'exam', 'other'].map((type) => <option key={type} value={type}>{type.replace('_', ' ')}</option>)}
+                </select>
+              ) : null}
+              {candidate.recognitionEvidence?.confirmed ? (
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                  <select aria-label="Recognized component kind" value={candidate.recognitionEvidence.componentKind ?? 'whole'} onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, { recognitionEvidence: { ...candidate.recognitionEvidence!, componentKind: event.target.value as NonNullable<typeof candidate.recognitionEvidence>['componentKind'] } }))} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg">
+                    {['whole', 'component', 'written', 'oral'].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+                  </select>
+                  {candidate.recognitionEvidence.componentKind === 'component' ? <input aria-label="Component key" value={candidate.recognitionEvidence.componentKey ?? ''} onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, { recognitionEvidence: { ...candidate.recognitionEvidence!, componentKey: event.target.value } }))} placeholder="Component key" className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg" /> : null}
+                </div>
+              ) : null}
+              {candidate.recognitionEvidence?.confirmed && candidate.ects !== null ? (
+                <label className="grid min-w-0 gap-1 text-[11px] text-fg-muted">
+                  <span>Angerechnete CP laut Bescheid (optional, max. {candidate.ects})</span>
+                  <input type="number" min="0" max={candidate.ects} step="0.01" value={candidate.recognitionEvidence.countedEcts ?? ''} onChange={(event) => onChange(updateTranscriptImportCandidate(candidate, { recognitionEvidence: { ...candidate.recognitionEvidence!, countedEcts: event.target.value ? Number(event.target.value) : undefined } }))} className="w-full min-w-0 rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-fg" />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
           {!hasActiveRegulation ? (
             <div>
               <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-muted">

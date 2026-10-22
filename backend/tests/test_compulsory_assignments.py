@@ -15,7 +15,7 @@ workers = types.ModuleType('workers')
 workers.Response = object
 sys.modules.setdefault('workers', workers)
 
-from services import planner_assignments, progress, regulation_assignment_options, user_completed_courses  # noqa: E402
+from services import course_catalog, planner_assignments, progress, regulation_assignment_options, user_completed_courses  # noqa: E402
 
 
 class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
@@ -24,23 +24,23 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.db.row_factory = sqlite3.Row
         self.addCleanup(self.db.close)
         self.db.executescript('''
-            CREATE TABLE courses (id INTEGER, number TEXT, unit_id TEXT, title TEXT);
+            CREATE TABLE courses (id INTEGER, number TEXT, unit_id TEXT, title TEXT, course_type TEXT);
             CREATE TABLE regulation_versions (id INTEGER, code TEXT);
-            CREATE TABLE study_programs (id INTEGER, code TEXT);
+            CREATE TABLE study_programs (id INTEGER, code TEXT, name TEXT);
             CREATE TABLE study_program_regulation_versions (study_program_id INTEGER, regulation_version_id INTEGER);
             CREATE TABLE regulation_rule_groups (id INTEGER, regulation_version_id INTEGER, code TEXT,
                 name TEXT, group_type TEXT, required_ects REAL, max_ects REAL, sort_order INTEGER);
             CREATE TABLE regulation_course_mappings (course_id INTEGER, regulation_version_id INTEGER,
                 rule_group_id INTEGER, status TEXT, ects_counted REAL);
-            CREATE TABLE curriculum_modules (id INTEGER, ects REAL);
+            CREATE TABLE curriculum_modules (id INTEGER, ects REAL, module_code TEXT, title TEXT, module_type TEXT, level TEXT);
             CREATE TABLE course_curriculum_matches (course_id INTEGER, module_id INTEGER);
-            CREATE TABLE study_areas (id INTEGER, program_id INTEGER, code TEXT, area_type TEXT);
+            CREATE TABLE study_areas (id INTEGER, program_id INTEGER, code TEXT, area_type TEXT, name TEXT, sort_order INTEGER);
             CREATE TABLE module_study_area_options (module_id INTEGER, study_area_id INTEGER, status TEXT, ects_counted REAL);
             CREATE TABLE course_study_area_links (course_id INTEGER, study_area_id INTEGER);
-            INSERT INTO courses VALUES (1194, 'INF2010', 'unit-math', 'Mathematik 3'),
-                (1197, 'INF2420', 'unit-theory', 'Theorie 1'), (1200, 'SK100', NULL, 'Professional skills');
+            INSERT INTO courses VALUES (1194, 'INF2010', 'unit-math', 'Mathematik 3', NULL),
+                (1197, 'INF2420', 'unit-theory', 'Theorie 1', NULL), (1200, 'SK100', NULL, 'Professional skills', NULL);
             INSERT INTO regulation_versions VALUES (1, 'BSC_INFO_2021'), (2, 'MSC_ML_2021');
-            INSERT INTO study_programs VALUES (1, 'BSC_INFO_2021'), (2, 'MSC_ML_2021');
+            INSERT INTO study_programs VALUES (1, 'BSC_INFO_2021', 'Bachelor Informatik'), (2, 'MSC_ML_2021', 'Master ML');
             INSERT INTO study_program_regulation_versions VALUES (1, 1), (2, 2);
             INSERT INTO regulation_rule_groups VALUES
                 (1, 1, 'INF', 'Mandatory', 'pflicht', 90, NULL, 1),
@@ -48,11 +48,12 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
                 (3, 1, 'UEBK', 'Skills', 'free_choice', 21, NULL, 3),
                 (4, 2, 'ML-FOUND', 'Foundations', 'structured_elective', 24, NULL, 1),
                 (5, 2, 'UEBK', 'Skills', 'free_choice', 6, NULL, 2);
-            INSERT INTO curriculum_modules VALUES (1, 9), (2, 9), (3, 3), (4, 9);
+            INSERT INTO curriculum_modules (id, ects) VALUES (1, 9), (2, 9), (3, 3), (4, 9);
             INSERT INTO course_curriculum_matches VALUES (1194, 1), (1197, 2), (1200, 3), (1194, 4);
-            INSERT INTO study_areas VALUES (1, 1, 'MATH', 'pflicht'), (2, 1, 'INF', 'pflicht'),
-                (3, 1, 'INFO', 'wahlpflicht'), (4, 1, 'UEBK', 'free_choice'),
-                (5, 2, 'ML-FOUND', 'structured_elective');
+            INSERT INTO study_areas (id, program_id, code, area_type, name, sort_order) VALUES
+                (1, 1, 'MATH', 'pflicht', 'Math', 1), (2, 1, 'INF', 'pflicht', 'Informatik', 2),
+                (3, 1, 'INFO', 'wahlpflicht', 'Wahl', 3), (4, 1, 'UEBK', 'free_choice', 'Skills', 4),
+                (5, 2, 'ML-FOUND', 'structured_elective', 'Foundations', 1);
             INSERT INTO module_study_area_options VALUES (1, 1, 'allowed', 9),
                 (2, 2, 'allowed', 9), (3, 4, 'required', 3), (4, 5, 'required', 9);
             INSERT INTO course_study_area_links VALUES (1194, 3), (1197, 3);
@@ -61,7 +62,7 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.persist = AsyncMock(side_effect=self.save)
         stack = ExitStack()
         self.addCleanup(stack.close)
-        for module in (regulation_assignment_options, user_completed_courses, progress, planner_assignments):
+        for module in (course_catalog, regulation_assignment_options, user_completed_courses, progress, planner_assignments):
             stack.enter_context(patch.object(module, 'fetch_all', self.fetch))
         for module in (user_completed_courses, progress, planner_assignments):
             stack.enter_context(patch.object(module, 'load_user_progress_json', self.load))
@@ -149,20 +150,20 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.db.execute("INSERT INTO module_study_area_options VALUES (1, 4, 'required', 9)")
         self.stored = [self.course()]
         serialized = await user_completed_courses._serialize_completed_courses({}, 'test', 1)
-        self.assertTrue(serialized[0]['assignmentNeedsReview'])
+        self.assertFalse(serialized[0]['assignmentNeedsReview'])
         self.assertFalse(serialized[0]['isGradeCounted'])
-        self.assertEqual(serialized[0]['studyAreaCode'], 'INFO')
-        self.assertFalse(serialized[0]['categoryLocked'])
+        self.assertEqual(serialized[0]['studyAreaCode'], 'INF')
+        self.assertTrue(serialized[0]['categoryLocked'])
         groups = await planner_assignments.load_rule_groups_for_regulation({}, 1)
         totals, _ = await planner_assignments._load_completed_ects_by_area({}, 'test', groups, 1)
-        self.assertEqual(totals, {'INF': 0, 'INFO': 0, 'UEBK': 0})
+        self.assertEqual(totals, {'INF': 9, 'INFO': 0, 'UEBK': 0})
         progress_courses = await progress._load_completed_courses_for_progress({}, 'test', 1)
         areas = await progress._build_regulation_progress({}, 1, 'BSC_INFO_2021', progress_courses)
-        self.assertTrue(all(area['earnedEcts'] == 0 for area in areas))
-        self.assertIsNone(progress._compute_average_grade(progress_courses))
+        self.assertEqual(next(area['earnedEcts'] for area in areas if area['code'] == 'INF'), 9)
+        self.assertEqual(progress._compute_average_grade(progress_courses), 1.7)
         self.stored = [self.course(studyAreaCode='UEBK')]
         valid = await user_completed_courses._serialize_completed_courses({}, 'test', 1)
-        self.assertEqual(valid[0]['studyAreaCode'], 'UEBK')
+        self.assertEqual(valid[0]['studyAreaCode'], 'INF')
         self.assertFalse(valid[0]['assignmentNeedsReview'])
         self.persist.assert_not_awaited()
 
@@ -172,7 +173,7 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         serialized = await user_completed_courses._serialize_completed_courses({}, 'test', 1)
         by_id = {course['id']: course for course in serialized}
         self.assertEqual(by_id['unknown']['studyAreaCode'], 'INFO')
-        self.assertEqual(by_id['unknown']['courseNumber'], None)
+        self.assertEqual(by_id['unknown']['courseNumber'], 'INF2010')
         self.assertTrue(by_id['unknown']['assignmentRestricted'])
         self.assertTrue(by_id['unknown']['assignmentNeedsReview'])
         self.assertEqual(by_id['keep-id']['studyAreaCode'], 'INF')
@@ -182,9 +183,34 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(repaired[0]['assignmentNeedsReview'])
         self.db.execute("INSERT INTO module_study_area_options VALUES (1, 4, 'required', 9)")
         ambiguous = await regulation_assignment_options.canonicalize_completed_courses({}, 1, [self.course()])
-        self.assertEqual(ambiguous[0]['studyAreaCode'], 'INFO')
+        self.assertEqual(ambiguous[0]['studyAreaCode'], 'INF')
         malformed = {'courseId': 'not-numeric', 'title': 'Unknown', 'studyAreaCode': 'INFO'}
         self.assertEqual(await regulation_assignment_options.canonicalize_completed_courses({}, 1, [malformed]), [malformed])
+
+    async def test_official_formal_module_alias_trusts_normalized_catalog_title_but_rejects_contradictions(self) -> None:
+        self.db.execute(
+            "INSERT INTO courses VALUES (1501, 'INF1020-V', 'unit-math2', 'INF1020-V Lineare Algebra (Vorlesung)', 'Vorlesung')",
+        )
+        formal_alias = self.course(
+            id='formal-math', courseId=1501, courseNumber='INFM1020',
+            externalCourseCode='INFM1020', title='INFM1020 Lineare Algebra',
+        )
+        trusted = await regulation_assignment_options.load_trusted_completed_course_options({}, 1, [formal_alias])
+        self.assertFalse(trusted[regulation_assignment_options.completed_identity_key(formal_alias)][0].get('identityNeedsReview'))
+        repaired = await regulation_assignment_options.canonicalize_completed_courses({}, 1, [formal_alias])
+        self.assertFalse(repaired[0].get('assignmentNeedsReview', False))
+        self.assertEqual(repaired[0]['studyAreaCode'], 'INF')
+
+        contradictory_title = {**formal_alias, 'title': 'Unrelated module'}
+        rejected = await regulation_assignment_options.load_trusted_completed_course_options(
+            {}, 1, [contradictory_title],
+        )
+        self.assertTrue(rejected[regulation_assignment_options.completed_identity_key(contradictory_title)][0].get('identityNeedsReview'))
+        contradictory_code = {**formal_alias, 'externalCourseCode': 'UNRELATED-COURSE'}
+        rejected_code = await regulation_assignment_options.load_trusted_completed_course_options(
+            {}, 1, [contradictory_code],
+        )
+        self.assertTrue(rejected_code[regulation_assignment_options.completed_identity_key(contradictory_code)][0].get('identityNeedsReview'))
 
     async def test_serialized_rows_round_trip_with_enriched_codes_and_missing_catalog_identity(self) -> None:
         self.stored = [self.course(), self.course(id='missing', courseId=9999, title='Removed historic course')]
@@ -202,7 +228,7 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
     async def test_shared_queries_and_bulk_reads_stay_under_d1_bind_limit(self) -> None:
         self.db.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 100)
         ids = list(range(2000, 2125))
-        self.db.executemany('INSERT INTO courses VALUES (?, ?, NULL, ?)', [
+        self.db.executemany('INSERT INTO courses VALUES (?, ?, NULL, ?, NULL)', [
             (course_id, f'INF{course_id}', f'Course {course_id}') for course_id in ids
         ])
         self.db.executemany('INSERT INTO regulation_course_mappings VALUES (?, 1, 1, ?, 9)', [
@@ -238,7 +264,7 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['failedCount'], 125)  # Explicit stale INFO placements are still rejected.
 
     async def test_conflicting_and_generic_identity_never_repair_or_block_unrelated_saves(self) -> None:
-        self.db.execute("INSERT INTO courses VALUES (1300, 'GENERIC', NULL, 'Another course')")
+        self.db.execute("INSERT INTO courses VALUES (1300, 'GENERIC', NULL, 'Another course', NULL)")
         self.db.execute("UPDATE courses SET number = 'GENERIC' WHERE id = 1194")
         uncertain = [
             self.course(id='conflicting-code', externalCourseCode='OLD123'),
@@ -273,24 +299,24 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.db.execute("UPDATE study_areas SET code = 'UNKNOWN-MANDATORY' WHERE id = 1")
         self.stored = [self.course()]
         row = (await user_completed_courses._serialize_completed_courses({}, 'test', 1))[0]
-        self.assertEqual(row['studyAreaCode'], 'INFO')
+        self.assertEqual(row['studyAreaCode'], 'INF')
         self.assertTrue(row['assignmentRestricted'])
-        self.assertTrue(row['assignmentNeedsReview'])
-        self.assertFalse(row['categoryLocked'])
-        self.assertEqual(row['availableStudyAreaOptions'], [])
-        self.assertEqual(await planner_assignments.load_course_options_for_regulation({}, 1, [1194]), {})
+        self.assertFalse(row['assignmentNeedsReview'])
+        self.assertTrue(row['categoryLocked'])
+        self.assertEqual([option['studyAreaCode'] for option in row['availableStudyAreaOptions']], ['INF'])
+        self.assertEqual([option.area_code for option in (await planner_assignments.load_course_options_for_regulation({}, 1, [1194]))[1194]], ['INF'])
         completed = await progress._load_completed_courses_for_progress({}, 'test', 1)
         areas = await progress._build_regulation_progress({}, 1, 'BSC_INFO_2021', completed)
-        self.assertTrue(all(area['earnedEcts'] == 0 for area in areas))
+        self.assertEqual(next(area['earnedEcts'] for area in areas if area['code'] == 'INF'), 9)
         optimization = await user_completed_courses.get_current_user_anrechnung_optimization({}, object())
-        self.assertEqual(optimization['before']['creditedEcts'], 0)
+        self.assertEqual(optimization['before']['creditedEcts'], 9)
         self.assertEqual(optimization['changes'], [])
         self.persist.assert_not_awaited()
         valid = self.course(id='unrelated', courseId=1200, title='Professional skills', studyAreaCode='UEBK', masterCat='BASIS')
         await user_completed_courses.replace_current_user_completed_courses({}, object(), {
             'completedCourses': [self.course(), valid],
         })
-        self.assertEqual(next(course for course in self.stored if course['id'] == 'keep-id')['studyAreaCode'], 'INFO')
+        self.assertEqual(next(course for course in self.stored if course['id'] == 'keep-id')['studyAreaCode'], 'INF')
         for code in ('UEBK', 'INFO', 'UNKNOWN-MANDATORY'):
             result = await user_completed_courses.import_current_user_completed_courses({}, object(), {
                 'imports': [{'id': 'bad', 'course': self.course(id='new', studyAreaCode=code)}],
@@ -304,19 +330,12 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         self.db.execute("INSERT INTO module_study_area_options VALUES (1, 4, 'required', 9)")
         self.stored = [self.course()]
         optimization = await user_completed_courses.get_current_user_anrechnung_optimization({}, object())
-        self.assertEqual(optimization['before']['creditedEcts'], 0)
+        self.assertEqual(optimization['before']['creditedEcts'], 9)
         self.assertEqual(optimization['after']['creditedEcts'], 9)
-        self.assertTrue(optimization['hasImprovement'])
-        self.assertEqual(len(optimization['changes']), 1)
-        self.assertIsNone(optimization['changes'][0]['fromAreaCode'])
-        self.assertIn(optimization['changes'][0]['toAreaCode'], ('INF', 'UEBK'))
+        self.assertFalse(optimization['hasImprovement'])
+        self.assertEqual(len(optimization['changes']), 0)
         await user_completed_courses.replace_current_user_completed_courses({}, object(), {'completedCourses': [self.course()]})
-        self.assertEqual(self.stored[0]['studyAreaCode'], 'INFO')
-        serialized = await user_completed_courses._serialize_completed_courses({}, 'test', 1)
-        self.assertTrue(serialized[0]['assignmentNeedsReview'])
-        await user_completed_courses.replace_current_user_completed_courses({}, object(), {
-            'completedCourses': [self.course(studyAreaCode=optimization['changes'][0]['toAreaCode'])],
-        })
+        self.assertEqual(self.stored[0]['studyAreaCode'], 'INF')
         serialized = await user_completed_courses._serialize_completed_courses({}, 'test', 1)
         self.assertFalse(serialized[0]['assignmentNeedsReview'])
 
@@ -340,8 +359,8 @@ class CompulsoryAssignmentTest(unittest.IsolatedAsyncioTestCase):
         for status in ('blocked', 'excluded', 'forbidden'):
             self.db.execute('UPDATE module_study_area_options SET status = ? WHERE module_id = 1', (status,))
             options = await regulation_assignment_options.load_regulation_course_options({}, 1, [1194])
-            self.assertEqual([option['studyAreaCode'] for option in options[1194]], ['INFO'])
-            self.assertFalse(options[1194][0]['isCompulsory'])
+            self.assertEqual([option['studyAreaCode'] for option in options[1194]], ['INF'])
+            self.assertTrue(options[1194][0]['isCompulsory'])
 
 
 if __name__ == '__main__':

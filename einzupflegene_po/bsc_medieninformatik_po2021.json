@@ -2,213 +2,861 @@
   "studiengang": "Bachelor of Science Medieninformatik",
   "abschluss": "B.Sc.",
   "universitaet": "Eberhard Karls Universität Tübingen",
-  "pruefungsordnung": "PO2021",
-  "po_datum": "22.07.2022",
+  "pruefungsordnung": "PO 2021",
+  "po_datum": "25.03.2021 (Rektor-Zustimmung; erstmals WS 2021/22)",
   "regelstudienzeit_semester": 6,
   "gesamt_ects": 180,
-  "quelle": "https://uni-tuebingen.de/de/74484",
+  "quelle": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medieninformatik_BSc_BT_2021_10.pdf",
   "hinweis": "Interdisziplinärer Studiengang in Kooperation mit dem Institut für Medienwissenschaft",
-
   "module": [
-
     {
       "bereich": "Mathematik (Pflicht)",
+      "code": "MATH",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 27,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF1110",
+          "id": "INFM1010",
           "name": "Mathematik für Informatik 1: Analysis",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "typ": "module",
+          "aliases": [
+            "INFM1010",
+            "INF1010",
+            "ModulMath1"
+          ]
         },
         {
-          "id": "MINF1120",
+          "id": "INFM1020",
           "name": "Mathematik für Informatik 2: Lineare Algebra",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "INFM1020",
+            "INF1020",
+            "INF1020-V",
+            "ModulMath2"
+          ]
         },
         {
-          "id": "MINF1130",
+          "id": "INFM2010",
           "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2010",
+            "INF2010",
+            "ModulMath3"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Informatik (Pflicht)",
+      "code": "INF",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 60,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF2110",
+          "id": "INFM1110",
           "name": "Praktische Informatik 1: Deklarative Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1110",
+            "INF1110"
+          ]
         },
         {
-          "id": "MINF2120",
+          "id": "INFM1120",
           "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1120",
+            "INF1120"
+          ]
         },
         {
-          "id": "MINF2130",
+          "id": "INFM2310",
+          "name": "Technische Informatik 2: Informatik der Systeme",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2310",
+            "INF2310"
+          ]
+        },
+        {
+          "id": "INFM2420",
+          "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2420",
+            "INF2420"
+          ]
+        },
+        {
+          "id": "INFM2111",
           "name": "Praktische Informatik 3: Software Engineering",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "typ": "module",
+          "aliases": [
+            "INFM2111",
+            "INF2111"
+          ]
         },
         {
-          "id": "MINF2140",
+          "id": "INFM2410",
+          "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2410",
+            "INF2410"
+          ]
+        },
+        {
+          "id": "INFM2110",
           "name": "Praktische Informatik 4: Teamprojekt",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 5
-        },
-        {
-          "id": "MINF3110",
-          "name": "Technische Informatik 1: Digitaltechnik",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
-        },
-        {
-          "id": "MINF3120",
-          "name": "Technische Informatik 2: Informatik der Systeme",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
-        },
-        {
-          "id": "MINF4110",
-          "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2110",
+            "INF2110"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Medieninformatik (Pflicht)",
+      "code": "MEDIAINFO",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 39,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMI-UXD",
-          "name": "User Interface Design / User Experience (UX)",
+          "id": "MEINFM3164",
+          "name": "User Experience",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "MEINFM3164"
+          ]
         },
         {
-          "id": "MMI-INT",
-          "name": "Einführung in die Internettechnologien",
+          "id": "MEINFM3171",
+          "name": "Einführung in Internettechnologien",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "MEINFM3171"
+          ]
         },
         {
-          "id": "MMI-MULT",
+          "id": "MEINFM3321",
           "name": "Grundlagen der Multimediatechnik",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "MEINFM3321"
+          ]
         },
         {
-          "id": "MMI-BV",
+          "id": "MEINFM3000",
+          "name": "Ethik und Recht in der Medieninformatik",
+          "ects": 3,
+          "typ": "module",
+          "aliases": [
+            "MEINFM3000"
+          ]
+        },
+        {
+          "id": "MEINFM1510",
+          "name": "Proseminar Medieninformatik",
+          "ects": 3,
+          "typ": "module",
+          "aliases": [
+            "MEINFM1510"
+          ]
+        },
+        {
+          "id": "MEINFM3143",
           "name": "Bildverarbeitung",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "typ": "module",
+          "aliases": [
+            "MEINFM3143"
+          ]
         },
         {
-          "id": "MMI-GDV",
-          "name": "Graphische Datenverarbeitung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "id": "MEINFM3142",
+          "name": "Grafische Datenverarbeitung",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "MEINFM3142"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Medienwissenschaft (Pflicht)",
-      "module": [
-        {
-          "id": "MMW-GL",
-          "name": "Grundlagen der Medienwissenschaft",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        },
-        {
-          "id": "MMW-PR",
-          "name": "Praxisorientierte Medienwissenschaft",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
-        },
-        {
-          "id": "MMW-VT",
-          "name": "Vertiefende Medienwissenschaft",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 5
-        }
-      ]
-    },
-
-    {
-      "bereich": "Wahlpflicht",
-      "module": [
-        {
-          "id": "MMI-WP-INF",
-          "name": "Wahlpflichtfach Informatik",
-          "ects": 12,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MMI-WP-MI",
-          "name": "Wahlpflichtfach Medieninformatik",
-          "ects": 6,
-          "typ": "Wahlpflicht"
-        }
-      ]
-    },
-
-    {
-      "bereich": "Überfachliche berufsfeldorientierte Kompetenzen (übK)",
+      "bereich": "Wahlpflicht Informatik",
+      "code": "ELECTIVE-INF",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 9,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMI-PRO",
-          "name": "Proseminar (übK)",
-          "ects": 3,
-          "typ": "Pflicht (Teil übK)"
-        },
-        {
-          "id": "MMI-UEK",
-          "name": "Freie übK-Veranstaltungen",
-          "ects": 6,
-          "typ": "Wahlpflicht (Teil übK)"
+          "id": "MEINFM3210",
+          "name": "Wahlpflicht Informatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MEINFM3210"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Abschluss",
+      "bereich": "Wahlpflicht Medieninformatik",
+      "code": "ELECTIVE-MEDIA",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 12,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMI-BA",
-          "name": "Bachelorarbeit inkl. Vortrag",
-          "ects": 12,
-          "typ": "Pflicht",
-          "semester_empfohlen": 6
+          "id": "MEINFM3220",
+          "name": "Wahlpflicht Medieninformatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MEINFM3220"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Wahlpflicht Medienwissenschaften",
+      "code": "MEDIA_STUDIES",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 12,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MEINFM2510",
+          "name": "Wahlpflicht Medienwissenschaften",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MEINFM2510"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Studium Professionale",
+      "code": "UEBK",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 6,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MEINFM6120",
+          "name": "Studium Professionale",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MEINFM6120"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Abschlussmodul",
+      "code": "THESIS",
+      "typ": "abschluss",
+      "gesamt_ects_bereich": 15,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MEINFM3999",
+          "name": "Abschlussmodul Medieninformatik",
+          "ects": 15,
+          "typ": "completion",
+          "aliases": [
+            "MEINFM3999"
+          ]
         }
       ]
     }
-  ]
+  ],
+  "quelle_hinweis": "Official statute §5, amendments, and handbook; derived JSON is not an authoritative legal source.",
+  "credit_policy": {
+    "programCode": "BSC_MEDIENINFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 180,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "MATH",
+        "name": "Mathematik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 27,
+        "sortOrder": 10,
+        "modules": [
+          {
+            "code": "INFM1010",
+            "name": "Mathematik für Informatik 1: Analysis",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1010",
+              "INF1010",
+              "ModulMath1"
+            ]
+          },
+          {
+            "code": "INFM1020",
+            "name": "Mathematik für Informatik 2: Lineare Algebra",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1020",
+              "INF1020",
+              "INF1020-V",
+              "ModulMath2"
+            ]
+          },
+          {
+            "code": "INFM2010",
+            "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2010",
+              "INF2010",
+              "ModulMath3"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "INF",
+        "name": "Informatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 60,
+        "sortOrder": 20,
+        "modules": [
+          {
+            "code": "INFM1110",
+            "name": "Praktische Informatik 1: Deklarative Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1110",
+              "INF1110"
+            ]
+          },
+          {
+            "code": "INFM1120",
+            "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1120",
+              "INF1120"
+            ]
+          },
+          {
+            "code": "INFM2310",
+            "name": "Technische Informatik 2: Informatik der Systeme",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2310",
+              "INF2310"
+            ]
+          },
+          {
+            "code": "INFM2420",
+            "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2420",
+              "INF2420"
+            ]
+          },
+          {
+            "code": "INFM2111",
+            "name": "Praktische Informatik 3: Software Engineering",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2111",
+              "INF2111"
+            ]
+          },
+          {
+            "code": "INFM2410",
+            "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2410",
+              "INF2410"
+            ]
+          },
+          {
+            "code": "INFM2110",
+            "name": "Praktische Informatik 4: Teamprojekt",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2110",
+              "INF2110"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "MEDIAINFO",
+        "name": "Medieninformatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 39,
+        "sortOrder": 30,
+        "modules": [
+          {
+            "code": "MEINFM3164",
+            "name": "User Experience",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3164"
+            ]
+          },
+          {
+            "code": "MEINFM3171",
+            "name": "Einführung in Internettechnologien",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3171"
+            ]
+          },
+          {
+            "code": "MEINFM3321",
+            "name": "Grundlagen der Multimediatechnik",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3321"
+            ]
+          },
+          {
+            "code": "MEINFM3000",
+            "name": "Ethik und Recht in der Medieninformatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3000"
+            ]
+          },
+          {
+            "code": "MEINFM1510",
+            "name": "Proseminar Medieninformatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM1510"
+            ]
+          },
+          {
+            "code": "MEINFM3143",
+            "name": "Bildverarbeitung",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3143"
+            ]
+          },
+          {
+            "code": "MEINFM3142",
+            "name": "Grafische Datenverarbeitung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3142"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-INF",
+        "name": "Wahlpflicht Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 9,
+        "sortOrder": 40,
+        "modules": [
+          {
+            "code": "MEINFM3210",
+            "name": "Wahlpflicht Informatik",
+            "ects": null,
+            "quotaEcts": 9,
+            "kind": "pool",
+            "aliases": [
+              "MEINFM3210"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-MEDIA",
+        "name": "Wahlpflicht Medieninformatik",
+        "groupType": "elective_area",
+        "requiredEcts": 12,
+        "sortOrder": 50,
+        "modules": [
+          {
+            "code": "MEINFM3220",
+            "name": "Wahlpflicht Medieninformatik",
+            "ects": null,
+            "quotaEcts": 12,
+            "kind": "pool",
+            "aliases": [
+              "MEINFM3220"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "MEDIA_STUDIES",
+        "name": "Wahlpflicht Medienwissenschaften",
+        "groupType": "elective_area",
+        "requiredEcts": 12,
+        "sortOrder": 60,
+        "modules": [
+          {
+            "code": "MEINFM2510",
+            "name": "Wahlpflicht Medienwissenschaften",
+            "ects": null,
+            "quotaEcts": 12,
+            "kind": "pool",
+            "aliases": [
+              "MEINFM2510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "UEBK",
+        "name": "Studium Professionale",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 70,
+        "modules": [
+          {
+            "code": "MEINFM6120",
+            "name": "Studium Professionale",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "MEINFM6120"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 15,
+        "sortOrder": 80,
+        "modules": [
+          {
+            "code": "MEINFM3999",
+            "name": "Abschlussmodul Medieninformatik",
+            "ects": 15,
+            "quotaEcts": null,
+            "kind": "completion",
+            "aliases": [
+              "MEINFM3999"
+            ]
+          }
+        ]
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {},
+    "areaLimits": {},
+    "gradeRequirement": null,
+    "modules": [
+      {
+        "code": "INFM1010",
+        "name": "Mathematik für Informatik 1: Analysis",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1010",
+          "INF1010",
+          "ModulMath1"
+        ]
+      },
+      {
+        "code": "INFM1020",
+        "name": "Mathematik für Informatik 2: Lineare Algebra",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1020",
+          "INF1020",
+          "INF1020-V",
+          "ModulMath2"
+        ]
+      },
+      {
+        "code": "INFM2010",
+        "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2010",
+          "INF2010",
+          "ModulMath3"
+        ]
+      },
+      {
+        "code": "INFM1110",
+        "name": "Praktische Informatik 1: Deklarative Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1110",
+          "INF1110"
+        ]
+      },
+      {
+        "code": "INFM1120",
+        "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1120",
+          "INF1120"
+        ]
+      },
+      {
+        "code": "INFM2111",
+        "name": "Praktische Informatik 3: Software Engineering",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2111",
+          "INF2111"
+        ]
+      },
+      {
+        "code": "INFM2110",
+        "name": "Praktische Informatik 4: Teamprojekt",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2110",
+          "INF2110"
+        ]
+      },
+      {
+        "code": "INFM2310",
+        "name": "Technische Informatik 2: Informatik der Systeme",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2310",
+          "INF2310"
+        ]
+      },
+      {
+        "code": "INFM2420",
+        "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2420",
+          "INF2420"
+        ]
+      },
+      {
+        "code": "INFM2410",
+        "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2410",
+          "INF2410"
+        ]
+      },
+      {
+        "code": "MEINFM3164",
+        "name": "User Experience",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3164"
+        ]
+      },
+      {
+        "code": "MEINFM3171",
+        "name": "Einführung in Internettechnologien",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3171"
+        ]
+      },
+      {
+        "code": "MEINFM3321",
+        "name": "Grundlagen der Multimediatechnik",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3321"
+        ]
+      },
+      {
+        "code": "MEINFM3000",
+        "name": "Ethik und Recht in der Medieninformatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3000"
+        ]
+      },
+      {
+        "code": "MEINFM1510",
+        "name": "Proseminar Medieninformatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM1510"
+        ]
+      },
+      {
+        "code": "MEINFM3143",
+        "name": "Bildverarbeitung",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3143"
+        ]
+      },
+      {
+        "code": "MEINFM3142",
+        "name": "Grafische Datenverarbeitung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3142"
+        ]
+      },
+      {
+        "code": "MEINFM3210",
+        "name": "Wahlpflicht Informatik",
+        "ects": null,
+        "quotaEcts": 9,
+        "kind": "pool",
+        "aliases": [
+          "MEINFM3210"
+        ]
+      },
+      {
+        "code": "MEINFM3220",
+        "name": "Wahlpflicht Medieninformatik",
+        "ects": null,
+        "quotaEcts": 12,
+        "kind": "pool",
+        "aliases": [
+          "MEINFM3220"
+        ]
+      },
+      {
+        "code": "MEINFM2510",
+        "name": "Wahlpflicht Medienwissenschaften",
+        "ects": null,
+        "quotaEcts": 12,
+        "kind": "pool",
+        "aliases": [
+          "MEINFM2510"
+        ]
+      },
+      {
+        "code": "MEINFM6120",
+        "name": "Studium Professionale",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "MEINFM6120"
+        ]
+      },
+      {
+        "code": "MEINFM3999",
+        "name": "Abschlussmodul Medieninformatik",
+        "ects": 15,
+        "quotaEcts": null,
+        "kind": "completion",
+        "aliases": [
+          "MEINFM3999"
+        ]
+      }
+    ],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medieninformatik_BSc_BT_2021_10.pdf",
+    "writtenThesisEcts": 12,
+    "oralThesisEcts": 3
+  }
 }

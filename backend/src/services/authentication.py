@@ -477,6 +477,9 @@ async def _get_user_profile(
 
     row_username = str(row['username'])
     settings = parse_json_object(row.get('settingsJson'))
+    regulation_preferences = settings.get('regulationPreferences')
+    if not isinstance(regulation_preferences, dict):
+        regulation_preferences = {}
     app_language = settings.get('appLanguage') if settings.get('appLanguage') in ALLOWED_APP_LANGUAGES else None
     profile: dict[str, Any] = {
         'id': row_username,
@@ -497,6 +500,11 @@ async def _get_user_profile(
             'plannerMobileLayout': row.get('plannerMobileLayout') or 'compact-grid',
             'appLanguage': app_language,
             'onboardingTourCompleted': _bool_setting(settings.get('onboardingTourCompleted')),
+            'regulationPreferences': {
+                'mscInfoBasisAdmissionConfirmed': _bool_setting(
+                    regulation_preferences.get('mscInfoBasisAdmissionConfirmed')
+                ),
+            },
         },
     }
     if include_session_version:
@@ -894,6 +902,16 @@ async def update_current_user_profile(
             settings['appLanguage'] = next_app_language
     if 'onboardingTourCompleted' in payload:
         settings['onboardingTourCompleted'] = bool(payload.get('onboardingTourCompleted'))
+    if 'regulationPreferences' in payload:
+        preferences = payload.get('regulationPreferences')
+        if not isinstance(preferences, dict) or set(preferences) - {'mscInfoBasisAdmissionConfirmed'}:
+            raise ProfileUpdateError('regulationPreferences contains unsupported options.')
+        confirmation = preferences.get('mscInfoBasisAdmissionConfirmed', False)
+        if not isinstance(confirmation, bool):
+            raise ProfileUpdateError('mscInfoBasisAdmissionConfirmed must be a boolean.')
+        settings['regulationPreferences'] = {
+            'mscInfoBasisAdmissionConfirmed': confirmation,
+        }
 
     current_unix = now_unix()
     await execute(

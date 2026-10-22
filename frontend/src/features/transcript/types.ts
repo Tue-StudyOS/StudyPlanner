@@ -1,4 +1,4 @@
-import type { CompletedCourse, MasterCat, StudyAreaOption } from '../courses'
+import type { CompletedCourse, MasterCat, RecognitionEvidence, StudyAreaOption } from '../courses'
 import type { RegulationRuleGroup } from '../../shared/utils/regulation'
 
 export interface StudyStats {
@@ -66,6 +66,9 @@ export interface TranscriptImportCandidate {
   courseId: string | null
   courseNumber: string | null
   isUserEdited: boolean
+  isAdditionalAchievement?: boolean
+  recognitionEvidence?: RecognitionEvidence | null
+  assessmentType?: 'lecture' | 'seminar' | 'practical' | 'research_project' | 'exam' | 'other'
 }
 
 export interface TranscriptSaveResult {

@@ -51,8 +51,8 @@ class CatalogTreeCreditsTest(unittest.TestCase):
     def test_explicit_module_and_short_comment_credits_take_priority(self) -> None:
         course = variant([['MScInfo-INFO-INFO-21-VG1 Group (9 CP)', 'Course']])
         summary = _build_catalog_summary(course, [], [], [], [{'moduleEcts': 6}])
-        self.assertEqual(summary['ects'], 6)
-        self.assertEqual(summary['ectsTreeOptions'], [])
+        self.assertEqual(summary['ects'], 9)
+        self.assertTrue(summary['ectsTreeOptions'])
         course['shortComment'] = '3 CP'
         self.assertEqual(_build_catalog_summary(course, [], [], [], [])['ects'], 3)
 

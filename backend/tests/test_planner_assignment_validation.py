@@ -133,6 +133,48 @@ class PlannerAssignmentValidationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(validated, {'1': 'INFO'})
 
+    async def test_ml_general_cs_is_not_inferred_from_generic_ml_categories(self) -> None:
+        groups = {
+            code: {'name': code, 'groupType': 'elective_area'}
+            for code in ('ML-FOUND', 'ML-DIVERSE', 'ML-CS', 'ML-EXP', 'THESIS')
+        }
+        rows = {1: [
+            {'studyAreaCode': 'ML-CS', 'studyAreaName': 'General CS'},
+            {'studyAreaCode': 'ML-FOUND', 'studyAreaName': 'Foundations'},
+        ]}
+        with (
+            patch.object(planner_assignments, 'load_regulation_course_options', AsyncMock(return_value=rows)),
+            patch.object(planner_assignments, 'load_regulation_rule_groups', AsyncMock(return_value=groups)),
+            patch.object(planner_assignments, '_load_catalog_categories', AsyncMock(return_value={1: {'BASIS'}})),
+            patch.object(planner_assignments, '_load_ml_general_cs_eligible_course_ids', AsyncMock(return_value=set())),
+        ):
+            options = await planner_assignments.load_course_options_for_regulation(
+                {}, 7, [1], study_program_code='MSC_ML_2021',
+            )
+        self.assertEqual({option.area_code for option in options[1]}, {'ML-FOUND'})
+
+    async def test_info_basis_areas_require_the_profile_confirmation(self) -> None:
+        groups = {
+            code: {'name': code, 'groupType': 'elective_area'}
+            for code in ('INFO-PRAK', 'INFO-TECH', 'INFO-THEO', 'INFO-INFO',
+                         'INFO-FOKUS', 'INFO-BASIS', 'THESIS')
+        }
+        rows = {1: [{'studyAreaCode': 'INFO-BASIS', 'studyAreaName': 'BASIS'}]}
+        with (
+            patch.object(planner_assignments, 'load_regulation_course_options', AsyncMock(return_value=rows)),
+            patch.object(planner_assignments, 'load_regulation_rule_groups', AsyncMock(return_value=groups)),
+            patch.object(planner_assignments, '_load_catalog_categories', AsyncMock(return_value={1: {'INFO'}})),
+        ):
+            options = await planner_assignments.load_course_options_for_regulation(
+                {}, 7, [1], study_program_code='MSC_INFO_2021',
+            )
+            confirmed_options = await planner_assignments.load_course_options_for_regulation(
+                {}, 7, [1], study_program_code='MSC_INFO_2021',
+                msc_info_basis_admission_confirmed=True,
+            )
+        self.assertNotIn('INFO-BASIS', {option.area_code for option in options[1]})
+        self.assertIn('INFO-BASIS', {option.area_code for option in confirmed_options[1]})
+
 
 if __name__ == '__main__':
     unittest.main()

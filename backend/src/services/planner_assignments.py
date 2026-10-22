@@ -8,6 +8,7 @@ from db.d1 import fetch_all
 from services.authentication import require_authenticated_user
 from services.course_catalog import _extract_ects_from_text, _fetch_catalog_courses_by_ids, _normalize_master_cats
 from services.catalog_tree_credits import get_tree_credit_options, get_unambiguous_tree_credits
+from services.official_regulations import assessment_type, assignment_limit_error
 from services.regulation_assignment_options import (
     load_regulation_course_options,
     compulsory_course_options,
@@ -52,6 +53,7 @@ class PlannedCourse:
     course_id: int
     title: str
     ects: float
+    course_type: str = ''
 
 
 def _effective_capacity(rule_group: RuleGroup) -> float | None:
@@ -81,6 +83,51 @@ async def load_rule_groups_for_regulation(
     return rule_groups
 
 
+async def _load_ml_general_cs_eligible_course_ids(env: Any, course_ids: list[int]) -> set[int]:
+    if not course_ids:
+        return set()
+    rows = await fetch_all(
+        env,
+        """
+        SELECT DISTINCT courseId FROM (
+            SELECT l.course_id AS courseId
+            FROM course_study_area_links l
+            JOIN study_areas sa ON sa.id=l.study_area_id
+            JOIN study_programs sp ON sp.id=sa.program_id
+            WHERE sp.code='BSC_INFO_2021' AND sa.code IN ('PRAK','TECH','THEO','INFO')
+              AND l.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+            UNION ALL
+            SELECT m.course_id
+            FROM course_curriculum_matches m
+            JOIN module_study_area_options opt ON opt.module_id=m.module_id
+            JOIN study_areas sa ON sa.id=opt.study_area_id
+            JOIN study_programs sp ON sp.id=sa.program_id
+            WHERE sp.code='BSC_INFO_2021' AND sa.code IN ('PRAK','TECH','THEO','INFO')
+              AND m.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+            UNION ALL
+            SELECT l.course_id
+            FROM course_study_area_links l
+            JOIN study_areas sa ON sa.id=l.study_area_id
+            JOIN study_programs sp ON sp.id=sa.program_id
+            WHERE sp.code='MSC_INFO_2021'
+              AND sa.code IN ('INFO-PRAK','INFO-TECH','INFO-THEO','INFO-INFO','INFO-FOKUS','INFO-BASIS')
+              AND l.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+            UNION ALL
+            SELECT m.course_id
+            FROM course_curriculum_matches m
+            JOIN module_study_area_options opt ON opt.module_id=m.module_id
+            JOIN study_areas sa ON sa.id=opt.study_area_id
+            JOIN study_programs sp ON sp.id=sa.program_id
+            WHERE sp.code='MSC_INFO_2021'
+              AND sa.code IN ('INFO-PRAK','INFO-TECH','INFO-THEO','INFO-INFO','INFO-FOKUS','INFO-BASIS')
+              AND m.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+        )
+        """,
+        [json.dumps(course_ids)] * 4,
+    )
+    return {int(row['courseId']) for row in rows}
+
+
 async def _load_catalog_categories(env: Any, course_ids: list[int]) -> dict[int, set[str]]:
     rows = await fetch_all(
         env,
@@ -108,6 +155,9 @@ async def load_course_options_for_regulation(
     env: Any,
     regulation_version_id: int | None,
     course_ids: list[int],
+    *,
+    study_program_code: str | None = None,
+    msc_info_basis_admission_confirmed: bool = False,
 ) -> dict[int, list[CourseOption]]:
     if regulation_version_id is None or not course_ids:
         return {}
@@ -121,8 +171,35 @@ async def load_course_options_for_regulation(
     rule_groups = await load_regulation_rule_groups(env, regulation_version_id)
     catalog_categories = await _load_catalog_categories(env, course_ids)
     options_by_course_id: dict[int, list[CourseOption]] = {}
+    ml_cs_eligible_ids = (
+        await _load_ml_general_cs_eligible_course_ids(env, course_ids)
+        if study_program_code == 'MSC_ML_2021' else set()
+    )
     for course_id in dict.fromkeys(course_ids):
         options = rows.get(course_id, [])
+        if study_program_code == 'MSC_INFO_2021':
+            unavailable_area = 'INFO-FOKUS' if msc_info_basis_admission_confirmed else 'INFO-BASIS'
+            options = [option for option in options
+                       if option.get('studyAreaCode') != unavailable_area]
+        if study_program_code == 'MSC_ML_2021':
+            # ML categories are not interchangeable: generic BSc/master tags must
+            # not auto-expand a course into Foundations, Diverse Topics, or EXP.
+            options = [option for option in options if option.get('studyAreaCode') != 'ML-CS']
+            if course_id in ml_cs_eligible_ids:
+                options = [*options, {
+                    'studyAreaCode': 'ML-CS', 'studyAreaName': rule_groups.get('ML-CS', {}).get('name'),
+                    'groupType': rule_groups.get('ML-CS', {}).get('groupType'),
+                    'sortOrder': rule_groups.get('ML-CS', {}).get('sortOrder'), 'ectsCounted': None,
+                }]
+            options_by_course_id[course_id] = [
+                CourseOption(course_id, str(option['studyAreaCode']),
+                             _safe_text(option.get('studyAreaName')) or str(option['studyAreaCode']),
+                             _safe_text(option.get('groupType')) or 'study_area',
+                             int(option.get('sortOrder') or 0),
+                             _normalize_float(option.get('ectsCounted')) or 0.0)
+                for option in options if option.get('studyAreaCode') in rule_groups
+            ]
+            continue
         if has_unresolved_assignment_evidence(options):
             continue
         if not compulsory_course_options(options):
@@ -146,6 +223,8 @@ async def load_course_options_for_regulation(
                 }
                 for code, group in rule_groups.items()
                 if code not in mapped_codes
+                and (study_program_code != 'MSC_INFO_2021'
+                     or code != ('INFO-FOKUS' if msc_info_basis_admission_confirmed else 'INFO-BASIS'))
                 and is_flexible_rule_group(code, group.get('name'), group.get('groupType'))
                 and (code == 'UEBK' or not mapped_categories
                      or study_area_code_to_master_cat(code) in mapped_categories)
@@ -193,9 +272,23 @@ async def validate_plan_course_assignments(
         return {}
 
     rule_groups = await load_rule_groups_for_regulation(env, regulation_version_id)
-    course_options = await load_course_options_for_regulation(env, regulation_version_id, course_ids)
+    regulation_preferences = user['profile'].get('regulationPreferences') or {}
+    course_options = await load_course_options_for_regulation(
+        env, regulation_version_id, course_ids,
+        study_program_code=_safe_text(user['profile'].get('studyProgramCode')),
+        msc_info_basis_admission_confirmed=bool(regulation_preferences.get('mscInfoBasisAdmissionConfirmed')),
+    )
     validated_assignments: dict[str, str] = {}
 
+    study_program_code = _safe_text(user['profile'].get('studyProgramCode'))
+    planned_courses = (
+        await _load_planned_courses(env, course_ids, course_options, study_program_code)
+        if study_program_code in {'MSC_INFO_2021', 'MSC_ML_2021'} else {}
+    )
+    completed_assessments = (
+        await _load_completed_assessment_assignments(env, str(user['username']), study_program_code)
+        if study_program_code in {'MSC_INFO_2021', 'MSC_ML_2021'} else []
+    )
     for course_id_text, area_code in relevant_assignments.items():
         # Assignments are optional planner metadata. Catalog refreshes and
         # regulation changes can make a previously stored suggestion stale; in
@@ -205,6 +298,25 @@ async def validate_plan_course_assignments(
         course_id = int(course_id_text)
         compatible_area_codes = {option.area_code for option in course_options.get(course_id, [])}
         if area_code not in compatible_area_codes:
+            continue
+        tentative = list(completed_assessments) + [
+            {
+                'areaCode': assigned_area,
+                'ects': planned_courses[int(assigned_id)].ects,
+                'assessmentType': assessment_type(
+                    planned_courses[int(assigned_id)].course_type,
+                    planned_courses[int(assigned_id)].title,
+                ),
+            }
+            for assigned_id, assigned_area in validated_assignments.items()
+            if int(assigned_id) in planned_courses
+        ]
+        if course_id in planned_courses:
+            tentative.append({
+                'areaCode': area_code, 'ects': planned_courses[course_id].ects,
+                'assessmentType': assessment_type(planned_courses[course_id].course_type, planned_courses[course_id].title),
+            })
+        if assignment_limit_error(study_program_code, tentative):
             continue
         validated_assignments[course_id_text] = area_code
 
@@ -270,7 +382,10 @@ async def _load_planned_courses(
             ects = _extract_ects_from_text(_safe_text(row.get('shortComment')))
         if ects is None:
             ects = get_unambiguous_tree_credits(tree_options)
-        courses[course_id] = PlannedCourse(course_id, _safe_text(row.get('title')) or 'Untitled course', ects or 0.0)
+        courses[course_id] = PlannedCourse(
+            course_id, _safe_text(row.get('title')) or 'Untitled course',
+            ects or 0.0, _safe_text(row.get('courseType')) or '',
+        )
     return courses
 
 
@@ -291,6 +406,52 @@ def _coerce_completed_course_record(raw_course: Any) -> tuple[int | None, str | 
         _normalize_study_area_code(raw_course.get('studyAreaCode')),
         _normalize_float(raw_course.get('ects')) or 0.0,
     )
+
+
+async def _load_completed_assessment_assignments(
+    env: Any, username: str, program_code: str | None,
+) -> list[dict[str, Any]]:
+    if program_code not in {'MSC_INFO_2021', 'MSC_ML_2021'}:
+        return []
+    stored = await load_user_progress_json(env, username, 'completed_courses_json')
+    courses = [course for course in parse_json_array(stored) if isinstance(course, dict)]
+    stable_codes = list(dict.fromkeys(
+        code for course in courses
+        if (code := _safe_text(course.get('courseNumber') or course.get('externalCourseCode')))
+    ))
+    catalog_types: dict[str, set[str]] = {}
+    if stable_codes:
+        rows = await fetch_all(
+            env,
+            """SELECT COALESCE(number, unit_id) AS stableCode, course_type AS courseType
+               FROM courses
+               WHERE COALESCE(number, unit_id) IN (SELECT value FROM json_each(?))""",
+            [json.dumps(stable_codes)],
+        )
+        for row in rows:
+            code = _safe_text(row.get('stableCode'))
+            course_type = _safe_text(row.get('courseType'))
+            if code and course_type:
+                catalog_types.setdefault(code, set()).add(course_type)
+    assignments: list[dict[str, Any]] = []
+    seen_identities: set[str] = set()
+    for course in courses:
+        code = _safe_text(course.get('courseNumber') or course.get('externalCourseCode'))
+        types = catalog_types.get(code or '', set())
+        unique_type = next(iter(types)) if len(types) == 1 else None
+        kind = assessment_type(unique_type, _safe_text(course.get('title')))
+        if kind == 'other':
+            continue
+        identity = achievement_identity(course, program_code)
+        if identity in seen_identities:
+            continue
+        seen_identities.add(identity)
+        assignments.append({
+            'areaCode': _normalize_study_area_code(course.get('studyAreaCode')),
+            'ects': _normalize_float(course.get('ects')) or 0.0,
+            'assessmentType': kind,
+        })
+    return assignments
 
 
 async def _load_completed_ects_by_area(
@@ -377,6 +538,8 @@ def _balance_assignments(
     completed_course_ids: set[int],
     rule_groups: dict[str, RuleGroup],
     preferred_assignments: dict[str, str],
+    study_program_code: str | None = None,
+    completed_assessments: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, str], list[dict[str, Any]], list[str], list[dict[str, Any]], bool]:
     balance_course_ids = [
         course_id
@@ -423,6 +586,7 @@ def _balance_assignments(
     best_assignments: dict[int, str] = {}
     best_totals: dict[str, float] = dict(completed_ects_by_area)
     best_score: tuple[int, float, float, float, int, int, float] | None = None
+    policy_limit_failures: dict[int, str] = {}
 
     def visit(
         index: int,
@@ -461,6 +625,24 @@ def _balance_assignments(
             ects = option.ects_counted or course.ects
             if ects <= 0:
                 continue
+            policy_assignments = list(completed_assessments or []) + [
+                {
+                    'areaCode': area_code,
+                    'ects': planned_courses[assigned_id].ects,
+                    'assessmentType': assessment_type(
+                        planned_courses[assigned_id].course_type, planned_courses[assigned_id].title,
+                    ),
+                }
+                for assigned_id, area_code in current_assignments.items()
+            ]
+            policy_assignments.append({
+                'areaCode': option.area_code, 'ects': ects,
+                'assessmentType': assessment_type(course.course_type, course.title),
+            })
+            policy_error = assignment_limit_error(study_program_code, policy_assignments)
+            if policy_error:
+                policy_limit_failures[course_id] = policy_error
+                continue
             current_total = current_totals.get(option.area_code, 0.0)
             if not _area_has_capacity(rule_group, current_total, ects):
                 continue
@@ -479,12 +661,17 @@ def _balance_assignments(
             unknown_credits = planned_courses[course_id].ects <= 0 and all(
                 option.ects_counted <= 0 for option in options_by_course_id.get(course_id, [])
             )
+            limit_error = policy_limit_failures.get(course_id)
             warnings.append(
                 {
-                    'type': 'unknown_credits' if unknown_credits else 'capacity_unassigned',
+                    'type': 'credit_policy_limit' if limit_error else
+                            'unknown_credits' if unknown_credits else 'capacity_unassigned',
+                    'reason': limit_error,
                     'courseId': str(course_id),
                     'courseTitle': planned_courses[course_id].title,
-                    'message': ('Published ECTS are missing or ambiguous; choose an area manually.'
+                    'message': ('This course would exceed an official seminar, practical, or research-project limit.'
+                                if limit_error else
+                                'Published ECTS are missing or ambiguous; choose an area manually.'
                                 if unknown_credits else
                                 'No compatible regulation area has enough remaining ECTS capacity.'),
                 }
@@ -543,10 +730,13 @@ async def balance_current_user_semester_plan(
         }
 
     rule_groups = await load_rule_groups_for_regulation(env, regulation_version_id)
+    regulation_preferences = user['profile'].get('regulationPreferences') or {}
     options_by_course_id = await load_course_options_for_regulation(
         env,
         regulation_version_id,
         course_ids,
+        study_program_code=_safe_text(user['profile'].get('studyProgramCode')),
+        msc_info_basis_admission_confirmed=bool(regulation_preferences.get('mscInfoBasisAdmissionConfirmed')),
     )
     planned_courses = await _load_planned_courses(
         env, course_ids, options_by_course_id, _safe_text(user['profile'].get('studyProgramCode')),
@@ -557,6 +747,9 @@ async def balance_current_user_semester_plan(
         rule_groups,
         regulation_version_id,
     )
+    completed_assessments = await _load_completed_assessment_assignments(
+        env, username, _safe_text(user['profile'].get('studyProgramCode')),
+    )
     assignments, warnings, unassigned_course_ids, summary, strict_solution_found = _balance_assignments(
         course_ids,
         planned_courses,
@@ -565,6 +758,8 @@ async def balance_current_user_semester_plan(
         completed_course_ids,
         rule_groups,
         preferred_assignments,
+        _safe_text(user['profile'].get('studyProgramCode')),
+        completed_assessments,
     )
     return {
         'assignments': assignments,
