@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { RemoveIcon } from '../../../shared/components/icons'
 import type { CompletedCourse, Course, MasterCat } from '../../courses'
-import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
+import type { CreditPolicy, RegulationRuleGroup } from '../../../shared/utils/regulation'
 import { formatRegulationAreaShortLabel } from '../../../shared/utils/regulation'
 import {
   CAT_PROGRESS_CREDITED_CLASSES,
@@ -65,6 +65,8 @@ interface PlannerFeedbackProps {
   studyProgramCode: string | null
   planAssignments: Record<string, string>
   regulationRuleGroups: RegulationRuleGroup[]
+  creditPolicy?: CreditPolicy | null
+  mscInfoBasisAdmissionConfirmed?: boolean
   isLoadingRegulationVersion: boolean
   isBalancing?: boolean
   balanceMessage?: string | null
@@ -79,6 +81,8 @@ export function PlannerFeedback({
   studyProgramCode,
   planAssignments,
   regulationRuleGroups,
+  creditPolicy,
+  mscInfoBasisAdmissionConfirmed = false,
   isLoadingRegulationVersion,
   isBalancing = false,
   balanceMessage = null,
@@ -112,10 +116,13 @@ export function PlannerFeedback({
         studyProgramCode,
         planAssignments,
         regulationRuleGroups,
+        creditPolicy,
+        mscInfoBasisAdmissionConfirmed,
       }),
-    [completedCourses, planAssignments, plannedCourses, regulationRuleGroups, studyProgramCode],
+    [completedCourses, creditPolicy, mscInfoBasisAdmissionConfirmed, planAssignments, plannedCourses, regulationRuleGroups, studyProgramCode],
   )
   const progressAreas = progressOutlook.areas
+  const projectedEcts = progressAreas.reduce((sum, area) => sum + area.plannedEcts, 0)
   const unassignedCourses = progressOutlook.unassignedCourses
   const handleManualAssignmentChange = (courseId: string, areaCode: string | null): void => {
     const nextAssignments = { ...planAssignments }
@@ -144,7 +151,9 @@ export function PlannerFeedback({
               Solid is already done; striped is what this plan adds.
             </p>
             <div className="mt-2 text-[12px] text-fg-muted">
-              <span className="font-semibold text-fg">{roundEcts(totalEcts)} ECTS planned</span>
+              <span className="font-semibold text-fg">{roundEcts(totalEcts)} ECTS workload</span>
+              {' · '}
+              {roundEcts(projectedEcts)} ECTS degree forecast
               {' · '}
               {plannedCourses.length} course{plannedCourses.length !== 1 ? 's' : ''}
             </div>
@@ -256,6 +265,11 @@ export function PlannerFeedback({
                     {roundEcts(area.creditedEcts)} ECTS done
                     {area.plannedEcts > 0 ? ` + ${roundEcts(area.plannedEcts)} from this plan` : ''}
                   </div>
+                  {area.moduleProgress && area.moduleProgress.length > 0 ? (
+                    <div className="mt-1 text-[11px] text-fg-muted">
+                      Required modules: {area.moduleProgress.filter((module) => module.isFulfilled).length}/{area.moduleProgress.length} complete
+                    </div>
+                  ) : null}
 
                   {isExpanded ? (
                     <div className="mt-2 grid gap-1.5">
@@ -279,7 +293,7 @@ export function PlannerFeedback({
                               {[
                                 course.semester || null,
                                 `${roundEcts(course.ects)} ECTS`,
-                                course.grade !== null ? `Note ${course.grade.toFixed(1)}` : null,
+                                course.grade !== null ? `Note ${String(course.grade)}` : null,
                               ]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -317,7 +331,10 @@ export function PlannerFeedback({
                           className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-hover/70 px-3 py-2 text-[11px] text-fg-muted shadow-sm"
                         >
                           <span className="min-w-0 flex-1 break-words font-semibold text-fg">
-                            {course.title} - {roundEcts(course.ects)} ECTS
+                            {course.title} - {roundEcts(course.ects)} ECTS counted
+                            {course.creditReviewReasons?.length ? (
+                              <span className="block font-normal text-primary">Not included in degree forecast: review required.</span>
+                            ) : null}
                           </span>
                           <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
                             {course.options.length > 1 ? (
@@ -368,6 +385,7 @@ export function PlannerFeedback({
                     >
                       <span className="min-w-0 flex-1 break-words">
                         {course.title} - {roundEcts(course.ects)} ECTS
+                        {course.reason ? <span className="block text-danger">{course.reason}</span> : null}
                       </span>
                       <div className={ASSIGNMENT_CONTROL_GROUP_CLASS}>
                         {course.options.length > 0 ? (

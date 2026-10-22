@@ -3,8 +3,9 @@ import { CompletedBadge } from '../../../shared/components/CompletedBadge'
 import { useBodyScrollLock } from '../../../shared/hooks/useBodyScrollLock'
 import { CloseIcon } from '../../../shared/components/icons'
 import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
-import { getEffectiveRuleGroupCapacity, studyAreaCodeToMasterCat } from '../../../shared/utils/regulation'
-import type { CompletedCourse, Course, MasterCat } from '../../courses'
+import { getEffectiveRuleGroupCapacity } from '../../../shared/utils/regulation'
+import type { CompletedCourse, Course } from '../../courses'
+import { buildPlannedCompletedCourse } from '../../transcript/utils/completedCoursePayload.ts'
 import { useTranscript } from '../../transcript'
 import { StudyAreaAssignmentField } from '../../transcript/components/StudyAreaAssignmentField'
 import { normalizeCompletedCourseKey } from '../../transcript/utils/completedCourseKeys'
@@ -13,8 +14,6 @@ import {
   resolveAutomaticPlannerAssignments,
   type PlannerAssignmentAreaState,
 } from '../utils/plannerAssignments'
-
-const FALLBACK_MASTER_CAT: MasterCat = 'INFO'
 
 interface SemesterCompletionDialogProps {
   semesterLabel: string
@@ -35,28 +34,6 @@ interface CompletionCourseRow {
   isDuplicate: boolean
   duplicateCourse: CompletedCourse | null
   needsAreaChoice: boolean
-}
-
-function buildPlannedCompletedCourse(
-  course: Course,
-  semesterLabel: string,
-  studyAreaCode: string | null,
-): CompletedCourse {
-  const fallbackMasterCat = course.masterCats[0] ?? FALLBACK_MASTER_CAT
-
-  return {
-    id: `planner-${semesterLabel}-${course.id}`,
-    courseId: course.id,
-    courseNumber: course.number,
-    externalCourseCode: course.number,
-    title: course.title,
-    ects: course.ects ?? 0,
-    masterCat: studyAreaCode ? studyAreaCodeToMasterCat(studyAreaCode) ?? fallbackMasterCat : fallbackMasterCat,
-    studyAreaCode,
-    grade: null,
-    semester: semesterLabel,
-    source: 'planner_completion',
-  }
 }
 
 function buildCompletedCourseLookup(completedCourses: CompletedCourse[]): Map<string, CompletedCourse> {
@@ -106,7 +83,7 @@ function formatDuplicateSubtitle(course: CompletedCourse): string {
   const parts = [
     course.courseNumber ?? course.externalCourseCode ?? null,
     course.semester || null,
-    course.grade !== null ? `Grade ${course.grade.toFixed(1)}` : null,
+    course.grade !== null ? `Grade ${String(course.grade)}` : null,
   ].filter((part): part is string => Boolean(part && part.trim().length > 0))
 
   return parts.join(' · ')
@@ -259,7 +236,7 @@ export function SemesterCompletionDialog({
         planAssignments,
         assignmentDrafts,
       )
-      const completionCourse = buildPlannedCompletedCourse(course, semesterLabel, selectedAreaCode)
+      const completionCourse = buildPlannedCompletedCourse(course, semesterLabel, selectedAreaCode, studyProgramCode)
       const isDuplicate = duplicateKeys.has(normalizeCompletedCourseKey(completionCourse))
       const duplicateCourse = completedCourseLookup.get(course.id) ?? completedCourseLookup.get(course.number) ?? null
 
@@ -425,7 +402,7 @@ export function SemesterCompletionDialog({
     const importResult = await importCompletedCourses(
       selectedRows.map((row) => ({
         id: row.course.id,
-        course: buildPlannedCompletedCourse(row.course, semesterLabel, row.selectedAreaCode),
+        course: buildPlannedCompletedCourse(row.course, semesterLabel, row.selectedAreaCode, studyProgramCode),
       })),
     )
     if (importResult === null) {

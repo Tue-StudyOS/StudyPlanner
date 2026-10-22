@@ -1,43 +1,50 @@
 import type { CompletedCourse } from '../../courses'
 import type { StudyStats } from '../types'
-
-// Overarching-competence modules are ungraded and never enter the grade average.
-const OVERARCHING_COMPETENCE_CODE = 'UEBK'
+import { isValidTranscriptGrade, truncateDegreeGrade } from './grades.ts'
+import { getProjectedDegreeEcts } from '../../../shared/utils/creditProjection.ts'
 
 type GradeRelevantCourse = Pick<CompletedCourse, 'ects' | 'grade' | 'studyAreaCode' | 'assignmentNeedsReview'>
+  & Partial<Pick<CompletedCourse, 'degreeCountedEcts' | 'gradeCountedEcts' | 'gradeUsedForAverage' | 'isGradeCounted' | 'isAdditionalAchievement'>>
 
-/**
- * Client-side equivalent of the backend progress summary, used only while the
- * authoritative snapshot is still loading. Mirrors the backend rules so the
- * transcript header never disagrees with the progress tab: total is the sum of
- * earned ECTS, and the grade average is ECTS-weighted over graded courses with
- * overarching-competence (UEBK) modules excluded (case-insensitive).
- */
+function fixed(value: number): bigint {
+  return BigInt(Math.round(value * 10_000))
+}
+
+/** Client fallback while the server progress snapshot is loading. */
 export function computeStudyStats(
   completedCourses: GradeRelevantCourse[],
   requiredEcts: number,
 ): StudyStats {
-  const totalEcts = completedCourses.reduce((sum, course) => sum + (course.ects ?? 0), 0)
-  const progress = requiredEcts > 0 ? Math.round((totalEcts / requiredEcts) * 100) : 0
+  const hasDegreeAccounting = completedCourses.some((course) => typeof course.degreeCountedEcts === 'number')
+  const hasGradeAccounting = completedCourses.some((course) => typeof course.gradeCountedEcts === 'number'
+    || course.gradeUsedForAverage !== undefined || course.isGradeCounted !== undefined)
+  const totalEcts = completedCourses.reduce((sum, course) => sum + (hasDegreeAccounting
+    ? getProjectedDegreeEcts(course)
+    : (course.isAdditionalAchievement ? 0 : course.ects ?? 0)), 0)
+  const progress = requiredEcts > 0 ? Math.min(100, Math.round((totalEcts / requiredEcts) * 100)) : 0
 
-  const gradedPairs = completedCourses
-    .filter(
-      (course) =>
-        course.grade !== null
-        && !course.assignmentNeedsReview
-        && (course.studyAreaCode ?? '').toUpperCase() !== OVERARCHING_COMPETENCE_CODE,
-    )
-    .map((course) => ({ grade: course.grade as number, weight: course.ects ?? 0 }))
+  const gradedPairs = completedCourses.flatMap((course) => {
+    const grade = course.gradeUsedForAverage ?? course.grade
+    if (grade === null || !isValidTranscriptGrade(grade)) return []
+    if (hasGradeAccounting) {
+      if (course.gradeUsedForAverage === null || course.isGradeCounted === false) return []
+      const weight = course.gradeCountedEcts ?? (course.isGradeCounted ? course.degreeCountedEcts ?? 0 : 0)
+      return weight > 0 ? [{ grade, weight }] : []
+    }
+    if (course.assignmentNeedsReview || course.isAdditionalAchievement) return []
+    const weight = course.gradeCountedEcts ?? course.degreeCountedEcts ?? course.ects ?? 0
+    return weight > 0 ? [{ grade, weight }] : []
+  })
 
-  const gradedWeight = gradedPairs.reduce((sum, pair) => sum + pair.weight, 0)
   let averageGrade: number | null = null
-  if (gradedWeight > 0) {
-    averageGrade =
-      gradedPairs.reduce((sum, pair) => sum + pair.grade * pair.weight, 0) / gradedWeight
-  } else if (gradedPairs.length > 0) {
-    // Fall back to an unweighted mean when graded courses carry no ECTS value.
-    averageGrade = gradedPairs.reduce((sum, pair) => sum + pair.grade, 0) / gradedPairs.length
+  if (gradedPairs.length > 0) {
+    const weightedGrade = gradedPairs.reduce((sum, pair) => sum + fixed(pair.grade) * fixed(pair.weight), 0n)
+    const totalWeight = gradedPairs.reduce((sum, pair) => sum + fixed(pair.weight), 0n)
+    if (totalWeight > 0n) {
+      const tenths = (weightedGrade * 10n) / (totalWeight * 10_000n)
+      averageGrade = Number(tenths) / 10
+    }
   }
 
-  return { totalEcts, requiredEcts, progress, averageGrade }
+  return { totalEcts, requiredEcts, progress, averageGrade: averageGrade === null ? null : truncateDegreeGrade(averageGrade) }
 }

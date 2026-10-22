@@ -8,11 +8,40 @@ export interface RegulationRuleGroup {
   minEcts?: number | null
   maxEcts?: number | null
   sortOrder?: number | null
+  areaType?: string | null
+  modules?: Array<{ code: string; name: string; ects: number | null; quotaEcts?: number | null; kind: string; aliases?: string[] }>
+}
+
+export interface CreditPolicy {
+  programCode?: string
+  revision?: string
+  ruleGroups?: RegulationRuleGroup[]
+  alternativeAreas?: string[][]
+  areaLimits?: Record<string, Record<string, number>>
+  areaEligibilityRules?: Record<string, Record<string, unknown>>
+  conditionalAreaDeclaration?: { preferenceKey: string; trueArea: string; falseArea: string }
+  gradeExcludedAreas?: string[]
+  moduleGradeDecimals?: number
+  degreeGradeDecimals?: number
+  maxSeminars?: number | null
+  writtenThesisEcts?: number
+  oralThesisEcts?: number
 }
 
 export interface RegulationVersionDetail {
   code: string
   ruleGroups: RegulationRuleGroup[]
+  creditPolicy?: CreditPolicy | null
+}
+
+export function withCreditPolicyModules(
+  ruleGroups: RegulationRuleGroup[],
+  policy: CreditPolicy | null | undefined,
+): RegulationRuleGroup[] {
+  return ruleGroups.map((group) => ({
+    ...group,
+    modules: policy?.ruleGroups?.find((reference) => reference.code === group.code)?.modules ?? group.modules,
+  }))
 }
 
 export interface RegulationAreaOption {

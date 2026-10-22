@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { CompletedCourse } from '../../courses'
 import { useTranslation } from '../../i18n'
-import type { RegulationRuleGroup } from '../../../shared/utils/regulation'
+import type { CreditPolicy, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { projectPlannerCredits } from '../../../shared/utils/creditProjection.ts'
 import { usePersistedToggle } from '../../../shared/hooks/usePersistedToggle'
 import { BROWSER_STORAGE_KEYS } from '../../../shared/utils/browserStorageRegistry.ts'
 import type { TranscriptImportCandidate } from '../types'
@@ -83,12 +84,38 @@ function CollapsibleSection({
 }
 
 
+function formatCreditReviewReason(reason: string): string {
+  const labels: Record<string, string> = {
+    duplicate_achievement: 'Doppelter Leistungsnachweis',
+    duplicate_conflicting_grades: 'Doppelte Nachweise mit abweichenden Noten',
+    assignment_needs_review: 'Zuordnung muss geprüft werden',
+    course_not_eligible_for_area: 'Kurs ist dem Bereich laut PO nicht zugeordnet',
+    course_eligibility_unverified: 'PO-Berechtigung des Kurses ist nicht bestätigt',
+    compulsory_module_unverified: 'Pflichtmodul nicht verifiziert',
+    module_area_mismatch: 'Modul und Prüfungsbereich stimmen nicht überein',
+    module_credit_limit_exceeded: 'Modul-ECTS-Limit überschritten',
+    alternative_slot_credits_capped: 'Alternativmodul ist bereits ausgeschöpft',
+    completion_component_already_included: 'Abschlusskomponente ist im Gesamtabschluss enthalten',
+    module_component_already_included: 'Komponente ist im Gesamtmodul enthalten',
+    focus_area_excluded_by_basis_admission: 'FOKUS ist bei erklärter BASIS-Zulassung ausgeschlossen',
+    basis_area_requires_admission_declaration: 'BASIS erfordert die Zulassungs-Erklärung',
+    area_not_in_regulation: 'Bereich ist nicht Teil der aktiven PO',
+    seminar_count_limit_exceeded: 'Seminaranzahl laut PO überschritten',
+    seminar_area_limit_exceeded: 'Seminar-ECTS-Limit überschritten',
+    practical_area_limit_exceeded: 'Praktikums-ECTS-Limit überschritten',
+  }
+  return labels[reason] ?? 'PO-Anrechnung muss geprüft werden'
+}
+
 function formatCompletedSubtitle(course: CompletedCourse): string {
   const parts = [
     course.courseNumber ?? course.externalCourseCode ?? null,
-    course.ects ? `${course.ects} ECTS` : null,
+    course.ects ? `${course.ects} ECTS recorded` : null,
     course.semester || null,
-    course.grade !== null ? `Note ${course.grade.toFixed(1)}` : null,
+    course.grade !== null ? `Note ${String(course.grade)}` : null,
+    typeof course.degreeCountedEcts === 'number'
+      ? `${course.degreeCountedEcts} ECTS toward degree`
+      : null,
   ].filter((part): part is string => Boolean(part && part.trim().length > 0))
   return parts.join(' · ')
 }
@@ -126,6 +153,14 @@ function CompletedCourseRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-fg-mid">{course.title}</div>
         <div className="mt-1 break-words text-[11.5px] text-fg-muted">{formatCompletedSubtitle(course)}</div>
+        {course.isAdditionalAchievement ? (
+          <div className="mt-1 break-words text-[11.5px] text-fg-muted">Additional achievement · not counted toward degree</div>
+        ) : null}
+        {course.creditReviewReasons?.length ? (
+          <div role="status" className="mt-1 break-words text-[11.5px] text-danger">
+            {course.creditReviewReasons.map(formatCreditReviewReason).join(' · ')}
+          </div>
+        ) : null}
         {course.assignmentNeedsReview ? (
           <div role="status" className="mt-1 break-words text-[11.5px] text-danger">
             {t('transcript.assignmentNeedsReview')}
@@ -167,6 +202,8 @@ export function PersonalCourseCollection({
   completedCourses,
   studyProgramCode,
   regulationRuleGroups,
+  creditPolicy,
+  mscInfoBasisAdmissionConfirmed,
   isBusy,
   currentReviewImportableCount,
   savedIssueImportableCount,
@@ -188,6 +225,8 @@ export function PersonalCourseCollection({
   completedCourses: CompletedCourse[]
   studyProgramCode?: string | null
   regulationRuleGroups: RegulationRuleGroup[]
+  creditPolicy?: CreditPolicy | null
+  mscInfoBasisAdmissionConfirmed?: boolean
   isBusy?: boolean
   currentReviewImportableCount: number
   savedIssueImportableCount: number
@@ -210,6 +249,15 @@ export function PersonalCourseCollection({
   const [isSavedIssuesCollapsed, setIsSavedIssuesCollapsed] = usePersistedToggle(BROWSER_STORAGE_KEYS.transcriptSavedIssuesCollapsed, false)
   const [isCurrentReviewCollapsed, setIsCurrentReviewCollapsed] = usePersistedToggle(BROWSER_STORAGE_KEYS.transcriptCurrentReviewCollapsed, false)
   const hasContent = currentReviewCandidates.length > 0 || savedIssueCandidates.length > 0 || completedCourses.length > 0
+  const requiredModuleProgress = studyProgramCode && creditPolicy
+    ? projectPlannerCredits({
+      programCode: studyProgramCode,
+      policy: creditPolicy,
+      completedCourses,
+      assignedCourses: [],
+      mscInfoBasisAdmissionConfirmed,
+    }).moduleProgress
+    : []
 
   return (
     <section className="min-w-0 overflow-hidden rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-5">
@@ -246,6 +294,15 @@ export function PersonalCourseCollection({
           ) : null}
         </div>
       </div>
+
+      {requiredModuleProgress.length > 0 ? (
+        <p className="mb-3 text-[11.5px] text-fg-muted">
+          {t('transcript.requiredModulesStatus', {
+            complete: requiredModuleProgress.filter((module) => module.isFulfilled).length,
+            total: requiredModuleProgress.length,
+          })}
+        </p>
+      ) : null}
 
       {!hasContent ? (
         <div className="rounded-[10px] border border-dashed border-border px-4 py-6 text-center text-[12.5px] text-fg-muted">

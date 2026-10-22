@@ -723,6 +723,11 @@ export function updateTranscriptImportCandidate(
   return finalizeCandidate({
     ...candidate,
     ...updates,
+    recognitionEvidence: updates.recognitionEvidence !== undefined
+      ? updates.recognitionEvidence
+      : candidate.recognitionEvidence?.confirmed && updates.studyAreaCode
+        ? { ...candidate.recognitionEvidence, areaCode: updates.studyAreaCode }
+        : candidate.recognitionEvidence,
     isUserEdited: true,
   })
 }
@@ -738,6 +743,9 @@ export function acceptCandidateAsCustomCourse(
     ects: candidate.extractedEcts,
     studyAreaCode: normalizedCode,
     masterCat: studyAreaCodeToMasterCat(normalizedCode) ?? candidate.masterCat,
+    recognitionEvidence: candidate.recognitionEvidence?.confirmed
+      ? { ...candidate.recognitionEvidence, areaCode: normalizedCode }
+      : candidate.recognitionEvidence,
     matchedCourse: null,
     courseId: null,
     courseNumber: null,

@@ -7,61 +7,164 @@
   "subject": "Informatik",
   "total_ects": 120,
   "effective_from": "WS2021/22",
-  "source": "Prüfungsordnung M.Sc. Informatik, Universität Tübingen, 2021",
-  "note": "Studierende wählen 5 der 6 Vertiefungsbereiche (je 18 CP). INFO-FOKUS und INFO-BASIS sind Alternativen; einer davon muss belegt werden.",
+  "source": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_MSc_BT_2021_10.pdf",
   "areas": [
     {
       "code": "INFO-PRAK",
       "name": "Praktische Informatik",
       "required_ects": 18,
       "type": "elective_area",
-      "note": "18 CP aus dem Angebot der Praktischen Informatik."
+      "modules": []
     },
     {
       "code": "INFO-TECH",
       "name": "Technische Informatik",
       "required_ects": 18,
       "type": "elective_area",
-      "note": "18 CP aus dem Angebot der Technischen Informatik."
+      "modules": []
     },
     {
       "code": "INFO-THEO",
       "name": "Theoretische Informatik",
       "required_ects": 18,
       "type": "elective_area",
-      "note": "18 CP aus dem Angebot der Theoretischen Informatik."
+      "modules": []
     },
     {
       "code": "INFO-INFO",
-      "name": "Angewandte Informatik",
+      "name": "Informatik",
       "required_ects": 18,
       "type": "elective_area",
-      "note": "18 CP aus dem Angebot der Angewandten Informatik."
+      "modules": []
     },
     {
       "code": "INFO-FOKUS",
-      "name": "Fokusbereich",
+      "name": "Fokus Informatik (Alternative zu BASIS)",
       "required_ects": 18,
       "type": "elective_area",
-      "alternative_to": "INFO-BASIS",
-      "note": "Vertiefung in einem Schwerpunktgebiet. Alternativ zu INFO-BASIS."
+      "modules": []
     },
     {
       "code": "INFO-BASIS",
-      "name": "Basisbereich",
+      "name": "Basis Informatik (nur gemäß Zulassungsbescheid)",
       "required_ects": 18,
       "type": "elective_area",
-      "alternative_to": "INFO-FOKUS",
-      "note": "Grundlagenvertiefung. Alternativ zu INFO-FOKUS."
+      "modules": []
     },
     {
       "code": "THESIS",
-      "name": "Masterarbeit",
+      "name": "Abschlussmodul",
       "required_ects": 30,
-      "type": "mandatory",
-      "modules": [
-        { "code": "MSC_INFO_THESIS", "title": "Masterarbeit", "ects": 30, "type": "mandatory" }
-      ]
+      "type": "abschluss",
+      "modules": []
     }
-  ]
+  ],
+  "credit_policy": {
+    "programCode": "MSC_INFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 120,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "INFO-PRAK",
+        "name": "Praktische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 10,
+        "modules": []
+      },
+      {
+        "code": "INFO-TECH",
+        "name": "Technische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 20,
+        "modules": []
+      },
+      {
+        "code": "INFO-THEO",
+        "name": "Theoretische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 30,
+        "modules": []
+      },
+      {
+        "code": "INFO-INFO",
+        "name": "Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 40,
+        "modules": []
+      },
+      {
+        "code": "INFO-FOKUS",
+        "name": "Fokus Informatik (Alternative zu BASIS)",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 50,
+        "modules": []
+      },
+      {
+        "code": "INFO-BASIS",
+        "name": "Basis Informatik (nur gemäß Zulassungsbescheid)",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 60,
+        "modules": []
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 30,
+        "sortOrder": 70,
+        "modules": []
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [
+      [
+        "INFO-FOKUS",
+        "INFO-BASIS"
+      ]
+    ],
+    "conditionalAreas": [
+      "INFO-BASIS"
+    ],
+    "masterOnlyAreas": [
+      "INFO-FOKUS"
+    ],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {
+      "INFO-FOKUS": {
+        "moduleLevel": "master"
+      },
+      "INFO-BASIS": {
+        "preferenceKey": "mscInfoBasisAdmissionConfirmed",
+        "requiredValue": true
+      }
+    },
+    "areaLimits": {
+      "INFO-INFO": {
+        "maxResearchProjects": 1
+      }
+    },
+    "gradeRequirement": null,
+    "modules": [],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_MSc_BT_2021_10.pdf",
+    "maxSeminars": 3,
+    "additionalEctsLimit": 30,
+    "writtenThesisEcts": 27,
+    "oralThesisEcts": 3,
+    "admissionDecisionRequired": true,
+    "conditionalAreaDeclaration": {
+      "preferenceKey": "mscInfoBasisAdmissionConfirmed",
+      "trueArea": "INFO-BASIS",
+      "falseArea": "INFO-FOKUS"
+    }
+  }
 }

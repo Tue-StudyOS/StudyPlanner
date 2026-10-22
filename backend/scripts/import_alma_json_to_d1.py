@@ -857,17 +857,16 @@ WHERE f."key" = '_categories_json';""",
 SELECT f.course_id, cm.id, 'category_code', 0.9
 FROM course_fields AS f
 JOIN json_each(f.value) AS je
-JOIN curriculum_modules AS cm ON cm.module_code = je.value
+JOIN curriculum_module_aliases AS a
+  ON a.normalized_alias = upper(replace(replace(replace(je.value, '-', ''), ' ', ''), '.', ''))
+JOIN curriculum_modules AS cm ON cm.id = a.module_id
 WHERE f."key" = '_categories_json';""",
     """INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
-SELECT c.id, cm.id, 'exact_number', 1.0
+SELECT c.id, cm.id, 'number_alias', 0.9
 FROM courses AS c
-JOIN curriculum_modules AS cm ON cm.module_code = c.number;""",
-    # Course numbers like 'INF1020-V' belong to module 'INF1020'.
-    """INSERT OR IGNORE INTO course_curriculum_matches (course_id, module_id, match_type, confidence)
-SELECT c.id, cm.id, 'number_variant', 0.8
-FROM courses AS c
-JOIN curriculum_modules AS cm ON c.number LIKE cm.module_code || '-%';""",
+JOIN curriculum_module_aliases AS a
+  ON a.normalized_alias = upper(replace(replace(replace(c.number, '-', ''), ' ', ''), '.', ''))
+JOIN curriculum_modules AS cm ON cm.id = a.module_id;""",
 ]
 
 # Some programs expose study-area membership under codes that differ from the

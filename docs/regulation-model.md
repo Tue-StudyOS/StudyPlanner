@@ -126,3 +126,32 @@ For the current backend model, the matching rule is intentionally simple:
 5. if the product later needs multiple active regulation versions for one program, the same bridge table can hold multiple rows and still keep one `is_default = 1` mapping
 
 This rule is now exposed through the study-program API so the frontend can load the study program, show the embedded PO label, and let the backend resolve the default regulation automatically.
+
+## Verified PO policy and computed credits
+
+`GET /api/regulation-versions/{code}` exposes `creditPolicy` from the official-source audit. The forward-only, data-only migration `0040_official_po_credit_policies.sql` replaces stale aggregate areas and module aliases while retaining them as `legacy_review` for existing assignments. Catalog import rebuilds course-to-module matches from those explicit aliases.
+
+Credit/accounting values are read-time projections, never trusted persisted fields. Completed-course responses include `earnedEcts`, `uniqueEarnedEcts`, `degreeCountedEcts`, `gradeCountedEcts`, `gradeUsedForAverage`, `creditReviewReasons`, `canonicalModuleCode`, and `isGradeCounted`; `/api/me/progress.summary` publishes recorded, unique-earned, degree-counted and grade-counted ECTS. Raw stored course evidence is not rewritten to store these calculations. Confirmed recognition uses `{confirmed, moduleCode?, areaCode?, componentKey?, componentKind?, assessmentType?, countedEcts?}`; unknown external master's achievements require an explicit `assessmentType` (`lecture`, `seminar`, `practical`, `research_project`, `exam`, or `other`). Catalog assessment types remain authoritative. Optional `countedEcts` records a declared examination-board allocation, not a computed total: it must be between zero and the raw credits and cannot partially exclude the completion module. Additional achievements remain stored but do not enter degree or grade totals. Component grades are CP-weighted and truncated to two decimals for a module grade; the degree grade is truncated to one decimal. `creditReviewReasons` uses stable codes such as `duplicate_achievement`, `duplicate_conflicting_grades`, `module_not_in_regulation`, `module_area_mismatch`, `area_not_in_regulation`, and `assignment_needs_review`.
+
+The existing `user_state.settings_json` stores the optional preference `regulationPreferences.mscInfoBasisAdmissionConfirmed` as a boolean, updated through `PUT /api/me/profile` and returned in the profile. The false/default state enables the regular `INFO-FOKUS` area and keeps `INFO-BASIS` conditional; true declares that the student's Zulassungsbescheid requires/approves BASIS and enables `INFO-BASIS` instead of FOKUS. This is a self-declaration only, not verification of the Bescheid. Unmatched legacy BASIS/FOKUS evidence stays stored and is returned with a review reason; the UI must not choose a placement from credit totals. Suggested text: „Mein Zulassungsbescheid schreibt BASIS vor / erkennt diese BASIS-Module an.“ The examination office remains authoritative.
+
+## Correction release verification
+
+- Backend: 325 tests, including complete 180/120-CP fixtures for all six profiles,
+  module/assessment aliases, component budgets, explicit overflow decisions and
+  exact grade weighting. ML-EXP contributes credits but not degree-grade weight.
+- Frontend: 461 passing Node tests; five transcript-PDF reference cases require
+  absent local reference PDFs and are explicitly skipped. Lint and production
+  build pass.
+- Public-catalog migration check: all 1,525 course rows and synthetic user
+  auth/state/progress evidence remain unchanged; no additional foreign-key errors.
+  Actual API serialization covers six profiles and 481 catalog entries.
+- Browser checks cover 320, 375, 768 and desktop widths in both themes, including
+  expanded recognition controls; calendar checks also cover 1024px, week/date
+  navigation, block/weekend events, cancellations, fortnightly recurrence,
+  date-only exams and full-semester ICS export. No horizontal scrolling is needed.
+
+Apply only the reviewed forward migration to the existing active D1 after an
+external backup, then deploy the backend and the matching frontend build. Run
+`npm run db:verify-config` first. Do not recreate/reseed the database, change
+course IDs, or use a user's private records as release-test fixtures.

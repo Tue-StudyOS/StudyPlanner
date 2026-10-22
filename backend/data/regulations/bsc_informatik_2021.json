@@ -7,91 +7,902 @@
   "subject": "Informatik",
   "total_ects": 180,
   "effective_from": "WS2021/22",
-  "source": "Prüfungsordnung B.Sc. Informatik, Universität Tübingen, 2021",
+  "source": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_BSc_BT_2021_10.pdf",
   "areas": [
     {
       "code": "INF",
-      "name": "Informatik Pflichtbereich",
+      "name": "Informatik und Mathematik (Pflicht)",
       "required_ects": 114,
+      "type": "pflicht",
       "modules": [
-        { "code": "INFM1510", "title": "Proseminar", "ects": 3, "type": "mandatory" },
-        { "code": "INFM1010", "title": "Mathematik 1", "ects": 9, "type": "mandatory" },
-        { "code": "INFM1020", "title": "Mathematik 2", "ects": 9, "type": "mandatory" },
-        { "code": "INFM2010", "title": "Mathematik 3", "ects": 9, "type": "mandatory" },
         {
-          "code": "INFM2020",
-          "title": "Mathematik 4",
-          "ects": 6,
-          "type": "choice_one",
-          "alternatives": [
-            { "code": "INFM2021", "title": "Stochastik", "ects": 6 },
-            { "code": "INFM2022", "title": "Numerik", "ects": 6 }
+          "code": "INFM1010",
+          "name": "Mathematik für Informatik 1: Analysis",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1010",
+            "INF1010",
+            "ModulMath1"
           ]
         },
-        { "code": "INFM1110", "title": "Programmieren I", "ects": 9, "type": "mandatory" },
-        { "code": "INFM1120", "title": "Programmieren II", "ects": 9, "type": "mandatory" },
-        { "code": "INFM2111", "title": "Programmieren III", "ects": 6, "type": "mandatory" },
-        { "code": "INFM2110", "title": "Programmieren IV (Teamprojekt)", "ects": 9, "type": "mandatory" },
-        { "code": "INFM1310", "title": "Technische Informatik I", "ects": 6, "type": "mandatory" },
-        { "code": "INFM2310", "title": "Technische Informatik II", "ects": 9, "type": "mandatory" },
-        { "code": "INFM2320", "title": "Technische Informatik III (Programmierpraktikum)", "ects": 6, "type": "mandatory" },
-        { "code": "INFM2420", "title": "Theoretische Informatik I", "ects": 9, "type": "mandatory" },
-        { "code": "INFM2410", "title": "Theoretische Informatik II", "ects": 9, "type": "mandatory" },
-        { "code": "INFM3151", "title": "Grundlagen des Maschinellen Lernens", "ects": 6, "type": "mandatory" }
+        {
+          "code": "INFM1020",
+          "name": "Mathematik für Informatik 2: Lineare Algebra",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1020",
+            "INF1020",
+            "INF1020-V",
+            "ModulMath2"
+          ]
+        },
+        {
+          "code": "INFM2010",
+          "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2010",
+            "INF2010",
+            "ModulMath3"
+          ]
+        },
+        {
+          "code": "INFM2020",
+          "name": "Mathematik für Informatik 4: Numerik oder Stochastik",
+          "ects": 6,
+          "quotaEcts": null,
+          "kind": "choice",
+          "aliases": [
+            "INFM2020",
+            "INF2020",
+            "MAT-95-41",
+            "MAT-95-42",
+            "ModulMath4"
+          ]
+        },
+        {
+          "code": "INFM1110",
+          "name": "Praktische Informatik 1: Deklarative Programmierung",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1110",
+            "INF1110"
+          ]
+        },
+        {
+          "code": "INFM1120",
+          "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1120",
+            "INF1120"
+          ]
+        },
+        {
+          "code": "INFM2111",
+          "name": "Praktische Informatik 3: Software Engineering",
+          "ects": 6,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2111",
+            "INF2111"
+          ]
+        },
+        {
+          "code": "INFM2110",
+          "name": "Praktische Informatik 4: Teamprojekt",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2110",
+            "INF2110"
+          ]
+        },
+        {
+          "code": "INFM1310",
+          "name": "Technische Informatik 1: Digitaltechnik",
+          "ects": 6,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1310",
+            "INF1310"
+          ]
+        },
+        {
+          "code": "INFM2310",
+          "name": "Technische Informatik 2: Informatik der Systeme",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2310",
+            "INF2310"
+          ]
+        },
+        {
+          "code": "INFM2320",
+          "name": "Technische Informatik 3: Praktikum Mikrocomputer",
+          "ects": 6,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2320",
+            "INF2320"
+          ]
+        },
+        {
+          "code": "INFM2420",
+          "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2420",
+            "INF2420"
+          ]
+        },
+        {
+          "code": "INFM2410",
+          "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+          "ects": 9,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM2410",
+            "INF2410"
+          ]
+        },
+        {
+          "code": "INFM3151",
+          "name": "Grundlagen des Maschinellen Lernens",
+          "ects": 6,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM3151",
+            "INF3151"
+          ]
+        },
+        {
+          "code": "INFM1510",
+          "name": "Proseminar Informatik",
+          "ects": 3,
+          "quotaEcts": null,
+          "kind": "module",
+          "aliases": [
+            "INFM1510",
+            "INF1510"
+          ]
+        }
       ]
     },
     {
       "code": "PRAK",
-      "name": "Praktikum",
+      "name": "Wahlpflicht Praktische Informatik",
       "required_ects": 6,
+      "type": "elective_area",
       "modules": [
-        { "code": "INFM3120", "title": "Praktikum (Wahlpflicht)", "ects": 6, "type": "choice_from_list",
-          "note": "Ein genehmigtes Praktikum aus dem Angebot des Fachbereichs." }
+        {
+          "code": "INFM3110",
+          "name": "Wahlpflicht Praktische Informatik",
+          "ects": null,
+          "quotaEcts": 6,
+          "kind": "pool",
+          "aliases": [
+            "INFM3110",
+            "INF3110"
+          ]
+        }
       ]
     },
     {
       "code": "TECH",
       "name": "Wahlpflicht Technische Informatik",
       "required_ects": 6,
+      "type": "elective_area",
       "modules": [
-        { "code": "INFM3310", "title": "Wahlpflichtmodul Technische Informatik", "ects": 6, "type": "choice_from_list",
-          "note": "Ein Modul aus dem Wahlpflichtangebot Technische Informatik." }
+        {
+          "code": "INFM3310",
+          "name": "Wahlpflicht Technische Informatik",
+          "ects": null,
+          "quotaEcts": 6,
+          "kind": "pool",
+          "aliases": [
+            "INFM3310",
+            "INF3310"
+          ]
+        }
       ]
     },
     {
       "code": "THEO",
       "name": "Wahlpflicht Theoretische Informatik",
       "required_ects": 6,
+      "type": "elective_area",
       "modules": [
-        { "code": "INFM3410", "title": "Wahlpflichtmodul Theoretische Informatik", "ects": 6, "type": "choice_from_list",
-          "note": "Ein Modul aus dem Wahlpflichtangebot Theoretische Informatik." }
+        {
+          "code": "INFM3410",
+          "name": "Wahlpflicht Theoretische Informatik",
+          "ects": null,
+          "quotaEcts": 6,
+          "kind": "pool",
+          "aliases": [
+            "INFM3410",
+            "INF3410"
+          ]
+        }
       ]
     },
     {
       "code": "INFO",
       "name": "Wahlpflicht Informatik",
       "required_ects": 15,
+      "type": "elective_area",
       "modules": [
-        { "code": "INFM2510", "title": "Wahlpflichtmodule Informatik", "ects": 15, "type": "choice_from_list",
-          "note": "Module aus dem allgemeinen Informatik-Wahlpflichtangebot." }
+        {
+          "code": "INFM2510",
+          "name": "Wahlpflicht Informatik",
+          "ects": null,
+          "quotaEcts": 15,
+          "kind": "pool",
+          "aliases": [
+            "INFM2510",
+            "INF2510"
+          ]
+        }
       ]
     },
     {
       "code": "UEBK",
-      "name": "Überfachliche Kompetenzen",
+      "name": "Studium Professionale oder Schwerpunkt",
       "required_ects": 18,
+      "type": "elective_area",
       "modules": [
-        { "code": "UEBK", "title": "Überfachliche Kompetenzen", "ects": 18, "type": "choice_from_list",
-          "note": "Module aus dem Angebot der Universität Tübingen (z.B. Sprachkurse, Schlüsselkompetenzen)." }
+        {
+          "code": "INFM6110",
+          "name": "Studium Professionale",
+          "ects": null,
+          "quotaEcts": 18,
+          "kind": "pool",
+          "aliases": [
+            "INFM6110",
+            "INF6110"
+          ]
+        },
+        {
+          "code": "INFM1710",
+          "name": "Schwerpunkt Informatik",
+          "ects": null,
+          "quotaEcts": 18,
+          "kind": "pool",
+          "aliases": [
+            "INFM1710",
+            "INF1710"
+          ]
+        }
       ]
     },
     {
       "code": "THESIS",
-      "name": "Bachelorarbeit",
+      "name": "Abschlussmodul",
       "required_ects": 15,
+      "type": "abschluss",
       "modules": [
-        { "code": "INFM3999", "title": "Bachelorarbeit", "ects": 15, "type": "mandatory" }
+        {
+          "code": "INFM3999",
+          "name": "Abschlussmodul Informatik",
+          "ects": 15,
+          "quotaEcts": null,
+          "kind": "completion",
+          "aliases": [
+            "INFM3999",
+            "INF3999"
+          ]
+        }
       ]
     }
-  ]
+  ],
+  "credit_policy": {
+    "programCode": "BSC_INFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 180,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "INF",
+        "name": "Informatik und Mathematik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 114,
+        "sortOrder": 10,
+        "modules": [
+          {
+            "code": "INFM1010",
+            "name": "Mathematik für Informatik 1: Analysis",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1010",
+              "INF1010",
+              "ModulMath1"
+            ]
+          },
+          {
+            "code": "INFM1020",
+            "name": "Mathematik für Informatik 2: Lineare Algebra",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1020",
+              "INF1020",
+              "INF1020-V",
+              "ModulMath2"
+            ]
+          },
+          {
+            "code": "INFM2010",
+            "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2010",
+              "INF2010",
+              "ModulMath3"
+            ]
+          },
+          {
+            "code": "INFM2020",
+            "name": "Mathematik für Informatik 4: Numerik oder Stochastik",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "choice",
+            "aliases": [
+              "INFM2020",
+              "INF2020",
+              "MAT-95-41",
+              "MAT-95-42",
+              "ModulMath4"
+            ]
+          },
+          {
+            "code": "INFM1110",
+            "name": "Praktische Informatik 1: Deklarative Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1110",
+              "INF1110"
+            ]
+          },
+          {
+            "code": "INFM1120",
+            "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1120",
+              "INF1120"
+            ]
+          },
+          {
+            "code": "INFM2111",
+            "name": "Praktische Informatik 3: Software Engineering",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2111",
+              "INF2111"
+            ]
+          },
+          {
+            "code": "INFM2110",
+            "name": "Praktische Informatik 4: Teamprojekt",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2110",
+              "INF2110"
+            ]
+          },
+          {
+            "code": "INFM1310",
+            "name": "Technische Informatik 1: Digitaltechnik",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1310",
+              "INF1310"
+            ]
+          },
+          {
+            "code": "INFM2310",
+            "name": "Technische Informatik 2: Informatik der Systeme",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2310",
+              "INF2310"
+            ]
+          },
+          {
+            "code": "INFM2320",
+            "name": "Technische Informatik 3: Praktikum Mikrocomputer",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2320",
+              "INF2320"
+            ]
+          },
+          {
+            "code": "INFM2420",
+            "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2420",
+              "INF2420"
+            ]
+          },
+          {
+            "code": "INFM2410",
+            "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2410",
+              "INF2410"
+            ]
+          },
+          {
+            "code": "INFM3151",
+            "name": "Grundlagen des Maschinellen Lernens",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM3151",
+              "INF3151"
+            ]
+          },
+          {
+            "code": "INFM1510",
+            "name": "Proseminar Informatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1510",
+              "INF1510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "PRAK",
+        "name": "Wahlpflicht Praktische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 20,
+        "modules": [
+          {
+            "code": "INFM3110",
+            "name": "Wahlpflicht Praktische Informatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "INFM3110",
+              "INF3110"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "TECH",
+        "name": "Wahlpflicht Technische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 30,
+        "modules": [
+          {
+            "code": "INFM3310",
+            "name": "Wahlpflicht Technische Informatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "INFM3310",
+              "INF3310"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "THEO",
+        "name": "Wahlpflicht Theoretische Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 40,
+        "modules": [
+          {
+            "code": "INFM3410",
+            "name": "Wahlpflicht Theoretische Informatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "INFM3410",
+              "INF3410"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "INFO",
+        "name": "Wahlpflicht Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 15,
+        "sortOrder": 50,
+        "modules": [
+          {
+            "code": "INFM2510",
+            "name": "Wahlpflicht Informatik",
+            "ects": null,
+            "quotaEcts": 15,
+            "kind": "pool",
+            "aliases": [
+              "INFM2510",
+              "INF2510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "UEBK",
+        "name": "Studium Professionale oder Schwerpunkt",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 60,
+        "modules": [
+          {
+            "code": "INFM6110",
+            "name": "Studium Professionale",
+            "ects": null,
+            "quotaEcts": 18,
+            "kind": "pool",
+            "aliases": [
+              "INFM6110",
+              "INF6110"
+            ]
+          },
+          {
+            "code": "INFM1710",
+            "name": "Schwerpunkt Informatik",
+            "ects": null,
+            "quotaEcts": 18,
+            "kind": "pool",
+            "aliases": [
+              "INFM1710",
+              "INF1710"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 15,
+        "sortOrder": 70,
+        "modules": [
+          {
+            "code": "INFM3999",
+            "name": "Abschlussmodul Informatik",
+            "ects": 15,
+            "quotaEcts": null,
+            "kind": "completion",
+            "aliases": [
+              "INFM3999",
+              "INF3999"
+            ]
+          }
+        ]
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [
+      [
+        "INFM2020 (Numerik)",
+        "INFM2020 (Stochastik)"
+      ]
+    ],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {},
+    "areaLimits": {},
+    "gradeRequirement": null,
+    "modules": [
+      {
+        "code": "INFM1010",
+        "name": "Mathematik für Informatik 1: Analysis",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1010",
+          "INF1010",
+          "ModulMath1"
+        ]
+      },
+      {
+        "code": "INFM1020",
+        "name": "Mathematik für Informatik 2: Lineare Algebra",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1020",
+          "INF1020",
+          "INF1020-V",
+          "ModulMath2"
+        ]
+      },
+      {
+        "code": "INFM2010",
+        "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2010",
+          "INF2010",
+          "ModulMath3"
+        ]
+      },
+      {
+        "code": "INFM2020",
+        "name": "Mathematik für Informatik 4: Numerik oder Stochastik",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "choice",
+        "aliases": [
+          "INFM2020",
+          "INF2020",
+          "MAT-95-41",
+          "MAT-95-42",
+          "ModulMath4"
+        ]
+      },
+      {
+        "code": "INFM1110",
+        "name": "Praktische Informatik 1: Deklarative Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1110",
+          "INF1110"
+        ]
+      },
+      {
+        "code": "INFM1120",
+        "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1120",
+          "INF1120"
+        ]
+      },
+      {
+        "code": "INFM2111",
+        "name": "Praktische Informatik 3: Software Engineering",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2111",
+          "INF2111"
+        ]
+      },
+      {
+        "code": "INFM2110",
+        "name": "Praktische Informatik 4: Teamprojekt",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2110",
+          "INF2110"
+        ]
+      },
+      {
+        "code": "INFM1310",
+        "name": "Technische Informatik 1: Digitaltechnik",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1310",
+          "INF1310"
+        ]
+      },
+      {
+        "code": "INFM2310",
+        "name": "Technische Informatik 2: Informatik der Systeme",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2310",
+          "INF2310"
+        ]
+      },
+      {
+        "code": "INFM2320",
+        "name": "Technische Informatik 3: Praktikum Mikrocomputer",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2320",
+          "INF2320"
+        ]
+      },
+      {
+        "code": "INFM2420",
+        "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2420",
+          "INF2420"
+        ]
+      },
+      {
+        "code": "INFM2410",
+        "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2410",
+          "INF2410"
+        ]
+      },
+      {
+        "code": "INFM3151",
+        "name": "Grundlagen des Maschinellen Lernens",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM3151",
+          "INF3151"
+        ]
+      },
+      {
+        "code": "INFM1510",
+        "name": "Proseminar Informatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1510",
+          "INF1510"
+        ]
+      },
+      {
+        "code": "INFM6110",
+        "name": "Studium Professionale",
+        "ects": null,
+        "quotaEcts": 18,
+        "kind": "pool",
+        "aliases": [
+          "INFM6110",
+          "INF6110"
+        ]
+      },
+      {
+        "code": "INFM1710",
+        "name": "Schwerpunkt Informatik",
+        "ects": null,
+        "quotaEcts": 18,
+        "kind": "pool",
+        "aliases": [
+          "INFM1710",
+          "INF1710"
+        ]
+      },
+      {
+        "code": "INFM3110",
+        "name": "Wahlpflicht Praktische Informatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "INFM3110",
+          "INF3110"
+        ]
+      },
+      {
+        "code": "INFM3310",
+        "name": "Wahlpflicht Technische Informatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "INFM3310",
+          "INF3310"
+        ]
+      },
+      {
+        "code": "INFM3410",
+        "name": "Wahlpflicht Theoretische Informatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "INFM3410",
+          "INF3410"
+        ]
+      },
+      {
+        "code": "INFM2510",
+        "name": "Wahlpflicht Informatik",
+        "ects": null,
+        "quotaEcts": 15,
+        "kind": "pool",
+        "aliases": [
+          "INFM2510",
+          "INF2510"
+        ]
+      },
+      {
+        "code": "INFM3999",
+        "name": "Abschlussmodul Informatik",
+        "ects": 15,
+        "quotaEcts": null,
+        "kind": "completion",
+        "aliases": [
+          "INFM3999",
+          "INF3999"
+        ]
+      }
+    ],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Informatik_BSc_BT_2021_10.pdf",
+    "writtenThesisEcts": 12,
+    "oralThesisEcts": 3
+  }
 }

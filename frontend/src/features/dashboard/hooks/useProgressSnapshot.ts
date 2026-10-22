@@ -13,6 +13,7 @@ export function useProgressSnapshot(): {
 } {
   const { csrfToken, user } = useAuth()
   const userCacheKey = user?.username ?? 'anonymous'
+  const regulationPreferenceKey = JSON.stringify(user?.profile.regulationPreferences ?? {})
   const { completedCourses, isLoadingCompletedCourses } = useTranscript()
   const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(null)
   const [isLoadingProgress, setIsLoadingProgress] = useState<boolean>(false)
@@ -70,7 +71,7 @@ export function useProgressSnapshot(): {
     return () => {
       isActive = false
     }
-  }, [completedCourses, isLoadingCompletedCourses, csrfToken, userCacheKey])
+  }, [completedCourses, isLoadingCompletedCourses, csrfToken, regulationPreferenceKey, userCacheKey])
 
   return { progressSnapshot, isLoadingProgress, progressError }
 }

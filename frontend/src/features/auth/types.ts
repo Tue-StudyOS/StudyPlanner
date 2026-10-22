@@ -14,6 +14,7 @@ export interface AuthProfile {
   appLanguage: SupportedLanguage | null
   onboardingTourCompleted: boolean
   totalEcts?: number | null
+  regulationPreferences?: { mscInfoBasisAdmissionConfirmed?: boolean }
 }
 
 export interface AuthUser {

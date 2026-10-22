@@ -2,233 +2,979 @@
   "studiengang": "Bachelor of Science Medizininformatik",
   "abschluss": "B.Sc.",
   "universitaet": "Eberhard Karls Universität Tübingen",
-  "pruefungsordnung": "PO2021",
-  "po_datum": "22.07.2022",
+  "pruefungsordnung": "PO 2021",
+  "po_datum": "25.03.2021 (Rektor-Zustimmung; erstmals WS 2021/22)",
   "regelstudienzeit_semester": 6,
   "gesamt_ects": 180,
-  "quelle": "https://uni-tuebingen.de/de/74485",
-
+  "quelle": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medizininformatik_BSc_BT_2021_10.pdf",
   "module": [
-
     {
-      "bereich": "Mathematik (Pflicht)",
+      "bereich": "Mathematik und Biostatistik (Pflicht)",
+      "code": "MATH",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 21,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF1110",
+          "id": "INFM1010",
           "name": "Mathematik für Informatik 1: Analysis",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "typ": "module",
+          "aliases": [
+            "INFM1010",
+            "INF1010",
+            "ModulMath1"
+          ]
         },
         {
-          "id": "MINF1120",
+          "id": "INFM1020",
           "name": "Mathematik für Informatik 2: Lineare Algebra",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "INFM1020",
+            "INF1020",
+            "INF1020-V",
+            "ModulMath2"
+          ]
         },
         {
-          "id": "MMED-BS",
+          "id": "MDZINFM2310",
           "name": "Biostatistik",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "ects": 3,
+          "typ": "module",
+          "aliases": [
+            "MDZINFM2310"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Informatik (Pflicht)",
+      "code": "INF",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 45,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF2110",
+          "id": "INFM1110",
           "name": "Praktische Informatik 1: Deklarative Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1110",
+            "INF1110"
+          ]
         },
         {
-          "id": "MINF2120",
+          "id": "INFM1120",
           "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1120",
+            "INF1120"
+          ]
         },
         {
-          "id": "MMED-UX",
-          "name": "User Experience (UX)",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
-        },
-        {
-          "id": "MMED-INT",
-          "name": "Einführung in die Internettechnologien",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        },
-        {
-          "id": "MINF2130",
+          "id": "INFM2111",
           "name": "Praktische Informatik 3: Software Engineering",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "typ": "module",
+          "aliases": [
+            "INFM2111",
+            "INF2111"
+          ]
         },
         {
-          "id": "MINF2140",
+          "id": "INFM2110",
           "name": "Praktische Informatik 4: Teamprojekt",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2110",
+            "INF2110"
+          ]
+        },
+        {
+          "id": "MEINFM3164",
+          "name": "User Experience",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 5
+          "typ": "module",
+          "aliases": [
+            "MEINFM3164"
+          ]
+        },
+        {
+          "id": "MEINFM3171",
+          "name": "Einführung in Internettechnologien",
+          "ects": 6,
+          "typ": "module",
+          "aliases": [
+            "MEINFM3171"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Medizininformatik (Pflicht)",
+      "code": "MEDINFO",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 30,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMED-GMI",
+          "id": "MDZINFM1410",
           "name": "Grundlagen der Medizininformatik",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1410"
+          ]
         },
         {
-          "id": "MBIO-GBF",
+          "id": "BIOINFM2110",
           "name": "Grundlagen der Bioinformatik",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM2110"
+          ]
         },
         {
-          "id": "MMED-MV",
+          "id": "MDZINFM1510",
+          "name": "Proseminar Medizininformatik",
+          "ects": 3,
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1510"
+          ]
+        },
+        {
+          "id": "MDZINFM2430",
+          "name": "Telemedizin",
+          "ects": 6,
+          "typ": "module",
+          "aliases": [
+            "MDZINFM2430"
+          ]
+        },
+        {
+          "id": "MDZINFM3210",
           "name": "Medizinische Visualisierung",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
-        },
-        {
-          "id": "MMED-GTE",
-          "name": "Geschichte, Theorie und Ethik der Medizin",
-          "ects": 3,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
-        },
-        {
-          "id": "MMED-PRO",
-          "name": "Proseminar (übK)",
-          "ects": 3,
-          "typ": "Pflicht (Teil übK)",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "MDZINFM3210"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Medizin, Biologie und Physik (Pflicht)",
+      "code": "MED_BIO_PHYS",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 39,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMED-HB1",
-          "name": "Medizinische Terminologie & Humanbiologie I",
+          "id": "MDZINFM1310",
+          "name": "Medizinische Terminologie und Humanbiologie I",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1310"
+          ]
         },
         {
-          "id": "MMED-HB2",
+          "id": "MDZINFM1320",
           "name": "Humanbiologie II",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1320"
+          ]
         },
         {
-          "id": "MMED-HB3",
+          "id": "MDZINFM2320",
           "name": "Humanbiologie III",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "MDZINFM2320"
+          ]
         },
         {
-          "id": "MMED-HB4",
+          "id": "MDZINFM2330",
           "name": "Humanbiologie IV",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "typ": "module",
+          "aliases": [
+            "MDZINFM2330"
+          ]
         },
         {
-          "id": "MMED-PH1",
+          "id": "MDZINFM1210",
           "name": "Physik I",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1210"
+          ]
         },
         {
-          "id": "MMED-PH2",
+          "id": "MDZINFM1220",
           "name": "Physik II",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "MDZINFM1220"
+          ]
         },
         {
-          "id": "MMED-TM",
-          "name": "Telemedizin",
+          "id": "S06PLQ2",
+          "name": "Geschichte, Theorie und Ethik der Medizin",
           "ects": 3,
-          "typ": "Pflicht",
-          "semester_empfohlen": 5
+          "typ": "module",
+          "aliases": [
+            "S06PLQ2"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Wahlpflicht",
-      "module": [
-        {
-          "id": "MMED-WP-INF",
-          "name": "Wahlpflichtfach Informatik",
-          "ects": 9,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MMED-WP-BM",
-          "name": "Wahlpflichtfach Biologie oder Medizin",
-          "ects": 6,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MMED-WP-MI",
-          "name": "Wahlpflichtfach Medizininformatik / Bioinformatik",
-          "ects": 6,
-          "typ": "Wahlpflicht"
-        }
-      ]
-    },
-
-    {
-      "bereich": "Überfachliche berufsfeldorientierte Kompetenzen (übK)",
+      "bereich": "Wahlpflicht Informatik",
+      "code": "ELECTIVE-INF",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 6,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMED-UEK",
-          "name": "Freie übK-Veranstaltungen",
-          "ects": 6,
-          "typ": "Wahlpflicht (Teil übK)"
+          "id": "MDZINFM2510",
+          "name": "Wahlpflicht Informatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MDZINFM2510"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Abschluss",
+      "bereich": "Wahlpflicht Biologie oder Medizin",
+      "code": "ELECTIVE-BIOMED",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 6,
+      "hinweis": "",
       "module": [
         {
-          "id": "MMED-BA",
-          "name": "Bachelorarbeit inkl. Vortrag",
-          "ects": 12,
-          "typ": "Pflicht",
-          "semester_empfohlen": 6
+          "id": "MDZINFM3510",
+          "name": "Wahlpflicht Biologie oder Medizin",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MDZINFM3510"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Wahlpflicht Medizinische Informatik oder Bioinformatik",
+      "code": "ELECTIVE-MEDBIO",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 12,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MDZINFM3110",
+          "name": "Wahlpflicht Medizinische Informatik oder Bioinformatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MDZINFM3110"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Studium Professionale",
+      "code": "UEBK",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 6,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MDZINFM3610",
+          "name": "Studium Professionale",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "MDZINFM3610"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Abschlussmodul",
+      "code": "THESIS",
+      "typ": "abschluss",
+      "gesamt_ects_bereich": 15,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "MDZINFM3999",
+          "name": "Abschlussmodul Medizininformatik",
+          "ects": 15,
+          "typ": "completion",
+          "aliases": [
+            "MDZINFM3999"
+          ]
         }
       ]
     }
-  ]
+  ],
+  "quelle_hinweis": "Official statute §5, amendments, and handbook; derived JSON is not an authoritative legal source.",
+  "credit_policy": {
+    "programCode": "BSC_MEDIZININFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 180,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "MATH",
+        "name": "Mathematik und Biostatistik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 21,
+        "sortOrder": 10,
+        "modules": [
+          {
+            "code": "INFM1010",
+            "name": "Mathematik für Informatik 1: Analysis",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1010",
+              "INF1010",
+              "ModulMath1"
+            ]
+          },
+          {
+            "code": "INFM1020",
+            "name": "Mathematik für Informatik 2: Lineare Algebra",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1020",
+              "INF1020",
+              "INF1020-V",
+              "ModulMath2"
+            ]
+          },
+          {
+            "code": "MDZINFM2310",
+            "name": "Biostatistik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM2310"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "INF",
+        "name": "Informatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 45,
+        "sortOrder": 20,
+        "modules": [
+          {
+            "code": "INFM1110",
+            "name": "Praktische Informatik 1: Deklarative Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1110",
+              "INF1110"
+            ]
+          },
+          {
+            "code": "INFM1120",
+            "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1120",
+              "INF1120"
+            ]
+          },
+          {
+            "code": "INFM2111",
+            "name": "Praktische Informatik 3: Software Engineering",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2111",
+              "INF2111"
+            ]
+          },
+          {
+            "code": "INFM2110",
+            "name": "Praktische Informatik 4: Teamprojekt",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2110",
+              "INF2110"
+            ]
+          },
+          {
+            "code": "MEINFM3164",
+            "name": "User Experience",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3164"
+            ]
+          },
+          {
+            "code": "MEINFM3171",
+            "name": "Einführung in Internettechnologien",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MEINFM3171"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "MEDINFO",
+        "name": "Medizininformatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 30,
+        "sortOrder": 30,
+        "modules": [
+          {
+            "code": "MDZINFM1410",
+            "name": "Grundlagen der Medizininformatik",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1410"
+            ]
+          },
+          {
+            "code": "BIOINFM2110",
+            "name": "Grundlagen der Bioinformatik",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM2110"
+            ]
+          },
+          {
+            "code": "MDZINFM1510",
+            "name": "Proseminar Medizininformatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1510"
+            ]
+          },
+          {
+            "code": "MDZINFM2430",
+            "name": "Telemedizin",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM2430"
+            ]
+          },
+          {
+            "code": "MDZINFM3210",
+            "name": "Medizinische Visualisierung",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM3210"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "MED_BIO_PHYS",
+        "name": "Medizin, Biologie und Physik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 39,
+        "sortOrder": 40,
+        "modules": [
+          {
+            "code": "MDZINFM1310",
+            "name": "Medizinische Terminologie und Humanbiologie I",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1310"
+            ]
+          },
+          {
+            "code": "MDZINFM1320",
+            "name": "Humanbiologie II",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1320"
+            ]
+          },
+          {
+            "code": "MDZINFM2320",
+            "name": "Humanbiologie III",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM2320"
+            ]
+          },
+          {
+            "code": "MDZINFM2330",
+            "name": "Humanbiologie IV",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM2330"
+            ]
+          },
+          {
+            "code": "MDZINFM1210",
+            "name": "Physik I",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1210"
+            ]
+          },
+          {
+            "code": "MDZINFM1220",
+            "name": "Physik II",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "MDZINFM1220"
+            ]
+          },
+          {
+            "code": "S06PLQ2",
+            "name": "Geschichte, Theorie und Ethik der Medizin",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "S06PLQ2"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-INF",
+        "name": "Wahlpflicht Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 50,
+        "modules": [
+          {
+            "code": "MDZINFM2510",
+            "name": "Wahlpflicht Informatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "MDZINFM2510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-BIOMED",
+        "name": "Wahlpflicht Biologie oder Medizin",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 60,
+        "modules": [
+          {
+            "code": "MDZINFM3510",
+            "name": "Wahlpflicht Biologie oder Medizin",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "MDZINFM3510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-MEDBIO",
+        "name": "Wahlpflicht Medizinische Informatik oder Bioinformatik",
+        "groupType": "elective_area",
+        "requiredEcts": 12,
+        "sortOrder": 70,
+        "modules": [
+          {
+            "code": "MDZINFM3110",
+            "name": "Wahlpflicht Medizinische Informatik oder Bioinformatik",
+            "ects": null,
+            "quotaEcts": 12,
+            "kind": "pool",
+            "aliases": [
+              "MDZINFM3110"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "UEBK",
+        "name": "Studium Professionale",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 80,
+        "modules": [
+          {
+            "code": "MDZINFM3610",
+            "name": "Studium Professionale",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "MDZINFM3610"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 15,
+        "sortOrder": 90,
+        "modules": [
+          {
+            "code": "MDZINFM3999",
+            "name": "Abschlussmodul Medizininformatik",
+            "ects": 15,
+            "quotaEcts": null,
+            "kind": "completion",
+            "aliases": [
+              "MDZINFM3999"
+            ]
+          }
+        ]
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {},
+    "areaLimits": {},
+    "gradeRequirement": null,
+    "modules": [
+      {
+        "code": "INFM1010",
+        "name": "Mathematik für Informatik 1: Analysis",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1010",
+          "INF1010",
+          "ModulMath1"
+        ]
+      },
+      {
+        "code": "INFM1020",
+        "name": "Mathematik für Informatik 2: Lineare Algebra",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1020",
+          "INF1020",
+          "INF1020-V",
+          "ModulMath2"
+        ]
+      },
+      {
+        "code": "INFM1110",
+        "name": "Praktische Informatik 1: Deklarative Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1110",
+          "INF1110"
+        ]
+      },
+      {
+        "code": "INFM1120",
+        "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1120",
+          "INF1120"
+        ]
+      },
+      {
+        "code": "INFM2111",
+        "name": "Praktische Informatik 3: Software Engineering",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2111",
+          "INF2111"
+        ]
+      },
+      {
+        "code": "INFM2110",
+        "name": "Praktische Informatik 4: Teamprojekt",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2110",
+          "INF2110"
+        ]
+      },
+      {
+        "code": "BIOINFM2110",
+        "name": "Grundlagen der Bioinformatik",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM2110"
+        ]
+      },
+      {
+        "code": "MEINFM3164",
+        "name": "User Experience",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3164"
+        ]
+      },
+      {
+        "code": "MEINFM3171",
+        "name": "Einführung in Internettechnologien",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MEINFM3171"
+        ]
+      },
+      {
+        "code": "MDZINFM1410",
+        "name": "Grundlagen der Medizininformatik",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1410"
+        ]
+      },
+      {
+        "code": "MDZINFM1310",
+        "name": "Medizinische Terminologie und Humanbiologie I",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1310"
+        ]
+      },
+      {
+        "code": "MDZINFM1320",
+        "name": "Humanbiologie II",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1320"
+        ]
+      },
+      {
+        "code": "MDZINFM2320",
+        "name": "Humanbiologie III",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM2320"
+        ]
+      },
+      {
+        "code": "MDZINFM2330",
+        "name": "Humanbiologie IV",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM2330"
+        ]
+      },
+      {
+        "code": "MDZINFM1210",
+        "name": "Physik I",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1210"
+        ]
+      },
+      {
+        "code": "MDZINFM1220",
+        "name": "Physik II",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1220"
+        ]
+      },
+      {
+        "code": "MDZINFM2310",
+        "name": "Biostatistik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM2310"
+        ]
+      },
+      {
+        "code": "MDZINFM1510",
+        "name": "Proseminar Medizininformatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM1510"
+        ]
+      },
+      {
+        "code": "MDZINFM2430",
+        "name": "Telemedizin",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM2430"
+        ]
+      },
+      {
+        "code": "MDZINFM3210",
+        "name": "Medizinische Visualisierung",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "MDZINFM3210"
+        ]
+      },
+      {
+        "code": "S06PLQ2",
+        "name": "Geschichte, Theorie und Ethik der Medizin",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "S06PLQ2"
+        ]
+      },
+      {
+        "code": "MDZINFM3510",
+        "name": "Wahlpflicht Biologie oder Medizin",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "MDZINFM3510"
+        ]
+      },
+      {
+        "code": "MDZINFM2510",
+        "name": "Wahlpflicht Informatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "MDZINFM2510"
+        ]
+      },
+      {
+        "code": "MDZINFM3110",
+        "name": "Wahlpflicht Medizinische Informatik oder Bioinformatik",
+        "ects": null,
+        "quotaEcts": 12,
+        "kind": "pool",
+        "aliases": [
+          "MDZINFM3110"
+        ]
+      },
+      {
+        "code": "MDZINFM3610",
+        "name": "Studium Professionale",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "MDZINFM3610"
+        ]
+      },
+      {
+        "code": "MDZINFM3999",
+        "name": "Abschlussmodul Medizininformatik",
+        "ects": 15,
+        "quotaEcts": null,
+        "kind": "completion",
+        "aliases": [
+          "MDZINFM3999"
+        ]
+      }
+    ],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Medizininformatik_BSc_BT_2021_10.pdf",
+    "writtenThesisEcts": 12,
+    "oralThesisEcts": 3
+  }
 }

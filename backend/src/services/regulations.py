@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from db.d1 import fetch_all, fetch_one
+from services.official_regulations import get_official_regulation
 
 
 def _safe_text(value: Any) -> str | None:
@@ -115,9 +116,11 @@ async def get_regulation_version(env: Any, regulation_version_code: str) -> dict
     """
     rule_groups = await fetch_all(env, rule_groups_sql, [version["id"]])
 
+    official = get_official_regulation(regulation_version_code)
     return {
         **version,
         "ruleGroups": rule_groups,
+        "creditPolicy": official,
     }
 
 

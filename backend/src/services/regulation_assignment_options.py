@@ -122,43 +122,68 @@ async def load_regulation_course_options(
         [regulation_version_id, course_ids_json],
     )
 
-    # Catalog imports refresh these tables without rebuilding the legacy
-    # regulation_course_mappings snapshot. Resolve them against the active PO.
-    catalog_rows = await fetch_all(
+    # The catalog and validator share one eligibility builder; legacy mappings remain
+    # as a compatibility source, but never override corrected catalog eligibility.
+    from services.course_catalog import _build_credit_metadata, _load_catalog_option_rows
+    from services.official_regulations import get_official_regulation
+
+    version = await fetch_all(env, 'SELECT code FROM regulation_versions WHERE id = ?', [regulation_version_id])
+    regulation_code = safe_text(version[0].get('code')) if version else None
+    catalog_rows = await _load_catalog_option_rows(env, unique_course_ids)
+    course_rows = await fetch_all(
         env,
-        """
-        SELECT m.course_id AS courseId, sa.code AS studyAreaCode,
-               sa.area_type AS areaType, opt.status AS optionStatus,
-               COALESCE(opt.ects_counted, cm.ects) AS ectsCounted,
-               sp.code AS programCode, rv.code AS regulationCode
-        FROM course_curriculum_matches AS m
-        JOIN curriculum_modules AS cm ON cm.id = m.module_id
-        JOIN module_study_area_options AS opt ON opt.module_id = cm.id
-        JOIN study_areas AS sa ON sa.id = opt.study_area_id
-        JOIN study_programs AS sp ON sp.id = sa.program_id
-        JOIN study_program_regulation_versions AS spr ON spr.study_program_id = sp.id
-        JOIN regulation_versions AS rv ON rv.id = spr.regulation_version_id
-        WHERE rv.id = ? AND m.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
-        UNION ALL
-        SELECT l.course_id, sa.code, sa.area_type, 'allowed', NULL, sp.code, rv.code
-        FROM course_study_area_links AS l
-        JOIN study_areas AS sa ON sa.id = l.study_area_id
-        JOIN study_programs AS sp ON sp.id = sa.program_id
-        JOIN study_program_regulation_versions AS spr ON spr.study_program_id = sp.id
-        JOIN regulation_versions AS rv ON rv.id = spr.regulation_version_id
-        WHERE rv.id = ? AND l.course_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
-        """,
-        [regulation_version_id, course_ids_json, regulation_version_id, course_ids_json],
+        'SELECT id, number, unit_id AS unitId, title, course_type AS courseType FROM courses '
+        'WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))',
+        [course_ids_json],
     )
+    courses_by_id = {int(row['id']): row for row in course_rows}
+    metadata_options: list[dict[str, Any]] = []
+    for course_id in unique_course_ids:
+        course = courses_by_id.get(course_id)
+        if not course:
+            continue
+        metadata = _build_credit_metadata(
+            [row for row in catalog_rows if int(row['courseId']) == course_id],
+            course_number=safe_text(course.get('number') or course.get('unitId')),
+            title=safe_text(course.get('title')), course_type=safe_text(course.get('courseType')),
+            module_ects=None,
+        )
+        program = next((item for item in metadata['programs']
+                        if item['programCode'] == regulation_code), None)
+        policy = get_official_regulation(regulation_code)
+        eligible_areas = list((program or {}).get('allowedAreaCodes', []))
+        if policy:
+            from services.official_regulations import canonical_module_code
+            canonical = canonical_module_code(regulation_code, course.get('number'), course.get('unitId'))
+            owner = next((group['code'] for group in policy['ruleGroups']
+                          if any(module['code'] == canonical for module in group['modules'])), None)
+            if owner and owner not in eligible_areas:
+                eligible_areas.append(owner)
+        for area in eligible_areas:
+            group = next((item for item in (policy or {}).get('ruleGroups', [])
+                          if item['code'] == area), None)
+            source = next((row for row in catalog_rows if int(row['courseId']) == course_id
+                           and row.get('programCode') == regulation_code
+                           and normalize_study_area_code(row.get('studyAreaCode')) == area), {})
+            metadata_options.append({
+                'courseId': course_id, 'programCode': regulation_code,
+                'regulationCode': regulation_code, 'studyAreaCode': area,
+                'areaType': safe_text(source.get('areaType')) or (group or {}).get('groupType'),
+                'optionStatus': safe_text(source.get('optionStatus')) or 'allowed',
+                'ectsCounted': None, 'moduleCode': None,
+            })
+
     rule_groups = await load_regulation_rule_groups(env, regulation_version_id)
     options_by_course_id: dict[int, list[dict[str, Any]]] = {}
-    for row in [*rows, *catalog_rows]:
+    for row in [*rows, *metadata_options]:
         if (safe_text(row.get('optionStatus')) or 'allowed').lower() in {'blocked', 'excluded', 'forbidden'}:
             continue
         course_id = int(row['courseId'])
         code = normalize_study_area_code(row.get('studyAreaCode'))
         area_type = (safe_text(row.get('areaType')) or '').lower()
         status = (safe_text(row.get('optionStatus')) or '').lower()
+        if area_type in {'legacy_review', 'deprecated'}:
+            continue
         compulsory = area_type not in {'wahlpflicht', 'elective', 'elective_area', 'structured_elective'} and (
             status in {'pflicht', 'required', 'mandatory'}
             or (code != 'UEBK' and area_type in {'pflicht', 'required', 'mandatory'})
@@ -198,7 +223,7 @@ async def load_regulation_course_options(
 
 def is_flexible_rule_group(code: str, name: str | None, group_type: str | None) -> bool:
     normalized_code = code.upper()
-    if normalized_code == 'THESIS':
+    if normalized_code == 'THESIS' or (group_type or '').strip().lower() in {'legacy_review', 'deprecated'}:
         return False
     if normalized_code == 'UEBK':
         return True
@@ -250,6 +275,14 @@ async def load_trusted_completed_course_options(
         [json.dumps(course_ids)],
     )
     catalog = {int(row['id']): row for row in catalog_rows}
+    program_rows = await fetch_all(
+        env,
+        'SELECT DISTINCT sp.code AS programCode FROM study_program_regulation_versions AS link '
+        'JOIN study_programs AS sp ON sp.id = link.study_program_id '
+        'WHERE link.regulation_version_id = ?',
+        [regulation_version_id],
+    )
+    program_codes = {safe_text(row.get('programCode')) for row in program_rows} - {None}
     trusted_courses: dict[str, int] = {}
     for course in courses:
         course_id = completed_catalog_id(course)
@@ -260,9 +293,33 @@ async def load_trusted_completed_course_options(
         catalog_codes = {safe_text(row.get('number')), safe_text(row.get('unitId'))} - {None}
         stored_title = (safe_text(course.get('title')) or '').casefold()
         catalog_title = (safe_text(row.get('title')) or '').casefold()
-        # Reseeded IDs and generic numbers are not identity. Require a matching
-        # title and reject every contradictory stored code, even if another fits.
-        if stored_title and stored_title == catalog_title and stored_codes <= catalog_codes:
+        # Reseeded IDs and generic numbers are not identity. Exact catalog identity
+        # remains preferred; a source-backed PO alias is accepted only when every
+        # stored code resolves to the catalog module and normalized titles agree.
+        exact_identity = stored_title and stored_title == catalog_title and stored_codes <= catalog_codes
+        alias_identity = False
+        if stored_title and len(program_codes) == 1 and stored_codes and catalog_codes:
+            from services.course_catalog import _normalize_course_identity_title
+            from services.official_regulations import canonical_module_code
+
+            program_code = next(iter(program_codes))
+            catalog_module = canonical_module_code(program_code, *catalog_codes)
+            stored_modules = {canonical_module_code(program_code, code) for code in stored_codes}
+            normalized_titles = {
+                _normalize_course_identity_title(stored_title, code)
+                for code in stored_codes | catalog_codes
+            }
+            normalized_titles.discard('')
+            catalog_normalized_title = _normalize_course_identity_title(
+                safe_text(row.get('title')), safe_text(row.get('number') or row.get('unitId')) or '',
+            )
+            alias_identity = bool(
+                catalog_module
+                and stored_modules == {catalog_module}
+                and catalog_normalized_title in normalized_titles
+                and catalog_normalized_title
+            )
+        if exact_identity or alias_identity:
             trusted_courses[completed_identity_key(course)] = course_id
     options = await load_regulation_course_options(env, regulation_version_id, list(trusted_courses.values()))
     return {
@@ -277,6 +334,9 @@ def canonicalize_compulsory_assignment(
     options: list[dict[str, Any]],
 ) -> dict[str, Any]:
     course = {key: value for key, value in course.items() if key != 'assignmentNeedsReview'}
+    evidence = course.get('recognitionEvidence')
+    if isinstance(evidence, dict) and evidence.get('confirmed') is True:
+        return dict(course)
     compulsory = compulsory_course_options(options)
     if has_unresolved_assignment_evidence(options):
         return {**course, 'assignmentNeedsReview': True}

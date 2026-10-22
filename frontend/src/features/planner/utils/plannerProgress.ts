@@ -1,4 +1,5 @@
-import type { RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import type { CreditPolicy, RegulationAreaOption, RegulationRuleGroup } from '../../../shared/utils/regulation'
+import { getCreditAchievementKey, getProjectedDegreeEcts, projectPlannerCredits } from '../../../shared/utils/creditProjection.ts'
 import {
   getEffectiveRuleGroupCapacity,
   studyAreaCodeToMasterCat,
@@ -30,6 +31,7 @@ export interface PlannerProgressArea {
   plannedCourses: PlannerProgressCourse[]
   creditedCourses: PlannerCreditedCourse[]
   infoAlternativeState?: InfoAlternativeState
+  moduleProgress?: Array<{ code: string; name: string; requiredEcts: number; earnedEcts: number; plannedEcts: number; isFulfilled: boolean }>
 }
 
 interface PlannerCreditedCourse {
@@ -46,6 +48,7 @@ interface PlannerProgressCourse {
   ects: number
   assignedAreaCode: string
   options: RegulationAreaOption[]
+  creditReviewReasons?: string[]
 }
 
 interface UnassignedPlannerCourse {
@@ -53,6 +56,7 @@ interface UnassignedPlannerCourse {
   title: string
   ects: number
   options: RegulationAreaOption[]
+  reason?: string
 }
 
 export function roundEcts(value: number): number {
@@ -103,12 +107,16 @@ export function buildPlannerProgressAreas({
   studyProgramCode,
   planAssignments,
   regulationRuleGroups,
+  creditPolicy,
+  mscInfoBasisAdmissionConfirmed = false,
 }: {
   plannedCourses: Course[]
   completedCourses: CompletedCourse[]
   studyProgramCode: string | null
   planAssignments: Record<string, string>
   regulationRuleGroups: RegulationRuleGroup[]
+  creditPolicy?: CreditPolicy | null
+  mscInfoBasisAdmissionConfirmed?: boolean
 }): {
   areas: PlannerProgressArea[]
   unassignedCourses: UnassignedPlannerCourse[]
@@ -119,6 +127,7 @@ export function buildPlannerProgressAreas({
     completedCourses,
     studyProgramCode,
     regulationRuleGroups,
+    mscInfoBasisAdmissionConfirmed,
   })
   const areas: PlannerProgressArea[] = regulationRuleGroups
     .filter(isVisiblePlannerRuleGroup)
@@ -178,16 +187,21 @@ export function buildPlannerProgressAreas({
     if (!area) {
       return
     }
-    area.creditedEcts += course.ects
+    const countedEcts = getProjectedDegreeEcts(course)
+    area.creditedEcts += countedEcts
     area.creditedCourses.push({
       id: course.id,
       title: cleanCourseTitle(course.title, course.courseNumber),
-      ects: course.ects,
-      grade: course.grade,
+      ects: countedEcts,
+      grade: course.gradeUsedForAverage ?? course.grade,
       semester: course.semester,
     })
   })
 
+  const completedAchievementKeys = new Set(completedCourses
+    .map((course) => getCreditAchievementKey(course, studyProgramCode))
+    .filter((key): key is string => Boolean(key)))
+  const plannedAchievementKeys = new Set<string>()
   const completedCourseIds = new Set(
     completedCourses
       .map((course) => course.courseId)
@@ -195,9 +209,21 @@ export function buildPlannerProgressAreas({
   )
 
   plannedCourses.forEach((course, index) => {
-    if (completedCourseIds.has(course.id)) {
+    const achievementKey = getCreditAchievementKey(course, studyProgramCode)
+    if (completedCourseIds.has(course.id) || (achievementKey && completedAchievementKeys.has(achievementKey))) {
       return
     }
+    if (achievementKey && plannedAchievementKeys.has(achievementKey)) {
+      unassignedCourses.push({
+        id: course.id,
+        title: cleanCourseTitle(course.title, course.number),
+        ects: course.ects ?? 0,
+        options: [],
+        reason: 'This assessment is already represented by another completed or planned offering.',
+      })
+      return
+    }
+    if (achievementKey) plannedAchievementKeys.add(achievementKey)
 
     const options = getPlannerCourseAreaOptions(
       course,
@@ -251,11 +277,61 @@ export function buildPlannerProgressAreas({
     })
   })
 
+  if (creditPolicy && studyProgramCode) {
+    const assigned = areas.flatMap((area) => area.plannedCourses.map((plannedCourse) => {
+      const course = plannedCourses.find((candidate) => candidate.id === plannedCourse.id)
+      return course ? {
+        course,
+        areaCode: plannedCourse.assignedAreaCode,
+        eligibleAreaCodes: plannedCourse.options.map((option) => option.code),
+      } : null
+    })).filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    const projection = projectPlannerCredits({
+      programCode: studyProgramCode,
+      policy: creditPolicy,
+      completedCourses,
+      assignedCourses: assigned,
+      mscInfoBasisAdmissionConfirmed,
+    })
+    const projectedById = new Map(projection.rows.filter((row) => row.isPlanned).map((row) => [row.id, row]))
+    areas.forEach((area) => {
+      area.plannedEcts = 0
+      area.plannedCourses = area.plannedCourses.map((course) => {
+        const projected = projectedById.get(course.id)
+        area.plannedEcts += projected?.degreeCountedEcts ?? 0
+        return { ...course, ects: projected?.degreeCountedEcts ?? 0, creditReviewReasons: projected?.reviewReasons ?? [] }
+      })
+    })
+  }
+
   const automaticAssignments = resolveAutomaticPlannerAssignments({
     candidates: automaticCandidates,
     areas,
     regulationRuleGroups,
     studyProgramCode,
+    isCreditAssignmentValid: creditPolicy && studyProgramCode ? (assignments, candidateId) => {
+      const assigned = areas.flatMap((area) => area.plannedCourses.map((plannedCourse) => {
+        const course = plannedCourses.find((candidate) => candidate.id === plannedCourse.id)
+        return course ? { course, areaCode: plannedCourse.assignedAreaCode, eligibleAreaCodes: plannedCourse.options.map((option) => option.code) } : null
+      })).filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      assignments.forEach((assignment, id) => {
+        const course = plannedCourses.find((candidate) => candidate.id === id)
+        const options = automaticCandidates.find((candidate) => candidate.course.id === id)?.options ?? []
+        if (course) assigned.push({
+          course,
+          areaCode: assignment.areaCode,
+          eligibleAreaCodes: options.map((option) => option.code),
+        })
+      })
+      const projected = projectPlannerCredits({
+        programCode: studyProgramCode,
+        policy: creditPolicy,
+        completedCourses,
+        assignedCourses: assigned,
+        mscInfoBasisAdmissionConfirmed,
+      }).rows.find((row) => row.id === candidateId)
+      return Boolean(projected && projected.degreeCountedEcts > 0 && projected.reviewReasons.length === 0)
+    } : undefined,
   })
 
   automaticCandidates.forEach(({ course, options }) => {
@@ -289,6 +365,35 @@ export function buildPlannerProgressAreas({
       options,
     })
   })
+
+  if (creditPolicy && studyProgramCode) {
+    const assigned = areas.flatMap((area) => area.plannedCourses.map((plannedCourse) => {
+      const course = plannedCourses.find((candidate) => candidate.id === plannedCourse.id)
+      return course ? {
+        course,
+        areaCode: plannedCourse.assignedAreaCode,
+        eligibleAreaCodes: plannedCourse.options.map((option) => option.code),
+      } : null
+    })).filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    const projection = projectPlannerCredits({
+      programCode: studyProgramCode,
+      policy: creditPolicy,
+      completedCourses,
+      assignedCourses: assigned,
+      mscInfoBasisAdmissionConfirmed,
+    })
+    const projectedById = new Map(projection.rows.filter((row) => row.isPlanned).map((row) => [row.id, row]))
+    areas.forEach((area) => {
+      area.plannedEcts = 0
+      area.moduleProgress = projection.moduleProgress.filter((module) => module.areaCode === area.code)
+      area.plannedCourses = area.plannedCourses.map((course) => {
+        const projected = projectedById.get(course.id)
+        const countedEcts = projected?.degreeCountedEcts ?? 0
+        area.plannedEcts += countedEcts
+        return { ...course, ects: countedEcts, creditReviewReasons: projected?.reviewReasons ?? [] }
+      })
+    })
+  }
 
   return {
     areas,

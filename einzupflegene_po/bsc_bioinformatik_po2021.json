@@ -2,205 +2,878 @@
   "studiengang": "Bachelor of Science Bioinformatik",
   "abschluss": "B.Sc.",
   "universitaet": "Eberhard Karls Universität Tübingen",
-  "pruefungsordnung": "PO2021",
-  "po_datum": "22.07.2022",
+  "pruefungsordnung": "PO 2021",
+  "po_datum": "25.03.2021 (Rektor-Zustimmung; erstmals WS 2021/22)",
   "regelstudienzeit_semester": 6,
   "gesamt_ects": 180,
-  "quelle": "https://uni-tuebingen.de/de/74482",
-
+  "quelle": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Bioinformatik_BSc_BT_2021_10.pdf",
   "module": [
-
     {
       "bereich": "Mathematik (Pflicht)",
+      "code": "MATH",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 33,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF1110",
+          "id": "INFM1010",
           "name": "Mathematik für Informatik 1: Analysis",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "typ": "module",
+          "aliases": [
+            "INFM1010",
+            "INF1010",
+            "ModulMath1"
+          ]
         },
         {
-          "id": "MINF1120",
+          "id": "INFM1020",
           "name": "Mathematik für Informatik 2: Lineare Algebra",
           "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "typ": "module",
+          "aliases": [
+            "INFM1020",
+            "INF1020",
+            "INF1020-V",
+            "ModulMath2"
+          ]
         },
         {
-          "id": "MINF1130",
+          "id": "INFM2010",
           "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2010",
+            "INF2010",
+            "ModulMath3"
+          ]
         },
         {
-          "id": "MINF1150",
-          "name": "Stochastik",
+          "id": "BIOINFM2021",
+          "name": "Mathematik für Informatik 4: Stochastik",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "BIOINFM2021",
+            "MAT-95-42"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Informatik (Pflicht)",
+      "code": "INF",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 51,
+      "hinweis": "",
       "module": [
         {
-          "id": "MINF2110",
+          "id": "INFM1110",
           "name": "Praktische Informatik 1: Deklarative Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1110",
+            "INF1110"
+          ]
         },
         {
-          "id": "MINF2120",
+          "id": "INFM1120",
           "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM1120",
+            "INF1120"
+          ]
         },
         {
-          "id": "MINF2130",
+          "id": "INFM2111",
           "name": "Praktische Informatik 3: Software Engineering",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "typ": "module",
+          "aliases": [
+            "INFM2111",
+            "INF2111"
+          ]
         },
         {
-          "id": "MINF2140",
+          "id": "INFM2110",
           "name": "Praktische Informatik 4: Teamprojekt",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 5
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2110",
+            "INF2110"
+          ]
         },
         {
-          "id": "MINF4110",
+          "id": "INFM2420",
           "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2420",
+            "INF2420"
+          ]
         },
         {
-          "id": "MINF4120",
+          "id": "INFM2410",
           "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "INFM2410",
+            "INF2410"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Bioinformatik (Pflicht)",
+      "code": "BIO",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 15,
+      "hinweis": "",
       "module": [
         {
-          "id": "MBIO-EBF",
+          "id": "BIOINFM1110",
           "name": "Einführung in die Bioinformatik",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
-        },
-        {
-          "id": "MBIO-GBF",
-          "name": "Grundlagen der Bioinformatik",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
-        },
-        {
-          "id": "MBIO-PRO",
-          "name": "Proseminar (übK)",
           "ects": 3,
-          "typ": "Pflicht (Teil übK)",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1110"
+          ]
+        },
+        {
+          "id": "BIOINFM2110",
+          "name": "Grundlagen der Bioinformatik",
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM2110"
+          ]
+        },
+        {
+          "id": "BIOINFM1510",
+          "name": "Proseminar Bioinformatik",
+          "ects": 3,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1510"
+          ]
         }
       ]
     },
-
     {
       "bereich": "Lebenswissenschaften (Pflicht)",
+      "code": "LIFE",
+      "typ": "pflicht",
+      "gesamt_ects_bereich": 39,
+      "hinweis": "",
       "module": [
         {
-          "id": "MBIO-ZMG",
-          "name": "Zellbiologie / Mikrobiologie / Genetik",
-          "ects": 9,
-          "typ": "Pflicht",
-          "semester_empfohlen": 1
+          "id": "BIOINFM1240",
+          "name": "Zellbiologie, Mikrobiologie und Genetik",
+          "ects": 12,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1240"
+          ]
         },
         {
-          "id": "MBIO-CH1",
+          "id": "BIOINFM1210",
           "name": "Chemie I",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 2
+          "ects": 12,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1210"
+          ]
         },
         {
-          "id": "MBIO-CH2",
+          "id": "BIOINFM1220",
           "name": "Chemie II: Physikalische Chemie",
           "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 3
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1220"
+          ]
         },
         {
-          "id": "MBIO-NB",
+          "id": "BIOINFM1230",
           "name": "Neurobiologie",
-          "ects": 6,
-          "typ": "Pflicht",
-          "semester_empfohlen": 4
+          "ects": 9,
+          "typ": "module",
+          "aliases": [
+            "BIOINFM1230"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Wahlpflicht",
-      "module": [
-        {
-          "id": "MBIO-WP-INF",
-          "name": "Wahlpflichtfach Informatik",
-          "ects": 12,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MBIO-WP-LW",
-          "name": "Wahlpflichtfach Lebenswissenschaften",
-          "ects": 9,
-          "typ": "Wahlpflicht"
-        },
-        {
-          "id": "MBIO-WP-BF",
-          "name": "Wahlpflichtfach Bioinformatik",
-          "ects": 9,
-          "typ": "Wahlpflicht"
-        }
-      ]
-    },
-
-    {
-      "bereich": "Überfachliche berufsfeldorientierte Kompetenzen (übK)",
+      "bereich": "Wahlpflicht Informatik",
+      "code": "ELECTIVE-INF",
+      "typ": "elective_area",
       "gesamt_ects_bereich": 6,
+      "hinweis": "",
       "module": [
         {
-          "id": "MBIO-UEK",
-          "name": "Freie übK-Veranstaltungen",
-          "ects": 6,
-          "typ": "Wahlpflicht (Teil übK)"
+          "id": "BIOINFM2510",
+          "name": "Wahlpflicht Informatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "BIOINFM2510"
+          ]
         }
       ]
     },
-
     {
-      "bereich": "Abschluss",
+      "bereich": "Wahlpflicht Lebenswissenschaften",
+      "code": "ELECTIVE-LIFE",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 6,
+      "hinweis": "",
       "module": [
         {
-          "id": "MBIO-BA",
-          "name": "Bachelorarbeit inkl. Vortrag",
-          "ects": 12,
-          "typ": "Pflicht",
-          "semester_empfohlen": 6
+          "id": "BIOINFM2710",
+          "name": "Wahlpflicht Lebenswissenschaften",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "BIOINFM2710"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Wahlpflicht Bioinformatik",
+      "code": "ELECTIVE-BIO",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 6,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "BIOINFM2210",
+          "name": "Wahlpflicht Bioinformatik",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "BIOINFM2210"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Studium Professionale",
+      "code": "UEBK",
+      "typ": "elective_area",
+      "gesamt_ects_bereich": 9,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "BIOINFM6120",
+          "name": "Studium Professionale",
+          "ects": null,
+          "typ": "pool",
+          "aliases": [
+            "BIOINFM6120"
+          ]
+        }
+      ]
+    },
+    {
+      "bereich": "Abschlussmodul",
+      "code": "THESIS",
+      "typ": "abschluss",
+      "gesamt_ects_bereich": 15,
+      "hinweis": "",
+      "module": [
+        {
+          "id": "BIOINFM3999",
+          "name": "Abschlussmodul Bioinformatik",
+          "ects": 15,
+          "typ": "completion",
+          "aliases": [
+            "BIOINFM3999"
+          ]
         }
       ]
     }
-  ]
+  ],
+  "quelle_hinweis": "Official statute §5, amendments, and handbook; derived JSON is not an authoritative legal source.",
+  "credit_policy": {
+    "programCode": "BSC_BIOINFO_2021",
+    "revision": "2026-10",
+    "totalEcts": 180,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [],
+    "ruleGroups": [
+      {
+        "code": "MATH",
+        "name": "Mathematik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 33,
+        "sortOrder": 10,
+        "modules": [
+          {
+            "code": "INFM1010",
+            "name": "Mathematik für Informatik 1: Analysis",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1010",
+              "INF1010",
+              "ModulMath1"
+            ]
+          },
+          {
+            "code": "INFM1020",
+            "name": "Mathematik für Informatik 2: Lineare Algebra",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1020",
+              "INF1020",
+              "INF1020-V",
+              "ModulMath2"
+            ]
+          },
+          {
+            "code": "INFM2010",
+            "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2010",
+              "INF2010",
+              "ModulMath3"
+            ]
+          },
+          {
+            "code": "BIOINFM2021",
+            "name": "Mathematik für Informatik 4: Stochastik",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM2021",
+              "MAT-95-42"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "INF",
+        "name": "Informatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 51,
+        "sortOrder": 20,
+        "modules": [
+          {
+            "code": "INFM1110",
+            "name": "Praktische Informatik 1: Deklarative Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1110",
+              "INF1110"
+            ]
+          },
+          {
+            "code": "INFM1120",
+            "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM1120",
+              "INF1120"
+            ]
+          },
+          {
+            "code": "INFM2111",
+            "name": "Praktische Informatik 3: Software Engineering",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2111",
+              "INF2111"
+            ]
+          },
+          {
+            "code": "INFM2110",
+            "name": "Praktische Informatik 4: Teamprojekt",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2110",
+              "INF2110"
+            ]
+          },
+          {
+            "code": "INFM2420",
+            "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2420",
+              "INF2420"
+            ]
+          },
+          {
+            "code": "INFM2410",
+            "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "INFM2410",
+              "INF2410"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "BIO",
+        "name": "Bioinformatik (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 15,
+        "sortOrder": 30,
+        "modules": [
+          {
+            "code": "BIOINFM1110",
+            "name": "Einführung in die Bioinformatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1110"
+            ]
+          },
+          {
+            "code": "BIOINFM2110",
+            "name": "Grundlagen der Bioinformatik",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM2110"
+            ]
+          },
+          {
+            "code": "BIOINFM1510",
+            "name": "Proseminar Bioinformatik",
+            "ects": 3,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "LIFE",
+        "name": "Lebenswissenschaften (Pflicht)",
+        "groupType": "pflicht",
+        "requiredEcts": 39,
+        "sortOrder": 40,
+        "modules": [
+          {
+            "code": "BIOINFM1240",
+            "name": "Zellbiologie, Mikrobiologie und Genetik",
+            "ects": 12,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1240"
+            ]
+          },
+          {
+            "code": "BIOINFM1210",
+            "name": "Chemie I",
+            "ects": 12,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1210"
+            ]
+          },
+          {
+            "code": "BIOINFM1220",
+            "name": "Chemie II: Physikalische Chemie",
+            "ects": 6,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1220"
+            ]
+          },
+          {
+            "code": "BIOINFM1230",
+            "name": "Neurobiologie",
+            "ects": 9,
+            "quotaEcts": null,
+            "kind": "module",
+            "aliases": [
+              "BIOINFM1230"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-INF",
+        "name": "Wahlpflicht Informatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 50,
+        "modules": [
+          {
+            "code": "BIOINFM2510",
+            "name": "Wahlpflicht Informatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "BIOINFM2510"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-LIFE",
+        "name": "Wahlpflicht Lebenswissenschaften",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 60,
+        "modules": [
+          {
+            "code": "BIOINFM2710",
+            "name": "Wahlpflicht Lebenswissenschaften",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "BIOINFM2710"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "ELECTIVE-BIO",
+        "name": "Wahlpflicht Bioinformatik",
+        "groupType": "elective_area",
+        "requiredEcts": 6,
+        "sortOrder": 70,
+        "modules": [
+          {
+            "code": "BIOINFM2210",
+            "name": "Wahlpflicht Bioinformatik",
+            "ects": null,
+            "quotaEcts": 6,
+            "kind": "pool",
+            "aliases": [
+              "BIOINFM2210"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "UEBK",
+        "name": "Studium Professionale",
+        "groupType": "elective_area",
+        "requiredEcts": 9,
+        "sortOrder": 80,
+        "modules": [
+          {
+            "code": "BIOINFM6120",
+            "name": "Studium Professionale",
+            "ects": null,
+            "quotaEcts": 9,
+            "kind": "pool",
+            "aliases": [
+              "BIOINFM6120"
+            ]
+          }
+        ]
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 15,
+        "sortOrder": 90,
+        "modules": [
+          {
+            "code": "BIOINFM3999",
+            "name": "Abschlussmodul Bioinformatik",
+            "ects": 15,
+            "quotaEcts": null,
+            "kind": "completion",
+            "aliases": [
+              "BIOINFM3999"
+            ]
+          }
+        ]
+      }
+    ],
+    "sourceSection": "§5; §16",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [],
+    "areaEligibilityRules": {},
+    "areaLimits": {},
+    "gradeRequirement": null,
+    "modules": [
+      {
+        "code": "INFM1010",
+        "name": "Mathematik für Informatik 1: Analysis",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1010",
+          "INF1010",
+          "ModulMath1"
+        ]
+      },
+      {
+        "code": "INFM1020",
+        "name": "Mathematik für Informatik 2: Lineare Algebra",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1020",
+          "INF1020",
+          "INF1020-V",
+          "ModulMath2"
+        ]
+      },
+      {
+        "code": "INFM2010",
+        "name": "Mathematik für Informatik 3: Fortgeschrittene Themen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2010",
+          "INF2010",
+          "ModulMath3"
+        ]
+      },
+      {
+        "code": "INFM1110",
+        "name": "Praktische Informatik 1: Deklarative Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1110",
+          "INF1110"
+        ]
+      },
+      {
+        "code": "INFM1120",
+        "name": "Praktische Informatik 2: Imperative und objektorientierte Programmierung",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM1120",
+          "INF1120"
+        ]
+      },
+      {
+        "code": "INFM2111",
+        "name": "Praktische Informatik 3: Software Engineering",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2111",
+          "INF2111"
+        ]
+      },
+      {
+        "code": "INFM2110",
+        "name": "Praktische Informatik 4: Teamprojekt",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2110",
+          "INF2110"
+        ]
+      },
+      {
+        "code": "INFM2420",
+        "name": "Theoretische Informatik 1: Algorithmen und Datenstrukturen",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2420",
+          "INF2420"
+        ]
+      },
+      {
+        "code": "INFM2410",
+        "name": "Theoretische Informatik 2: Formale Sprachen, Berechenbarkeit und Komplexität",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "INFM2410",
+          "INF2410"
+        ]
+      },
+      {
+        "code": "BIOINFM1110",
+        "name": "Einführung in die Bioinformatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1110"
+        ]
+      },
+      {
+        "code": "BIOINFM2110",
+        "name": "Grundlagen der Bioinformatik",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM2110"
+        ]
+      },
+      {
+        "code": "BIOINFM1510",
+        "name": "Proseminar Bioinformatik",
+        "ects": 3,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1510"
+        ]
+      },
+      {
+        "code": "BIOINFM1240",
+        "name": "Zellbiologie, Mikrobiologie und Genetik",
+        "ects": 12,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1240"
+        ]
+      },
+      {
+        "code": "BIOINFM1210",
+        "name": "Chemie I",
+        "ects": 12,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1210"
+        ]
+      },
+      {
+        "code": "BIOINFM1220",
+        "name": "Chemie II: Physikalische Chemie",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1220"
+        ]
+      },
+      {
+        "code": "BIOINFM1230",
+        "name": "Neurobiologie",
+        "ects": 9,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM1230"
+        ]
+      },
+      {
+        "code": "BIOINFM2021",
+        "name": "Mathematik für Informatik 4: Stochastik",
+        "ects": 6,
+        "quotaEcts": null,
+        "kind": "module",
+        "aliases": [
+          "BIOINFM2021",
+          "MAT-95-42"
+        ]
+      },
+      {
+        "code": "BIOINFM2510",
+        "name": "Wahlpflicht Informatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "BIOINFM2510"
+        ]
+      },
+      {
+        "code": "BIOINFM2710",
+        "name": "Wahlpflicht Lebenswissenschaften",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "BIOINFM2710"
+        ]
+      },
+      {
+        "code": "BIOINFM2210",
+        "name": "Wahlpflicht Bioinformatik",
+        "ects": null,
+        "quotaEcts": 6,
+        "kind": "pool",
+        "aliases": [
+          "BIOINFM2210"
+        ]
+      },
+      {
+        "code": "BIOINFM6120",
+        "name": "Studium Professionale",
+        "ects": null,
+        "quotaEcts": 9,
+        "kind": "pool",
+        "aliases": [
+          "BIOINFM6120"
+        ]
+      },
+      {
+        "code": "BIOINFM3999",
+        "name": "Abschlussmodul Bioinformatik",
+        "ects": 15,
+        "quotaEcts": null,
+        "kind": "completion",
+        "aliases": [
+          "BIOINFM3999"
+        ]
+      }
+    ],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_Bioinformatik_BSc_BT_2021_10.pdf",
+    "writtenThesisEcts": 12,
+    "oralThesisEcts": 3
+  }
 }

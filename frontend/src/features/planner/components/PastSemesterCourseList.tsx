@@ -37,7 +37,7 @@ export function PastSemesterCourseList({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[14px] font-semibold text-fg">Courses this semester</h2>
         <span className="text-[12px] text-fg-muted">
-          <span className="font-semibold text-fg">{totalEcts}</span> ECTS · {courses.length} course{courses.length !== 1 ? 's' : ''}
+          <span className="font-semibold text-fg">{totalEcts}</span> ECTS workload · {courses.length} course{courses.length !== 1 ? 's' : ''}
         </span>
       </div>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">

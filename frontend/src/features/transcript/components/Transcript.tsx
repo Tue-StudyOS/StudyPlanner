@@ -625,6 +625,8 @@ function AuthenticatedTranscript() {
         completedCourses={displayCompletedCourses}
         studyProgramCode={displayStudyProgramCode}
         regulationRuleGroups={displayRegulationRuleGroups}
+        creditPolicy={isTranscriptTourPreview ? null : regulationVersion?.creditPolicy}
+        mscInfoBasisAdmissionConfirmed={isTranscriptTourPreview ? false : user?.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed ?? false}
         isBusy={displayIsBusy}
         currentReviewImportableCount={displayImportableReviewCandidateCount}
         savedIssueImportableCount={displayImportableSavedIssueCount}

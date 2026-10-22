@@ -1,7 +1,11 @@
 # Official examination-regulation audit — October 2026
 
-**Status: verified discrepancies; not a completed correction or a compliance certificate.**
-No runtime rules, catalog rows or user records were changed by this investigation.
+**Status: historical audit findings, followed by the source-backed correction.**
+The investigation itself changed no runtime or user records. The discrepancies
+below describe revision `cd738e2`, not the corrected implementation. Current
+accounting, explicit recognition and migration behavior are documented in
+[regulation-model.md](regulation-model.md). This remains guidance, not an
+individual examination-board decision or a compliance certificate.
 
 ## Scope and sources
 
@@ -33,7 +37,7 @@ also needed for individual recognition.
 
 ## Summary by program
 
-| Profile | Official structure / central rule | Current discrepancy or limitation |
+| Profile | Official structure / central rule | Discrepancy at the audited revision |
 | --- | --- | --- |
 | B.Sc. Informatik | 180 CP: 114 compulsory, 33 subject electives, 18 further übK, 15 Abschlussmodul. Math IV is **Stochastik or Numerik**, one 6-CP compulsory slot. | Live area totals match this structure, but the MATH badge, module-alternative enforcement and lecture/tutorial double crediting are wrong. Supplied JSON also has incorrect individual module amounts. |
 | B.Sc. Bioinformatik | 180 CP. Math I–III are 9 each; **Stochastik 6 is compulsory**, not a free Numerik alternative. Abschlussmodul 15. | Live MATH target 30 conflicts with the 33 CP of these compulsory math modules; live THESIS target is 12. Multiple supplied module amounts are wrong. |
@@ -202,7 +206,7 @@ persistence/authentication. No live user records were read or written.
 | Same course submitted twice with different completed-row IDs | Two 6-CP rows passed to persistence; statistics count 12 | A second database row is not proof of a second curricular achievement. |
 | `BIOINF4331` completed in an earlier semester, then its annotated-number alias planned later | 6 credited + 6 planned | Alias/offering changes must not bypass already-completed achievement checks. |
 
-Relevant implementation points include:
+Historical implementation points at the audited revision included:
 
 - `frontend/src/shared/utils/regulation.ts:173`: area-label construction drops
   `areaType`, losing the compulsory MAIN label.
@@ -220,7 +224,21 @@ remaining decimal, further digits discarded without rounding (Bachelor and
 Informatik master §16; ML §15). A two-decimal interim statistic should remain
 clearly distinct from that official degree-grade calculation.
 
-## Correction priorities — not yet implemented
+## Correction checklist and implemented model
+
+The correction uses `official_regulations.py` as its sourced reference,
+`regulation_credits.py` for read-time accounting, and forward data migration
+`0040_official_po_credit_policies.sql`. The planner consumes the returned policy
+and assessment metadata rather than a second PO catalogue. Raw achievements,
+recorded grades and explicit recognition evidence remain separate from computed
+credit totals. The checklist below records the original correction requirements.
+
+Both general frameworks §19(3) retain two truncated decimals for aggregated
+module grades; the special parts retain one truncated decimal for the degree
+grade. Framework §3(5)–(6) excludes additional/excess credits from grades and
+reserves partial excess allocation to the examination board. Such an allocation
+requires explicit `recognitionEvidence.countedEcts`; it is never guessed by
+prorating a record. The completion module cannot be partially excluded.
 
 1. Correct and source the six reference profiles, retaining version/amendment
    applicability. Do not relabel the supplied JSON as authoritative or edit an

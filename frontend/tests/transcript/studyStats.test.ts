@@ -22,12 +22,12 @@ test('grade average is ECTS-weighted, not a plain mean', () => {
   assert.equal(stats.averageGrade, expected)
 })
 
-test('excludes overarching-competence (UEBK) modules from the grade, case-insensitively', () => {
+test('does not hardcode UEBK grade exclusion in the fallback', () => {
   const withUebk = computeStudyStats(
     [course(6, 1.0, 'INFO'), course(6, 4.0, 'uebk')],
     180,
   )
-  assert.equal(withUebk.averageGrade, 1.0)
+  assert.equal(withUebk.averageGrade, 2.5)
 })
 
 test('UEBK ECTS still count toward the total even though they skip the grade', () => {
@@ -35,14 +35,45 @@ test('UEBK ECTS still count toward the total even though they skip the grade', (
   assert.equal(stats.totalEcts, 12)
 })
 
+test('prefers official degree and grade allocations over raw course ECTS', () => {
+  const stats = computeStudyStats([{
+    ects: 9,
+    grade: 1.66,
+    gradeUsedForAverage: 1.66,
+    degreeCountedEcts: 6,
+    gradeCountedEcts: 4,
+    isGradeCounted: true,
+    studyAreaCode: 'ML-CS',
+  }], 120)
+  assert.equal(stats.totalEcts, 6)
+  assert.equal(stats.averageGrade, 1.6)
+})
+
 test('returns null average when there are no graded courses', () => {
   const stats = computeStudyStats([course(6, null, 'INFO')], 180)
   assert.equal(stats.averageGrade, null)
 })
 
-test('falls back to an unweighted mean when graded courses carry no ECTS', () => {
+test('returns null rather than an unweighted mean when grade-counted weight is zero', () => {
   const stats = computeStudyStats([course(0, 2.0, 'INFO'), course(0, 4.0, 'INFO')], 180)
-  assert.equal(stats.averageGrade, 3.0)
+  assert.equal(stats.averageGrade, null)
+})
+
+test('authoritative grade allocation outranks review flags and progress is capped', () => {
+  const stats = computeStudyStats([{
+    ects: 9, grade: 1.66, gradeUsedForAverage: 1.66, degreeCountedEcts: 9,
+    gradeCountedEcts: 9, isGradeCounted: true, assignmentNeedsReview: true,
+  }], 6)
+  assert.equal(stats.averageGrade, 1.6)
+  assert.equal(stats.progress, 100)
+})
+
+test('authoritative zero grade weight never falls back to raw workload', () => {
+  const stats = computeStudyStats([{
+    ects: 9, grade: 1.66, gradeUsedForAverage: null, degreeCountedEcts: 9,
+    gradeCountedEcts: 0, isGradeCounted: false,
+  }], 120)
+  assert.equal(stats.averageGrade, null)
 })
 
 test('progress is zero when required ECTS is zero', () => {

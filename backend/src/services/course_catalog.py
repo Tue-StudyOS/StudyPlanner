@@ -9,6 +9,10 @@ from db.d1 import D1ExecutionError, fetch_all, fetch_one
 from services.catalog_tree_credits import (
     CATALOG_TREE_CREDITS_CTE, get_tree_credit_options, get_unambiguous_tree_credits,
 )
+from services.official_regulations import (
+    AREA_DEFINITIONS, achievement_identity, assessment_types, canonical_module_code,
+    get_official_regulation, primary_course_number,
+)
 
 # Cross-listed courses from other faculties (MAT-95-*, KOG, GTCNEURO, ...) fail the
 # organisation/number test but are deliberately scraped from the degree-program trees;
@@ -435,13 +439,173 @@ def _build_regulation_options(option_rows: list[dict[str, Any]]) -> list[dict[st
                 "studyAreaName": _safe_text(row.get("studyAreaName")),
                 "areaType": _safe_text(row.get("areaType")),
                 "optionStatus": option_status,
-                "ectsCounted": _normalize_ects(row.get("ectsCounted")),
+                "ectsCounted": None if _safe_text(row.get("moduleKind")) in {"pool", "completion"}
+                else _normalize_ects(row.get("ectsCounted")),
                 "moduleCode": module_code or None,
                 "moduleTitle": _safe_text(row.get("moduleTitle")),
+                "moduleKind": _safe_text(row.get("moduleKind")),
+                "moduleLevel": _safe_text(row.get("moduleLevel")),
+                "moduleEcts": _normalize_ects(row.get("moduleEcts"))
+                if _safe_text(row.get("moduleKind")) not in {"pool", "completion"} else None,
             }
         )
 
     return options
+
+
+def _build_credit_metadata(
+    option_rows: list[dict[str, Any]],
+    *,
+    course_number: str | None,
+    title: str | None,
+    course_type: str | None,
+    module_ects: float | None,
+) -> dict[str, Any]:
+    modules: dict[tuple[str, str], dict[str, Any]] = {}
+    program_areas: dict[str, dict[str, Any]] = {}
+    policies = {
+        code: policy for code in {
+            _safe_text(row.get('programCode')) for row in option_rows if _safe_text(row.get('programCode'))
+        }
+        if (policy := get_official_regulation(code)) is not None
+    }
+    for row in option_rows:
+        program = _safe_text(row.get('programCode'))
+        area = _safe_text(row.get('studyAreaCode'))
+        module = _safe_text(row.get('moduleCode'))
+        policy = policies.get(program)
+        active_groups = (policy or {}).get('ruleGroups', [])
+        active_group = next((group for group in active_groups if group['code'] == area), None)
+        if (not active_group or (_safe_text(row.get('areaType')) or '').lower()
+                in {'legacy_review', 'deprecated'}):
+            continue
+        offered = canonical_module_code(program, course_number)
+        offered_owner = next((group for group in active_groups
+                              if any(item['code'] == offered and item['kind'] != 'pool'
+                                     for item in group['modules'])), None)
+        if offered_owner and offered_owner['groupType'] == 'pflicht' and area != offered_owner['code']:
+            continue
+        canonical = canonical_module_code(program, module, course_number)
+        owner = next((group['code'] for group in active_groups
+                      if any(item['code'] == canonical for item in group['modules'])), None)
+        if (active_group['groupType'] == 'pflicht' and not canonical) or (canonical and owner != area):
+            continue
+        module = canonical or module
+        if (program and area
+                and (_safe_text(row.get('optionStatus')) or 'allowed').lower() not in {'blocked', 'excluded', 'forbidden'}
+                and (_safe_text(row.get('areaType')) or '').lower() not in {'legacy_review', 'deprecated'}):
+            entry = program_areas.setdefault(program, {'allowedAreaCodes': set(), 'areaTypes': {}})
+            entry['allowedAreaCodes'].add(area)
+            entry['areaTypes'][area] = _safe_text(row.get('areaType'))
+        if program and module:
+            policy = policies.get(program)
+            policy_group = next((group for group in (policy or {}).get('ruleGroups', [])
+                                 if group['code'] == area), None)
+            policy_module = next((item for item in (policy_group or {}).get('modules', [])
+                                  if item['code'] == module), None)
+            is_exact_module_offering = canonical_module_code(program, course_number) == module
+            module_level = (_safe_text(row.get('moduleLevel'))
+                            if (is_exact_module_offering or policy_module is None)
+                            and _safe_text(row.get('moduleKind')) != 'pool' else None)
+            if (not module_level and is_exact_module_offering and program.startswith('BSC_')
+                    and policy_module and policy_module['kind'] != 'pool'):
+                module_level = 'bachelor'
+            modules[(program, module)] = {
+                'moduleCode': module,
+                'moduleTitle': _safe_text(row.get('moduleTitle')),
+                'moduleLevel': module_level,
+                'moduleKind': (policy_module or {}).get('kind') or _safe_text(row.get('moduleKind')),
+                'moduleEcts': _normalize_ects(row.get('moduleEcts'))
+                if is_exact_module_offering and _safe_text(row.get('moduleKind')) not in {'pool', 'completion'} else None,
+                'moduleBudgetEcts': ((policy_module or {}).get('ects')
+                                     if policy_module and policy_module.get('kind') != 'pool'
+                                     else (_normalize_ects(row.get('moduleEcts'))
+                                           if _safe_text(row.get('moduleKind')) not in {'pool', 'completion'} else None)),
+                'parentBudgetEcts': (policy_module or {}).get('ects'),
+                'moduleQuotaEcts': (policy_module or {}).get('quotaEcts'),
+                'areaQuotaEcts': (policy_group or {}).get('requiredEcts'),
+                'areaCode': area,
+            }
+    programs: dict[str, dict[str, Any]] = {}
+    for code, entry in program_areas.items():
+        allowed = set(entry['allowedAreaCodes'])
+        programs[code] = {
+            'programCode': code,
+            'programLevel': 'master' if code.startswith('MSC_') else 'bachelor',
+            'allowedAreaCodes': sorted(allowed),
+            'areaEligibility': [
+                {
+                    'areaCode': area, 'areaType': entry['areaTypes'].get(area),
+                    'requiredEcts': next((group['requiredEcts'] for group in
+                                         (policies.get(code) or {}).get('ruleGroups', [])
+                                         if group['code'] == area), None),
+                    'source': 'catalog_mapping',
+                }
+                for area in sorted(allowed)
+            ],
+            'modules': [module for (program, _), module in modules.items() if program == code],
+        }
+    # The ML PO accepts only Master-Informatik modules or Informatik-Bachelor
+    # Wahlpflicht modules in General CS; the raw course ID is never an eligibility key.
+    ml_cs_sources: list[str] = []
+    bsc_info = programs.get('BSC_INFO_2021')
+    bsc_areas = set((bsc_info or {}).get('allowedAreaCodes', []))
+    if bsc_areas.intersection({'PRAK', 'TECH', 'THEO', 'INFO'}):
+        ml_cs_sources.append('BSC_INFO_2021')
+    msc_info = programs.get('MSC_INFO_2021')
+    actual_levels = {module['moduleLevel'] for module in modules.values()
+                     if module['moduleLevel'] and module['moduleKind'] != 'pool'}
+    bachelor_only = actual_levels == {'bachelor'}
+    if bsc_info and bachelor_only:
+        msc_info = programs.setdefault('MSC_INFO_2021', {
+            'programCode': 'MSC_INFO_2021', 'programLevel': 'master',
+            'allowedAreaCodes': [], 'areaEligibility': [], 'modules': [],
+        })
+        msc_info['allowedAreaCodes'] = ['INFO-BASIS']
+        msc_info['areaEligibility'] = [{'areaCode': 'INFO-BASIS', 'areaType': 'elective_area',
+                                       'source': 'admission_condition', 'requiredEcts': 18}]
+    if msc_info and any(area != 'INFO-BASIS' for area in msc_info['allowedAreaCodes']):
+        ml_cs_sources.append('MSC_INFO_2021')
+    if ml_cs_sources:
+        programs.setdefault('MSC_ML_2021', {
+            'programCode': 'MSC_ML_2021', 'programLevel': 'master',
+            'allowedAreaCodes': [], 'areaEligibility': [], 'modules': [],
+        })
+        programs['MSC_ML_2021']['allowedAreaCodes'] = sorted(set(
+            programs['MSC_ML_2021']['allowedAreaCodes'],
+        ) | {'ML-CS'})
+        programs['MSC_ML_2021']['eligibilityBasis'] = ml_cs_sources
+    elif bachelor_only and 'MSC_ML_2021' in programs:
+        programs['MSC_ML_2021']['allowedAreaCodes'] = [
+            area for area in programs['MSC_ML_2021']['allowedAreaCodes'] if area != 'ML-CS'
+        ]
+    module_levels = actual_levels
+    identities_by_program: dict[str, str] = {}
+    for program in AREA_DEFINITIONS:
+        program_modules = [module for (module_program, _), module in modules.items()
+                           if module_program == program]
+        codes = {module['moduleCode'] for module in program_modules}
+        module_code = next(iter(codes)) if len(codes) == 1 else None
+        identities_by_program[program] = achievement_identity(
+            {'courseNumber': course_number, 'title': title, 'moduleCode': module_code,
+             'courseType': course_type, 'ects': module_ects,
+             'creditMetadata': {'programs': [{'programCode': program, 'modules': program_modules}]},
+             'componentKey': ''.join(ch for ch in primary_course_number(course_number).upper() if ch.isalnum()) or None},
+            program,
+        )
+        if program in programs:
+            programs[program]['achievementKey'] = identities_by_program[program]
+    identities = set(identities_by_program.values())
+    return {
+        'achievementKey': next(iter(identities)) if len(identities) == 1 else None,
+        'achievementKeysByProgram': identities_by_program,
+        'assessmentTypes': assessment_types(course_type, title),
+        'componentKey': ''.join(ch for ch in primary_course_number(course_number).upper() if ch.isalnum()) or None,
+        'moduleLevel': next(iter(module_levels)) if len(module_levels) == 1 else None,
+        'moduleContext': list(modules.values()),
+        'programs': sorted(programs.values(), key=lambda item: item['programCode']),
+        'componentEcts': module_ects,
+    }
 
 
 def _extract_prerequisites(content_sections: list[dict[str, Any]]) -> list[str]:
@@ -823,6 +987,52 @@ async def _resolve_period_id(env: Any, period_id: str | None) -> str | None:
 JSON_ID_FILTER_SQL = "SELECT CAST(value AS INTEGER) FROM json_each(?)"
 
 
+async def _load_catalog_option_rows(env: Any, chunk: list[int]) -> list[dict[str, Any]]:
+    if not chunk:
+        return []
+    placeholders = JSON_ID_FILTER_SQL
+    query_params = [json.dumps(chunk, separators=(",", ":"))]
+
+    curriculum_option_sql = f"""
+        SELECT
+            m.course_id AS courseId, cm.module_code AS moduleCode, cm.title AS moduleTitle,
+            cm.ects AS moduleEcts, cm.module_type AS moduleKind, cm.level AS moduleLevel,
+            sp.code AS programCode, sp.name AS programName,
+            sa.code AS studyAreaCode, sa.name AS studyAreaName, sa.area_type AS areaType,
+            opt.status AS optionStatus, opt.ects_counted AS ectsCounted,
+            0 AS matchRank, sa.sort_order AS areaSortOrder
+        FROM course_curriculum_matches AS m
+        JOIN curriculum_modules AS cm ON cm.id = m.module_id
+        LEFT JOIN module_study_area_options AS opt ON opt.module_id = cm.id
+        LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
+        LEFT JOIN study_programs AS sp ON sp.id = sa.program_id
+        WHERE m.course_id IN ({placeholders})
+    """
+    study_area_link_sql = f"""
+        SELECT
+            l.course_id AS courseId, NULL AS moduleCode, NULL AS moduleTitle,
+            NULL AS moduleEcts, NULL AS moduleKind, NULL AS moduleLevel,
+            sp.code AS programCode, sp.name AS programName,
+            sa.code AS studyAreaCode, sa.name AS studyAreaName, sa.area_type AS areaType,
+            'allowed' AS optionStatus, NULL AS ectsCounted,
+            1 AS matchRank, sa.sort_order AS areaSortOrder
+        FROM course_study_area_links AS l
+        JOIN study_areas AS sa ON sa.id = l.study_area_id
+        JOIN study_programs AS sp ON sp.id = sa.program_id
+        WHERE l.course_id IN ({placeholders})
+    """
+    curriculum_rows, link_rows = await asyncio.gather(
+        fetch_all(env, curriculum_option_sql, query_params),
+        fetch_all(env, study_area_link_sql, query_params),
+    )
+    return sorted(
+        [*curriculum_rows, *link_rows],
+        key=lambda row: (int(row["courseId"]), int(row.get("matchRank") or 0),
+                         str(row.get("programCode") or ""), int(row.get("areaSortOrder") or 0),
+                         str(row.get("studyAreaName") or "")),
+    )
+
+
 async def _load_catalog_related_rows(
     env: Any,
     chunk: list[int],
@@ -835,52 +1045,7 @@ async def _load_catalog_related_rows(
     placeholders = JSON_ID_FILTER_SQL
     query_params = [json.dumps(chunk, separators=(",", ":"))]
 
-    # Module matches sort first (matchRank 0); direct study-area links are fetched
-    # separately because D1 is more reliable without a UNION in the hot catalog path.
-    curriculum_option_sql = f"""
-        SELECT
-            m.course_id AS courseId,
-            cm.module_code AS moduleCode,
-            cm.title AS moduleTitle,
-            cm.ects AS moduleEcts,
-            sp.code AS programCode,
-            sp.name AS programName,
-            sa.code AS studyAreaCode,
-            sa.name AS studyAreaName,
-            sa.area_type AS areaType,
-            opt.status AS optionStatus,
-            opt.ects_counted AS ectsCounted,
-            0 AS matchRank,
-            sa.sort_order AS areaSortOrder
-        FROM course_curriculum_matches AS m
-        JOIN curriculum_modules AS cm ON cm.id = m.module_id
-        LEFT JOIN module_study_area_options AS opt ON opt.module_id = cm.id
-        LEFT JOIN study_areas AS sa ON sa.id = opt.study_area_id
-        LEFT JOIN study_programs AS sp ON sp.id = sa.program_id
-        WHERE m.course_id IN ({placeholders})
-    """
-    study_area_link_sql = f"""
-        SELECT
-            l.course_id AS courseId,
-            NULL AS moduleCode,
-            NULL AS moduleTitle,
-            NULL AS moduleEcts,
-            sp.code AS programCode,
-            sp.name AS programName,
-            sa.code AS studyAreaCode,
-            sa.name AS studyAreaName,
-            sa.area_type AS areaType,
-            'allowed' AS optionStatus,
-            NULL AS ectsCounted,
-            1 AS matchRank,
-            sa.sort_order AS areaSortOrder
-        FROM course_study_area_links AS l
-        JOIN study_areas AS sa ON sa.id = l.study_area_id
-        JOIN study_programs AS sp ON sp.id = sa.program_id
-        WHERE l.course_id IN ({placeholders})
-    """
-
-    lecturer_rows, parallel_group_rows, appointment_rows, curriculum_rows, link_rows = await asyncio.gather(
+    lecturer_rows, parallel_group_rows, appointment_rows = await asyncio.gather(
         fetch_all(
             env,
             f"""
@@ -933,40 +1098,20 @@ async def _load_catalog_related_rows(
             a.time_note AS timeNote,
             a.note,
             a.position,
-            COALESCE(
-                (
-                    SELECT json_group_array(ac.cancelled_on)
-                    FROM appointment_cancellations AS ac
-                    WHERE ac.appointment_id = a.id
-                ),
-                '[]'
-            ) AS cancellationDatesJson
+            COALESCE((SELECT json_group_array(ac.cancelled_on) FROM appointment_cancellations AS ac
+                      WHERE ac.appointment_id = a.id), '[]') AS cancellationDatesJson
         FROM appointments AS a
         JOIN parallel_groups AS pg ON pg.id = a.parallel_group_id
         JOIN courses AS c ON c.id = pg.course_id
         WHERE pg.course_id IN ({placeholders})
-        ORDER BY
-            pg.course_id ASC,
-            CASE WHEN a.weekday_index IS NULL THEN 99 ELSE a.weekday_index END ASC,
-            COALESCE(a.start_time, '99:99') ASC,
-            a.position ASC
+        ORDER BY pg.course_id ASC,
+                 CASE WHEN a.weekday_index IS NULL THEN 99 ELSE a.weekday_index END ASC,
+                 COALESCE(a.start_time, '99:99') ASC, a.position ASC
         """,
             query_params,
         ),
-        fetch_all(env, curriculum_option_sql, query_params),
-        fetch_all(env, study_area_link_sql, query_params),
     )
-
-    option_rows = sorted(
-        [*curriculum_rows, *link_rows],
-        key=lambda row: (
-            int(row["courseId"]),
-            int(row.get("matchRank") or 0),
-            str(row.get("programCode") or ""),
-            int(row.get("areaSortOrder") or 0),
-            str(row.get("studyAreaName") or ""),
-        ),
-    )
+    option_rows = await _load_catalog_option_rows(env, chunk)
 
     return lecturer_rows, parallel_group_rows, appointment_rows, option_rows
 
@@ -1032,30 +1177,52 @@ def _build_catalog_summary(
     )
     regulation_options = _build_regulation_options(option_rows)
     first_matching_row = option_rows[0] if option_rows else {}
-    ects = next(
+    tree_credit_options = get_tree_credit_options(variants)
+    tree_ects = get_unambiguous_tree_credits(tree_credit_options)
+    short_comment_ects = next(
         (
-            ects_value
-            for row in option_rows
-            if (ects_value := _normalize_ects(row.get("moduleEcts"))) is not None
+            extracted_ects
+            for variant in variants
+            if (
+                extracted_ects := _extract_ects_from_text(
+                    _safe_text(variant.get("shortComment")),
+                )
+            ) is not None
         ),
         None,
     )
-    if ects is None:
-        ects = next(
-            (
-                extracted_ects
-                for variant in variants
-                if (
-                    extracted_ects := _extract_ects_from_text(
-                        _safe_text(variant.get("shortComment")),
-                    )
-                ) is not None
-            ),
-            None,
-        )
-    tree_credit_options = get_tree_credit_options(variants) if ects is None else []
-    if tree_credit_options:
-        ects = get_unambiguous_tree_credits(tree_credit_options)
+    course_number = _safe_text(course.get('number')) or _safe_text(course.get('courseKey'))
+    legacy_module_ects = [
+        _normalize_ects(row.get('moduleEcts'))
+        for row in option_rows
+        if _safe_text(row.get('moduleKind')) not in {'pool', 'completion'}
+        and not row.get('moduleCode')
+    ]
+    legacy_module_ects = [value for value in legacy_module_ects if value is not None]
+    exact_module_ects = [
+        _normalize_ects(row.get('moduleEcts'))
+        for row in option_rows
+        if _safe_text(row.get('moduleKind')) not in {'pool', 'completion'}
+        and row.get('programCode') and row.get('moduleCode')
+        and canonical_module_code(_safe_text(row.get('programCode')), course_number) == row.get('moduleCode')
+    ]
+    exact_module_ects = [value for value in exact_module_ects if value is not None]
+    if short_comment_ects is not None:
+        ects = short_comment_ects
+        ects_source = 'short_comment'
+    elif tree_credit_options:
+        ects = tree_ects
+        ects_source = 'catalog_tree'
+    elif not course_number and legacy_module_ects:
+        ects = legacy_module_ects[0] if len(set(legacy_module_ects)) == 1 else None
+        tree_credit_options = []
+        ects_source = 'module_mapping' if ects is not None else None
+    elif exact_module_ects and len(set(exact_module_ects)) == 1:
+        ects = exact_module_ects[0]
+        ects_source = 'module_alias'
+    else:
+        ects = None
+        ects_source = None
     semester_hours = next(
         (
             value
@@ -1094,6 +1261,30 @@ def _build_catalog_summary(
         "Unknown",
     )
 
+    credit_metadata = _build_credit_metadata(
+        option_rows, course_number=course_number, title=_safe_text(course.get('title')),
+        course_type=' / '.join(types), module_ects=ects,
+    )
+    eligible_programs = {entry['programCode']: entry for entry in credit_metadata['programs']}
+    regulation_options = [option for option in regulation_options
+                          if option['studyAreaCode'] in eligible_programs.get(
+                              option['programCode'], {},
+                          ).get('allowedAreaCodes', [])]
+    existing_options = {(option['programCode'], option['studyAreaCode']) for option in regulation_options}
+    for program, evidence in eligible_programs.items():
+        policy = get_official_regulation(program)
+        for code in evidence['allowedAreaCodes']:
+            if (program, code) in existing_options:
+                continue
+            group = next((group for group in (policy or {}).get('ruleGroups', []) if group['code'] == code), None)
+            if group:
+                regulation_options.append({
+                    'programCode': program, 'programName': None, 'studyAreaCode': code,
+                    'studyAreaName': group['name'], 'areaType': group['groupType'],
+                    'optionStatus': 'allowed', 'ectsCounted': None, 'moduleCode': None,
+                    'moduleTitle': None, 'moduleKind': None, 'moduleLevel': None, 'moduleEcts': None,
+                })
+
     return {
         "id": str(course["id"]),
         "numericId": int(course["id"]),
@@ -1107,7 +1298,7 @@ def _build_catalog_summary(
         "room": first_slot["room"] if first_slot else "TBA",
         "types": types,
         "ects": ects,
-        "ectsSource": "catalog_tree" if tree_credit_options else None,
+        "ectsSource": ects_source,
         "ectsTreeOptions": tree_credit_options,
         "sws": semester_hours,
         "masterCats": _normalize_master_cats(option_rows),
@@ -1134,6 +1325,8 @@ def _build_catalog_summary(
         "shortComment": short_comment,
         "moduleCode": _safe_text(first_matching_row.get("moduleCode")),
         "moduleTitle": _safe_text(first_matching_row.get("moduleTitle")),
+        "canonicalModuleCode": _safe_text(first_matching_row.get("moduleCode")),
+        "creditMetadata": credit_metadata,
         "hasRegulationMapping": bool(regulation_options),
     }
 

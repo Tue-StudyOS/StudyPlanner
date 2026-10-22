@@ -7,52 +7,129 @@
   "subject": "Machine Learning",
   "total_ects": 120,
   "effective_from": "WS2021/22",
-  "source": "Prüfungsordnung M.Sc. Machine Learning, Universität Tübingen, 2021",
+  "source": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_MachLearn_MSc_BT_2021_10.pdf",
   "areas": [
     {
       "code": "ML-FOUND",
       "name": "Foundations of Machine Learning",
       "required_ects": 24,
-      "type": "structured_elective",
-      "note": "Mindestens 2 der 3 Pflichtmodule müssen belegt werden (je 9+9+6 = 24 CP gesamt).",
-      "modules": [
-        { "code": "ML_STAT_LEARN", "title": "Statistical Learning Theory", "ects": 9, "type": "choice_required",
-          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." },
-        { "code": "ML_PROB_INF", "title": "Probabilistic Inference", "ects": 9, "type": "choice_required",
-          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." },
-        { "code": "ML_DEEP_LEARN", "title": "Deep Learning", "ects": 6, "type": "choice_required",
-          "note": "Pflichtmodul (Wahlpflicht aus den 3 Foundations-Modulen)." }
-      ]
+      "type": "elective_area",
+      "modules": []
     },
     {
       "code": "ML-DIVERSE",
       "name": "Diverse Topics in Machine Learning",
       "required_ects": 36,
       "type": "elective_area",
-      "note": "36 CP aus dem breiten Angebot der ML-Vertiefungsmodule."
+      "modules": []
     },
     {
       "code": "ML-CS",
       "name": "General Computer Science",
       "required_ects": 18,
       "type": "elective_area",
-      "note": "18 CP aus dem allgemeinen Informatik-Angebot."
+      "modules": []
     },
     {
       "code": "ML-EXP",
       "name": "Expanded Perspectives",
       "required_ects": 12,
       "type": "elective_area",
-      "note": "12 CP aus interdisziplinären Bereichen (z.B. Biologie, Neurowissenschaften, Statistik)."
+      "modules": []
     },
     {
       "code": "THESIS",
-      "name": "Masterarbeit",
+      "name": "Abschlussmodul",
       "required_ects": 30,
-      "type": "mandatory",
-      "modules": [
-        { "code": "MSC_ML_THESIS", "title": "Masterarbeit", "ects": 30, "type": "mandatory" }
-      ]
+      "type": "abschluss",
+      "modules": []
     }
-  ]
+  ],
+  "credit_policy": {
+    "programCode": "MSC_ML_2021",
+    "revision": "2026-10",
+    "totalEcts": 120,
+    "gradeDecimals": 1,
+    "gradeExcludedAreas": [
+      "ML-EXP"
+    ],
+    "ruleGroups": [
+      {
+        "code": "ML-FOUND",
+        "name": "Foundations of Machine Learning",
+        "groupType": "elective_area",
+        "requiredEcts": 24,
+        "sortOrder": 10,
+        "modules": []
+      },
+      {
+        "code": "ML-DIVERSE",
+        "name": "Diverse Topics in Machine Learning",
+        "groupType": "elective_area",
+        "requiredEcts": 36,
+        "sortOrder": 20,
+        "modules": []
+      },
+      {
+        "code": "ML-CS",
+        "name": "General Computer Science",
+        "groupType": "elective_area",
+        "requiredEcts": 18,
+        "sortOrder": 30,
+        "modules": []
+      },
+      {
+        "code": "ML-EXP",
+        "name": "Expanded Perspectives",
+        "groupType": "elective_area",
+        "requiredEcts": 12,
+        "sortOrder": 40,
+        "modules": []
+      },
+      {
+        "code": "THESIS",
+        "name": "Abschlussmodul",
+        "groupType": "abschluss",
+        "requiredEcts": 30,
+        "sortOrder": 50,
+        "modules": []
+      }
+    ],
+    "sourceSection": "§5; §15; 2026 amendment §5(4), §7",
+    "signedOn": "2021-03-25",
+    "firstApplies": "WS 2021/22",
+    "alternativeAreas": [],
+    "conditionalAreas": [],
+    "masterOnlyAreas": [],
+    "bachelorElectiveOnlyAreas": [
+      "ML-CS"
+    ],
+    "areaEligibilityRules": {
+      "ML-CS": {
+        "acceptedPrograms": [
+          "BSC_INFO_2021",
+          "MSC_INFO_2021"
+        ],
+        "bachelorAreaTypes": [
+          "elective_area"
+        ],
+        "masterLevel": true
+      }
+    },
+    "areaLimits": {
+      "ML-DIVERSE": {
+        "maxSeminarEcts": 6,
+        "maxPracticalEcts": 6
+      }
+    },
+    "gradeRequirement": "graded_modules_only",
+    "modules": [],
+    "sourceUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_BSc_MSc_MA/PO_MachLearn_MSc_BT_2021_10.pdf",
+    "maxSeminars": 3,
+    "additionalEctsLimit": 30,
+    "writtenThesisEcts": 27,
+    "oralThesisEcts": 3,
+    "gradedModulesOnly": true,
+    "amendmentUrl": "https://uni-tuebingen.de/fileadmin/Uni_Tuebingen/Fakultaeten/MatNat/Studium_Maute_und_Thiem/SPO/PO_Aenderungssatzungen/AendS_PO_ML_MSc_BT_1AendS_2026_01.pdf"
+  }
 }

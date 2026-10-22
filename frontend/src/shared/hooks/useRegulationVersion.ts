@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { fetchJson } from '../utils/api'
 import type { RegulationRuleGroup, RegulationVersionDetail } from '../utils/regulation'
+import { withCreditPolicyModules } from '../utils/regulation'
 
 interface RegulationVersionResponse {
   code?: string
   ruleGroups?: RegulationRuleGroup[]
+  creditPolicy?: RegulationVersionDetail['creditPolicy']
 }
 
 function normalizeRegulationVersionDetail(
@@ -12,7 +14,8 @@ function normalizeRegulationVersionDetail(
 ): RegulationVersionDetail {
   return {
     code: typeof detail.code === 'string' ? detail.code : '',
-    ruleGroups: Array.isArray(detail.ruleGroups) ? detail.ruleGroups : [],
+    ruleGroups: withCreditPolicyModules(Array.isArray(detail.ruleGroups) ? detail.ruleGroups : [], detail.creditPolicy),
+    creditPolicy: detail.creditPolicy ?? null,
   }
 }
 

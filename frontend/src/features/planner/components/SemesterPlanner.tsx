@@ -276,8 +276,9 @@ export function SemesterPlanner({
         completedCourses: displayCompletedCourses,
         studyProgramCode: displayStudyProgramCode,
         regulationRuleGroups: displayRuleGroups,
+        mscInfoBasisAdmissionConfirmed: user?.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed,
       }),
-    [displayPlannedCourses, displayCompletedCourses, displayStudyProgramCode, displayRuleGroups],
+    [displayPlannedCourses, displayCompletedCourses, displayStudyProgramCode, displayRuleGroups, user?.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed],
   )
   const displayCourseById = useMemo(() => {
     const visibleCourses = isPlannerTourPreview
@@ -692,6 +693,8 @@ export function SemesterPlanner({
             studyProgramCode={displayStudyProgramCode}
             planAssignments={displayPlanAssignments}
             regulationRuleGroups={displayRuleGroups}
+            creditPolicy={regulationVersion?.creditPolicy}
+            mscInfoBasisAdmissionConfirmed={user?.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed ?? false}
             isLoadingRegulationVersion={isPlannerTourPreview ? false : isLoadingRegulationVersion}
             isBalancing={isBalancingAssignments}
             balanceMessage={isPlanningSemester ? balanceMessage : null}

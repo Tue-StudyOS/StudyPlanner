@@ -1,4 +1,4 @@
-import { TRANSCRIPT_GRADE_VALUES, formatOptionalTranscriptGrade } from '../utils/grades'
+import { formatOptionalTranscriptGrade } from '../utils/grades'
 
 interface TranscriptGradeSelectProps {
   value: number | null
@@ -12,17 +12,16 @@ export function TranscriptGradeSelect({
   onChange,
 }: TranscriptGradeSelectProps) {
   return (
-    <select
+    <input
+      type="number"
+      min="1"
+      max="4"
+      step="0.01"
+      inputMode="decimal"
       value={formatOptionalTranscriptGrade(value)}
       onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)}
       className={className}
-    >
-      <option value="">No grade</option>
-      {TRANSCRIPT_GRADE_VALUES.map((grade) => (
-        <option key={grade} value={grade.toFixed(1)}>
-          {grade.toFixed(1)}
-        </option>
-      ))}
-    </select>
+      aria-label="Module grade from 1.00 to 4.00"
+    />
   )
 }

@@ -102,6 +102,7 @@ export function AccountPage() {
   const [draftStudyProgramId, setDraftStudyProgramId] = useState<number | null | undefined>(undefined)
   const [draftCurrentSemesterLabel, setDraftCurrentSemesterLabel] = useState<string | undefined>(undefined)
   const [draftAppLanguage, setDraftAppLanguage] = useState<SupportedLanguage | undefined>(undefined)
+  const [draftBasisAdmissionConfirmed, setDraftBasisAdmissionConfirmed] = useState<boolean | undefined>(undefined)
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false)
   const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -137,19 +138,24 @@ export function AccountPage() {
     draftStudyProgramId !== undefined ? draftStudyProgramId : (user?.profile.studyProgramId ?? null)
   const currentSemesterLabel = draftCurrentSemesterLabel ?? (user?.profile.currentSemesterLabel ?? '')
   const selectedAppLanguage = draftAppLanguage ?? user?.profile.appLanguage ?? 'en'
+  const basisAdmissionConfirmed = draftBasisAdmissionConfirmed
+    ?? user?.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed ?? false
   const profileDraftKey = JSON.stringify({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
     appLanguage: selectedAppLanguage,
+    basisAdmissionConfirmed,
   })
   const latestProfileDraftRef = useRef<{
     studyProgramId: number | null
     currentSemesterLabel: string
     appLanguage: SupportedLanguage
+    basisAdmissionConfirmed: boolean
   }>({
     studyProgramId: selectedStudyProgramId,
     currentSemesterLabel,
     appLanguage: selectedAppLanguage,
+    basisAdmissionConfirmed,
   })
 
   const isProfileDirty = Boolean(
@@ -157,6 +163,7 @@ export function AccountPage() {
       selectedStudyProgramId !== (user.profile.studyProgramId ?? null)
       || currentSemesterLabel !== (user.profile.currentSemesterLabel ?? '')
       || selectedAppLanguage !== (user.profile.appLanguage ?? 'en')
+      || basisAdmissionConfirmed !== (user.profile.regulationPreferences?.mscInfoBasisAdmissionConfirmed ?? false)
     ),
   )
 
@@ -248,8 +255,9 @@ export function AccountPage() {
       studyProgramId: selectedStudyProgramId,
       currentSemesterLabel,
       appLanguage: selectedAppLanguage,
+      basisAdmissionConfirmed,
     }
-  }, [currentSemesterLabel, selectedAppLanguage, selectedStudyProgramId])
+  }, [basisAdmissionConfirmed, currentSemesterLabel, selectedAppLanguage, selectedStudyProgramId])
 
   useEffect(() => {
     if (profileSaveState !== 'saved') {
@@ -285,12 +293,14 @@ export function AccountPage() {
             studyProgramId: snapshot.studyProgramId,
             currentSemesterLabel: snapshot.currentSemesterLabel.trim() || null,
             appLanguage: snapshot.appLanguage,
+            regulationPreferences: { mscInfoBasisAdmissionConfirmed: snapshot.basisAdmissionConfirmed },
           })
           const latestSnapshot = latestProfileDraftRef.current
           if (
             latestSnapshot.studyProgramId === snapshot.studyProgramId
             && latestSnapshot.currentSemesterLabel === snapshot.currentSemesterLabel
             && latestSnapshot.appLanguage === snapshot.appLanguage
+            && latestSnapshot.basisAdmissionConfirmed === snapshot.basisAdmissionConfirmed
           ) {
             setDraftStudyProgramId(undefined)
             setDraftCurrentSemesterLabel(undefined)
@@ -311,6 +321,7 @@ export function AccountPage() {
 
     return () => window.clearTimeout(timeoutId)
   }, [
+    basisAdmissionConfirmed,
     isAuthenticated,
     isLoadingOptions,
     isProfileDirty,
@@ -474,6 +485,22 @@ export function AccountPage() {
                     ))}
                   </select>
                 </label>
+                {studyPrograms.find((program) => program.id === selectedStudyProgramId)?.code === 'MSC_INFO_2021' ? (
+                  <label className="flex min-w-0 items-start gap-2 text-[12px] text-fg">
+                    <input
+                      type="checkbox"
+                      checked={basisAdmissionConfirmed}
+                      onChange={(event) => {
+                        setProfileError(null)
+                        setProfileSaveState('saving')
+                        setLastFailedProfileKey(null)
+                        setDraftBasisAdmissionConfirmed(event.target.checked)
+                      }}
+                      className="mt-0.5 shrink-0 accent-primary"
+                    />
+                    <span className="min-w-0">{t('account.basisAdmissionDeclaration')}</span>
+                  </label>
+                ) : null}
                 <label className="grid gap-1.5">
                   <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
                     {t('account.startSemester')}

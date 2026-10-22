@@ -282,7 +282,7 @@ const INFO_ALTERNATIVE_RULE_GROUPS: RegulationRuleGroup[] = [
   { code: 'INFO-BASIS', name: 'Basisbereich', groupType: 'elective_area', requiredEcts: 18, sortOrder: 6 },
 ]
 
-test('resolveChosenInfoAlternativeAreaCode chooses BASIS when a planned course can only count there', () => {
+test('resolveChosenInfoAlternativeAreaCode does not infer BASIS eligibility from planned courses', () => {
   const basisOnlyCourse = createCourse({
     id: 'makeup',
     masterCats: ['BASIS'],
@@ -296,7 +296,7 @@ test('resolveChosenInfoAlternativeAreaCode chooses BASIS when a planned course c
     regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
   })
 
-  assert.equal(chosen, 'INFO-BASIS')
+  assert.equal(chosen, 'INFO-FOKUS')
 })
 
 test('resolveChosenInfoAlternativeAreaCode prefers FOKUS when every course is FOKUS-eligible', () => {
@@ -333,7 +333,7 @@ test('resolveChosenInfoAlternativeAreaCode returns null when the regulation lack
   assert.equal(chosen, null)
 })
 
-test('resolveChosenInfoAlternativeAreaCode chooses BASIS from a BASIS-only completed course', () => {
+test('resolveChosenInfoAlternativeAreaCode ignores completed course choices without admission confirmation', () => {
   const completed = createCompletedCourse({
     id: 'done',
     masterCat: 'BASIS',
@@ -347,7 +347,17 @@ test('resolveChosenInfoAlternativeAreaCode chooses BASIS from a BASIS-only compl
     regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
   })
 
-  assert.equal(chosen, 'INFO-BASIS')
+  assert.equal(chosen, 'INFO-FOKUS')
+})
+
+test('an explicit BASIS admission declaration selects BASIS', () => {
+  assert.equal(resolveChosenInfoAlternativeAreaCode({
+    plannedCourses: [],
+    completedCourses: [],
+    studyProgramCode: STUDY_PROGRAM_CODE,
+    regulationRuleGroups: INFO_ALTERNATIVE_RULE_GROUPS,
+    mscInfoBasisAdmissionConfirmed: true,
+  }), 'INFO-BASIS')
 })
 
 test('getPlannerCourseAreaOptions drops the deselected INFO alternative only when a choice is given', () => {
